@@ -26,6 +26,12 @@ class PackageActivationController extends Controller
             ]);
         }
 
+        if (! $user->current_package_id && $package->code === 'ELITE') {
+            throw ValidationException::withMessages([
+                'package' => 'ELITE package can only be purchased through upgrade.',
+            ]);
+        }
+
         if (! $this->packageService->canUpgrade($user, $package)) {
             throw ValidationException::withMessages([
                 'package' => 'Selected package is lower than the current package.',

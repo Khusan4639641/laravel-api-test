@@ -75,7 +75,7 @@ class PackageActivationTest extends TestCase
     public function test_referral_bonus_percent_comes_from_sponsor_package(): void
     {
         $sponsorPackage = $this->createPackage('START', 30000, 5, 1);
-        $activatedPackage = $this->createPackage('ELITE', 300000, 30, 4);
+        $activatedPackage = $this->createPackage('VIP', 300000, 30, 4);
         $sponsor = User::factory()->create([
             'current_package_id' => $sponsorPackage->id,
         ]);

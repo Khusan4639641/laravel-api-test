@@ -27,8 +27,13 @@ class WalletService
         }
     }
 
-    public function credit(Wallet $wallet, float|string $amount, string $type, mixed $source = null): WalletTransaction
-    {
+    public function credit(
+        Wallet $wallet,
+        float|string $amount,
+        string $type,
+        mixed $source = null,
+        array $metadata = [],
+    ): WalletTransaction {
         $amount = (string) $amount;
 
         if (bccomp($amount, '0', 2) <= 0) {
@@ -50,6 +55,7 @@ class WalletService
             'balance_before' => $balanceBefore,
             'balance_after' => $balanceAfter,
             'status' => 'completed',
+            'metadata' => $metadata ?: null,
         ]);
 
         if ($source) {

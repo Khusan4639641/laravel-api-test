@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\Api\BinaryBonusController;
 use App\Http\Controllers\Api\PackageActivationController;
+use App\Http\Controllers\Api\PackageUpgradeController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ReferralController;
@@ -20,6 +21,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bonuses/binary/calculate', BinaryBonusController::class);
     Route::post('/packages/{package}/activate', PackageActivationController::class);
+    Route::post('/packages/{package}/upgrade', PackageUpgradeController::class);
     Route::get('/withdrawals', [WithdrawalController::class, 'index']);
     Route::post('/withdrawals', [WithdrawalController::class, 'store']);
     Route::get('/orders', [OrderController::class, 'index']);
