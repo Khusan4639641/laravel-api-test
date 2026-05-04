@@ -9,6 +9,11 @@ use InvalidArgumentException;
 
 class PvService
 {
+    public function __construct(
+        private readonly StatusService $statusService,
+    ) {
+    }
+
     public function accruePvUpTree(User $sourceUser, float|string $pv, ?Order $sourceOrder = null): void
     {
         $pv = (string) $pv;
@@ -32,6 +37,7 @@ class PvService
 
             if ($parentUser) {
                 $this->addBranchPv($parentUser, $currentNode->position, $pv);
+                $this->statusService->recalculate($parentUser);
             }
 
             $node = $parentNode;
@@ -53,6 +59,8 @@ class PvService
         $freshUser->forceFill([
             'total_pv' => bcadd((string) $freshUser->total_pv, $pv, 2),
         ])->save();
+
+        $this->statusService->recalculate($freshUser);
     }
 
     private function addBranchPv(User $user, ?string $branch, string $pv): void
