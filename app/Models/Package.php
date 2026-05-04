@@ -6,7 +6,20 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'slug', 'description', 'price', 'pv', 'sort_order', 'status', 'is_upgradeable'])]
+#[Fillable([
+    'code',
+    'name',
+    'slug',
+    'description',
+    'price',
+    'pv',
+    'referral_percent',
+    'binary_percent',
+    'sort_order',
+    'status',
+    'is_active',
+    'is_upgradeable',
+])]
 class Package extends Model
 {
     /**
@@ -17,7 +30,10 @@ class Package extends Model
         return [
             'price' => 'decimal:2',
             'pv' => 'decimal:2',
+            'referral_percent' => 'decimal:2',
+            'binary_percent' => 'decimal:2',
             'sort_order' => 'integer',
+            'is_active' => 'boolean',
             'is_upgradeable' => 'boolean',
         ];
     }
