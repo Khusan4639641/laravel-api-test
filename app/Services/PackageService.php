@@ -5,17 +5,43 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class PackageService
 {
-    public function upgradePackage(User $user, Package $package, ?Order $sourceOrder = null): void
+    public function __construct(
+        private readonly BonusService $bonusService,
+    ) {
+    }
+
+    public function upgradePackage(User $user, Package $package, ?Order $sourceOrder = null): User
     {
-        // TODO: Validate package upgrade path and payment/source order.
-        // TODO: Update user's current package and trigger PV/bonus flows.
+        return DB::transaction(function () use ($user, $package): User {
+            $user->forceFill([
+                'current_package_id' => $package->id,
+                'total_pv' => bcadd((string) $user->total_pv, (string) $package->pv, 2),
+            ])->save();
+
+            if ($user->sponsor_id) {
+                $sponsor = User::query()->find($user->sponsor_id);
+
+                if ($sponsor) {
+                    $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $package->price);
+                }
+            }
+
+            return $user->refresh()->load(['currentPackage', 'sponsor', 'wallets']);
+        });
     }
 
     public function canUpgrade(User $user, Package $package): bool
     {
-        // TODO: Compare current package rank/sort_order with requested package.
+        $user->loadMissing('currentPackage');
+
+        if (! $user->currentPackage) {
+            return true;
+        }
+
+        return $package->sort_order >= $user->currentPackage->sort_order;
     }
 }

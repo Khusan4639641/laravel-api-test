@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use InvalidArgumentException;
 
 class WalletService
 {
@@ -28,7 +29,36 @@ class WalletService
 
     public function credit(Wallet $wallet, float|string $amount, string $type, mixed $source = null): WalletTransaction
     {
-        // TODO: Increase wallet balance and write an immutable credit transaction.
+        $amount = (string) $amount;
+
+        if (bccomp($amount, '0', 2) <= 0) {
+            throw new InvalidArgumentException('Credit amount must be greater than zero.');
+        }
+
+        $balanceBefore = (string) $wallet->balance;
+        $balanceAfter = bcadd($balanceBefore, $amount, 2);
+
+        $wallet->forceFill([
+            'balance' => $balanceAfter,
+        ])->save();
+
+        $transaction = new WalletTransaction([
+            'user_id' => $wallet->user_id,
+            'type' => $type,
+            'direction' => 'credit',
+            'amount' => $amount,
+            'balance_before' => $balanceBefore,
+            'balance_after' => $balanceAfter,
+            'status' => 'completed',
+        ]);
+
+        if ($source) {
+            $transaction->source()->associate($source);
+        }
+
+        $wallet->transactions()->save($transaction);
+
+        return $transaction;
     }
 
     public function debit(Wallet $wallet, float|string $amount, string $type, mixed $source = null): WalletTransaction
