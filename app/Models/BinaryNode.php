@@ -38,11 +38,11 @@ class BinaryNode extends Model
 
     public function leftChild(): HasOne
     {
-        return $this->hasOne(BinaryNode::class, 'parent_id')->where('position', 'left');
+        return $this->hasOne(BinaryNode::class, 'parent_id')->where('position', 'L');
     }
 
     public function rightChild(): HasOne
     {
-        return $this->hasOne(BinaryNode::class, 'parent_id')->where('position', 'right');
+        return $this->hasOne(BinaryNode::class, 'parent_id')->where('position', 'R');
     }
 }

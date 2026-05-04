@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
+use App\Services\BinaryTreeService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,7 @@ class AuthController extends Controller
 {
     public function __construct(
         private readonly WalletService $walletService,
+        private readonly BinaryTreeService $binaryTreeService,
     ) {
     }
 
@@ -38,7 +40,12 @@ class AuthController extends Controller
             $user->profile()->create();
             $this->walletService->createUserWallets($user);
 
-            return $user->load(['profile', 'wallets', 'currentPackage', 'sponsor']);
+            if (isset($validated['sponsor_id'], $validated['branch'])) {
+                $sponsor = User::query()->findOrFail($validated['sponsor_id']);
+                $this->binaryTreeService->placeUser($user, $sponsor, $validated['branch']);
+            }
+
+            return $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode']);
         });
 
         return response()->json([
@@ -62,7 +69,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'user' => $user->load(['profile', 'wallets', 'currentPackage', 'sponsor']),
+            'user' => $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode']),
             'token' => $user->createToken('api')->plainTextToken,
         ]);
     }
@@ -79,7 +86,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return response()->json([
-            'user' => $request->user()?->load(['profile', 'wallets', 'currentPackage', 'sponsor']),
+            'user' => $request->user()?->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode']),
         ]);
     }
 }
