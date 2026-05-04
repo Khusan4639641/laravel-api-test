@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Api\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\Api\BinaryBonusController;
 use App\Http\Controllers\Api\PackageActivationController;
 use App\Http\Controllers\Api\ReferralController;
@@ -18,4 +20,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/withdrawals', [WithdrawalController::class, 'store']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+
+    Route::middleware('admin')->prefix('admin')->group(function (): void {
+        Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
+        Route::patch('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve']);
+        Route::patch('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
+    });
 });

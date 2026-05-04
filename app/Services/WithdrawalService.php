@@ -78,11 +78,119 @@ class WithdrawalService
 
     public function approveWithdrawal(WithdrawalRequest $withdrawalRequest): void
     {
-        // TODO: Mark request approved and convert held funds into a final debit transaction.
+        DB::transaction(function () use ($withdrawalRequest): void {
+            /** @var WithdrawalRequest $withdrawalRequest */
+            $withdrawalRequest = WithdrawalRequest::query()
+                ->lockForUpdate()
+                ->findOrFail($withdrawalRequest->id);
+
+            $this->ensurePending($withdrawalRequest);
+
+            /** @var Wallet $wallet */
+            $wallet = Wallet::query()
+                ->whereKey($withdrawalRequest->wallet_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (bccomp((string) $wallet->hold_balance, (string) $withdrawalRequest->amount, 2) < 0) {
+                throw ValidationException::withMessages([
+                    'withdrawal' => 'Insufficient hold balance.',
+                ]);
+            }
+
+            $holdBefore = (string) $wallet->hold_balance;
+            $holdAfter = bcsub($holdBefore, (string) $withdrawalRequest->amount, 2);
+
+            $wallet->forceFill([
+                'hold_balance' => $holdAfter,
+            ])->save();
+
+            $withdrawalRequest->forceFill([
+                'status' => 'approved',
+                'processed_at' => now(),
+            ])->save();
+
+            $walletTransaction = new WalletTransaction([
+                'user_id' => $withdrawalRequest->user_id,
+                'type' => 'withdrawal_approve',
+                'direction' => 'debit',
+                'amount' => $withdrawalRequest->amount,
+                'balance_before' => $wallet->balance,
+                'balance_after' => $wallet->balance,
+                'status' => 'completed',
+                'metadata' => [
+                    'hold_balance_before' => $holdBefore,
+                    'hold_balance_after' => $holdAfter,
+                ],
+            ]);
+            $walletTransaction->source()->associate($withdrawalRequest);
+            $wallet->transactions()->save($walletTransaction);
+        });
     }
 
     public function rejectWithdrawal(WithdrawalRequest $withdrawalRequest, ?string $reason = null): void
     {
-        // TODO: Release held funds and mark request rejected with admin comment.
+        DB::transaction(function () use ($withdrawalRequest, $reason): void {
+            /** @var WithdrawalRequest $withdrawalRequest */
+            $withdrawalRequest = WithdrawalRequest::query()
+                ->lockForUpdate()
+                ->findOrFail($withdrawalRequest->id);
+
+            $this->ensurePending($withdrawalRequest);
+
+            /** @var Wallet $wallet */
+            $wallet = Wallet::query()
+                ->whereKey($withdrawalRequest->wallet_id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if (bccomp((string) $wallet->hold_balance, (string) $withdrawalRequest->amount, 2) < 0) {
+                throw ValidationException::withMessages([
+                    'withdrawal' => 'Insufficient hold balance.',
+                ]);
+            }
+
+            $balanceBefore = (string) $wallet->balance;
+            $balanceAfter = bcadd($balanceBefore, (string) $withdrawalRequest->amount, 2);
+            $holdBefore = (string) $wallet->hold_balance;
+            $holdAfter = bcsub($holdBefore, (string) $withdrawalRequest->amount, 2);
+
+            $wallet->forceFill([
+                'balance' => $balanceAfter,
+                'hold_balance' => $holdAfter,
+            ])->save();
+
+            $withdrawalRequest->forceFill([
+                'status' => 'rejected',
+                'admin_comment' => $reason,
+                'processed_at' => now(),
+            ])->save();
+
+            $walletTransaction = new WalletTransaction([
+                'user_id' => $withdrawalRequest->user_id,
+                'type' => 'withdrawal_reject',
+                'direction' => 'credit',
+                'amount' => $withdrawalRequest->amount,
+                'balance_before' => $balanceBefore,
+                'balance_after' => $balanceAfter,
+                'status' => 'completed',
+                'metadata' => [
+                    'hold_balance_before' => $holdBefore,
+                    'hold_balance_after' => $holdAfter,
+                    'reason' => $reason,
+                ],
+            ]);
+            $walletTransaction->source()->associate($withdrawalRequest);
+            $wallet->transactions()->save($walletTransaction);
+        });
+    }
+
+    private function ensurePending(WithdrawalRequest $withdrawalRequest): void
+    {
+        if ($withdrawalRequest->status !== 'pending') {
+            throw ValidationException::withMessages([
+                'withdrawal' => 'Only pending withdrawal requests can be processed.',
+            ]);
+        }
     }
 }
