@@ -11,6 +11,7 @@ class PackageService
 {
     public function __construct(
         private readonly BonusService $bonusService,
+        private readonly PvService $pvService,
     ) {
     }
 
@@ -19,8 +20,10 @@ class PackageService
         return DB::transaction(function () use ($user, $package): User {
             $user->forceFill([
                 'current_package_id' => $package->id,
-                'total_pv' => bcadd((string) $user->total_pv, (string) $package->pv, 2),
             ])->save();
+
+            $this->pvService->addUserPv($user, $package->pv);
+            $this->pvService->accruePvUpTree($user, $package->pv);
 
             if ($user->sponsor_id) {
                 $sponsor = User::query()->find($user->sponsor_id);
