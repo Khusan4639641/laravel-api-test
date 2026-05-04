@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BonusTransaction;
 use App\Models\User;
+use App\Notifications\BonusAccruedNotification;
 use Illuminate\Support\Facades\DB;
 
 class BonusService
@@ -62,6 +63,8 @@ class BonusService
             $bonusTransaction->forceFill([
                 'wallet_transaction_id' => $walletTransaction->id,
             ])->save();
+
+            $sponsor->notify(new BonusAccruedNotification($bonusTransaction->refresh()));
 
             return $bonusTransaction->refresh();
         });
@@ -150,6 +153,8 @@ class BonusService
                 'wallet_transaction_id' => $mainWalletTransaction->id,
                 'metadata' => $metadata,
             ])->save();
+
+            $user->notify(new BonusAccruedNotification($bonusTransaction->refresh()));
 
             return $bonusTransaction->refresh();
         });

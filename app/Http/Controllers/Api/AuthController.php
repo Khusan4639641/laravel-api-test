@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
+use App\Notifications\UserRegisteredNotification;
 use App\Services\BinaryTreeService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
@@ -44,6 +45,8 @@ class AuthController extends Controller
                 $sponsor = User::query()->findOrFail($validated['sponsor_id']);
                 $this->binaryTreeService->placeUser($user, $sponsor, $validated['branch']);
             }
+
+            $user->notify(new UserRegisteredNotification());
 
             return $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode']);
         });

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\WithdrawalRequest;
+use App\Notifications\WithdrawalRequestedNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -71,6 +72,8 @@ class WithdrawalService
             ]);
             $walletTransaction->source()->associate($withdrawalRequest);
             $wallet->transactions()->save($walletTransaction);
+
+            $user->notify(new WithdrawalRequestedNotification($withdrawalRequest->refresh()));
 
             return $withdrawalRequest->refresh()->load(['wallet']);
         });
