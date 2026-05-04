@@ -10,7 +10,20 @@ class WalletService
 {
     public function createUserWallets(User $user): void
     {
-        // TODO: Create default wallet records for a newly registered user.
+        foreach (['main', 'bonus'] as $type) {
+            Wallet::query()->firstOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'type' => $type,
+                ],
+                [
+                    'currency' => 'USD',
+                    'balance' => 0,
+                    'hold_balance' => 0,
+                    'status' => 'active',
+                ]
+            );
+        }
     }
 
     public function credit(Wallet $wallet, float|string $amount, string $type, mixed $source = null): WalletTransaction
