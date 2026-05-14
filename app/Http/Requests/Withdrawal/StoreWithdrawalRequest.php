@@ -15,6 +15,15 @@ class StoreWithdrawalRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('method') && ! $this->has('payment_method')) {
+            $this->merge([
+                'payment_method' => $this->input('method'),
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *

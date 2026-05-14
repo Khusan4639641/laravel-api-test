@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Resources\UserResource;
 use App\Models\User;
 use App\Notifications\UserRegisteredNotification;
 use App\Services\BinaryTreeService;
@@ -52,7 +53,7 @@ class AuthController extends Controller
         });
 
         return response()->json([
-            'user' => $user,
+            'user' => UserResource::make($user),
             'token' => $user->createToken('api')->plainTextToken,
         ], 201);
     }
@@ -72,7 +73,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'user' => $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode']),
+            'user' => UserResource::make($user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])),
             'token' => $user->createToken('api')->plainTextToken,
         ]);
     }
@@ -89,7 +90,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return response()->json([
-            'user' => $request->user()?->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode']),
+            'user' => UserResource::make($request->user()?->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])),
         ]);
     }
 }

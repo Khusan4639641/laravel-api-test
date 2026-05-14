@@ -1,11 +1,10 @@
-import React, { FormEvent, useState } from 'react';
+import React, { FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Check, Network, PackageCheck, UserPlus } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { packages } from '../data/packages';
-import { ApiError, register } from '../lib/api';
+import { ApiError, getPublicPackages, Package, register } from '../lib/api';
 
 type FieldErrors = Record<string, string[]>;
 
@@ -14,6 +13,7 @@ const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 p
 export default function RegisterPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const [packages, setPackages] = useState<Package[]>([]);
   const [form, setForm] = useState({
     name: '',
     login: '',
@@ -27,6 +27,10 @@ export default function RegisterPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+
+  useEffect(() => {
+    void getPublicPackages().then(setPackages).catch(() => setPackages([]));
+  }, []);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

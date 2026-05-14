@@ -15,6 +15,20 @@ class StoreOrderRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('product_id') && ! $this->has('items')) {
+            $this->merge([
+                'items' => [
+                    [
+                        'product_id' => $this->input('product_id'),
+                        'quantity' => $this->input('quantity', 1),
+                    ],
+                ],
+            ]);
+        }
+    }
+
     /**
      * Get the validation rules that apply to the request.
      *

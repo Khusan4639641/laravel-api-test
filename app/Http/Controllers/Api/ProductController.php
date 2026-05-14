@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\ProductResource;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 
@@ -11,10 +12,10 @@ class ProductController extends Controller
     public function index(): JsonResponse
     {
         return response()->json([
-            'products' => Product::query()
+            'products' => ProductResource::collection(Product::query()
                 ->where('status', 'active')
                 ->orderBy('id')
-                ->get(),
+                ->get()),
         ]);
     }
 
@@ -25,7 +26,7 @@ class ProductController extends Controller
         }
 
         return response()->json([
-            'product' => $product,
+            'product' => ProductResource::make($product),
         ]);
     }
 }

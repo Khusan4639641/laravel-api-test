@@ -1,19 +1,47 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ArrowUpRight, CheckCircle2, Lock, Trophy } from 'lucide-react';
-import { packages } from '../../data/packages';
-import { statuses } from '../../data/statuses';
 import { Badge, ProgressBar } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
-import { activatePackage, ApiError, upgradePackage } from '../../lib/api';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { activatePackage, ApiError, getApiErrorState, getDashboardPackages, getPublicStatuses, Package, Status, upgradePackage } from '../../lib/api';
 import { cn } from '../../lib/utils';
 
 export default function PackageStatus() {
   const { currentUser, refreshCurrentUser } = useDashboardContext();
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingPackage, setPendingPackage] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const currentPackageIndex = packages.findIndex((pkg) => pkg.name.toLowerCase() === currentUser.packageName.toLowerCase());
   const nextStatus = statuses.find((status) => status.pv > currentUser.personalPV) || statuses[statuses.length - 1];
+
+  const loadPackageData = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const [packageItems, statusItems] = await Promise.all([
+        getDashboardPackages(),
+        getPublicStatuses(),
+      ]);
+
+      setPackages(packageItems);
+      setStatuses(statusItems);
+    } catch (caughtError) {
+      setPackages([]);
+      setStatuses([]);
+      setLoadError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPackageData();
+  }, [loadPackageData]);
 
   const handlePackageAction = async (packageId: string, action: 'activate' | 'upgrade') => {
     setPendingPackage(packageId);
@@ -64,7 +92,25 @@ export default function PackageStatus() {
         )}
       </section>
 
+      {isLoading && (
+        <LoadingState title="Загружаем пакеты" description="Получаем пакеты и статусы из API." />
+      )}
+
+      {!isLoading && loadError && (
+        <ErrorState description={loadError} onRetry={loadPackageData} />
+      )}
+
+      {!isLoading && !loadError && (
+        <>
       <section className="grid gap-5 md:grid-cols-3">
+        {packages.length === 0 && (
+          <EmptyState
+            title="Пакеты пока не опубликованы"
+            description="Список пакетов появится после настройки в backend."
+            className="md:col-span-3"
+          />
+        )}
+
         {packages.map((pkg, index) => {
           const isCurrent = index === currentPackageIndex;
           const isLower = currentPackageIndex >= 0 && index < currentPackageIndex;
@@ -118,17 +164,24 @@ export default function PackageStatus() {
       <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
           <span className="safi-kicker">PV progress</span>
-          <h2 className="mt-3 font-serif text-3xl font-semibold text-safi-green">Следующий статус: {nextStatus.name}</h2>
+          <h2 className="mt-3 font-serif text-3xl font-semibold text-safi-green">Следующий статус: {nextStatus?.name || currentUser.status}</h2>
           <p className="mt-3 text-sm leading-7 text-safi-muted">
             Ваш текущий PV: {currentUser.personalPV.toLocaleString('ru-RU')} PV.
           </p>
           <div className="mt-8">
-            <ProgressBar label={`${currentUser.status} -> ${nextStatus.name}`} current={currentUser.personalPV} total={nextStatus.pv} />
+            <ProgressBar label={`${currentUser.status} -> ${nextStatus?.name || currentUser.status}`} current={currentUser.personalPV} total={nextStatus?.pv || Math.max(currentUser.personalPV, 1)} />
           </div>
         </article>
 
         <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
           <span className="safi-kicker">Statuses</span>
+          {statuses.length === 0 && (
+            <EmptyState
+              title="Статусы пока не опубликованы"
+              description="Статусная сетка появится после настройки данных."
+              className="mt-6 min-h-[180px] shadow-none"
+            />
+          )}
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {statuses.slice(0, 6).map((status) => {
               const achieved = currentUser.personalPV >= status.pv;
@@ -151,6 +204,8 @@ export default function PackageStatus() {
           </div>
         </article>
       </section>
+        </>
+      )}
     </div>
   );
 }

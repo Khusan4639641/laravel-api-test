@@ -1,10 +1,71 @@
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { FileUp, Filter, Mail, MessageSquare, Phone } from 'lucide-react';
-import { supportTickets } from '../../data/dashboardMock';
 import { Badge } from '../../components/dashboard/ui';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { ApiError, createDashboardSupportTicket, getApiErrorState, getArray, getDashboardSupportTickets, getString } from '../../lib/api';
 
 const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 py-4 text-sm font-bold text-safi-green outline-none transition-all placeholder:text-safi-muted/50 focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25';
 
 export default function Support() {
+  const [supportTickets, setSupportTickets] = useState<Array<{ id: string; date: string; subject: string; category: string; status: string; lastReply: string }>>([]);
+  const [form, setForm] = useState({ subject: '', category: 'Вопрос по бонусам', message: '' });
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const loadTickets = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
+
+    try {
+      const response = await getDashboardSupportTickets();
+      setSupportTickets(getArray(response, ['support_tickets']).map((item, index) => {
+        const ticket = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+        return {
+          id: getString(ticket, ['id']) || String(index + 1),
+          date: getString(ticket, ['created_at']) || '',
+          subject: getString(ticket, ['subject']) || '-',
+          category: getString(ticket, ['category']) || '-',
+          status: normalizeStatus(getString(ticket, ['status']) || 'open'),
+          lastReply: getString(ticket, ['last_reply_at', 'replied_at']) || '-',
+        };
+      }));
+    } catch (caughtError) {
+      setSupportTickets([]);
+      setLoadError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTickets();
+  }, [loadTickets]);
+
+  const submitTicket = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsSubmitting(true);
+    setMessage('');
+    setError('');
+
+    try {
+      await createDashboardSupportTicket(form);
+      setForm({ subject: '', category: 'Вопрос по бонусам', message: '' });
+      setMessage('Обращение отправлено.');
+      await loadTickets();
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setError(caughtError.message);
+      } else {
+        setError('Не удалось отправить обращение.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <section className="rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:p-8">
@@ -13,6 +74,11 @@ export default function Support() {
         <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
           Обращения, контакты менеджера и история ответов.
         </p>
+        {(message || error) && (
+          <div className={`mt-6 rounded-2xl border px-4 py-3 text-sm font-bold ${error ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
+            {error || message}
+          </div>
+        )}
       </section>
 
       <section className="grid gap-8 lg:grid-cols-[0.36fr_0.64fr]">
@@ -41,15 +107,15 @@ export default function Support() {
         <div className="space-y-8">
           <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
             <h2 className="font-serif text-3xl font-semibold text-safi-green">Написать обращение</h2>
-            <form className="mt-7 space-y-6" onSubmit={(event) => event.preventDefault()}>
+            <form className="mt-7 space-y-6" onSubmit={submitTicket}>
               <div className="grid gap-5 md:grid-cols-2">
                 <label className="block">
                   <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Тема</span>
-                  <input type="text" placeholder="Кратко суть вопроса" className={inputClass} />
+                  <input type="text" value={form.subject} onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))} placeholder="Кратко суть вопроса" className={inputClass} required />
                 </label>
                 <label className="block">
                   <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Категория</span>
-                  <select className={inputClass}>
+                  <select value={form.category} onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))} className={inputClass}>
                     <option>Вопрос по бонусам</option>
                     <option>Вопрос по выводу</option>
                     <option>Вопрос по структуре</option>
@@ -61,15 +127,19 @@ export default function Support() {
               </div>
               <label className="block">
                 <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Сообщение</span>
-                <textarea rows={5} placeholder="Опишите вопрос подробно" className={`${inputClass} resize-none`} />
+                <textarea rows={5} value={form.message} onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))} placeholder="Опишите вопрос подробно" className={`${inputClass} resize-none`} required />
               </label>
               <div className="flex flex-col gap-3 border-t border-safi-border pt-6 md:flex-row md:items-center md:justify-between">
                 <button type="button" className="inline-flex items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:border-safi-green">
                   <FileUp className="h-4 w-4" />
                   Прикрепить файл
                 </button>
-                <button type="submit" className="inline-flex items-center justify-center rounded-full border border-safi-green bg-safi-green px-7 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[0_18px_38px_rgba(11,23,18,0.16)]">
-                  Отправить обращение
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center justify-center rounded-full border border-safi-green bg-safi-green px-7 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[0_18px_38px_rgba(11,23,18,0.16)] disabled:opacity-60"
+                >
+                  {isSubmitting ? 'Отправляем...' : 'Отправить обращение'}
                 </button>
               </div>
             </form>
@@ -82,6 +152,25 @@ export default function Support() {
                 <Filter className="h-4 w-4" />
               </button>
             </div>
+            {isLoading && (
+              <div className="p-6 md:p-7">
+                <LoadingState title="Загружаем обращения" description="Получаем историю обращений из API." />
+              </div>
+            )}
+
+            {!isLoading && loadError && (
+              <div className="p-6 md:p-7">
+                <ErrorState description={loadError} onRetry={loadTickets} />
+              </div>
+            )}
+
+            {!isLoading && !loadError && supportTickets.length === 0 && (
+              <div className="p-6 md:p-7">
+                <EmptyState title="Обращений пока нет" description="История появится после первого обращения." />
+              </div>
+            )}
+
+            {!isLoading && !loadError && supportTickets.length > 0 && (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[760px] text-left">
                 <thead className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
@@ -114,6 +203,7 @@ export default function Support() {
                 </tbody>
               </table>
             </div>
+            )}
           </article>
         </div>
       </section>
@@ -131,4 +221,20 @@ function ContactRow({ icon, label, value }: { icon: React.ReactNode; label: stri
       </div>
     </div>
   );
+}
+
+function normalizeStatus(status: string) {
+  if (status === 'closed') {
+    return 'Закрыто';
+  }
+
+  if (status === 'answered') {
+    return 'Отвечено';
+  }
+
+  if (status === 'open') {
+    return 'В работе';
+  }
+
+  return status;
 }

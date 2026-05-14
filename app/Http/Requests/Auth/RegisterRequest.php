@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Models\Package;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,38 @@ class RegisterRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        $branch = $this->input('branch');
+
+        if (is_string($branch)) {
+            $normalizedBranch = match (strtolower($branch)) {
+                'left' => 'L',
+                'right' => 'R',
+                default => strtoupper($branch),
+            };
+
+            $this->merge([
+                'branch' => $normalizedBranch,
+            ]);
+        }
+
+        $packageId = $this->input('package_id');
+
+        if (is_string($packageId) && ! ctype_digit($packageId)) {
+            $package = Package::query()
+                ->where('slug', strtolower($packageId))
+                ->orWhere('code', strtoupper($packageId))
+                ->first();
+
+            if ($package) {
+                $this->merge([
+                    'package_id' => $package->id,
+                ]);
+            }
+        }
     }
 
     /**

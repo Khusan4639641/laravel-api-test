@@ -1,16 +1,73 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { ArrowRight, Check, Leaf, Layers, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
-import { products } from '../data/products';
-import { packages } from '../data/packages';
-
-const heroProduct = products.find((product) => product.name === 'Safi Face Serum') || products[0];
-const highlightedProducts = products.slice(0, 3);
+import { ArrowRight, Calendar, Check, Leaf, Layers, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
+import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
+import { getApiErrorState, getPublicNews, getPublicPackages, getPublicProducts, NewsArticle, Package, Product } from '../lib/api';
 
 export default function HomePage() {
   const { t } = useTranslation();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [newsLoading, setNewsLoading] = useState(true);
+  const [productsError, setProductsError] = useState<string | null>(null);
+  const [packagesError, setPackagesError] = useState<string | null>(null);
+  const [newsError, setNewsError] = useState<string | null>(null);
+  const heroProduct = useMemo(() => products.find((product) => product.name === 'Safi Face Serum') || products[0], [products]);
+  const highlightedProducts = useMemo(() => products.slice(0, 3), [products]);
+  const newsPreview = useMemo(() => newsArticles.slice(0, 3), [newsArticles]);
+
+  const loadProducts = React.useCallback(async () => {
+    setProductsLoading(true);
+    setProductsError(null);
+
+    try {
+      setProducts(await getPublicProducts());
+    } catch (caughtError) {
+      setProducts([]);
+      setProductsError(getApiErrorState(caughtError).error);
+    } finally {
+      setProductsLoading(false);
+    }
+  }, []);
+
+  const loadPackages = React.useCallback(async () => {
+    setPackagesLoading(true);
+    setPackagesError(null);
+
+    try {
+      setPackages(await getPublicPackages());
+    } catch (caughtError) {
+      setPackages([]);
+      setPackagesError(getApiErrorState(caughtError).error);
+    } finally {
+      setPackagesLoading(false);
+    }
+  }, []);
+
+  const loadNews = React.useCallback(async () => {
+    setNewsLoading(true);
+    setNewsError(null);
+
+    try {
+      setNewsArticles(await getPublicNews());
+    } catch (caughtError) {
+      setNewsArticles([]);
+      setNewsError(getApiErrorState(caughtError).error);
+    } finally {
+      setNewsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProducts();
+    void loadPackages();
+    void loadNews();
+  }, [loadProducts, loadPackages, loadNews]);
 
   const benefits = [
     {
@@ -88,7 +145,32 @@ export default function HomePage() {
             </div>
 
             <div className="mx-auto w-full max-w-[420px] lg:mx-0 lg:justify-self-end">
-              <HeroProductCard />
+              {productsLoading && (
+                <LoadingState
+                  title="Загружаем продукт"
+                  description="Получаем актуальный product highlight."
+                  className="min-h-[520px]"
+                />
+              )}
+
+              {!productsLoading && productsError && (
+                <ErrorState
+                  title="Продукт недоступен"
+                  description={productsError}
+                  onRetry={loadProducts}
+                  className="min-h-[520px]"
+                />
+              )}
+
+              {!productsLoading && !productsError && heroProduct && <HeroProductCard heroProduct={heroProduct} />}
+
+              {!productsLoading && !productsError && !heroProduct && (
+                <EmptyState
+                  title="Нет продукта для витрины"
+                  description="Product highlight появится после публикации продуктов."
+                  className="min-h-[520px]"
+                />
+              )}
             </div>
           </div>
         </Container>
@@ -109,7 +191,27 @@ export default function HomePage() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-3">
-            {highlightedProducts.map((product, index) => (
+            {productsLoading && (
+              <LoadingState
+                title="Загружаем продукты"
+                description="Получаем product highlight из публичного API."
+                className="md:col-span-3"
+              />
+            )}
+
+            {!productsLoading && productsError && (
+              <ErrorState description={productsError} onRetry={loadProducts} className="md:col-span-3" />
+            )}
+
+            {!productsLoading && !productsError && highlightedProducts.length === 0 && (
+              <EmptyState
+                title="Продукты пока не опубликованы"
+                description="После добавления продуктов они появятся в этом блоке."
+                className="md:col-span-3"
+              />
+            )}
+
+            {!productsLoading && !productsError && highlightedProducts.map((product, index) => (
               <article
                 key={product.id}
                 className="group overflow-hidden rounded-3xl border border-safi-border bg-safi-cream shadow-[0_18px_48px_rgba(11,23,18,0.06)]"
@@ -187,7 +289,27 @@ export default function HomePage() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-3">
-            {packages.map((pkg) => (
+            {packagesLoading && (
+              <LoadingState
+                title="Загружаем пакеты"
+                description="Получаем стартовые пакеты из публичного API."
+                className="md:col-span-3"
+              />
+            )}
+
+            {!packagesLoading && packagesError && (
+              <ErrorState description={packagesError} onRetry={loadPackages} className="md:col-span-3" />
+            )}
+
+            {!packagesLoading && !packagesError && packages.length === 0 && (
+              <EmptyState
+                title="Пакеты пока не опубликованы"
+                description="После настройки пакетов они появятся в этом блоке."
+                className="md:col-span-3"
+              />
+            )}
+
+            {!packagesLoading && !packagesError && packages.map((pkg) => (
               <article
                 key={pkg.id}
                 className={`relative flex flex-col rounded-3xl border p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] ${
@@ -253,6 +375,49 @@ export default function HomePage() {
         </Container>
       </section>
 
+      <section className="border-y border-safi-border bg-safi-cream py-16 md:py-24">
+        <Container>
+          <div className="mb-10 flex flex-col gap-5 md:mb-14 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl">
+              <span className="safi-kicker">News</span>
+              <h2 className="mt-3 font-serif text-4xl font-semibold leading-tight text-safi-green md:text-6xl">
+                Последние новости Safi
+              </h2>
+            </div>
+            <Button to="/news" variant="outline">
+              Все новости
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="grid gap-5 md:grid-cols-3">
+            {newsLoading && (
+              <LoadingState
+                title="Загружаем новости"
+                description="Получаем последние публикации из публичного API."
+                className="md:col-span-3"
+              />
+            )}
+
+            {!newsLoading && newsError && (
+              <ErrorState description={newsError} onRetry={loadNews} className="md:col-span-3" />
+            )}
+
+            {!newsLoading && !newsError && newsPreview.length === 0 && (
+              <EmptyState
+                title="Новостей пока нет"
+                description="После публикации новости появятся на главной странице."
+                className="md:col-span-3"
+              />
+            )}
+
+            {!newsLoading && !newsError && newsPreview.map((article) => (
+              <NewsPreviewCard key={article.id} article={article} />
+            ))}
+          </div>
+        </Container>
+      </section>
+
       <section className="bg-safi-green py-16 text-white md:py-24">
         <Container>
           <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -280,7 +445,7 @@ export default function HomePage() {
   );
 }
 
-function HeroProductCard() {
+function HeroProductCard({ heroProduct }: { heroProduct: Product }) {
   return (
     <article className="relative rounded-[36px] border border-safi-border bg-white p-4 shadow-[0_28px_90px_rgba(11,23,18,0.14)]">
       <div className="absolute -right-3 -top-3 z-10 flex h-24 w-24 rotate-6 flex-col items-center justify-center rounded-full border-4 border-white bg-safi-gold text-safi-black shadow-[0_18px_40px_rgba(201,166,70,0.32)] sm:-right-5 sm:-top-5 sm:h-28 sm:w-28">
@@ -310,6 +475,31 @@ function HeroProductCard() {
             Каталог
           </Button>
         </div>
+      </div>
+    </article>
+  );
+}
+
+function NewsPreviewCard({ article }: { article: NewsArticle }) {
+  return (
+    <article className="overflow-hidden rounded-3xl border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+      {article.imageUrl && (
+        <div className="aspect-[16/10] overflow-hidden bg-safi-bg">
+          <img src={article.imageUrl} alt={article.title} className="h-full w-full object-cover" />
+        </div>
+      )}
+      <div className="p-7">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="rounded-full bg-safi-green px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white">
+            {article.category}
+          </span>
+          <span className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+            <Calendar className="h-4 w-4 text-safi-gold" />
+            {article.date}
+          </span>
+        </div>
+        <h3 className="mt-5 font-serif text-3xl font-semibold leading-tight text-safi-green">{article.title}</h3>
+        <p className="mt-4 line-clamp-3 text-sm leading-7 text-safi-muted">{article.content}</p>
       </div>
     </article>
   );

@@ -4,7 +4,6 @@ import { Bell, Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { ApiError, clearAuthToken, getAuthToken, me } from '../../lib/api';
-import { balance, bonuses, structure, user as mockUser } from '../../data/dashboardMock';
 
 export interface DashboardCurrentUser {
   id?: string | number;
@@ -27,23 +26,22 @@ export interface DashboardCurrentUser {
 
 export interface DashboardContextValue {
   currentUser: DashboardCurrentUser;
-  isUsingMockUser: boolean;
   refreshCurrentUser: () => Promise<void>;
 }
 
-const fallbackUser: DashboardCurrentUser = {
-  name: mockUser.name,
-  partnerId: mockUser.partnerId,
-  referralCode: mockUser.referralCode,
-  packageName: mockUser.package,
-  status: mockUser.status,
-  sponsor: mockUser.sponsor,
-  registrationDate: mockUser.registrationDate,
-  walletAvailable: balance.available,
-  totalEarned: balance.totalEarned,
+const userDefaults: DashboardCurrentUser = {
+  name: 'Safi Partner',
+  partnerId: 'SAFI',
+  referralCode: 'SAFI',
+  packageName: '-',
+  status: 'user',
+  sponsor: '-',
+  registrationDate: '-',
+  walletAvailable: 0,
+  totalEarned: 0,
   personalPV: 2500,
-  teamPV: structure.leftPV + structure.rightPV,
-  bonusesTotal: bonuses.referral + bonuses.binary + bonuses.status + bonuses.cashback,
+  teamPV: 0,
+  bonusesTotal: 0,
 };
 
 export function useDashboardContext() {
@@ -52,32 +50,36 @@ export function useDashboardContext() {
 
 export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<DashboardCurrentUser>(fallbackUser);
-  const [isUsingMockUser, setIsUsingMockUser] = useState(true);
+  const [currentUser, setCurrentUser] = useState<DashboardCurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const loadCurrentUser = useCallback(async () => {
     const token = getAuthToken();
 
     if (!token) {
+      setIsLoading(false);
       navigate('/login', { replace: true });
       return;
     }
 
+    setIsLoading(true);
+    setAuthError(null);
+
     try {
       const response = await me();
       setCurrentUser(normalizeCurrentUser(response));
-      setIsUsingMockUser(false);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         clearAuthToken();
+        setIsLoading(false);
         navigate('/login', { replace: true });
         return;
       }
 
-      setCurrentUser(fallbackUser);
-      setIsUsingMockUser(true);
+      setCurrentUser(null);
+      setAuthError('Не удалось получить данные пользователя. Попробуйте обновить страницу.');
     } finally {
       setIsLoading(false);
     }
@@ -93,6 +95,26 @@ export function DashboardLayout() {
         <div>
           <div className="mx-auto mb-4 h-12 w-12 rounded-full border-4 border-safi-border border-t-safi-gold animate-spin" />
           <div className="font-serif text-2xl font-semibold">Загрузка кабинета</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (authError || !currentUser) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-safi-bg px-5 text-center text-safi-green">
+        <div className="max-w-md rounded-[32px] border border-safi-border bg-white p-8 shadow-[0_18px_48px_rgba(11,23,18,0.06)]">
+          <div className="font-serif text-3xl font-semibold">Кабинет недоступен</div>
+          <p className="mt-3 text-sm leading-7 text-safi-muted">
+            {authError || 'Не удалось подтвердить сессию пользователя.'}
+          </p>
+          <button
+            type="button"
+            onClick={() => void loadCurrentUser()}
+            className="mt-6 rounded-full border border-safi-green bg-safi-green px-6 py-3 text-xs font-extrabold uppercase tracking-[0.16em] text-white"
+          >
+            Повторить
+          </button>
         </div>
       </div>
     );
@@ -126,11 +148,6 @@ export function DashboardLayout() {
             <div className="lg:hidden">
               <LanguageSwitcher />
             </div>
-            {isUsingMockUser && (
-              <span className="hidden rounded-full border border-safi-border bg-white px-3 py-1 text-[9px] font-extrabold uppercase tracking-[0.14em] text-safi-muted sm:inline-flex">
-                Mock fallback
-              </span>
-            )}
             <button
               type="button"
               className="hidden h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:bg-safi-green hover:text-white sm:flex"
@@ -152,7 +169,7 @@ export function DashboardLayout() {
 
         <main className="relative flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
           <div className="relative mx-auto w-full max-w-7xl pb-20">
-            <Outlet context={{ currentUser, isUsingMockUser, refreshCurrentUser: loadCurrentUser } satisfies DashboardContextValue} />
+            <Outlet context={{ currentUser, refreshCurrentUser: loadCurrentUser } satisfies DashboardContextValue} />
           </div>
         </main>
       </div>
@@ -169,30 +186,30 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
 
   const packageName = getString(packageRecord, ['name', 'title'])
     || getString(record, ['package_name', 'packageName', 'package_id', 'package'])
-    || fallbackUser.packageName;
+    || userDefaults.packageName;
   const statusName = getString(statusRecord, ['name', 'title'])
     || getString(record, ['status_name', 'statusName', 'status'])
-    || fallbackUser.status;
+    || userDefaults.status;
   const sponsorName = getString(sponsorRecord, ['name', 'full_name'])
     || getString(record, ['sponsor_name', 'sponsorName', 'sponsor'])
-    || fallbackUser.sponsor;
+    || userDefaults.sponsor;
 
   return {
     id: getString(record, ['id']) || getNumber(record, ['id']),
-    name: getString(record, ['name', 'full_name', 'fullName']) || fallbackUser.name,
+    name: getString(record, ['name', 'full_name', 'fullName']) || userDefaults.name,
     login: getString(record, ['login', 'username']),
     email: getString(record, ['email']),
-    partnerId: getString(record, ['partner_id', 'partnerId', 'member_id', 'code']) || fallbackUser.partnerId,
-    referralCode: getString(record, ['referral_code', 'referralCode', 'invite_code']) || fallbackUser.referralCode,
+    partnerId: getString(record, ['partner_id', 'partnerId', 'member_id', 'code']) || userDefaults.partnerId,
+    referralCode: getString(record, ['referral_code', 'referralCode', 'invite_code']) || userDefaults.referralCode,
     packageName,
     status: statusName,
     sponsor: sponsorName,
-    registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || fallbackUser.registrationDate,
-    walletAvailable: getNumber(walletRecord, ['available', 'balance', 'amount']) ?? getNumber(record, ['wallet_available', 'available_balance', 'balance']) ?? fallbackUser.walletAvailable,
-    totalEarned: getNumber(walletRecord, ['total_earned', 'totalEarned', 'earned']) ?? getNumber(record, ['total_earned', 'totalEarned']) ?? fallbackUser.totalEarned,
-    personalPV: getNumber(record, ['personal_pv', 'personalPV', 'pv']) ?? fallbackUser.personalPV,
-    teamPV: getNumber(record, ['team_pv', 'teamPV', 'structure_pv']) ?? fallbackUser.teamPV,
-    bonusesTotal: getNumber(record, ['bonuses_total', 'bonusesTotal', 'bonus_balance']) ?? fallbackUser.bonusesTotal,
+    registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || userDefaults.registrationDate,
+    walletAvailable: getNumber(walletRecord, ['available', 'balance', 'amount']) ?? getNumber(record, ['wallet_available', 'available_balance', 'balance']) ?? userDefaults.walletAvailable,
+    totalEarned: getNumber(walletRecord, ['total_earned', 'totalEarned', 'earned']) ?? getNumber(record, ['total_earned', 'totalEarned']) ?? userDefaults.totalEarned,
+    personalPV: getNumber(record, ['personal_pv', 'personalPV', 'pv']) ?? userDefaults.personalPV,
+    teamPV: getNumber(record, ['team_pv', 'teamPV', 'structure_pv']) ?? userDefaults.teamPV,
+    bonusesTotal: getNumber(record, ['bonuses_total', 'bonusesTotal', 'bonus_balance']) ?? userDefaults.bonusesTotal,
     raw: response,
   };
 }

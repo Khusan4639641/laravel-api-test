@@ -95,4 +95,14 @@ class User extends Authenticatable
     {
         return $this->hasMany(WithdrawalRequest::class);
     }
+
+    public function walletTransactions(): HasMany
+    {
+        return $this->hasMany(WalletTransaction::class);
+    }
+
+    public function supportTickets(): HasMany
+    {
+        return $this->hasMany(SupportTicket::class);
+    }
 }

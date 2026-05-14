@@ -1,12 +1,65 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Copy, Filter, Search, Users } from 'lucide-react';
-import { partners, structure } from '../../data/dashboardMock';
 import { Badge, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { getApiErrorState, getArray, getDashboardStructure, getNumber, getString } from '../../lib/api';
 
 export default function Structure() {
   const { currentUser } = useDashboardContext();
   const [query, setQuery] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [structure, setStructure] = useState({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLeg: 'left' });
+  const [partners, setPartners] = useState<Array<{ name: string; id: string; line: number; branch: string; package: string; status: string; personalPV: number; teamPV: number; activity: string }>>([]);
+
+  const loadStructure = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await getDashboardStructure();
+      const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
+      const structureRecord = record.structure && typeof record.structure === 'object' ? record.structure as Record<string, unknown> : {};
+      const list = getArray(record, ['partners']).map((item, index) => {
+        const node = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+        const user = node.user && typeof node.user === 'object' ? node.user as Record<string, unknown> : {};
+        const pkg = user.current_package && typeof user.current_package === 'object' ? user.current_package as Record<string, unknown> : {};
+        const branch = getString(node, ['branch', 'position']) === 'R' ? 'Правая' : 'Левая';
+
+        return {
+          name: getString(user, ['name']) || `Partner ${index + 1}`,
+          id: getString(user, ['id', 'login']) || String(index + 1),
+          line: getNumber(node, ['level', 'depth']) ?? 0,
+          branch,
+          package: getString(pkg, ['name']) || '-',
+          status: getString(user, ['status']) || '-',
+          personalPV: getNumber(user, ['total_pv']) ?? 0,
+          teamPV: (getNumber(user, ['left_pv']) ?? 0) + (getNumber(user, ['right_pv']) ?? 0),
+          activity: getString(user, ['status']) === 'inactive' ? 'Неактивен' : 'Активен',
+        };
+      });
+      setPartners(list);
+      setStructure({
+        totalPartners: getNumber(structureRecord, ['total_partners']) ?? list.length,
+        leftPartners: getNumber(structureRecord, ['left_partners']) ?? list.filter((partner) => partner.branch === 'Левая').length,
+        rightPartners: getNumber(structureRecord, ['right_partners']) ?? list.filter((partner) => partner.branch === 'Правая').length,
+        leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
+        rightPV: getNumber(structureRecord, ['right_pv']) ?? 0,
+        weakLeg: getString(structureRecord, ['weak_leg']) || 'left',
+      });
+    } catch (caughtError) {
+      setPartners([]);
+      setStructure({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLeg: 'left' });
+      setError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadStructure();
+  }, [loadStructure]);
 
   const visiblePartners = useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim();
@@ -36,10 +89,20 @@ export default function Structure() {
         </div>
       </section>
 
+      {isLoading && (
+        <LoadingState title="Загружаем структуру" description="Получаем бинарное дерево и партнеров из API." />
+      )}
+
+      {!isLoading && error && (
+        <ErrorState description={error} onRetry={loadStructure} />
+      )}
+
+      {!isLoading && !error && (
+        <>
       <section className="grid gap-4 md:grid-cols-3">
         <StatCard title="Всего партнеров" value={structure.totalPartners} icon={<Users className="h-5 w-5" />} />
-        <BranchCard title="Левая ветка" partners={structure.leftPartners} pv={structure.leftPV} weak={structure.weakLeg === 'Левая'} />
-        <BranchCard title="Правая ветка" partners={structure.rightPartners} pv={structure.rightPV} weak={structure.weakLeg === 'Правая'} />
+        <BranchCard title="Левая ветка" partners={structure.leftPartners} pv={structure.leftPV} weak={structure.weakLeg === 'left'} />
+        <BranchCard title="Правая ветка" partners={structure.rightPartners} pv={structure.rightPV} weak={structure.weakLeg === 'right'} />
       </section>
 
       <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
@@ -99,6 +162,18 @@ export default function Structure() {
               </tr>
             </thead>
             <tbody className="divide-y divide-safi-border text-sm">
+              {visiblePartners.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-7 py-8">
+                    <EmptyState
+                      title="Партнеров пока нет"
+                      description="Приглашенные партнеры появятся в структуре после регистрации."
+                      className="min-h-[180px] shadow-none"
+                    />
+                  </td>
+                </tr>
+              )}
+
               {visiblePartners.map((partner) => (
                 <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
                   <td className="px-7 py-5">
@@ -126,6 +201,8 @@ export default function Structure() {
           </table>
         </div>
       </section>
+        </>
+      )}
     </div>
   );
 }

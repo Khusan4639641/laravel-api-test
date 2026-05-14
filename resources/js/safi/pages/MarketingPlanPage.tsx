@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Check, Calculator, Gift, Network, RefreshCw, Wallet } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { statuses } from '../data/statuses';
-import { packages } from '../data/packages';
+import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
+import { getApiErrorState, getPublicPackages, getPublicStatuses, Package, Status } from '../lib/api';
 
 const bonusTypes = [
   {
@@ -41,15 +41,57 @@ const bonusTypes = [
 
 export default function MarketingPlanPage() {
   const { t } = useTranslation();
-  const [selectedPackage, setSelectedPackage] = useState(packages[1].id);
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [statusesLoading, setStatusesLoading] = useState(true);
+  const [packagesError, setPackagesError] = useState<string | null>(null);
+  const [statusesError, setStatusesError] = useState<string | null>(null);
+  const [selectedPackage, setSelectedPackage] = useState('');
   const [personalSales, setPersonalSales] = useState(100000);
   const [leftVol, setLeftVol] = useState(500000);
   const [rightVol, setRightVol] = useState(400000);
 
-  const activePackage = packages.find((pkg) => pkg.id === selectedPackage) || packages[1];
-  const estimatedReferral = (personalSales * activePackage.referralBonus) / 100;
+  const loadPackages = React.useCallback(async () => {
+    setPackagesLoading(true);
+    setPackagesError(null);
+
+    try {
+      const items = await getPublicPackages();
+      setPackages(items);
+      setSelectedPackage((current) => current || items[1]?.id || items[0]?.id || '');
+    } catch (caughtError) {
+      setPackages([]);
+      setSelectedPackage('');
+      setPackagesError(getApiErrorState(caughtError).error);
+    } finally {
+      setPackagesLoading(false);
+    }
+  }, []);
+
+  const loadStatuses = React.useCallback(async () => {
+    setStatusesLoading(true);
+    setStatusesError(null);
+
+    try {
+      setStatuses(await getPublicStatuses());
+    } catch (caughtError) {
+      setStatuses([]);
+      setStatusesError(getApiErrorState(caughtError).error);
+    } finally {
+      setStatusesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPackages();
+    void loadStatuses();
+  }, [loadPackages, loadStatuses]);
+
+  const activePackage = useMemo(() => packages.find((pkg) => pkg.id === selectedPackage) || packages[1] || packages[0], [packages, selectedPackage]);
+  const estimatedReferral = activePackage ? (personalSales * activePackage.referralBonus) / 100 : 0;
   const lesserBranch = Math.min(leftVol, rightVol);
-  const estimatedBinary = activePackage.binaryBonus ? (lesserBranch * activePackage.binaryBonus) / 100 : 0;
+  const estimatedBinary = activePackage?.binaryBonus ? (lesserBranch * activePackage.binaryBonus) / 100 : 0;
   const totalEstimated = estimatedReferral + estimatedBinary;
 
   return (
@@ -129,8 +171,30 @@ export default function MarketingPlanPage() {
           <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
             <div className="rounded-[36px] border border-safi-border bg-white p-7 md:p-9 shadow-[0_18px_48px_rgba(11,23,18,0.06)]">
               <FieldGroup label="Ваш пакет">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  {packages.map((pkg) => (
+                {packagesLoading && (
+                  <div className="rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-muted">
+                    Загружаем пакеты...
+                  </div>
+                )}
+
+                {!packagesLoading && packagesError && (
+                  <div className="grid gap-4 rounded-2xl border border-safi-border bg-safi-cream p-5">
+                    <p className="text-sm leading-7 text-safi-muted">{packagesError}</p>
+                    <Button type="button" variant="outline" onClick={loadPackages} className="w-full sm:w-fit">
+                      Повторить
+                    </Button>
+                  </div>
+                )}
+
+                {!packagesLoading && !packagesError && packages.length === 0 && (
+                  <div className="rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-muted">
+                    Пакеты пока не опубликованы.
+                  </div>
+                )}
+
+                {!packagesLoading && !packagesError && packages.length > 0 && (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {packages.map((pkg) => (
                     <button
                       key={pkg.id}
                       type="button"
@@ -143,8 +207,9 @@ export default function MarketingPlanPage() {
                     >
                       {pkg.name}
                     </button>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </FieldGroup>
 
               <div className="mt-8 space-y-8">
@@ -201,28 +266,45 @@ export default function MarketingPlanPage() {
             </h2>
           </div>
 
-          <div className="overflow-x-auto rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.06)]">
-            <table className="w-full min-w-[760px] text-left">
-              <thead className="bg-safi-cream text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green">
-                <tr>
-                  <th className="px-6 py-5">Статус</th>
-                  <th className="px-6 py-5">Накоплено PV</th>
-                  <th className="px-6 py-5">Потенциал</th>
-                  <th className="px-6 py-5">Вознаграждение</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-safi-border">
-                {statuses.map((status) => (
-                  <tr key={status.id} className="transition-colors hover:bg-safi-cream/70">
-                    <td className="px-6 py-5 font-serif text-xl font-semibold text-safi-green">{status.name}</td>
-                    <td className="px-6 py-5 text-sm font-bold text-safi-muted">{status.pv.toLocaleString('ru-RU')} PV</td>
-                    <td className="px-6 py-5 text-sm font-bold text-safi-muted">{status.incomePotential.toLocaleString('ru-RU')} ₸</td>
-                    <td className="px-6 py-5 text-sm font-extrabold text-safi-gold">{status.reward}</td>
+          {statusesLoading && (
+            <LoadingState title="Загружаем статусы" description="Получаем таблицу статусов из публичного API." />
+          )}
+
+          {!statusesLoading && statusesError && (
+            <ErrorState description={statusesError} onRetry={loadStatuses} />
+          )}
+
+          {!statusesLoading && !statusesError && statuses.length === 0 && (
+            <EmptyState
+              title="Статусы пока не опубликованы"
+              description="Таблица статусов появится после настройки данных."
+            />
+          )}
+
+          {!statusesLoading && !statusesError && statuses.length > 0 && (
+            <div className="overflow-x-auto rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.06)]">
+              <table className="w-full min-w-[760px] text-left">
+                <thead className="bg-safi-cream text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green">
+                  <tr>
+                    <th className="px-6 py-5">Статус</th>
+                    <th className="px-6 py-5">Накоплено PV</th>
+                    <th className="px-6 py-5">Потенциал</th>
+                    <th className="px-6 py-5">Вознаграждение</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-safi-border">
+                  {statuses.map((status) => (
+                    <tr key={status.id} className="transition-colors hover:bg-safi-cream/70">
+                      <td className="px-6 py-5 font-serif text-xl font-semibold text-safi-green">{status.name}</td>
+                      <td className="px-6 py-5 text-sm font-bold text-safi-muted">{status.pv.toLocaleString('ru-RU')} PV</td>
+                      <td className="px-6 py-5 text-sm font-bold text-safi-muted">{status.incomePotential.toLocaleString('ru-RU')} ₸</td>
+                      <td className="px-6 py-5 text-sm font-extrabold text-safi-gold">{status.reward}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div className="mx-auto mt-10 max-w-3xl rounded-3xl border border-safi-border bg-white p-7 text-center text-xs font-bold uppercase leading-6 tracking-[0.14em] text-safi-muted">
             Все бонусы начисляются согласно действующему маркетинг-{t('marketing.title2', 'план')}у компании. Доход не гарантирован и зависит от активности партнера, продаж, структуры и выполнения условий.

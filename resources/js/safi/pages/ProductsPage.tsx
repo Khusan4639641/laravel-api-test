@@ -1,16 +1,38 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Check, X } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { products, Product } from '../data/products';
+import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
+import { getApiErrorState, getPublicProducts, Product } from '../lib/api';
 
 export default function ProductsPage() {
   const { t } = useTranslation();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
-  const categories = useMemo(() => ['Все', ...Array.from(new Set(products.map((product) => product.category)))], []);
+  const loadProducts = React.useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      setProducts(await getPublicProducts());
+    } catch (caughtError) {
+      setProducts([]);
+      setError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
+
+  const categories = useMemo(() => ['Все', ...Array.from(new Set(products.map((product) => product.category)))], [products]);
   const filteredProducts = selectedCategory === 'Все'
     ? products
     : products.filter((product) => product.category === selectedCategory);
@@ -58,7 +80,31 @@ export default function ProductsPage() {
       <section className="bg-safi-bg py-12 md:py-20">
         <Container>
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredProducts.map((product) => (
+            {isLoading && (
+              <LoadingState
+                title="Загружаем каталог"
+                description="Получаем актуальные продукты Safi Life из API."
+                className="sm:col-span-2 lg:col-span-3 xl:col-span-4"
+              />
+            )}
+
+            {!isLoading && error && (
+              <ErrorState
+                description={error}
+                onRetry={loadProducts}
+                className="sm:col-span-2 lg:col-span-3 xl:col-span-4"
+              />
+            )}
+
+            {!isLoading && !error && filteredProducts.length === 0 && (
+              <EmptyState
+                title="Продукты не найдены"
+                description="В этой категории пока нет опубликованных продуктов."
+                className="sm:col-span-2 lg:col-span-3 xl:col-span-4"
+              />
+            )}
+
+            {!isLoading && !error && filteredProducts.map((product) => (
               <article
                 key={product.id}
                 className="group flex flex-col overflow-hidden rounded-3xl border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.06)]"

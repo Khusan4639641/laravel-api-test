@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers\Api\Admin;
 
+use App\Http\Controllers\Api\Concerns\RespondsWithPagination;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\WithdrawalRequestResource;
 use App\Models\WithdrawalRequest;
 use App\Services\WithdrawalService;
 use Illuminate\Http\JsonResponse;
@@ -10,19 +12,21 @@ use Illuminate\Http\Request;
 
 class WithdrawalController extends Controller
 {
+    use RespondsWithPagination;
+
     public function __construct(
         private readonly WithdrawalService $withdrawalService,
     ) {
     }
 
-    public function index(): JsonResponse
+    public function index(Request $request): JsonResponse
     {
-        return response()->json([
-            'withdrawals' => WithdrawalRequest::query()
-                ->with(['user', 'wallet'])
-                ->latest()
-                ->get(),
-        ]);
+        $withdrawals = WithdrawalRequest::query()
+            ->with(['user.profile', 'wallet'])
+            ->latest()
+            ->paginate($this->perPage($request));
+
+        return $this->paginated($withdrawals, WithdrawalRequestResource::class, 'withdrawals', $request);
     }
 
     public function approve(WithdrawalRequest $withdrawal): JsonResponse
@@ -30,7 +34,7 @@ class WithdrawalController extends Controller
         $this->withdrawalService->approveWithdrawal($withdrawal);
 
         return response()->json([
-            'withdrawal' => $withdrawal->refresh()->load(['user', 'wallet']),
+            'withdrawal' => WithdrawalRequestResource::make($withdrawal->refresh()->load(['user', 'wallet'])),
         ]);
     }
 
@@ -43,7 +47,7 @@ class WithdrawalController extends Controller
         $this->withdrawalService->rejectWithdrawal($withdrawal, $validated['reason'] ?? null);
 
         return response()->json([
-            'withdrawal' => $withdrawal->refresh()->load(['user', 'wallet']),
+            'withdrawal' => WithdrawalRequestResource::make($withdrawal->refresh()->load(['user', 'wallet'])),
         ]);
     }
 }

@@ -1,12 +1,13 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Check, LogIn, PackagePlus, PlayCircle } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { packages } from '../data/packages';
+import { getPublicPackages, Package } from '../lib/api';
 
 export default function HowToStartPage() {
   const { t } = useTranslation();
+  const [packages, setPackages] = useState<Package[]>([]);
   const steps = [
     { title: t('howToStart.steps.0.title', 'Оставьте заявку или зарегистрируйтесь'), desc: t('howToStart.steps.0.desc', 'Воспользуйтесь реферальной ссылкой или заполните форму.') },
     { title: t('howToStart.steps.1.title', 'Выберите стартовый пакет'), desc: t('howToStart.steps.1.desc', 'Определитесь между BUSINESS, VIP или ELITE.') },
@@ -16,6 +17,10 @@ export default function HowToStartPage() {
     { title: t('howToStart.steps.5.title', 'Развивайте бинар'), desc: t('howToStart.steps.5.desc', 'Стройте левую и правую ветки для получения 7-10% с меньшей ветки.') },
     { title: t('howToStart.steps.6.title', 'Достигайте статусов'), desc: t('howToStart.steps.6.desc', 'Получайте премии и отслеживайте рост команды.') },
   ];
+
+  useEffect(() => {
+    void getPublicPackages().then(setPackages).catch(() => setPackages([]));
+  }, []);
 
   return (
     <div className="bg-safi-bg text-safi-green">

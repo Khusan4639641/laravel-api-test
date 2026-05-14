@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Withdrawal\StoreWithdrawalRequest;
+use App\Http\Resources\WithdrawalRequestResource;
 use App\Services\WithdrawalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -23,7 +24,7 @@ class WithdrawalController extends Controller
             ->get();
 
         return response()->json([
-            'withdrawals' => $withdrawals,
+            'withdrawals' => WithdrawalRequestResource::collection($withdrawals),
         ]);
     }
 
@@ -40,7 +41,7 @@ class WithdrawalController extends Controller
         );
 
         return response()->json([
-            'withdrawal' => $withdrawal,
+            'withdrawal' => WithdrawalRequestResource::make($withdrawal),
         ], 201);
     }
 }

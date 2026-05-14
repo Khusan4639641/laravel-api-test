@@ -1,44 +1,94 @@
-import { useState } from 'react';
-import { newsArticles, NewsArticle } from '../../data/news';
+import { useEffect, useState } from 'react';
 import { Newspaper, Plus, Edit2, Trash2, Calendar, X } from 'lucide-react';
 import { AdminBadge } from '../../components/admin/ui';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { createAdminNews, deleteAdminNews, getAdminNews, getApiErrorState, NewsArticle, updateAdminNews } from '../../lib/api';
 
 export default function AdminNews() {
-  const [articles, setArticles] = useState<NewsArticle[]>(newsArticles);
+  const [articles, setArticles] = useState<NewsArticle[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pendingId, setPendingId] = useState('');
   const [formData, setFormData] = useState({
+    id: '',
     title: '',
     category: 'События',
     content: '',
     imageUrl: ''
   });
 
-  const handlePublish = () => {
-    if (!formData.title || !formData.content) return;
-    
-    const newArticle: NewsArticle = {
-      id: Date.now().toString(),
-      title: formData.title,
-      category: formData.category,
-      content: formData.content,
-      imageUrl: formData.imageUrl,
-      date: new Date().toLocaleDateString('ru-RU')
-    };
-    
-    // Mutate the mock data so it shows up elsewhere in the SPA
-    newsArticles.unshift(newArticle);
-    setArticles([...newsArticles]);
-    
-    setFormData({ title: '', category: 'События', content: '', imageUrl: '' });
-    setShowForm(false);
+  const loadNews = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      setArticles(await getAdminNews());
+    } catch (caughtError) {
+      setArticles([]);
+      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить новости.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    const idx = newsArticles.findIndex(a => a.id === id);
-    if (idx > -1) {
-      newsArticles.splice(idx, 1);
-      setArticles([...newsArticles]);
+  useEffect(() => {
+    void loadNews();
+  }, []);
+
+  const handlePublish = async () => {
+    if (!formData.title || !formData.content) return;
+    setActionError(null);
+
+    try {
+      const payload = {
+        title: formData.title,
+        category: formData.category,
+        content: formData.content,
+        image_url: formData.imageUrl,
+        is_published: true,
+        status: 'published',
+      };
+
+      if (formData.id) {
+        await updateAdminNews(formData.id, payload);
+      } else {
+        await createAdminNews(payload);
+      }
+
+      setFormData({ id: '', title: '', category: 'События', content: '', imageUrl: '' });
+      setShowForm(false);
+      await loadNews();
+    } catch (caughtError) {
+      setActionError(getApiErrorState(caughtError).error || 'Не удалось сохранить новость.');
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    setPendingId(id);
+    setActionError(null);
+
+    try {
+      await deleteAdminNews(id);
+      await loadNews();
+    } catch (caughtError) {
+      setActionError(getApiErrorState(caughtError).error || 'Не удалось удалить новость.');
+    } finally {
+      setPendingId('');
+    }
+  };
+
+  const handleEdit = (article: NewsArticle) => {
+    setFormData({
+      id: article.id,
+      title: article.title,
+      category: article.category || 'События',
+      content: article.content || '',
+      imageUrl: article.imageUrl || '',
+    });
+    setActionError(null);
+    setShowForm(true);
   };
 
   return (
@@ -49,7 +99,13 @@ export default function AdminNews() {
           <p className="text-sm text-safi-text/70">Создание и публикация новостей для партнёров</p>
         </div>
         <button 
-          onClick={() => setShowForm(!showForm)}
+          onClick={() => {
+            if (showForm) {
+              setFormData({ id: '', title: '', category: 'События', content: '', imageUrl: '' });
+              setActionError(null);
+            }
+            setShowForm(!showForm);
+          }}
           className="flex items-center gap-2 px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors shadow-lg"
         >
           {showForm ? <X className="w-4 h-4 ml-[-4px]" /> : <Plus className="w-4 h-4 ml-[-4px]" />} 
@@ -57,9 +113,15 @@ export default function AdminNews() {
         </button>
       </div>
 
+      {actionError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+          {actionError}
+        </div>
+      )}
+
       {showForm && (
         <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm animate-in fade-in slide-in-from-top-4">
-          <h3 className="text-xl font-serif font-bold text-safi-green mb-6">Создание новости</h3>
+          <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{formData.id ? 'Редактирование новости' : 'Создание новости'}</h3>
           <div className="space-y-4">
              <div>
                 <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Заголовок</label>
@@ -107,7 +169,7 @@ export default function AdminNews() {
                 onClick={handlePublish}
                 className="px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors mt-4"
              >
-               Опубликовать
+               {formData.id ? 'Сохранить' : 'Опубликовать'}
              </button>
           </div>
         </div>
@@ -118,34 +180,40 @@ export default function AdminNews() {
            <Newspaper className="w-5 h-5 text-safi-gold" /> Опубликованные новости
         </h3>
         
-        <div className="space-y-4">
-          {articles.map((article) => (
-             <div key={article.id} className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border border-safi-green/10 rounded-2xl hover:bg-safi-green/5 transition-colors">
-               <div className="flex-1">
-                 <div className="flex items-center gap-3 mb-2">
-                   <AdminBadge variant={article.category === 'Важно' ? 'danger' : 'default'}>
-                     {article.category}
-                   </AdminBadge>
-                   <span className="text-xs text-safi-text/50 font-mono flex items-center gap-1">
-                     <Calendar className="w-3 h-3" />
-                     {article.date}
-                   </span>
-                 </div>
-                 <h4 className="font-bold text-sm text-safi-green">{article.title}</h4>
-                 <p className="text-xs text-safi-text/60 line-clamp-1 mt-1">{article.content}</p>
-               </div>
-               
-               <div className="flex items-center gap-2 shrink-0">
-                 <button className="p-2 text-safi-green/50 hover:text-safi-green hover:bg-safi-green/10 rounded-lg transition-colors">
-                   <Edit2 className="w-4 h-4" />
-                 </button>
-                 <button onClick={() => handleDelete(article.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                   <Trash2 className="w-4 h-4" />
-                 </button>
-               </div>
-             </div>
-          ))}
-        </div>
+        {isLoading && <LoadingState />}
+        {!isLoading && error && <ErrorState description={error} onRetry={loadNews} />}
+        {!isLoading && !error && articles.length === 0 && <EmptyState title="Новости не опубликованы" description="Добавьте первую новость через форму выше." />}
+
+        {!isLoading && !error && articles.length > 0 && (
+          <div className="space-y-4">
+            {articles.map((article) => (
+              <div key={article.id} className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border border-safi-green/10 rounded-2xl hover:bg-safi-green/5 transition-colors">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <AdminBadge variant={article.category === 'Важно' ? 'danger' : 'default'}>
+                      {article.category}
+                    </AdminBadge>
+                    <span className="text-xs text-safi-text/50 font-mono flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {article.date}
+                    </span>
+                  </div>
+                  <h4 className="font-bold text-sm text-safi-green">{article.title}</h4>
+                  <p className="text-xs text-safi-text/60 line-clamp-1 mt-1">{article.content}</p>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button onClick={() => handleEdit(article)} className="p-2 text-safi-green/50 hover:text-safi-green hover:bg-safi-green/10 rounded-lg transition-colors">
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+                  <button disabled={pendingId === article.id} onClick={() => handleDelete(article.id)} className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

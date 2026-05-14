@@ -1,13 +1,54 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDownToLine, ArrowUpFromLine, Calendar, CreditCard, Filter, RefreshCcw } from 'lucide-react';
-import { balance, transactions } from '../../data/dashboardMock';
 import { Badge, StatCard } from '../../components/dashboard/ui';
 import { cn } from '../../lib/utils';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { getApiErrorState, getArray, getDashboardTransactions, getNumber, getString } from '../../lib/api';
 
 const filters = ['Все', 'Начисления', 'Выводы', 'Кэшбэк'];
 
 export default function Transactions() {
   const [filter, setFilter] = useState('Все');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [transactions, setTransactions] = useState<Array<{ id: string; date: string; type: string; amount: string; status: string; source: string; comment: string }>>([]);
+  const balance = useMemo(() => {
+    const totalEarned = transactions.filter((transaction) => transaction.amount.startsWith('+')).reduce((sum, transaction) => sum + Number(transaction.amount.replace(/[^\d.-]/g, '')), 0);
+    const withdrawn = transactions.filter((transaction) => transaction.amount.startsWith('-')).reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount.replace(/[^\d.-]/g, ''))), 0);
+    return { totalEarned, available: Math.max(totalEarned - withdrawn, 0), pending: 0, withdrawn };
+  }, [transactions]);
+
+  const loadTransactions = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await getDashboardTransactions();
+      setTransactions(getArray(response, ['transactions']).map((item, index) => {
+        const record = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+        const direction = getString(record, ['direction']) || 'credit';
+        const amount = getNumber(record, ['amount']) ?? 0;
+        return {
+          id: getString(record, ['id']) || String(index + 1),
+          date: getString(record, ['created_at']) || '',
+          type: getString(record, ['type']) || 'Операция',
+          amount: `${direction === 'credit' ? '+' : '-'}${amount.toLocaleString('ru-RU')} ₸`,
+          status: getString(record, ['status']) || 'completed',
+          source: getString(record, ['description']) || 'Система',
+          comment: getString(record, ['description']) || '',
+        };
+      }));
+    } catch (caughtError) {
+      setTransactions([]);
+      setError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadTransactions();
+  }, [loadTransactions]);
 
   const visibleTransactions = useMemo(() => {
     if (filter === 'Все') {
@@ -23,7 +64,7 @@ export default function Transactions() {
     }
 
     return transactions.filter((transaction) => transaction.type.includes('Кэшбэк'));
-  }, [filter]);
+  }, [filter, transactions]);
 
   return (
     <div className="space-y-8">
@@ -43,6 +84,16 @@ export default function Transactions() {
         </div>
       </section>
 
+      {isLoading && (
+        <LoadingState title="Загружаем транзакции" description="Получаем операции кошелька из API." />
+      )}
+
+      {!isLoading && error && (
+        <ErrorState description={error} onRetry={loadTransactions} />
+      )}
+
+      {!isLoading && !error && (
+        <>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Общий заработок" value={`${balance.totalEarned.toLocaleString('ru-RU')} ₸`} icon={<CreditCard className="h-5 w-5" />} variant="dark" />
         <StatCard title="Доступно" value={`${balance.available.toLocaleString('ru-RU')} ₸`} />
@@ -92,6 +143,18 @@ export default function Transactions() {
               </tr>
             </thead>
             <tbody className="divide-y divide-safi-border text-sm">
+              {visibleTransactions.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-7 py-8">
+                    <EmptyState
+                      title="Транзакций пока нет"
+                      description="Операции появятся после начислений, покупок или выводов."
+                      className="min-h-[180px] shadow-none"
+                    />
+                  </td>
+                </tr>
+              )}
+
               {visibleTransactions.map((transaction) => (
                 <tr key={transaction.id} className="transition-colors hover:bg-safi-cream/70">
                   <td className="px-7 py-5">
@@ -120,6 +183,16 @@ export default function Transactions() {
         </div>
 
         <div className="divide-y divide-safi-border md:hidden">
+          {visibleTransactions.length === 0 && (
+            <div className="p-5">
+              <EmptyState
+                title="Транзакций пока нет"
+                description="Операции появятся после начислений, покупок или выводов."
+                className="min-h-[180px] shadow-none"
+              />
+            </div>
+          )}
+
           {visibleTransactions.map((transaction) => (
             <article key={transaction.id} className="p-5">
               <div className="flex items-start justify-between gap-4">
@@ -141,6 +214,8 @@ export default function Transactions() {
           ))}
         </div>
       </section>
+        </>
+      )}
     </div>
   );
 }

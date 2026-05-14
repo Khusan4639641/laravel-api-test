@@ -1,43 +1,35 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, ShoppingBag, Star } from 'lucide-react';
-import { products as mockProducts, Product } from '../../data/products';
-import { ApiError, createOrder, getProducts } from '../../lib/api';
-import { Badge } from '../../components/dashboard/ui';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { ApiError, createOrder, getApiErrorState, getDashboardProducts, Product } from '../../lib/api';
 
 export default function Products() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('Все');
-  const [isUsingFallback, setIsUsingFallback] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [orderingProductId, setOrderingProductId] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadProducts = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
 
-    async function loadProducts() {
-      try {
-        const response = await getProducts();
-        const apiProducts = normalizeProducts(response);
-
-        if (isMounted && apiProducts.length > 0) {
-          setProducts(apiProducts);
-          setIsUsingFallback(false);
-        }
-      } catch {
-        if (isMounted) {
-          setProducts(mockProducts);
-          setIsUsingFallback(true);
-        }
-      }
+    try {
+      const apiProducts = await getDashboardProducts();
+      setProducts(apiProducts);
+    } catch (caughtError) {
+      setProducts([]);
+      setLoadError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
     }
-
-    void loadProducts();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
 
   const categories = useMemo(() => ['Все', ...Array.from(new Set(products.map((product) => product.category)))], [products]);
   const visibleProducts = selectedCategory === 'Все'
@@ -77,7 +69,6 @@ export default function Products() {
               Каталог для личных покупок и создания заказов из кабинета.
             </p>
           </div>
-          {isUsingFallback && <Badge variant="warning">Mock fallback</Badge>}
         </div>
 
         {(message || error) && (
@@ -105,7 +96,27 @@ export default function Products() {
       </section>
 
       <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-        {visibleProducts.map((product) => (
+        {isLoading && (
+          <LoadingState
+            title="Загружаем продукты"
+            description="Получаем каталог продуктов из dashboard API."
+            className="sm:col-span-2 xl:col-span-4"
+          />
+        )}
+
+        {!isLoading && loadError && (
+          <ErrorState description={loadError} onRetry={() => void loadProducts()} className="sm:col-span-2 xl:col-span-4" />
+        )}
+
+        {!isLoading && !loadError && visibleProducts.length === 0 && (
+          <EmptyState
+            title="Продукты не найдены"
+            description="В выбранной категории пока нет доступных продуктов."
+            className="sm:col-span-2 xl:col-span-4"
+          />
+        )}
+
+        {!isLoading && !loadError && visibleProducts.map((product) => (
           <article key={product.id} className="group flex flex-col overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             <div className="relative aspect-[4/3] overflow-hidden bg-safi-cream">
               <img
@@ -151,100 +162,4 @@ export default function Products() {
       </section>
     </div>
   );
-}
-
-function normalizeProducts(response: unknown): Product[] {
-  const list = getArray(response);
-
-  return list.map((item, index) => {
-    const record = isRecord(item) ? item : {};
-
-    return {
-      id: getString(record, ['id', 'uuid']) || String(index + 1),
-      name: getString(record, ['name', 'title']) || `Safi Product ${index + 1}`,
-      category: getString(record, ['category', 'category_name', 'categoryName']) || 'Safi Life',
-      shortDescription: getString(record, ['shortDescription', 'short_description', 'description']) || '',
-      description: getString(record, ['description']) || '',
-      benefits: getStringArray(record, ['benefits']) || [],
-      composition: getStringArray(record, ['composition']) || [],
-      usage: getString(record, ['usage']) || '',
-      price: getNumber(record, ['price', 'amount']) ?? 0,
-      pv: getNumber(record, ['pv', 'points']) ?? 0,
-      image: getString(record, ['image', 'image_url', 'imageUrl']) || mockProducts[0].image,
-    };
-  });
-}
-
-function getArray(response: unknown) {
-  if (Array.isArray(response)) {
-    return response;
-  }
-
-  if (isRecord(response)) {
-    if (Array.isArray(response.data)) {
-      return response.data;
-    }
-
-    if (isRecord(response.data) && Array.isArray(response.data.data)) {
-      return response.data.data;
-    }
-
-    if (Array.isArray(response.products)) {
-      return response.products;
-    }
-  }
-
-  return [];
-}
-
-function getString(record: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = record[key];
-
-    if (typeof value === 'string' && value.trim() !== '') {
-      return value;
-    }
-
-    if (typeof value === 'number') {
-      return String(value);
-    }
-  }
-
-  return undefined;
-}
-
-function getNumber(record: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = record[key];
-
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
-    }
-
-    if (typeof value === 'string') {
-      const normalized = Number(value.replace(/\s/g, ''));
-
-      if (Number.isFinite(normalized)) {
-        return normalized;
-      }
-    }
-  }
-
-  return undefined;
-}
-
-function getStringArray(record: Record<string, unknown>, keys: string[]) {
-  for (const key of keys) {
-    const value = record[key];
-
-    if (Array.isArray(value)) {
-      return value.map(String);
-    }
-  }
-
-  return undefined;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

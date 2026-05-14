@@ -1,14 +1,36 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Calendar } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { newsArticles } from '../data/news';
+import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
+import { getApiErrorState, getPublicNews, NewsArticle } from '../lib/api';
 
 export default function NewsPage() {
   const { t } = useTranslation();
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const featuredArticle = newsArticles[0];
   const otherArticles = newsArticles.slice(1);
+
+  const loadNews = React.useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      setNewsArticles(await getPublicNews());
+    } catch (caughtError) {
+      setNewsArticles([]);
+      setError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNews();
+  }, [loadNews]);
 
   return (
     <div className="bg-safi-bg text-safi-green">
@@ -26,7 +48,31 @@ export default function NewsPage() {
         </Container>
       </section>
 
-      {featuredArticle && (
+      {isLoading && (
+        <section className="bg-white py-16 md:py-24">
+          <Container>
+            <LoadingState title="Загружаем новости" description="Получаем актуальные публикации из публичного API." />
+          </Container>
+        </section>
+      )}
+
+      {!isLoading && error && (
+        <section className="bg-white py-16 md:py-24">
+          <Container>
+            <ErrorState description={error} onRetry={loadNews} />
+          </Container>
+        </section>
+      )}
+
+      {!isLoading && !error && !featuredArticle && (
+        <section className="bg-white py-16 md:py-24">
+          <Container>
+            <EmptyState title="Новостей пока нет" description="После публикации новости появятся на этой странице." />
+          </Container>
+        </section>
+      )}
+
+      {!isLoading && !error && featuredArticle && (
         <section className="bg-white py-16 md:py-24">
           <Container>
             <article className="grid overflow-hidden rounded-[36px] border border-safi-border bg-safi-cream shadow-[0_24px_70px_rgba(11,23,18,0.10)] lg:grid-cols-[0.95fr_1.05fr]">
@@ -53,7 +99,8 @@ export default function NewsPage() {
         </section>
       )}
 
-      <section className="border-y border-safi-border bg-safi-cream py-16 md:py-24">
+      {!isLoading && !error && featuredArticle && (
+        <section className="border-y border-safi-border bg-safi-cream py-16 md:py-24">
         <Container>
           <div className="mb-10 flex flex-col gap-5 md:mb-14 md:flex-row md:items-end md:justify-between">
             <div>
@@ -68,6 +115,14 @@ export default function NewsPage() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-2">
+            {otherArticles.length === 0 && (
+              <EmptyState
+                title="Других обновлений пока нет"
+                description="Новые публикации появятся в этом блоке."
+                className="md:col-span-2"
+              />
+            )}
+
             {otherArticles.map((article) => (
               <article key={article.id} className="overflow-hidden rounded-3xl border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
                 {article.imageUrl && (
@@ -84,7 +139,8 @@ export default function NewsPage() {
             ))}
           </div>
         </Container>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

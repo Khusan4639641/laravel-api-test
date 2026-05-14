@@ -1,13 +1,35 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, HelpCircle } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { faq } from '../data/faq';
+import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
+import { FaqCategory, getApiErrorState, getPublicFaqs } from '../lib/api';
 
 export default function FAQPage() {
   const { t } = useTranslation();
+  const [faq, setFaq] = useState<FaqCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [openItem, setOpenItem] = useState('0-0');
+
+  const loadFaqs = React.useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      setFaq(await getPublicFaqs());
+    } catch (caughtError) {
+      setFaq([]);
+      setError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadFaqs();
+  }, [loadFaqs]);
 
   return (
     <div className="bg-safi-bg text-safi-green">
@@ -28,60 +50,70 @@ export default function FAQPage() {
 
       <section className="bg-white py-16 md:py-24">
         <Container>
-          <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.32fr_0.68fr]">
-            <aside className="rounded-3xl border border-safi-border bg-safi-cream p-7 lg:sticky lg:top-28 lg:self-start">
-              <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-safi-green">
-                <HelpCircle className="h-5 w-5" />
-              </div>
-              <h2 className="font-serif text-3xl font-semibold text-safi-green">Разделы</h2>
-              <div className="mt-6 space-y-3">
-                {faq.map((category, index) => (
-                  <a
-                    key={category.category}
-                    href={`#faq-${index}`}
-                    className="block rounded-full border border-safi-border bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted transition-colors hover:border-safi-green hover:text-safi-green"
-                  >
-                    {category.category}
-                  </a>
+          {isLoading && <LoadingState title="Загружаем FAQ" description="Получаем вопросы и ответы из публичного API." />}
+
+          {!isLoading && error && <ErrorState description={error} onRetry={loadFaqs} />}
+
+          {!isLoading && !error && faq.length === 0 && (
+            <EmptyState title="FAQ пока пуст" description="Вопросы появятся здесь после публикации." />
+          )}
+
+          {!isLoading && !error && faq.length > 0 && (
+            <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-[0.32fr_0.68fr]">
+              <aside className="rounded-3xl border border-safi-border bg-safi-cream p-7 lg:sticky lg:top-28 lg:self-start">
+                <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-safi-green">
+                  <HelpCircle className="h-5 w-5" />
+                </div>
+                <h2 className="font-serif text-3xl font-semibold text-safi-green">Разделы</h2>
+                <div className="mt-6 space-y-3">
+                  {faq.map((category, index) => (
+                    <a
+                      key={category.category}
+                      href={`#faq-${index}`}
+                      className="block rounded-full border border-safi-border bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted transition-colors hover:border-safi-green hover:text-safi-green"
+                    >
+                      {category.category}
+                    </a>
+                  ))}
+                </div>
+              </aside>
+
+              <div className="space-y-10">
+                {faq.map((category, categoryIndex) => (
+                  <section key={category.category} id={`faq-${categoryIndex}`} className="scroll-mt-28">
+                    <h2 className="mb-5 font-serif text-3xl font-semibold text-safi-green">{category.category}</h2>
+                    <div className="space-y-4">
+                      {category.questions.map((question, questionIndex) => {
+                        const itemKey = `${categoryIndex}-${questionIndex}`;
+                        const isOpen = openItem === itemKey;
+
+                        return (
+                          <article key={question.q} className="overflow-hidden rounded-3xl border border-safi-border bg-safi-bg">
+                            <button
+                              type="button"
+                              onClick={() => setOpenItem(isOpen ? '' : itemKey)}
+                              className="flex w-full items-center justify-between gap-5 p-6 text-left transition-colors hover:bg-safi-cream md:p-7"
+                              aria-expanded={isOpen}
+                            >
+                              <span className="font-serif text-xl font-semibold leading-snug text-safi-green md:text-2xl">{question.q}</span>
+                              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-safi-green transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+                                <ChevronDown className="h-5 w-5" />
+                              </span>
+                            </button>
+                            {isOpen && (
+                              <div className="border-t border-safi-border bg-white px-6 py-6 text-sm leading-7 text-safi-muted md:px-7">
+                                {question.a}
+                              </div>
+                            )}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
                 ))}
               </div>
-            </aside>
-
-            <div className="space-y-10">
-              {faq.map((category, categoryIndex) => (
-                <section key={category.category} id={`faq-${categoryIndex}`} className="scroll-mt-28">
-                  <h2 className="mb-5 font-serif text-3xl font-semibold text-safi-green">{category.category}</h2>
-                  <div className="space-y-4">
-                    {category.questions.map((question, questionIndex) => {
-                      const itemKey = `${categoryIndex}-${questionIndex}`;
-                      const isOpen = openItem === itemKey;
-
-                      return (
-                        <article key={question.q} className="overflow-hidden rounded-3xl border border-safi-border bg-safi-bg">
-                          <button
-                            type="button"
-                            onClick={() => setOpenItem(isOpen ? '' : itemKey)}
-                            className="flex w-full items-center justify-between gap-5 p-6 text-left transition-colors hover:bg-safi-cream md:p-7"
-                            aria-expanded={isOpen}
-                          >
-                            <span className="font-serif text-xl font-semibold leading-snug text-safi-green md:text-2xl">{question.q}</span>
-                            <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white text-safi-green transition-transform ${isOpen ? 'rotate-180' : ''}`}>
-                              <ChevronDown className="h-5 w-5" />
-                            </span>
-                          </button>
-                          {isOpen && (
-                            <div className="border-t border-safi-border bg-white px-6 py-6 text-sm leading-7 text-safi-muted md:px-7">
-                              {question.a}
-                            </div>
-                          )}
-                        </article>
-                      );
-                    })}
-                  </div>
-                </section>
-              ))}
             </div>
-          </div>
+          )}
         </Container>
       </section>
 

@@ -1,13 +1,82 @@
+import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { partners } from '../../data/adminMock';
-import { AdminStatCard, AdminBadge, AdminTable } from '../../components/admin/ui';
+import { AdminBadge } from '../../components/admin/ui';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ArrowLeft, User, Phone, Mail, MapPin, Calendar, Network, CreditCard, Lock, Unlock, MessageSquare, Edit } from 'lucide-react';
+import { getAdminUser, getApiErrorState, getNumber, getString, unwrapRecord } from '../../lib/api';
 
 export default function AdminPartnerDetail() {
   const { id } = useParams();
-  // Using the first partner as a mock if id not found (in reality, fetch by ID)
-  const partnerMatch = partners.find(p => p.id === id);
-  const partner = partnerMatch || partners[0];
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [partner, setPartner] = useState({
+    id: id || '',
+    fullName: '-',
+    phone: '-',
+    email: '-',
+    city: '-',
+    sponsor: '-',
+    invitedCount: 0,
+    package: '-',
+    status: '-',
+    personalPV: 0,
+    teamPV: 0,
+    leftPV: 0,
+    rightPV: 0,
+    totalIncome: 0,
+    availableBalance: 0,
+    registrationDate: '-',
+    accountStatus: 'Активен',
+  });
+
+  const loadPartner = async () => {
+    if (!id) {
+      setIsLoading(false);
+      setError('Не указан ID партнера.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await getAdminUser(id);
+      const user = unwrapRecord(response, ['user']);
+      const profile = user.profile && typeof user.profile === 'object' ? user.profile as Record<string, unknown> : {};
+      const sponsor = user.sponsor && typeof user.sponsor === 'object' ? user.sponsor as Record<string, unknown> : {};
+      const pkg = user.current_package && typeof user.current_package === 'object' ? user.current_package as Record<string, unknown> : {};
+      const wallets = Array.isArray(user.wallets) ? user.wallets as Record<string, unknown>[] : [];
+      const availableBalance = wallets.reduce((sum, wallet) => sum + (getNumber(wallet, ['balance']) ?? 0), 0);
+
+      setPartner({
+        id: getString(user, ['id', 'login']) || id,
+        fullName: getString(user, ['name']) || '-',
+        phone: getString(profile, ['phone']) || '-',
+        email: getString(user, ['email']) || '-',
+        city: getString(profile, ['city']) || '-',
+        sponsor: getString(sponsor, ['name', 'id']) || getString(user, ['sponsor_id']) || '-',
+        invitedCount: getNumber(user, ['referrals_count']) ?? 0,
+        package: getString(pkg, ['name', 'code']) || '-',
+        status: getString(user, ['status']) || '-',
+        personalPV: getNumber(user, ['total_pv']) ?? 0,
+        teamPV: (getNumber(user, ['left_pv']) ?? 0) + (getNumber(user, ['right_pv']) ?? 0),
+        leftPV: getNumber(user, ['left_pv']) ?? 0,
+        rightPV: getNumber(user, ['right_pv']) ?? 0,
+        totalIncome: 0,
+        availableBalance,
+        registrationDate: getString(user, ['created_at']) || '-',
+        accountStatus: getString(user, ['status']) === 'inactive' ? 'Заблокирован' : 'Активен',
+      });
+    } catch (caughtError) {
+      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить партнера.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadPartner();
+  }, [id]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -40,6 +109,13 @@ export default function AdminPartnerDetail() {
         </div>
       </div>
 
+      {isLoading && <LoadingState />}
+      {!isLoading && error && <ErrorState description={error} onRetry={loadPartner} />}
+      {!isLoading && !error && !partner.id && (
+        <EmptyState title="Партнер не найден" description="Проверьте ID партнера и повторите запрос." />
+      )}
+
+      {!isLoading && !error && partner.id && (
       <div className="grid lg:grid-cols-3 gap-8">
         
         {/* Left Col - Overview */}
@@ -83,7 +159,6 @@ export default function AdminPartnerDetail() {
             <textarea 
               className="w-full h-32 bg-[#F5F5F0] rounded-xl p-4 text-sm font-medium border-none focus:ring-2 focus:ring-safi-gold/50 outline-none resize-none"
               placeholder="Оставьте внутренний комментарий о партнёре (виден только администраторам)..."
-              defaultValue="Активный партнёр, развивает левую ветку. Проверить реквизиты перед следующим выводом."
             />
             <button className="w-full mt-3 bg-safi-green text-safi-gold py-3 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors hover:text-white">
               Сохранить заметку
@@ -144,23 +219,17 @@ export default function AdminPartnerDetail() {
               </Link>
             </div>
             
-            {/* Mock short table */}
-            <AdminTable headers={['Дата', 'Тип', 'Сумма', 'Статус', 'Источник']}>
-               {[1,2,3].map(i => (
-                 <tr key={i} className="hover:bg-safi-green/5 transition-colors">
-                    <td className="px-6 py-4 text-xs">25.04.2026</td>
-                    <td className="px-6 py-4 text-xs font-bold">Бинарный бонус</td>
-                    <td className="px-6 py-4 text-xs font-bold text-green-600">+15 000 ₸</td>
-                    <td className="px-6 py-4"><AdminBadge variant="success">Начислено</AdminBadge></td>
-                    <td className="px-6 py-4 text-xs text-safi-text/60">SAFI-10045</td>
-                 </tr>
-               ))}
-            </AdminTable>
+            <EmptyState
+              title="История доступна в транзакциях"
+              description="Откройте общий раздел транзакций, чтобы посмотреть операции партнера через backend API."
+              className="min-h-[180px] shadow-none"
+            />
           </div>
 
         </div>
 
       </div>
+      )}
     </div>
   );
 }

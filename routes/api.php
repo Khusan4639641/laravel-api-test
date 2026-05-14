@@ -1,16 +1,54 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Admin\BonusController as AdminBonusController;
+use App\Http\Controllers\Api\Admin\FaqController as AdminFaqController;
+use App\Http\Controllers\Api\Admin\NewsController as AdminNewsController;
+use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Api\Admin\OverviewController as AdminOverviewController;
+use App\Http\Controllers\Api\Admin\PackageController as AdminPackageController;
+use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
+use App\Http\Controllers\Api\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\Api\Admin\SettingsController as AdminSettingsController;
+use App\Http\Controllers\Api\Admin\StatusController as AdminStatusController;
+use App\Http\Controllers\Api\Admin\StructureController as AdminStructureController;
+use App\Http\Controllers\Api\Admin\SupportTicketController as AdminSupportTicketController;
+use App\Http\Controllers\Api\Admin\TransactionController as AdminTransactionController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\Api\BinaryBonusController;
+use App\Http\Controllers\Api\Dashboard\BonusController as DashboardBonusController;
+use App\Http\Controllers\Api\Dashboard\OrderController as DashboardOrderController;
+use App\Http\Controllers\Api\Dashboard\OverviewController as DashboardOverviewController;
+use App\Http\Controllers\Api\Dashboard\PackageController as DashboardPackageController;
+use App\Http\Controllers\Api\Dashboard\ProductController as DashboardProductController;
+use App\Http\Controllers\Api\Dashboard\ProfileController as DashboardProfileController;
+use App\Http\Controllers\Api\Dashboard\StructureController as DashboardStructureController;
+use App\Http\Controllers\Api\Dashboard\SupportTicketController as DashboardSupportTicketController;
+use App\Http\Controllers\Api\Dashboard\TransactionController as DashboardTransactionController;
+use App\Http\Controllers\Api\Dashboard\WithdrawalController as DashboardWithdrawalController;
 use App\Http\Controllers\Api\PackageActivationController;
 use App\Http\Controllers\Api\PackageUpgradeController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\Api\PublicApi\FaqController as PublicFaqController;
+use App\Http\Controllers\Api\PublicApi\NewsController as PublicNewsController;
+use App\Http\Controllers\Api\PublicApi\PackageController as PublicPackageController;
+use App\Http\Controllers\Api\PublicApi\ProductController as PublicProductController;
+use App\Http\Controllers\Api\PublicApi\StatusController as PublicStatusController;
 use App\Http\Controllers\Api\ReferralController;
 use App\Http\Controllers\Api\WithdrawalController;
 use Illuminate\Support\Facades\Route;
+
+Route::prefix('public')->group(function (): void {
+    Route::get('/products', [PublicProductController::class, 'index']);
+    Route::get('/products/{product}', [PublicProductController::class, 'show']);
+    Route::get('/packages', [PublicPackageController::class, 'index']);
+    Route::get('/news', [PublicNewsController::class, 'index']);
+    Route::get('/news/{news}', [PublicNewsController::class, 'show']);
+    Route::get('/faqs', [PublicFaqController::class, 'index']);
+    Route::get('/statuses', [PublicStatusController::class, 'index']);
+});
 
 Route::get('/ref/{user_id}/{branch}', [ReferralController::class, 'show']);
 Route::get('/products', [ProductController::class, 'index']);
@@ -30,10 +68,53 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
 
+    Route::prefix('dashboard')->group(function (): void {
+        Route::get('/overview', DashboardOverviewController::class);
+        Route::get('/profile', DashboardProfileController::class);
+        Route::get('/structure', DashboardStructureController::class);
+        Route::get('/transactions', DashboardTransactionController::class);
+        Route::get('/bonuses', DashboardBonusController::class);
+        Route::get('/packages', DashboardPackageController::class);
+        Route::get('/products', DashboardProductController::class);
+        Route::get('/orders', DashboardOrderController::class);
+        Route::get('/withdrawals', [DashboardWithdrawalController::class, 'index']);
+        Route::post('/withdrawals', [DashboardWithdrawalController::class, 'store']);
+        Route::get('/support-tickets', [DashboardSupportTicketController::class, 'index']);
+        Route::post('/support-tickets', [DashboardSupportTicketController::class, 'store']);
+    });
+
     Route::middleware('admin')->prefix('admin')->group(function (): void {
+        Route::get('/overview', AdminOverviewController::class);
+        Route::get('/structure', AdminStructureController::class);
         Route::get('/users', [AdminUserController::class, 'index']);
+        Route::get('/users/{user}', [AdminUserController::class, 'show']);
+        Route::get('/products', [AdminProductController::class, 'index']);
+        Route::post('/products', [AdminProductController::class, 'store']);
+        Route::put('/products/{product}', [AdminProductController::class, 'update']);
+        Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
+        Route::get('/packages', [AdminPackageController::class, 'index']);
+        Route::post('/packages', [AdminPackageController::class, 'store']);
+        Route::put('/packages/{package}', [AdminPackageController::class, 'update']);
+        Route::get('/orders', [AdminOrderController::class, 'index']);
+        Route::get('/transactions', [AdminTransactionController::class, 'index']);
+        Route::get('/bonuses', [AdminBonusController::class, 'index']);
         Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
         Route::patch('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve']);
         Route::patch('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
+        Route::get('/news', [AdminNewsController::class, 'index']);
+        Route::post('/news', [AdminNewsController::class, 'store']);
+        Route::put('/news/{news}', [AdminNewsController::class, 'update']);
+        Route::delete('/news/{news}', [AdminNewsController::class, 'destroy']);
+        Route::get('/faqs', [AdminFaqController::class, 'index']);
+        Route::post('/faqs', [AdminFaqController::class, 'store']);
+        Route::put('/faqs/{faq}', [AdminFaqController::class, 'update']);
+        Route::delete('/faqs/{faq}', [AdminFaqController::class, 'destroy']);
+        Route::get('/support-tickets', [AdminSupportTicketController::class, 'index']);
+        Route::patch('/support-tickets/{ticket}/reply', [AdminSupportTicketController::class, 'reply']);
+        Route::patch('/support-tickets/{ticket}/close', [AdminSupportTicketController::class, 'close']);
+        Route::get('/reports/summary', [AdminReportController::class, 'summary']);
+        Route::get('/settings', [AdminSettingsController::class, 'index']);
+        Route::put('/settings', [AdminSettingsController::class, 'update']);
+        Route::get('/statuses', AdminStatusController::class);
     });
 });

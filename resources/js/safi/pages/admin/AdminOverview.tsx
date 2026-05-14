@@ -1,72 +1,68 @@
-import { useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, ArrowUpCircle, CreditCard, FileText, Package, Search, Settings, TrendingUp, Users } from 'lucide-react';
-import { adminStats, partners as mockPartners, withdrawals as mockWithdrawals } from '../../data/adminMock';
-import { AdminBadge, AdminStatCard } from '../../components/admin/ui';
-import { getAdminUsers, getAdminWithdrawals } from '../../lib/api';
+import { AdminStatCard } from '../../components/admin/ui';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { getAdminOverview, getApiErrorState } from '../../lib/api';
+
+interface AdminOverviewSummary {
+  usersTotal: number;
+  activeUsers: number;
+  inactiveUsers: number;
+  revenue: number;
+  bonusesPaid: number;
+  pendingWithdrawals: number;
+  pendingWithdrawalsAmount: number;
+  packagesSold: number;
+  totalPV: number;
+}
 
 export default function AdminOverview() {
-  const [usersCount, setUsersCount] = useState(adminStats.totalPartners);
-  const [activeUsersCount, setActiveUsersCount] = useState(adminStats.activePartners);
-  const [withdrawalsCount, setWithdrawalsCount] = useState(adminStats.withdrawalRequests);
-  const [pendingWithdrawalsAmount, setPendingWithdrawalsAmount] = useState(adminStats.pendingWithdrawals);
-  const [isUsingFallback, setIsUsingFallback] = useState(true);
+  const [summary, setSummary] = useState<AdminOverviewSummary | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadSummary = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await getAdminOverview();
+      setSummary(normalizeOverview(response));
+    } catch (caughtError) {
+      setSummary(null);
+      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить сводку.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadSummary() {
-      try {
-        const [usersResponse, withdrawalsResponse] = await Promise.all([
-          getAdminUsers(),
-          getAdminWithdrawals(),
-        ]);
-        const users = getArray(usersResponse);
-        const withdrawals = getArray(withdrawalsResponse);
-
-        if (!isMounted) {
-          return;
-        }
-
-        if (users.length > 0) {
-          setUsersCount(users.length);
-          setActiveUsersCount(users.filter(isActiveUser).length);
-        }
-
-        if (withdrawals.length > 0) {
-          setWithdrawalsCount(withdrawals.filter(isPendingWithdrawal).length);
-          setPendingWithdrawalsAmount(withdrawals.filter(isPendingWithdrawal).reduce((sum, withdrawal) => sum + getAmount(withdrawal), 0));
-        }
-
-        setIsUsingFallback(false);
-      } catch {
-        if (isMounted) {
-          setUsersCount(mockPartners.length || adminStats.totalPartners);
-          setActiveUsersCount(mockPartners.filter((partner) => partner.activity === 'Активен').length || adminStats.activePartners);
-          setWithdrawalsCount(mockWithdrawals.length || adminStats.withdrawalRequests);
-          setPendingWithdrawalsAmount(adminStats.pendingWithdrawals);
-          setIsUsingFallback(true);
-        }
-      }
-    }
-
     void loadSummary();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
+  const currentSummary = summary || {
+    usersTotal: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
+    revenue: 0,
+    bonusesPaid: 0,
+    pendingWithdrawals: 0,
+    pendingWithdrawalsAmount: 0,
+    packagesSold: 0,
+    totalPV: 0,
+  };
+
   const cards = useMemo(() => [
-    { title: 'Всего партнеров', value: usersCount.toLocaleString('ru-RU'), icon: Users, trend: `Активные: ${activeUsersCount.toLocaleString('ru-RU')}` },
-    { title: 'Общий оборот', value: `${adminStats.totalRevenue.toLocaleString('ru-RU')} ₸`, icon: TrendingUp },
-    { title: 'Выплачено бонусов', value: `${adminStats.totalBonusesPaid.toLocaleString('ru-RU')} ₸`, icon: CreditCard },
-    { title: 'Ожидает вывода', value: `${pendingWithdrawalsAmount.toLocaleString('ru-RU')} ₸`, icon: ArrowUpCircle, trend: `${withdrawalsCount} заявок`, className: 'border-safi-gold/30 bg-safi-gold/5' },
-    { title: 'Активные партнеры', value: activeUsersCount.toLocaleString('ru-RU'), icon: Activity },
-    { title: 'Неактивные партнеры', value: Math.max(usersCount - activeUsersCount, 0).toLocaleString('ru-RU'), icon: Users },
-    { title: 'Продано пакетов', value: adminStats.packagesSold.toLocaleString('ru-RU'), icon: Package },
-    { title: 'Общий PV', value: `${adminStats.totalPV.toLocaleString('ru-RU')} PV`, icon: Activity },
-  ], [activeUsersCount, pendingWithdrawalsAmount, usersCount, withdrawalsCount]);
+    { title: 'Всего партнеров', value: currentSummary.usersTotal.toLocaleString('ru-RU'), icon: Users, trend: `Активные: ${currentSummary.activeUsers.toLocaleString('ru-RU')}` },
+    { title: 'Общий оборот', value: formatMoney(currentSummary.revenue), icon: TrendingUp },
+    { title: 'Выплачено бонусов', value: formatMoney(currentSummary.bonusesPaid), icon: CreditCard },
+    { title: 'Ожидает вывода', value: formatMoney(currentSummary.pendingWithdrawalsAmount), icon: ArrowUpCircle, trend: `${currentSummary.pendingWithdrawals} заявок`, className: 'border-safi-gold/30 bg-safi-gold/5' },
+    { title: 'Активные партнеры', value: currentSummary.activeUsers.toLocaleString('ru-RU'), icon: Activity },
+    { title: 'Неактивные партнеры', value: currentSummary.inactiveUsers.toLocaleString('ru-RU'), icon: Users },
+    { title: 'Продано пакетов', value: currentSummary.packagesSold.toLocaleString('ru-RU'), icon: Package },
+    { title: 'Общий PV', value: `${currentSummary.totalPV.toLocaleString('ru-RU')} PV`, icon: Activity },
+  ], [currentSummary]);
 
   return (
     <div className="space-y-8">
@@ -79,10 +75,15 @@ export default function AdminOverview() {
               Общая статистика платформы Safi Life по партнерам, обороту и заявкам.
             </p>
           </div>
-          {isUsingFallback && <AdminBadge variant="warning">Mock fallback</AdminBadge>}
         </div>
       </section>
 
+      {isLoading && <LoadingState />}
+      {!isLoading && error && <ErrorState description={error} onRetry={loadSummary} />}
+      {!isLoading && !error && !summary && <EmptyState title="Сводка пока пустая" description="Данные появятся после первых операций в системе." />}
+
+      {!isLoading && !error && summary && (
+        <>
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
         {cards.map((card) => (
           <AdminStatCard
@@ -111,18 +112,20 @@ export default function AdminOverview() {
           <h2 className="font-serif text-3xl font-semibold text-white">Быстрые действия</h2>
           <div className="mt-7 space-y-3">
             <QuickLink to="/admin/partners" icon={<Search className="h-4 w-4" />} label="Найти партнера" />
-            <QuickLink to="/admin/withdrawals" icon={<ArrowUpCircle className="h-4 w-4" />} label={`Заявки на вывод: ${withdrawalsCount}`} />
+            <QuickLink to="/admin/withdrawals" icon={<ArrowUpCircle className="h-4 w-4" />} label={`Заявки на вывод: ${currentSummary.pendingWithdrawals}`} />
             <QuickLink to="/admin/transactions" icon={<CreditCard className="h-4 w-4" />} label="Транзакции" />
             <QuickLink to="/admin/reports" icon={<FileText className="h-4 w-4" />} label="Отчеты" />
             <QuickLink to="/admin/settings" icon={<Settings className="h-4 w-4" />} label="Настройки системы" />
           </div>
         </article>
       </section>
+        </>
+      )}
     </div>
   );
 }
 
-function QuickLink({ to, icon, label }: { to: string; icon: React.ReactNode; label: string }) {
+function QuickLink({ to, icon, label }: { to: string; icon: ReactNode; label: string }) {
   return (
     <Link to={to} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.08] p-4 text-sm font-bold text-white/90 transition-colors hover:bg-white/15">
       <span className="text-safi-gold">{icon}</span>
@@ -131,57 +134,31 @@ function QuickLink({ to, icon, label }: { to: string; icon: React.ReactNode; lab
   );
 }
 
-function getArray(response: unknown) {
-  if (Array.isArray(response)) {
-    return response;
-  }
+function normalizeOverview(response: unknown): AdminOverviewSummary {
+  const root = isRecord(response) ? response : {};
+  const users = getRecord(root, 'users');
+  const orders = getRecord(root, 'orders');
+  const bonuses = getRecord(root, 'bonuses');
+  const withdrawals = getRecord(root, 'withdrawals');
 
-  if (isRecord(response)) {
-    if (Array.isArray(response.data)) {
-      return response.data;
-    }
-
-    if (isRecord(response.data) && Array.isArray(response.data.data)) {
-      return response.data.data;
-    }
-
-    if (Array.isArray(response.users)) {
-      return response.users;
-    }
-
-    if (Array.isArray(response.withdrawals)) {
-      return response.withdrawals;
-    }
-  }
-
-  return [];
+  return {
+    usersTotal: getNumericValue(users.total),
+    activeUsers: getNumericValue(users.active),
+    inactiveUsers: getNumericValue(users.inactive),
+    revenue: getNumericValue(orders.revenue),
+    bonusesPaid: getNumericValue(bonuses.paid || bonuses.total),
+    pendingWithdrawals: getNumericValue(withdrawals.pending),
+    pendingWithdrawalsAmount: getNumericValue(withdrawals.pending_amount),
+    packagesSold: getNumericValue(orders.packages_sold || orders.total),
+    totalPV: getNumericValue(orders.total_pv),
+  };
 }
 
-function isActiveUser(user: unknown) {
-  if (!isRecord(user)) {
-    return false;
-  }
-
-  const value = String(user.activity || user.account_status || user.status || '').toLowerCase();
-  return value.includes('active') || value.includes('актив');
+function getRecord(record: Record<string, unknown>, key: string) {
+  return isRecord(record[key]) ? record[key] as Record<string, unknown> : {};
 }
 
-function isPendingWithdrawal(withdrawal: unknown) {
-  if (!isRecord(withdrawal)) {
-    return false;
-  }
-
-  const status = String(withdrawal.status || '').toLowerCase();
-  return ['pending', 'new', 'processing', 'новая заявка', 'в обработке'].includes(status);
-}
-
-function getAmount(withdrawal: unknown) {
-  if (!isRecord(withdrawal)) {
-    return 0;
-  }
-
-  const value = withdrawal.amount || withdrawal.sum;
-
+function getNumericValue(value: unknown) {
   if (typeof value === 'number') {
     return value;
   }
@@ -192,6 +169,10 @@ function getAmount(withdrawal: unknown) {
   }
 
   return 0;
+}
+
+function formatMoney(value: number) {
+  return `${value.toLocaleString('ru-RU')} ₸`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

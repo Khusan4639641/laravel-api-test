@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, Filter, Network, Search } from 'lucide-react';
-import { partners as mockPartners } from '../../data/adminMock';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
-import { getAdminUsers } from '../../lib/api';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { getAdminUsers, getApiErrorState } from '../../lib/api';
 
 interface AdminPartnerRow {
   id: string;
@@ -25,35 +25,28 @@ interface AdminPartnerRow {
 }
 
 export default function AdminPartners() {
-  const [partners, setPartners] = useState<AdminPartnerRow[]>(mockPartners);
+  const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
   const [query, setQuery] = useState('');
-  const [isUsingFallback, setIsUsingFallback] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadUsers = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await getAdminUsers();
+      setPartners(normalizePartners(response));
+    } catch (caughtError) {
+      setPartners([]);
+      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить партнеров.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadUsers() {
-      try {
-        const response = await getAdminUsers();
-        const users = normalizePartners(response);
-
-        if (isMounted && users.length > 0) {
-          setPartners(users);
-          setIsUsingFallback(false);
-        }
-      } catch {
-        if (isMounted) {
-          setPartners(mockPartners);
-          setIsUsingFallback(true);
-        }
-      }
-    }
-
     void loadUsers();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   const visiblePartners = useMemo(() => {
@@ -79,7 +72,6 @@ export default function AdminPartners() {
               Пользователи, пакеты, PV, балансы и статус аккаунта.
             </p>
           </div>
-          {isUsingFallback && <AdminBadge variant="warning">Mock fallback</AdminBadge>}
         </div>
       </section>
 
@@ -109,56 +101,64 @@ export default function AdminPartners() {
         </div>
       </section>
 
-      <AdminTable headers={['Партнер', 'Контакты', 'Спонсор', 'Пакет / статус', 'PV', 'Финансы', 'Аккаунт', 'Действия']}>
-        {visiblePartners.map((partner) => (
-          <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
-            <td className="px-6 py-4">
-              <Link to={`/admin/partners/${partner.id}`} className="block hover:opacity-80">
-                <div className="font-bold text-safi-green">{partner.fullName}</div>
-                <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</div>
-                <div className="mt-1 text-[10px] text-safi-muted">Рег: {partner.registrationDate}</div>
-              </Link>
-            </td>
-            <td className="px-6 py-4">
-              <div className="text-sm text-safi-green">{partner.phone}</div>
-              <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
-              <div className="mt-1 text-[10px] text-safi-muted">{partner.city}</div>
-            </td>
-            <td className="px-6 py-4">
-              <div className="inline-block rounded-full bg-safi-cream px-3 py-1 font-mono text-xs font-bold text-safi-green">{partner.sponsor}</div>
-              <div className="mt-1 text-[10px] text-safi-muted">Пригласил: {partner.invitedCount}</div>
-            </td>
-            <td className="px-6 py-4">
-              <div className="mb-2"><AdminBadge variant="gold">{partner.package}</AdminBadge></div>
-              <AdminBadge variant="default">{partner.status}</AdminBadge>
-            </td>
-            <td className="px-6 py-4">
-              <div className="text-sm">Л: <span className="font-bold text-safi-green">{partner.personalPV}</span></div>
-              <div className="mt-1 text-xs text-safi-muted">К: {partner.teamPV}</div>
-            </td>
-            <td className="px-6 py-4">
-              <div className="text-sm font-bold text-safi-green">Баланс: {partner.availableBalance.toLocaleString('ru-RU')}</div>
-              <div className="mt-1 text-[10px] text-safi-muted">Всего: {partner.totalIncome.toLocaleString('ru-RU')}</div>
-            </td>
-            <td className="px-6 py-4">
-              <div className="mb-2">
-                <AdminBadge variant={partner.accountStatus === 'Активен' ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
-              </div>
-              <AdminBadge variant={partner.activity === 'Активен' ? 'success' : 'warning'}>{partner.activity}</AdminBadge>
-            </td>
-            <td className="px-6 py-4 text-right">
-              <div className="flex items-center justify-end gap-2">
-                <Link to={`/admin/partners/${partner.id}`} className="rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Открыть профиль">
-                  <Eye className="h-4 w-4" />
+      {isLoading && <LoadingState />}
+      {!isLoading && error && <ErrorState description={error} onRetry={loadUsers} />}
+      {!isLoading && !error && visiblePartners.length === 0 && (
+        <EmptyState title="Партнеры не найдены" description={query ? 'Попробуйте изменить поисковый запрос.' : 'Список появится после регистрации пользователей.'} />
+      )}
+
+      {!isLoading && !error && visiblePartners.length > 0 && (
+        <AdminTable headers={['Партнер', 'Контакты', 'Спонсор', 'Пакет / статус', 'PV', 'Финансы', 'Аккаунт', 'Действия']}>
+          {visiblePartners.map((partner) => (
+            <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
+              <td className="px-6 py-4">
+                <Link to={`/admin/partners/${partner.id}`} className="block hover:opacity-80">
+                  <div className="font-bold text-safi-green">{partner.fullName}</div>
+                  <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</div>
+                  <div className="mt-1 text-[10px] text-safi-muted">Рег: {partner.registrationDate}</div>
                 </Link>
-                <Link to="/admin/structure" className="rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Структура">
-                  <Network className="h-4 w-4" />
-                </Link>
-              </div>
-            </td>
-          </tr>
-        ))}
-      </AdminTable>
+              </td>
+              <td className="px-6 py-4">
+                <div className="text-sm text-safi-green">{partner.phone}</div>
+                <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
+                <div className="mt-1 text-[10px] text-safi-muted">{partner.city}</div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="inline-block rounded-full bg-safi-cream px-3 py-1 font-mono text-xs font-bold text-safi-green">{partner.sponsor}</div>
+                <div className="mt-1 text-[10px] text-safi-muted">Пригласил: {partner.invitedCount}</div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="mb-2"><AdminBadge variant="gold">{partner.package}</AdminBadge></div>
+                <AdminBadge variant="default">{partner.status}</AdminBadge>
+              </td>
+              <td className="px-6 py-4">
+                <div className="text-sm">Л: <span className="font-bold text-safi-green">{partner.personalPV}</span></div>
+                <div className="mt-1 text-xs text-safi-muted">К: {partner.teamPV}</div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="text-sm font-bold text-safi-green">Баланс: {partner.availableBalance.toLocaleString('ru-RU')}</div>
+                <div className="mt-1 text-[10px] text-safi-muted">Всего: {partner.totalIncome.toLocaleString('ru-RU')}</div>
+              </td>
+              <td className="px-6 py-4">
+                <div className="mb-2">
+                  <AdminBadge variant={partner.accountStatus === 'Активен' ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
+                </div>
+                <AdminBadge variant={partner.activity === 'Активен' ? 'success' : 'warning'}>{partner.activity}</AdminBadge>
+              </td>
+              <td className="px-6 py-4 text-right">
+                <div className="flex items-center justify-end gap-2">
+                  <Link to={`/admin/partners/${partner.id}`} className="rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Открыть профиль">
+                    <Eye className="h-4 w-4" />
+                  </Link>
+                  <Link to="/admin/structure" className="rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Структура">
+                    <Network className="h-4 w-4" />
+                  </Link>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </AdminTable>
+      )}
     </div>
   );
 }

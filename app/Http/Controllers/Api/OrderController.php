@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Order\StoreOrderRequest;
+use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\JsonResponse;
@@ -17,11 +18,11 @@ class OrderController extends Controller
     public function index(Request $request): JsonResponse
     {
         return response()->json([
-            'orders' => $request->user()
+            'orders' => OrderResource::collection($request->user()
                 ->orders()
                 ->with('items.product')
                 ->latest()
-                ->get(),
+                ->get()),
         ]);
     }
 
@@ -32,7 +33,7 @@ class OrderController extends Controller
         }
 
         return response()->json([
-            'order' => $order->load('items.product'),
+            'order' => OrderResource::make($order->load('items.product')),
         ]);
     }
 
@@ -114,7 +115,7 @@ class OrderController extends Controller
         });
 
         return response()->json([
-            'order' => $order,
+            'order' => OrderResource::make($order),
         ], 201);
     }
 

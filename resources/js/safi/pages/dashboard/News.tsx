@@ -1,9 +1,32 @@
+import { useCallback, useEffect, useState } from 'react';
 import { Calendar } from 'lucide-react';
-import { newsArticles } from '../../data/news';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { getApiErrorState, getPublicNews, NewsArticle } from '../../lib/api';
 
 export default function News() {
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const featuredArticle = newsArticles[0];
   const otherArticles = newsArticles.slice(1);
+
+  const loadNews = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      setNewsArticles(await getPublicNews());
+    } catch (caughtError) {
+      setNewsArticles([]);
+      setError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNews();
+  }, [loadNews]);
 
   return (
     <div className="space-y-8">
@@ -15,7 +38,19 @@ export default function News() {
         </p>
       </section>
 
-      {featuredArticle && (
+      {isLoading && (
+        <LoadingState title="Загружаем новости" description="Получаем новости из публичного API." />
+      )}
+
+      {!isLoading && error && (
+        <ErrorState description={error} onRetry={loadNews} />
+      )}
+
+      {!isLoading && !error && !featuredArticle && (
+        <EmptyState title="Новостей пока нет" description="После публикации новости появятся в этом разделе." />
+      )}
+
+      {!isLoading && !error && featuredArticle && (
         <article className="grid overflow-hidden rounded-[36px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.06)] lg:grid-cols-[0.95fr_1.05fr]">
           <div className="min-h-[280px] bg-safi-cream">
             <img
@@ -32,7 +67,16 @@ export default function News() {
         </article>
       )}
 
-      <section className="grid gap-5 md:grid-cols-2">
+      {!isLoading && !error && featuredArticle && (
+        <section className="grid gap-5 md:grid-cols-2">
+        {otherArticles.length === 0 && (
+          <EmptyState
+            title="Других новостей пока нет"
+            description="Новые публикации появятся здесь."
+            className="md:col-span-2"
+          />
+        )}
+
         {otherArticles.map((article) => (
           <article key={article.id} className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             {article.imageUrl && (
@@ -47,7 +91,8 @@ export default function News() {
             </div>
           </article>
         ))}
-      </section>
+        </section>
+      )}
     </div>
   );
 }

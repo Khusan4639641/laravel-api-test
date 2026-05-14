@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
 use App\Models\Package;
 use App\Services\PackageService;
 use Illuminate\Http\JsonResponse;
@@ -26,6 +27,9 @@ class PackageUpgradeController extends Controller
 
         $result = $this->packageService->upgradeExistingPackage($request->user(), $package);
 
-        return response()->json($result);
+        return response()->json([
+            ...$result,
+            'user' => UserResource::make($result['user']),
+        ]);
     }
 }

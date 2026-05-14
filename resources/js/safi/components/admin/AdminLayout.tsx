@@ -21,14 +21,14 @@ export function useAdminContext() {
   return useOutletContext<AdminContextValue>();
 }
 
-const fallbackAdmin: AdminCurrentUser = {
+const adminDefaults: AdminCurrentUser = {
   name: 'Super Admin',
   role: 'admin',
 };
 
 export function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<AdminCurrentUser>(fallbackAdmin);
+  const [currentUser, setCurrentUser] = useState<AdminCurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -36,15 +36,19 @@ export function AdminLayout() {
     const token = getAuthToken();
 
     if (!token) {
+      setIsLoading(false);
       navigate('/login', { replace: true });
       return;
     }
+
+    setIsLoading(true);
 
     try {
       const response = await me();
       const adminUser = normalizeAdminUser(response);
 
       if (!isAdmin(adminUser)) {
+        setIsLoading(false);
         navigate('/dashboard', { replace: true });
         return;
       }
@@ -53,10 +57,12 @@ export function AdminLayout() {
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         clearAuthToken();
+        setIsLoading(false);
         navigate('/login', { replace: true });
         return;
       }
 
+      setIsLoading(false);
       navigate('/dashboard', { replace: true });
       return;
     } finally {
@@ -77,6 +83,10 @@ export function AdminLayout() {
         </div>
       </div>
     );
+  }
+
+  if (!currentUser) {
+    return null;
   }
 
   return (
@@ -140,7 +150,7 @@ function normalizeAdminUser(response: unknown): AdminCurrentUser {
 
   return {
     id: getValue(record, ['id']) as string | number | undefined,
-    name: getString(record, ['name', 'full_name', 'fullName']) || fallbackAdmin.name,
+    name: getString(record, ['name', 'full_name', 'fullName']) || adminDefaults.name,
     email: getString(record, ['email']),
     role,
     raw: response,
@@ -148,7 +158,7 @@ function normalizeAdminUser(response: unknown): AdminCurrentUser {
 }
 
 function isAdmin(user: AdminCurrentUser) {
-  return ['admin', 'super_admin', 'super-admin', 'administrator'].includes(user.role.toLowerCase());
+  return user.role.toLowerCase() === 'admin';
 }
 
 function extractRole(record: Record<string, unknown>) {

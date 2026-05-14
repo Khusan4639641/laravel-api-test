@@ -1,9 +1,9 @@
-import { FormEvent, useEffect, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { ArrowUpCircle, Calculator, CheckCircle2, Info, Wallet } from 'lucide-react';
-import { balance, bonuses, structure, withdrawals as mockWithdrawals } from '../../data/dashboardMock';
 import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
-import { ApiError, calculateBinaryBonus, createWithdrawal, getWithdrawals } from '../../lib/api';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { ApiError, calculateBinaryBonus, createDashboardWithdrawal, getApiErrorState, getArray, getDashboardBonuses, getDashboardOverview, getDashboardWithdrawals, getNumber, getString } from '../../lib/api';
 import { cn } from '../../lib/utils';
 
 interface WithdrawalItem {
@@ -19,39 +19,71 @@ interface WithdrawalItem {
 export default function Bonuses() {
   const { currentUser } = useDashboardContext();
   const [activeTab, setActiveTab] = useState<'bonuses' | 'withdrawal'>('bonuses');
-  const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>(mockWithdrawals);
+  const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
+  const [balance, setBalance] = useState({ pending: 0, withdrawn: 0 });
+  const [bonuses, setBonuses] = useState({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
+  const [structure, setStructure] = useState({ leftPV: 0, rightPV: 0, weakLeg: 'left' });
   const [withdrawalAmount, setWithdrawalAmount] = useState(50000);
   const [withdrawalMethod, setWithdrawalMethod] = useState('card');
   const [binaryResult, setBinaryResult] = useState<number | null>(null);
   const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    let isMounted = true;
+  const loadBonusData = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError(null);
 
-    async function loadWithdrawals() {
-      try {
-        const response = await getWithdrawals();
-        const apiWithdrawals = normalizeWithdrawals(response);
+    try {
+      const [withdrawalsResponse, bonusesResponse, overviewResponse] = await Promise.all([
+        getDashboardWithdrawals(),
+        getDashboardBonuses(),
+        getDashboardOverview(),
+      ]);
 
-        if (isMounted && apiWithdrawals.length > 0) {
-          setWithdrawals(apiWithdrawals);
-        }
-      } catch {
-        if (isMounted) {
-          setWithdrawals(mockWithdrawals);
-        }
-      }
+      setWithdrawals(normalizeWithdrawals(withdrawalsResponse));
+
+      const response = bonusesResponse;
+      const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
+      const summary = record.summary && typeof record.summary === 'object' ? record.summary as Record<string, unknown> : {};
+      const byType = summary.by_type && typeof summary.by_type === 'object' ? summary.by_type as Record<string, unknown> : {};
+      setBonuses({
+        referral: getNumber(byType, ['referral']) ?? 0,
+        binary: getNumber(byType, ['binary']) ?? 0,
+        status: getNumber(byType, ['status']) ?? 0,
+        cashback: getNumber(byType, ['cashback']) ?? 0,
+        deposit: 0,
+        bonusX2: 0,
+      });
+
+      const overview = overviewResponse;
+      const overviewRecord = overview && typeof overview === 'object' ? overview as Record<string, unknown> : {};
+      const balances = overviewRecord.balances && typeof overviewRecord.balances === 'object' ? overviewRecord.balances as Record<string, unknown> : {};
+      const structureRecord = overviewRecord.structure && typeof overviewRecord.structure === 'object' ? overviewRecord.structure as Record<string, unknown> : {};
+      setBalance({
+        pending: getNumber(balances, ['pending_withdrawals']) ?? 0,
+        withdrawn: getNumber(balances, ['withdrawn']) ?? 0,
+      });
+      setStructure({
+        leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
+        rightPV: getNumber(structureRecord, ['right_pv']) ?? 0,
+        weakLeg: getString(structureRecord, ['weak_leg']) || 'left',
+      });
+    } catch (caughtError) {
+      setWithdrawals([]);
+      setBonuses({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
+      setLoadError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
     }
-
-    void loadWithdrawals();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadBonusData();
+  }, [loadBonusData]);
 
   const submitWithdrawal = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -60,11 +92,12 @@ export default function Bonuses() {
     setError('');
 
     try {
-      await createWithdrawal({
+      await createDashboardWithdrawal({
         amount: withdrawalAmount,
         method: withdrawalMethod,
       });
       setMessage('Заявка на вывод отправлена.');
+      await loadBonusData();
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message);
@@ -123,7 +156,15 @@ export default function Bonuses() {
         </div>
       )}
 
-      {activeTab === 'bonuses' && (
+      {isLoading && (
+        <LoadingState title="Загружаем бонусы" description="Получаем кошелек, бонусы и заявки на вывод из API." />
+      )}
+
+      {!isLoading && loadError && (
+        <ErrorState description={loadError} onRetry={loadBonusData} />
+      )}
+
+      {!isLoading && !loadError && activeTab === 'bonuses' && (
         <div className="space-y-8">
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard title="Доступно" value={`${currentUser.walletAvailable.toLocaleString('ru-RU')} ₸`} icon={<Wallet className="h-5 w-5" />} variant="primary" />
@@ -140,6 +181,13 @@ export default function Bonuses() {
             <BonusMiniCard title="Депозит" amount={bonuses.deposit} />
             <BonusMiniCard title="Bonus X2" amount={bonuses.bonusX2} />
           </section>
+
+          {Object.values(bonuses).every((amount) => amount === 0) && (
+            <EmptyState
+              title="Бонусов пока нет"
+              description="Начисления появятся после продаж, структуры или других бонусных операций."
+            />
+          )}
 
           <section className="grid gap-8 lg:grid-cols-2">
             <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -193,7 +241,7 @@ export default function Bonuses() {
         </div>
       )}
 
-      {activeTab === 'withdrawal' && (
+      {!isLoading && !loadError && activeTab === 'withdrawal' && (
         <div className="space-y-8">
           <section className="grid gap-8 lg:grid-cols-[1.25fr_0.75fr]">
             <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
@@ -264,6 +312,18 @@ export default function Bonuses() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-safi-border text-sm">
+                  {withdrawals.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-7 py-8">
+                        <EmptyState
+                          title="Заявок на вывод пока нет"
+                          description="История появится после первой заявки на вывод."
+                          className="min-h-[180px] shadow-none"
+                        />
+                      </td>
+                    </tr>
+                  )}
+
                   {withdrawals.map((withdrawal) => (
                     <tr key={withdrawal.id} className="transition-colors hover:bg-safi-cream/70">
                       <td className="px-7 py-5">

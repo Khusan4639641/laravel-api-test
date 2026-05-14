@@ -5,7 +5,7 @@ import { useDashboardContext } from '../../components/dashboard/DashboardLayout'
 const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 py-4 text-sm font-bold text-safi-green outline-none transition-all placeholder:text-safi-muted/50 focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25';
 
 export default function Profile() {
-  const { currentUser, isUsingMockUser } = useDashboardContext();
+  const { currentUser } = useDashboardContext();
 
   return (
     <div className="space-y-8">
@@ -43,7 +43,6 @@ export default function Profile() {
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               <Badge variant="gold">{currentUser.packageName}</Badge>
               <Badge variant="default">{currentUser.status}</Badge>
-              {isUsingMockUser && <Badge variant="warning">Mock</Badge>}
             </div>
           </article>
 

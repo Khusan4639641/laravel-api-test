@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, Search, XCircle } from 'lucide-react';
-import { withdrawals as mockWithdrawals } from '../../data/adminMock';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ApiError, approveAdminWithdrawal, getAdminWithdrawals, rejectAdminWithdrawal } from '../../lib/api';
 
 interface AdminWithdrawalRow {
@@ -20,25 +20,28 @@ interface AdminWithdrawalRow {
 }
 
 export default function AdminWithdrawals() {
-  const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRow[]>(mockWithdrawals);
+  const [withdrawals, setWithdrawals] = useState<AdminWithdrawalRow[]>([]);
   const [query, setQuery] = useState('');
   const [pendingId, setPendingId] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [isUsingFallback, setIsUsingFallback] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadWithdrawals = async () => {
+    setIsLoading(true);
+    setLoadError('');
+
     try {
       const response = await getAdminWithdrawals();
       const data = normalizeWithdrawals(response);
 
-      if (data.length > 0) {
-        setWithdrawals(data);
-        setIsUsingFallback(false);
-      }
+      setWithdrawals(data);
     } catch {
-      setWithdrawals(mockWithdrawals);
-      setIsUsingFallback(true);
+      setWithdrawals([]);
+      setLoadError('Не удалось загрузить заявки на вывод.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -101,7 +104,6 @@ export default function AdminWithdrawals() {
               Проверка реквизитов, одобрение и отклонение заявок партнеров.
             </p>
           </div>
-          {isUsingFallback && <AdminBadge variant="warning">Mock fallback</AdminBadge>}
         </div>
       </section>
 
@@ -141,60 +143,68 @@ export default function AdminWithdrawals() {
         </label>
       </section>
 
-      <AdminTable headers={['Заявка / дата', 'Партнер', 'Сумма / способ', 'Реквизиты', 'Статус', 'Действия']}>
-        {visibleWithdrawals.map((withdrawal) => (
-          <tr key={withdrawal.id} className="transition-colors hover:bg-safi-cream/70">
-            <td className="px-6 py-5">
-              <div className="font-bold text-safi-green">{withdrawal.id}</div>
-              <div className="mt-1 text-xs text-safi-muted">{withdrawal.date}</div>
-            </td>
-            <td className="px-6 py-5">
-              <div className="font-bold text-safi-green">{withdrawal.partnerName}</div>
-              <div className="mt-1 font-mono text-[10px] text-safi-muted">{withdrawal.partnerId}</div>
-            </td>
-            <td className="px-6 py-5">
-              <div className="mb-1 text-lg font-bold text-safi-green">{withdrawal.amount}</div>
-              <div className="text-xs text-safi-muted">{withdrawal.method}</div>
-            </td>
-            <td className="px-6 py-5">
-              <div className="max-w-[220px] truncate font-mono text-sm">{withdrawal.reqs}</div>
-              <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank} / ИИН: {withdrawal.iin}</div>
-            </td>
-            <td className="px-6 py-5">
-              <AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.status)}>{withdrawal.status}</AdminBadge>
-              {withdrawal.comment && <div className="mt-2 text-[10px] text-red-600">{withdrawal.comment}</div>}
-            </td>
-            <td className="px-6 py-5">
-              <div className="flex items-center justify-center gap-2">
-                {isProcessed(withdrawal.status) ? (
-                  <span className="text-xs font-bold uppercase tracking-[0.14em] text-safi-muted">{withdrawal.processedDate}</span>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      disabled={pendingId === withdrawal.id}
-                      onClick={() => handleAction(withdrawal.id, 'approve')}
-                      className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-emerald-100 bg-emerald-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-emerald-700 transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-50"
-                    >
-                      <CheckCircle className="h-5 w-5" />
-                      {pendingId === withdrawal.id ? '...' : 'Одобр.'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pendingId === withdrawal.id}
-                      onClick={() => handleAction(withdrawal.id, 'reject')}
-                      className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-red-100 bg-red-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-red-700 transition-colors hover:bg-red-600 hover:text-white disabled:opacity-50"
-                    >
-                      <XCircle className="h-5 w-5" />
-                      {pendingId === withdrawal.id ? '...' : 'Откл.'}
-                    </button>
-                  </>
-                )}
-              </div>
-            </td>
-          </tr>
-        ))}
-      </AdminTable>
+      {isLoading && <LoadingState />}
+      {!isLoading && loadError && <ErrorState description={loadError} onRetry={loadWithdrawals} />}
+      {!isLoading && !loadError && visibleWithdrawals.length === 0 && (
+        <EmptyState title="Заявок не найдено" description={query ? 'Попробуйте изменить поисковый запрос.' : 'Заявки появятся после запросов на вывод.'} />
+      )}
+
+      {!isLoading && !loadError && visibleWithdrawals.length > 0 && (
+        <AdminTable headers={['Заявка / дата', 'Партнер', 'Сумма / способ', 'Реквизиты', 'Статус', 'Действия']}>
+          {visibleWithdrawals.map((withdrawal) => (
+            <tr key={withdrawal.id} className="transition-colors hover:bg-safi-cream/70">
+              <td className="px-6 py-5">
+                <div className="font-bold text-safi-green">{withdrawal.id}</div>
+                <div className="mt-1 text-xs text-safi-muted">{withdrawal.date}</div>
+              </td>
+              <td className="px-6 py-5">
+                <div className="font-bold text-safi-green">{withdrawal.partnerName}</div>
+                <div className="mt-1 font-mono text-[10px] text-safi-muted">{withdrawal.partnerId}</div>
+              </td>
+              <td className="px-6 py-5">
+                <div className="mb-1 text-lg font-bold text-safi-green">{withdrawal.amount}</div>
+                <div className="text-xs text-safi-muted">{withdrawal.method}</div>
+              </td>
+              <td className="px-6 py-5">
+                <div className="max-w-[220px] truncate font-mono text-sm">{withdrawal.reqs}</div>
+                <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank} / ИИН: {withdrawal.iin}</div>
+              </td>
+              <td className="px-6 py-5">
+                <AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.status)}>{withdrawal.status}</AdminBadge>
+                {withdrawal.comment && <div className="mt-2 text-[10px] text-red-600">{withdrawal.comment}</div>}
+              </td>
+              <td className="px-6 py-5">
+                <div className="flex items-center justify-center gap-2">
+                  {isProcessed(withdrawal.status) ? (
+                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-safi-muted">{withdrawal.processedDate}</span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        disabled={pendingId === withdrawal.id}
+                        onClick={() => handleAction(withdrawal.id, 'approve')}
+                        className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-emerald-100 bg-emerald-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-emerald-700 transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-50"
+                      >
+                        <CheckCircle className="h-5 w-5" />
+                        {pendingId === withdrawal.id ? '...' : 'Одобр.'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={pendingId === withdrawal.id}
+                        onClick={() => handleAction(withdrawal.id, 'reject')}
+                        className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-red-100 bg-red-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-red-700 transition-colors hover:bg-red-600 hover:text-white disabled:opacity-50"
+                      >
+                        <XCircle className="h-5 w-5" />
+                        {pendingId === withdrawal.id ? '...' : 'Откл.'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </AdminTable>
+      )}
     </div>
   );
 }

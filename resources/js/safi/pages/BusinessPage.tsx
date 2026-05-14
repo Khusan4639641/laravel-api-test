@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight, Check, LineChart, Network, PackageCheck, Wallet } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { packages } from '../data/packages';
+import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
+import { getApiErrorState, getPublicPackages, Package } from '../lib/api';
 
 const audience = [
   'Люди, ищущие дополнительный заработок',
@@ -39,6 +40,27 @@ const advantages = [
 
 export default function BusinessPage() {
   const { t } = useTranslation();
+  const [packages, setPackages] = useState<Package[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadPackages = React.useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      setPackages(await getPublicPackages());
+    } catch (caughtError) {
+      setPackages([]);
+      setError(getApiErrorState(caughtError).error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadPackages();
+  }, [loadPackages]);
 
   return (
     <div className="bg-safi-bg text-safi-green">
@@ -139,7 +161,27 @@ export default function BusinessPage() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-3">
-            {packages.map((pkg) => (
+            {isLoading && (
+              <LoadingState
+                title="Загружаем пакеты"
+                description="Получаем уровни старта из публичного API."
+                className="md:col-span-3"
+              />
+            )}
+
+            {!isLoading && error && (
+              <ErrorState description={error} onRetry={loadPackages} className="md:col-span-3" />
+            )}
+
+            {!isLoading && !error && packages.length === 0 && (
+              <EmptyState
+                title="Пакеты пока не опубликованы"
+                description="После настройки пакетов они появятся в этом блоке."
+                className="md:col-span-3"
+              />
+            )}
+
+            {!isLoading && !error && packages.map((pkg) => (
               <article
                 key={pkg.id}
                 className={`rounded-3xl border p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] ${
