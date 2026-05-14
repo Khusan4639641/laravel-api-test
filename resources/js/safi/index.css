@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-safi-black: #080D0A;
+  --color-safi-green: #0B1712;
+  --color-safi-green-hover: #13251D;
+  --color-safi-text: #26302B;
+  --color-safi-muted: #727A75;
+  --color-safi-bg: #FDFBF6;
+  --color-safi-cream: #F5F1E8;
+  --color-safi-card: #FFFFFF;
+  --color-safi-border: #E8E1D3;
+  --color-safi-gold: #C9A646;
+  --color-safi-gold-hover: #B7922E;
+
+  --font-serif: "Playfair Display", ui-serif, Georgia, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    text-rendering: geometricPrecision;
+  }
+
+  body {
+    min-width: 320px;
+    background-color: var(--color-safi-bg);
+    color: var(--color-safi-green);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: 0;
+  }
+
+  a,
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--color-safi-gold) 28%, transparent);
+    color: var(--color-safi-black);
+  }
+}
+
+@layer utilities {
+  .safi-kicker {
+    @apply text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-gold;
+  }
+
+  .safi-hero-title {
+    @apply font-serif text-5xl font-semibold leading-[0.98] text-safi-green md:text-7xl lg:text-8xl;
+  }
+
+  .safi-page-title {
+    @apply font-serif text-4xl font-semibold leading-tight text-safi-green md:text-5xl lg:text-6xl;
+  }
+
+  .safi-muted {
+    @apply text-safi-muted;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

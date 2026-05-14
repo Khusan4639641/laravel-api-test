@@ -1,0 +1,135 @@
+import { Link, useLocation } from 'react-router-dom';
+import {
+  ArrowUpCircle,
+  BarChart,
+  CreditCard,
+  Gift,
+  LogOut,
+  MessageSquare,
+  Network,
+  Newspaper,
+  Package,
+  PieChart,
+  Settings,
+  ShoppingBag,
+  Trophy,
+  Users,
+} from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { logout } from '../../lib/api';
+
+const menuItems = [
+  { path: '/admin', name: 'Обзор', icon: BarChart },
+  { path: '/admin/partners', name: 'Партнеры', icon: Users },
+  { path: '/admin/structure', name: 'Структура', icon: Network },
+  { path: '/admin/transactions', name: 'Транзакции', icon: CreditCard },
+  { path: '/admin/withdrawals', name: 'Выводы', icon: ArrowUpCircle },
+  { path: '/admin/bonuses', name: 'Бонусы', icon: Gift },
+  { path: '/admin/packages', name: 'Пакеты', icon: Package },
+  { path: '/admin/statuses', name: 'Статусы', icon: Trophy },
+  { path: '/admin/products', name: 'Продукты', icon: ShoppingBag },
+  { path: '/admin/news', name: 'Новости', icon: Newspaper },
+  { path: '/admin/support', name: 'Поддержка', icon: MessageSquare },
+  { path: '/admin/reports', name: 'Отчеты', icon: PieChart },
+  { path: '/admin/settings', name: 'Настройки', icon: Settings },
+];
+
+interface AdminSidebarUser {
+  name: string;
+  role: string;
+}
+
+export function AdminSidebar({
+  isOpen,
+  onClose,
+  currentUser,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  currentUser: AdminSidebarUser;
+}) {
+  const location = useLocation();
+
+  return (
+    <>
+      {isOpen && (
+        <button
+          type="button"
+          aria-label="Закрыть меню"
+          className="fixed inset-0 z-40 bg-safi-green/30 backdrop-blur-sm xl:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={cn(
+          'fixed left-0 top-0 z-50 flex h-full w-[280px] flex-col overflow-y-auto border-r border-safi-border bg-white transition-transform duration-300',
+          isOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'
+        )}
+      >
+        <div className="flex h-20 shrink-0 items-center border-b border-safi-border px-6">
+          <Link to="/admin" className="flex items-center gap-3" onClick={onClose}>
+            <img
+              alt="Safi Life"
+              src="https://napaxiong.wordpress.com/wp-content/uploads/2026/04/safi-life.png"
+              className="h-10 w-[112px] object-contain"
+            />
+          </Link>
+        </div>
+
+        <div className="border-b border-safi-border px-5 py-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-safi-green font-serif text-xl font-semibold text-safi-gold">
+              {currentUser.name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <div className="truncate text-sm font-extrabold text-safi-green">{currentUser.name}</div>
+              <div className="mt-1 truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+                {currentUser.role}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-2 px-4 py-6">
+          <div className="mb-2 pl-4 text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-muted">Управление</div>
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path));
+
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 rounded-2xl px-4 py-3 text-xs font-extrabold uppercase tracking-[0.14em] transition-all',
+                  isActive
+                    ? 'bg-safi-green text-white shadow-[0_16px_34px_rgba(11,23,18,0.16)]'
+                    : 'text-safi-muted hover:bg-safi-cream hover:text-safi-green'
+                )}
+              >
+                <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-safi-gold' : 'text-current')} />
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-safi-border p-4">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              void logout();
+            }}
+            className="flex w-full items-center justify-center gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-red-600 transition-colors hover:border-red-200 hover:bg-red-100"
+          >
+            <LogOut className="h-5 w-5" />
+            Выйти
+          </button>
+        </div>
+      </aside>
+    </>
+  );
+}
