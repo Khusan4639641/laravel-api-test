@@ -1,13 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Check, LogIn, PackagePlus, PlayCircle } from 'lucide-react';
 import { Container } from '../components/ui/Container';
+import { SectionTitle } from '../components/ui/SectionTitle';
 import { Button } from '../components/ui/Button';
-import { getPublicPackages, Package } from '../lib/api';
 
 export default function HowToStartPage() {
   const { t } = useTranslation();
-  const [packages, setPackages] = useState<Package[]>([]);
   const steps = [
     { title: t('howToStart.steps.0.title', 'Оставьте заявку или зарегистрируйтесь'), desc: t('howToStart.steps.0.desc', 'Воспользуйтесь реферальной ссылкой или заполните форму.') },
     { title: t('howToStart.steps.1.title', 'Выберите стартовый пакет'), desc: t('howToStart.steps.1.desc', 'Определитесь между BUSINESS, VIP или ELITE.') },
@@ -18,114 +16,34 @@ export default function HowToStartPage() {
     { title: t('howToStart.steps.6.title', 'Достигайте статусов'), desc: t('howToStart.steps.6.desc', 'Получайте премии и отслеживайте рост команды.') },
   ];
 
-  useEffect(() => {
-    void getPublicPackages().then(setPackages).catch(() => setPackages([]));
-  }, []);
-
   return (
-    <div className="bg-safi-bg text-safi-green">
-      <section className="border-b border-safi-border bg-safi-bg py-16 md:py-24">
-        <Container>
-          <div className="grid gap-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
-            <div className="max-w-3xl">
-              <span className="safi-kicker">Start with Safi</span>
-              <h1 className="mt-4 font-serif text-5xl font-semibold leading-[1.04] text-safi-green md:text-7xl">
-                {t('howToStart.pageTitle', 'С чего')}{' '}
-                <span className="italic text-safi-gold">{t('howToStart.title2', 'начать')}</span>
-              </h1>
-              <p className="mt-7 max-w-2xl text-base leading-8 text-safi-muted md:text-xl">
-                {t('howToStart.pageSubtitle', '7 простых шагов к созданию бизнеса вместе с Safi Life')}
-              </p>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Button size="lg" to="/register">
-                  {t('howToStart.startBtn', 'Начать с Safi Life')}
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-                <Button size="lg" variant="outline" to="/marketing">
-                  Изучить план
-                </Button>
+    <div className="py-20 bg-safi-bg min-h-screen relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-safi-green/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+
+      <Container className="relative z-10">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-safi-green mb-4">{t('howToStart.pageTitle', 'С чего')} <span className="italic text-safi-gold">{t('howToStart.title2', 'начать')}</span></h2>
+          <p className="text-safi-text opacity-70 max-w-2xl mx-auto uppercase tracking-wider text-xs font-bold">{t('howToStart.pageSubtitle', '7 простых шагов к созданию бизнеса вместе с Safi Life')}</p>
+        </div>
+        
+        <div className="max-w-3xl mx-auto space-y-6 mb-16">
+          {steps.map((step, i) => (
+            <div key={i} className="flex gap-6 items-start bg-white p-6 md:p-8 rounded-[32px] shadow-sm border border-safi-green/5 hover:-translate-y-1 transition-transform duration-300">
+              <div className="w-12 h-12 bg-[#F5F5F0] text-safi-gold font-serif font-bold text-2xl rounded-[16px] flex items-center justify-center shrink-0">
+                {i + 1}
+              </div>
+              <div className="pt-2">
+                <h4 className="text-xl font-serif font-bold text-safi-green mb-2">{step.title}</h4>
+                <p className="text-safi-text opacity-70 text-sm leading-relaxed">{step.desc}</p>
               </div>
             </div>
-
-            <div className="grid gap-4">
-              <HeroStep icon={LogIn} title="Регистрация" desc="Аккаунт, реферальная ссылка и стартовая заявка." />
-              <HeroStep icon={PackagePlus} title="Пакет" desc="Выбор уровня входа с понятными бонусами." />
-              <HeroStep icon={PlayCircle} title="Запуск" desc="Продажи, рекомендации и рост структуры." />
-            </div>
-          </div>
-        </Container>
-      </section>
-
-      <section className="bg-white py-16 md:py-24">
-        <Container>
-          <div className="mb-10 text-center md:mb-14">
-            <span className="safi-kicker">7 steps</span>
-            <h2 className="mx-auto mt-3 max-w-3xl font-serif text-4xl font-semibold leading-tight text-safi-green md:text-6xl">
-              Пошаговый старт без лишней сложности
-            </h2>
-          </div>
-
-          <div className="mx-auto grid max-w-5xl gap-5">
-            {steps.map((step, index) => (
-              <article key={step.title} className="grid gap-5 rounded-3xl border border-safi-border bg-safi-cream p-6 md:grid-cols-[80px_1fr] md:p-7">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white font-serif text-3xl font-semibold text-safi-gold">
-                  {index + 1}
-                </div>
-                <div>
-                  <h3 className="font-serif text-2xl font-semibold text-safi-green">{step.title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-safi-muted">{step.desc}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </Container>
-      </section>
-
-      <section className="border-y border-safi-border bg-safi-cream py-16 md:py-24">
-        <Container>
-          <div className="mb-10 flex flex-col gap-5 md:mb-14 md:flex-row md:items-end md:justify-between">
-            <div>
-              <span className="safi-kicker">Packages</span>
-              <h2 className="mt-3 max-w-3xl font-serif text-4xl font-semibold leading-tight text-safi-green md:text-6xl">
-                Стартовые пакеты
-              </h2>
-            </div>
-            <Button to="/register" variant="outline">
-              Зарегистрироваться
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-3">
-            {packages.map((pkg) => (
-              <article key={pkg.id} className="rounded-3xl border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-                <h3 className="font-serif text-3xl font-semibold text-safi-green">{pkg.name}</h3>
-                <div className="mt-3 text-4xl font-extrabold text-safi-green">{pkg.price.toLocaleString('ru-RU')} ₸</div>
-                <ul className="mt-6 space-y-3">
-                  {pkg.features.slice(0, 3).map((feature) => (
-                    <li key={feature} className="flex gap-3 text-sm leading-6 text-safi-muted">
-                      <Check className="mt-1 h-4 w-4 shrink-0 text-safi-gold" />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </article>
-            ))}
-          </div>
-        </Container>
-      </section>
+          ))}
+        </div>
+        
+        <div className="text-center">
+          <Button size="lg" to="/register">{t('howToStart.startBtn', 'Начать с Safi Life')}</Button>
+        </div>
+      </Container>
     </div>
-  );
-}
-
-function HeroStep({ icon: Icon, title, desc }: { icon: React.ComponentType<{ className?: string }>; title: string; desc: string }) {
-  return (
-    <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.06)]">
-      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-safi-cream text-safi-green">
-        <Icon className="h-5 w-5" />
-      </div>
-      <h3 className="font-serif text-2xl font-semibold text-safi-green">{title}</h3>
-      <p className="mt-3 text-sm leading-7 text-safi-muted">{desc}</p>
-    </article>
   );
 }

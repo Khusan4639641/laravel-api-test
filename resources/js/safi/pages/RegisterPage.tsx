@@ -1,19 +1,19 @@
 import React, { FormEvent, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, Check, Network, PackageCheck, UserPlus } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
 import { ApiError, getPublicPackages, Package, register } from '../lib/api';
 
 type FieldErrors = Record<string, string[]>;
 
-const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 py-4 text-sm text-safi-green outline-none transition-all placeholder:text-safi-muted/50 focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25';
+const inputClass = 'w-full px-5 py-4 rounded-xl border border-safi-green/20 bg-[#F5F5F0] focus:ring-2 focus:ring-safi-green focus:border-safi-green focus:bg-white outline-none transition-all placeholder:text-safi-text/40';
 
 export default function RegisterPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [packages, setPackages] = useState<Package[]>([]);
+  const [packagesLoading, setPackagesLoading] = useState(true);
   const [form, setForm] = useState({
     name: '',
     login: '',
@@ -29,8 +29,15 @@ export default function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
-    void getPublicPackages().then(setPackages).catch(() => setPackages([]));
+    void getPublicPackages()
+      .then(setPackages)
+      .catch(() => setPackages([]))
+      .finally(() => setPackagesLoading(false));
   }, []);
+
+  const updateField = (field: keyof typeof form, value: string) => {
+    setForm((current) => ({ ...current, [field]: value }));
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -53,218 +60,166 @@ export default function RegisterPage() {
     }
   };
 
-  const updateField = (field: keyof typeof form, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
-  };
-
   return (
-    <div className="bg-safi-bg text-safi-green">
-      <Container>
-        <div className="grid min-h-[calc(100vh-72px)] gap-10 py-14 lg:grid-cols-[0.82fr_1.18fr] lg:items-center lg:py-20">
-          <section className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
-            <span className="safi-kicker">Become a partner</span>
-            <h1 className="mt-4 font-serif text-5xl font-semibold leading-[1.04] text-safi-green md:text-7xl">
-              Регистрация{' '}
-              <span className="italic text-safi-gold">Safi Life</span>
-            </h1>
-            <p className="mt-6 text-base leading-8 text-safi-muted md:text-xl">
-              Создайте аккаунт партнера, выберите стартовый пакет и укажите данные спонсора, если вы пришли по рекомендации.
-            </p>
+    <div className="py-20 bg-safi-bg min-h-[calc(100vh-80px)] flex flex-col justify-center relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-safi-green/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-safi-gold/5 rounded-full blur-3xl translate-y-1/4 -translate-x-1/4 pointer-events-none"></div>
 
-            <div className="mt-9 grid gap-4 sm:grid-cols-3">
-              <AuthStep title="Аккаунт" desc="Имя, логин и email" icon={UserPlus} />
-              <AuthStep title="Спонсор" desc="Опциональные поля" icon={Network} />
-              <AuthStep title="Пакет" desc="Можно выбрать позже" icon={PackageCheck} />
+      <Container className="relative z-10 w-full lg:max-w-4xl">
+        <div className="max-w-2xl mx-auto bg-white rounded-[40px] shadow-xl border border-safi-green/5 p-8 md:p-12 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-40 h-40 bg-safi-gold/10 rounded-bl-full -z-10"></div>
+
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-serif text-safi-green mb-2">Регистрация</h1>
+            <p className="text-sm text-safi-text opacity-70">Станьте партнером Safi Life</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
+              {error}
             </div>
-          </section>
+          )}
 
-          <section className="mx-auto w-full max-w-3xl rounded-[36px] border border-safi-border bg-white p-6 shadow-[0_24px_70px_rgba(11,23,18,0.10)] md:p-9">
-            <div className="mb-8 text-center">
-              <span className="safi-kicker">Register</span>
-              <h2 className="mt-3 font-serif text-4xl font-semibold text-safi-green">Стать партнером</h2>
-              <p className="mt-3 text-sm leading-7 text-safi-muted">После успешной регистрации вы попадете в личный кабинет партнера.</p>
-            </div>
-
-            {error && (
-              <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
-                {error}
-              </div>
-            )}
-
-            <form className="space-y-6" onSubmit={handleSubmit}>
-              <div className="grid gap-5 md:grid-cols-2">
-                <FormField label="Имя" error={fieldErrors.name?.[0]}>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(event) => updateField('name', event.target.value)}
-                    className={inputClass}
-                    placeholder="Иван Иванов"
-                    autoComplete="name"
-                    required
-                  />
-                </FormField>
-                <FormField label="Логин" error={fieldErrors.login?.[0]}>
-                  <input
-                    type="text"
-                    value={form.login}
-                    onChange={(event) => updateField('login', event.target.value)}
-                    className={inputClass}
-                    placeholder="safi_partner"
-                    autoComplete="username"
-                    required
-                  />
-                </FormField>
-              </div>
-
-              <FormField label="Email" error={fieldErrors.email?.[0]}>
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <div className="grid sm:grid-cols-2 gap-6">
+              <FormField label="Имя" error={fieldErrors.name?.[0]}>
                 <input
-                  type="email"
-                  value={form.email}
-                  onChange={(event) => updateField('email', event.target.value)}
+                  type="text"
+                  value={form.name}
+                  onChange={(event) => updateField('name', event.target.value)}
                   className={inputClass}
-                  placeholder="mail@example.com"
-                  autoComplete="email"
+                  placeholder="Иван Иванов"
+                  autoComplete="name"
+                  required
+                />
+              </FormField>
+              <FormField label="Телефон / логин" error={fieldErrors.login?.[0]}>
+                <input
+                  type="text"
+                  value={form.login}
+                  onChange={(event) => updateField('login', event.target.value)}
+                  className={inputClass}
+                  placeholder="+7 (___) ___-__-__"
+                  autoComplete="username"
+                  required
+                />
+              </FormField>
+            </div>
+
+            <FormField label="Email" error={fieldErrors.email?.[0]}>
+              <input
+                type="email"
+                value={form.email}
+                onChange={(event) => updateField('email', event.target.value)}
+                className={inputClass}
+                placeholder="mail@example.com"
+                autoComplete="email"
+                required
+              />
+            </FormField>
+
+            <div className="grid sm:grid-cols-2 gap-6">
+              <FormField label="Пароль" error={fieldErrors.password?.[0]}>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(event) => updateField('password', event.target.value)}
+                  className={inputClass}
+                  placeholder="********"
+                  autoComplete="new-password"
                   required
                 />
               </FormField>
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <FormField label="Пароль" error={fieldErrors.password?.[0]}>
-                  <input
-                    type="password"
-                    value={form.password}
-                    onChange={(event) => updateField('password', event.target.value)}
-                    className={inputClass}
-                    placeholder="********"
-                    autoComplete="new-password"
-                    required
-                  />
-                </FormField>
-                <FormField label="Подтверждение пароля" error={fieldErrors.password_confirmation?.[0]}>
-                  <input
-                    type="password"
-                    value={form.password_confirmation}
-                    onChange={(event) => updateField('password_confirmation', event.target.value)}
-                    className={inputClass}
-                    placeholder="********"
-                    autoComplete="new-password"
-                    required
-                  />
-                </FormField>
-              </div>
+              <FormField label="Повторите пароль" error={fieldErrors.password_confirmation?.[0]}>
+                <input
+                  type="password"
+                  value={form.password_confirmation}
+                  onChange={(event) => updateField('password_confirmation', event.target.value)}
+                  className={inputClass}
+                  placeholder="********"
+                  autoComplete="new-password"
+                  required
+                />
+              </FormField>
+            </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <FormField label="ID спонсора" error={fieldErrors.sponsor_id?.[0]}>
-                  <input
-                    type="text"
-                    value={form.sponsor_id}
-                    onChange={(event) => updateField('sponsor_id', event.target.value)}
-                    className={inputClass}
-                    placeholder="Необязательно"
-                  />
-                </FormField>
-                <FormField label="Ветка" error={fieldErrors.branch?.[0]}>
-                  <select
-                    value={form.branch}
-                    onChange={(event) => updateField('branch', event.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="">Не выбрана</option>
-                    <option value="left">Левая</option>
-                    <option value="right">Правая</option>
-                  </select>
-                </FormField>
-              </div>
-
-              <FormField label="Стартовый пакет" error={fieldErrors.package_id?.[0]}>
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {packages.map((pkg) => {
-                    const isSelected = form.package_id === pkg.id;
-
-                    return (
-                      <button
-                        key={pkg.id}
-                        type="button"
-                        onClick={() => updateField('package_id', isSelected ? '' : pkg.id)}
-                        className={`rounded-3xl border p-5 text-left transition-all ${
-                          isSelected
-                            ? 'border-safi-green bg-safi-green text-white shadow-[0_18px_38px_rgba(11,23,18,0.16)]'
-                            : 'border-safi-border bg-safi-bg text-safi-green hover:border-safi-green'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className={`font-serif text-2xl font-semibold ${isSelected ? 'text-white' : 'text-safi-green'}`}>{pkg.name}</span>
-                          {isSelected && <Check className="h-5 w-5 text-safi-gold" />}
-                        </div>
-                        <div className={`mt-2 text-sm font-extrabold ${isSelected ? 'text-safi-gold' : 'text-safi-green'}`}>
-                          {pkg.price.toLocaleString('ru-RU')} ₸
-                        </div>
-                        <div className={`mt-2 text-[10px] font-extrabold uppercase tracking-[0.14em] ${isSelected ? 'text-white/70' : 'text-safi-muted'}`}>
-                          Реф. {pkg.referralBonus}% / Бинар {pkg.binaryBonus || 0}%
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+            <div className="grid sm:grid-cols-2 gap-6">
+              <FormField label="Код пригласителя (Реферал)" error={fieldErrors.sponsor_id?.[0]}>
+                <input
+                  type="text"
+                  value={form.sponsor_id}
+                  onChange={(event) => updateField('sponsor_id', event.target.value)}
+                  className={inputClass}
+                  placeholder="Необязательно"
+                />
               </FormField>
 
-              <label className="flex items-start gap-3 rounded-2xl border border-safi-border bg-safi-bg p-4">
-                <input type="checkbox" required className="mt-1 h-4 w-4 rounded border-safi-border text-safi-green focus:ring-safi-gold" />
-                <span className="text-xs leading-6 text-safi-muted">
-                  Я согласен с{' '}
-                  <Link to="/legal" className="font-bold text-safi-green transition-colors hover:text-safi-gold">
-                    условиями и политикой конфиденциальности
-                  </Link>
-                  .
-                </span>
+              <FormField label="Ветка" error={fieldErrors.branch?.[0]}>
+                <select
+                  value={form.branch}
+                  onChange={(event) => updateField('branch', event.target.value)}
+                  className={`${inputClass} text-sm text-safi-green`}
+                >
+                  <option value="">Не выбрана</option>
+                  <option value="left">Левая</option>
+                  <option value="right">Правая</option>
+                </select>
+              </FormField>
+            </div>
+
+            <FormField label="Стартовый пакет" error={fieldErrors.package_id?.[0]}>
+              <select
+                value={form.package_id}
+                onChange={(event) => updateField('package_id', event.target.value)}
+                className={`${inputClass} text-sm text-safi-green`}
+              >
+                <option value="">{packagesLoading ? 'Загружаем пакеты...' : 'Выберите пакет'}</option>
+                {packages.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {pkg.name} — {pkg.price.toLocaleString('ru-RU')} ₸
+                  </option>
+                ))}
+              </select>
+            </FormField>
+
+            <div className="flex items-start gap-3 mt-4">
+              <input type="checkbox" id="agree" required className="mt-1 rounded text-safi-green focus:ring-safi-green w-4 h-4" />
+              <label htmlFor="agree" className="text-xs text-safi-text opacity-70 cursor-pointer">
+                Я согласен с <Link to="/legal" className="text-safi-green font-bold hover:underline">условиями и политикой конфиденциальности</Link>.
               </label>
+            </div>
 
-              <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+            <div className="pt-4">
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? 'Регистрируем...' : t('auth.regAction', 'Зарегистрироваться')}
-                <ArrowRight className="h-4 w-4" />
               </Button>
+            </div>
 
-              <div className="text-center text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
-                Уже есть {t('auth.regAccount', 'аккаунт')}?{' '}
-                <Link to="/login" className="text-safi-green transition-colors hover:text-safi-gold">
-                  Войти
-                </Link>
-              </div>
-            </form>
-          </section>
+            <div className="text-center text-[10px] uppercase tracking-widest text-safi-text opacity-70 pt-4">
+              Уже есть {t('auth.regAccount', 'аккаунт')}? <Link to="/login" className="text-safi-green font-bold hover:underline">Войти</Link>
+            </div>
+          </form>
         </div>
       </Container>
     </div>
   );
 }
 
-function FormField({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function FormField({
+  label,
+  error,
+  children,
+}: {
+  label: string;
+  error?: string;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</span>
+      <span className="block text-[10px] font-bold tracking-widest uppercase text-safi-green mb-2 opacity-80">{label}</span>
       {children}
       {error && <span className="mt-2 block text-xs font-bold text-red-600">{error}</span>}
     </label>
-  );
-}
-
-function AuthStep({
-  title,
-  desc,
-  icon: Icon,
-}: {
-  title: string;
-  desc: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <article className="rounded-3xl border border-safi-border bg-white p-5 text-left shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-safi-cream text-safi-green">
-        <Icon className="h-5 w-5" />
-      </div>
-      <h3 className="font-serif text-xl font-semibold text-safi-green">{title}</h3>
-      <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-safi-muted">{desc}</p>
-    </article>
   );
 }

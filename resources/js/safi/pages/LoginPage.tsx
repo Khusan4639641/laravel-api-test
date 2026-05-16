@@ -1,14 +1,13 @@
 import React, { FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, LockKeyhole, Mail, ShieldCheck } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
 import { ApiError, login } from '../lib/api';
 
 type FieldErrors = Record<string, string[]>;
 
-const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 py-4 text-sm text-safi-green outline-none transition-all placeholder:text-safi-muted/50 focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25';
+const inputClass = 'w-full px-5 py-4 rounded-xl border border-safi-green/20 bg-[#F5F5F0] focus:ring-2 focus:ring-safi-green focus:border-safi-green focus:bg-white outline-none transition-all placeholder:text-safi-text/40';
 
 export default function LoginPage() {
   const { t } = useTranslation();
@@ -43,109 +42,85 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-72px)] bg-safi-bg text-safi-green">
-      <Container>
-        <div className="grid min-h-[calc(100vh-72px)] gap-10 py-14 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:py-20">
-          <section className="mx-auto max-w-2xl text-center lg:mx-0 lg:text-left">
-            <span className="safi-kicker">Safi Life account</span>
-            <h1 className="mt-4 font-serif text-5xl font-semibold leading-[1.04] text-safi-green md:text-7xl">
-              {t('auth.loginTitle', 'Вход в')}{' '}
-              <span className="italic text-safi-gold">кабинет</span>
-            </h1>
-            <p className="mt-6 text-base leading-8 text-safi-muted md:text-xl">
-              Войдите в личный кабинет, чтобы видеть структуру, бонусы, покупки и текущий статус партнера.
-            </p>
+    <div className="py-20 bg-safi-bg min-h-[calc(100vh-80px)] flex flex-col justify-center relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-safi-green/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none"></div>
+      <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-safi-gold/5 rounded-full blur-3xl translate-y-1/4 -translate-x-1/4 pointer-events-none"></div>
 
-            <div className="mt-9 grid gap-4 sm:grid-cols-3">
-              <AuthBenefit title="Защита" desc="Безопасный вход" icon={ShieldCheck} />
-              <AuthBenefit title="Кабинет" desc="Бонусы и структура" icon={LockKeyhole} />
-              <AuthBenefit title="Связь" desc="Поддержка партнера" icon={Mail} />
+      <Container className="relative z-10 w-full">
+        <div className="max-w-md mx-auto bg-white rounded-[40px] shadow-xl border border-safi-green/5 p-8 md:p-10 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-safi-gold/10 rounded-bl-full -z-10"></div>
+
+          <div className="text-center mb-10">
+            <h1 className="text-3xl font-serif text-safi-green mb-2">{t('auth.loginTitle', 'Вход в')} кабинет</h1>
+            <p className="text-sm text-safi-text opacity-70">С возвращением в Safi Life</p>
+          </div>
+
+          {error && (
+            <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
+              {error}
             </div>
-          </section>
+          )}
 
-          <section className="mx-auto w-full max-w-xl rounded-[36px] border border-safi-border bg-white p-6 shadow-[0_24px_70px_rgba(11,23,18,0.10)] md:p-9">
-            <div className="mb-8 text-center">
-              <span className="safi-kicker">Login</span>
-              <h2 className="mt-3 font-serif text-4xl font-semibold text-safi-green">С возвращением</h2>
-              <p className="mt-3 text-sm leading-7 text-safi-muted">Введите логин или email и пароль.</p>
-            </div>
+          <form className="space-y-6" onSubmit={handleSubmit}>
+            <FormField label="Email или Телефон" error={fieldErrors.login?.[0] || fieldErrors.email?.[0]}>
+              <input
+                type="text"
+                value={form.login}
+                onChange={(event) => setForm((current) => ({ ...current, login: event.target.value }))}
+                className={inputClass}
+                placeholder="mail@example.com"
+                autoComplete="username"
+                required
+              />
+            </FormField>
 
-            {error && (
-              <div className="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
-                {error}
-              </div>
-            )}
+            <FormField label="Пароль" error={fieldErrors.password?.[0]} aside={<a href="#" className="text-[10px] uppercase tracking-widest text-safi-gold font-bold hover:underline">Забыли пароль?</a>}>
+              <input
+                type="password"
+                value={form.password}
+                onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
+                className={inputClass}
+                placeholder="********"
+                autoComplete="current-password"
+                required
+              />
+            </FormField>
 
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <FormField label="Логин или email" error={fieldErrors.login?.[0] || fieldErrors.email?.[0]}>
-                <input
-                  type="text"
-                  value={form.login}
-                  onChange={(event) => setForm((current) => ({ ...current, login: event.target.value }))}
-                  className={inputClass}
-                  placeholder="mail@example.com"
-                  autoComplete="username"
-                  required
-                />
-              </FormField>
-
-              <FormField label="Пароль" error={fieldErrors.password?.[0]}>
-                <input
-                  type="password"
-                  value={form.password}
-                  onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
-                  className={inputClass}
-                  placeholder="********"
-                  autoComplete="current-password"
-                  required
-                />
-              </FormField>
-
-              <Button type="submit" size="lg" className="w-full" disabled={isSubmitting}>
+            <div className="pt-2">
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
                 {isSubmitting ? 'Входим...' : t('auth.loginAction', 'Войти')}
-                <ArrowRight className="h-4 w-4" />
               </Button>
+            </div>
 
-              <div className="text-center text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
-                Нет аккаунта?{' '}
-                <Link to="/register" className="text-safi-green transition-colors hover:text-safi-gold">
-                  Стать партнером
-                </Link>
-              </div>
-            </form>
-          </section>
+            <div className="text-center text-[10px] uppercase tracking-widest text-safi-text opacity-70 pt-4">
+              Нет аккаунта? <Link to="/register" className="text-safi-green font-bold hover:underline">Стать партнёром</Link>
+            </div>
+          </form>
         </div>
       </Container>
     </div>
   );
 }
 
-function FormField({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+function FormField({
+  label,
+  error,
+  aside,
+  children,
+}: {
+  label: string;
+  error?: string;
+  aside?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
     <label className="block">
-      <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</span>
+      <span className="flex justify-between items-center mb-2">
+        <span className="block text-[10px] font-bold tracking-widest uppercase text-safi-green opacity-80">{label}</span>
+        {aside}
+      </span>
       {children}
       {error && <span className="mt-2 block text-xs font-bold text-red-600">{error}</span>}
     </label>
-  );
-}
-
-function AuthBenefit({
-  title,
-  desc,
-  icon: Icon,
-}: {
-  title: string;
-  desc: string;
-  icon: React.ComponentType<{ className?: string }>;
-}) {
-  return (
-    <article className="rounded-3xl border border-safi-border bg-white p-5 text-left shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-      <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-2xl bg-safi-cream text-safi-green">
-        <Icon className="h-5 w-5" />
-      </div>
-      <h3 className="font-serif text-xl font-semibold text-safi-green">{title}</h3>
-      <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-safi-muted">{desc}</p>
-    </article>
   );
 }

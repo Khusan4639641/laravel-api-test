@@ -1,218 +1,50 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Check, LineChart, Network, PackageCheck, Wallet } from 'lucide-react';
 import { Container } from '../components/ui/Container';
-import { Button } from '../components/ui/Button';
-import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
-import { getApiErrorState, getPublicPackages, Package } from '../lib/api';
-
-const audience = [
-  'Люди, ищущие дополнительный заработок',
-  'Начинающие предприниматели',
-  'Женщины в декрете',
-  'Студенты',
-  'Поклонники натуральных продуктов',
-  'Действующие MLM партнеры',
-];
-
-const advantages = [
-  {
-    title: 'Продуктовая основа',
-    desc: 'Бизнес начинается с личного опыта, повторных покупок и понятных категорий продукта.',
-    icon: PackageCheck,
-  },
-  {
-    title: 'Бинарная структура',
-    desc: 'Левая и правая ветка помогают видеть рост команды и расчет меньшей ветки.',
-    icon: Network,
-  },
-  {
-    title: 'Регулярные выплаты',
-    desc: 'Цикл выплат каждые 14 дней делает финансовую часть более предсказуемой.',
-    icon: Wallet,
-  },
-  {
-    title: 'Рост по статусам',
-    desc: 'PV, пакеты и статусы показывают следующий понятный шаг в развитии.',
-    icon: LineChart,
-  },
-];
+import { SectionTitle } from '../components/ui/SectionTitle';
 
 export default function BusinessPage() {
   const { t } = useTranslation();
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadPackages = React.useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      setPackages(await getPublicPackages());
-    } catch (caughtError) {
-      setPackages([]);
-      setError(getApiErrorState(caughtError).error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadPackages();
-  }, [loadPackages]);
-
   return (
-    <div className="bg-safi-bg text-safi-green">
-      <section className="border-b border-safi-border bg-safi-bg py-16 md:py-24">
-        <Container>
-          <div className="grid gap-10 lg:grid-cols-[1fr_0.9fr] lg:items-center">
-            <div className="max-w-3xl">
-              <span className="safi-kicker">Business opportunity</span>
-              <h1 className="mt-4 font-serif text-5xl font-semibold leading-[1.04] text-safi-green md:text-7xl">
-                <span className="italic text-safi-gold">{t('business.title1', 'Стать партнёром')}</span>{' '}
-                Safi Life
-              </h1>
-              <p className="mt-7 max-w-2xl text-base leading-8 text-safi-muted md:text-xl">
-                {t('business.subtitle', 'Возможность дополнительного дохода и развития собственного бизнеса')}
-              </p>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Button to="/register" size="lg">
-                  Начать бизнес
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-                <Button to="/marketing" size="lg" variant="outline">
-                  Маркетинг-план
-                </Button>
-              </div>
-            </div>
-
-            <div className="rounded-[36px] border border-safi-border bg-white p-8 shadow-[0_24px_70px_rgba(11,23,18,0.10)]">
-              <span className="safi-kicker">Binary + Classic</span>
-              <div className="mt-6 grid gap-4">
-                <HeroMetric value="10%" label="Реферальный бонус" />
-                <HeroMetric value="7-10%" label="Бинарный бонус" />
-                <HeroMetric value="20%" label="Кэшбэк за покупки" />
-              </div>
-            </div>
-          </div>
-        </Container>
-      </section>
-
-      <section className="bg-white py-16 md:py-24">
-        <Container>
-          <div className="mb-10 text-center md:mb-14">
-            <span className="safi-kicker">{t('business.forWho1', 'Для кого')}</span>
-            <h2 className="mx-auto mt-3 max-w-3xl font-serif text-4xl font-semibold leading-tight text-safi-green md:text-6xl">
-              Этот бизнес подходит разным сценариям
-            </h2>
+    <div className="py-20 bg-safi-bg min-h-screen relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-safi-green/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+      
+      <Container className="relative z-10">
+        <div className="text-center mb-16">
+          <h2 className="text-4xl md:text-5xl font-serif font-bold text-safi-green mb-4"><span className="italic text-safi-gold">{t('business.title1', 'Стать партнёром')}</span> Safi Life</h2>
+          <p className="text-safi-text opacity-70 max-w-2xl mx-auto uppercase tracking-wider text-xs font-bold">{t('business.subtitle', 'Возможность дополнительного дохода и развития собственного бизнеса')}</p>
+        </div>
+        
+        <div className="max-w-4xl mx-auto space-y-16">
+          <div className="bg-white p-8 md:p-12 rounded-[40px] shadow-sm border border-safi-green/5 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-safi-gold/5 rounded-bl-full -z-10"></div>
+            <h3 className="text-3xl font-serif font-bold text-safi-green mb-8 text-center">{t('business.forWho1', 'Для кого')} <span className="italic text-safi-gold">{t('business.forWho2', 'этот бизнес?')}</span></h3>
+            <ul className="grid sm:grid-cols-2 gap-6 text-safi-text">
+              <li className="flex items-center gap-4 bg-[#F5F5F0] p-4 rounded-xl"><div className="w-2 h-2 bg-safi-gold rounded-full" />Люди, ищущие дополнительный заработок</li>
+              <li className="flex items-center gap-4 bg-[#F5F5F0] p-4 rounded-xl"><div className="w-2 h-2 bg-safi-gold rounded-full" />Начинающие предприниматели</li>
+              <li className="flex items-center gap-4 bg-[#F5F5F0] p-4 rounded-xl"><div className="w-2 h-2 bg-safi-gold rounded-full" />Женщины в декрете</li>
+              <li className="flex items-center gap-4 bg-[#F5F5F0] p-4 rounded-xl"><div className="w-2 h-2 bg-safi-gold rounded-full" />Студенты</li>
+              <li className="flex items-center gap-4 bg-[#F5F5F0] p-4 rounded-xl"><div className="w-2 h-2 bg-safi-gold rounded-full" />Поклонники натуральных продуктов</li>
+              <li className="flex items-center gap-4 bg-[#F5F5F0] p-4 rounded-xl"><div className="w-2 h-2 bg-safi-gold rounded-full" />Действующие MLM партнеры</li>
+            </ul>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {audience.map((item) => (
-              <article key={item} className="flex items-start gap-4 rounded-3xl border border-safi-border bg-safi-cream p-6">
-                <span className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-safi-gold text-safi-black">
-                  <Check className="h-4 w-4" />
-                </span>
-                <h3 className="font-serif text-xl font-semibold leading-snug text-safi-green">{item}</h3>
-              </article>
-            ))}
-          </div>
-        </Container>
-      </section>
-
-      <section className="border-y border-safi-border bg-safi-cream py-16 md:py-24">
-        <Container>
-          <div className="grid gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
-            <div>
-              <span className="safi-kicker">{t('business.why1', 'Почему')} Safi Life</span>
-              <h2 className="mt-3 font-serif text-4xl font-semibold leading-tight text-safi-green md:text-6xl">
-                Понятная механика роста без лишней сложности
-              </h2>
-            </div>
-            <div className="grid gap-5 md:grid-cols-2">
-              {advantages.map(({ title, desc, icon: Icon }) => (
-                <article key={title} className="rounded-3xl border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-                  <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-safi-cream text-safi-green">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <h3 className="font-serif text-2xl font-semibold text-safi-green">{title}</h3>
-                  <p className="mt-3 text-sm leading-7 text-safi-muted">{desc}</p>
-                </article>
-              ))}
+          <div className="p-8 md:p-12 bg-safi-green rounded-[40px] relative overflow-hidden text-white shadow-xl">
+             <div className="absolute -top-20 -left-20 w-64 h-64 bg-white/5 rounded-full blur-2xl z-0"></div>
+            <h3 className="text-3xl font-serif font-bold mb-10 text-center relative z-10">{t('business.why1', 'Почему')} <span className="italic text-safi-gold">{t('business.why2', 'Safi Life?')}</span></h3>
+            <div className="space-y-6 relative z-10 text-white/90 text-lg">
+              <p className="flex items-start gap-4"><span className="text-safi-gold font-bold mt-1">✓</span> <span><strong>Не нужно искусственно "выращивать лидеров"</strong>. Маркетинг-план позволяет зарабатывать без скрытых обязательств.</span></p>
+              <p className="flex items-start gap-4"><span className="text-safi-gold font-bold mt-1">✓</span> <span><strong>Отсутствие требований подтверждения статуса</strong>. Ваши достижения сохраняются.</span></p>
+              <p className="flex items-start gap-4"><span className="text-safi-gold font-bold mt-1">✓</span> <span><strong>Накопительная система баллов (PV)</strong>. Вы не теряете объемы при переходе в новый период.</span></p>
+              <p className="flex items-start gap-4"><span className="text-safi-gold font-bold mt-1">✓</span> <span><strong>Выплаты каждые 14 дней</strong>. Регулярно на расчетный счет ИП или на карт-счет.</span></p>
             </div>
           </div>
-        </Container>
-      </section>
 
-      <section className="bg-safi-bg py-16 md:py-24">
-        <Container>
-          <div className="mb-10 flex flex-col gap-5 md:mb-14 md:flex-row md:items-end md:justify-between">
-            <div>
-              <span className="safi-kicker">Start packages</span>
-              <h2 className="mt-3 max-w-3xl font-serif text-4xl font-semibold leading-tight text-safi-green md:text-6xl">
-                Выберите уровень старта
-              </h2>
-            </div>
-            <Button to="/marketing" variant="outline">
-              Смотреть план
-              <ArrowRight className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-3">
-            {isLoading && (
-              <LoadingState
-                title="Загружаем пакеты"
-                description="Получаем уровни старта из публичного API."
-                className="md:col-span-3"
-              />
-            )}
-
-            {!isLoading && error && (
-              <ErrorState description={error} onRetry={loadPackages} className="md:col-span-3" />
-            )}
-
-            {!isLoading && !error && packages.length === 0 && (
-              <EmptyState
-                title="Пакеты пока не опубликованы"
-                description="После настройки пакетов они появятся в этом блоке."
-                className="md:col-span-3"
-              />
-            )}
-
-            {!isLoading && !error && packages.map((pkg) => (
-              <article
-                key={pkg.id}
-                className={`rounded-3xl border p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] ${
-                  pkg.isPopular ? 'border-safi-green bg-safi-green text-white' : 'border-safi-border bg-white text-safi-green'
-                }`}
-              >
-                <h3 className={`font-serif text-3xl font-semibold ${pkg.isPopular ? 'text-white' : 'text-safi-green'}`}>{pkg.name}</h3>
-                <div className={`mt-3 text-4xl font-extrabold ${pkg.isPopular ? 'text-safi-gold' : 'text-safi-green'}`}>
-                  {pkg.price.toLocaleString('ru-RU')} ₸
-                </div>
-                <div className={`mt-5 text-sm leading-7 ${pkg.isPopular ? 'text-white/75' : 'text-safi-muted'}`}>
-                  Реферальный бонус {pkg.referralBonus}%, бинарный бонус {pkg.binaryBonus || 0}%.
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="mx-auto mt-12 max-w-3xl rounded-3xl border border-safi-border bg-white p-7 text-center text-xs font-bold uppercase leading-6 tracking-[0.14em] text-safi-muted">
+          <div className="text-center p-8 border border-safi-green/10 rounded-[24px] bg-white text-[10px] uppercase tracking-widest text-safi-text opacity-50 font-bold max-w-2xl mx-auto shadow-sm">
             {t('business.disclaimer', '«Потенциальный доход зависит от личных продаж, активности, структуры команды и выполнения условий маркетинг-плана. Информация не является гарантией заработка.»')}
           </div>
-        </Container>
-      </section>
-    </div>
-  );
-}
-
-function HeroMetric({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="flex items-center justify-between gap-5 rounded-3xl border border-safi-border bg-safi-cream p-5">
-      <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</span>
-      <span className="font-serif text-4xl font-semibold text-safi-gold">{value}</span>
+        </div>
+      </Container>
     </div>
   );
 }
