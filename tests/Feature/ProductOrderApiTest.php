@@ -146,11 +146,11 @@ class ProductOrderApiTest extends TestCase
 
         $this->assertGreaterThanOrEqual(4, Product::query()->where('status', 'active')->count());
         $this->assertDatabaseHas('products', [
-            'sku' => 'BAD-OMEGA-001',
+            'sku' => 'SAFI-OMEGA-3',
             'status' => 'active',
         ]);
         $this->assertDatabaseHas('products', [
-            'sku' => 'COS-HYDRA-001',
+            'sku' => 'SAFI-FACE-SERUM',
             'status' => 'active',
         ]);
     }

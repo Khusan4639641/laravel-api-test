@@ -10,6 +10,7 @@ export interface DashboardCurrentUser {
   name: string;
   login?: string;
   email?: string;
+  role: string;
   partnerId: string;
   referralCode: string;
   packageName: string;
@@ -31,6 +32,7 @@ export interface DashboardContextValue {
 
 const userDefaults: DashboardCurrentUser = {
   name: 'Safi Partner',
+  role: 'user',
   partnerId: 'SAFI',
   referralCode: 'SAFI',
   packageName: '-',
@@ -69,7 +71,14 @@ export function DashboardLayout() {
 
     try {
       const response = await me();
-      setCurrentUser(normalizeCurrentUser(response));
+      const user = normalizeCurrentUser(response);
+
+      if (['super_admin', 'support'].includes(user.role.toLowerCase())) {
+        navigate(user.role === 'support' ? '/support' : '/admin', { replace: true });
+        return;
+      }
+
+      setCurrentUser(user);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         clearAuthToken();
@@ -199,6 +208,7 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
     name: getString(record, ['name', 'full_name', 'fullName']) || userDefaults.name,
     login: getString(record, ['login', 'username']),
     email: getString(record, ['email']),
+    role: getString(record, ['role', 'user_role', 'role_name']) || userDefaults.role,
     partnerId: getString(record, ['partner_id', 'partnerId', 'member_id', 'code']) || userDefaults.partnerId,
     referralCode: getString(record, ['referral_code', 'referralCode', 'invite_code']) || userDefaults.referralCode,
     packageName,

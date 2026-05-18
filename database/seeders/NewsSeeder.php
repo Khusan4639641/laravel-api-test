@@ -12,24 +12,32 @@ class NewsSeeder extends Seeder
     {
         $articles = [
             [
-                'title' => 'Открытие нового офиса в Алматы',
+                'title' => 'Safi Life открывает новый сезон развития',
+                'category' => 'Компания',
+                'content' => 'Safi Life запускает новый сезон партнерского роста: обновленные обучающие материалы, прозрачные инструменты для структуры и поддержка активных лидеров уже доступны в кабинете.',
+                'image_url' => 'https://images.unsplash.com/photo-1556761175-b413da4baf72?auto=format&fit=crop&q=80&w=1200',
+                'published_at' => now()->subDays(2),
+            ],
+            [
+                'title' => 'Обновление маркетинг-плана Safi Life',
+                'category' => 'Маркетинг',
+                'content' => 'В маркетинг-план добавлены улучшенные условия для активных партнеров, понятная логика PV, бонусы за развитие команд и удобная проверка статусов в dashboard.',
+                'image_url' => 'https://images.unsplash.com/photo-1551836022-d5d88e9218df?auto=format&fit=crop&q=80&w=1200',
+                'published_at' => now()->subDays(5),
+            ],
+            [
+                'title' => 'Новая продуктовая линейка Safi',
+                'category' => 'Продукты',
+                'content' => 'В каталоге доступны Safi Face Serum, Safi Collagen, Safi Omega 3 и Safi Detox Tea. Продукты подобраны для ежедневного ухода, красоты и поддержки здоровья.',
+                'image_url' => 'https://images.unsplash.com/photo-1556228720-195a672e8a03?auto=format&fit=crop&q=80&w=1200',
+                'published_at' => now()->subDays(9),
+            ],
+            [
+                'title' => 'Офлайн-встреча партнеров в Алматы',
                 'category' => 'События',
-                'content' => 'Мы рады сообщить об открытии нового офиса Safi Life в Алматы. Партнеров ждут презентации продуктов, обучение и встреча с командой.',
-                'image_url' => 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800',
-                'published_at' => now()->subDays(12),
-            ],
-            [
-                'title' => 'Обновление маркетинг-плана',
-                'category' => 'Важно',
-                'content' => 'В маркетинг-план добавлены улучшенные условия для активных партнеров, прозрачный расчет PV и расширенные возможности апгрейда пакетов.',
-                'published_at' => now()->subDays(8),
-            ],
-            [
-                'title' => 'Пополнение ассортимента: новая линейка витаминов',
-                'category' => 'Продукция',
-                'content' => 'В каталоге Safi Life появилась новая линейка витаминных комплексов для ежедневной поддержки иммунитета и энергии.',
-                'image_url' => 'https://images.unsplash.com/photo-1584308666744-24d5e4a83685?auto=format&fit=crop&q=80&w=800',
-                'published_at' => now()->subDays(3),
+                'content' => 'Команда Safi Life провела встречу партнеров с презентацией продуктов, разбором структуры и практическим блоком по работе с личным кабинетом.',
+                'image_url' => 'https://images.unsplash.com/photo-1515169067865-5387ec356754?auto=format&fit=crop&q=80&w=1200',
+                'published_at' => now()->subDays(14),
             ],
         ];
 
@@ -43,6 +51,7 @@ class NewsSeeder extends Seeder
                     'status' => 'published',
                     'is_published' => true,
                     'sort_order' => $index + 1,
+                    'metadata' => ['source' => 'demo'],
                 ]
             );
         }

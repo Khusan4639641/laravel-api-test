@@ -10,60 +10,47 @@ class BinaryTreeDemoSeeder extends Seeder
 {
     public function run(): void
     {
-        $users = User::query()->whereIn('login', ['aidar', 'erlan', 'alisa', 'gulnara', 'alexey', 'dinara'])
+        $users = User::query()
+            ->whereIn('login', ['aidar', 'erlan', 'alisa', 'gulnara', 'alexey', 'dinara', 'timur', 'madina', 'nurlan'])
             ->get()
             ->keyBy('login');
 
-        $aidar = $users->get('aidar');
-
-        if (! $aidar) {
+        if (! $users->has('aidar')) {
             return;
         }
 
         $root = BinaryNode::query()->updateOrCreate(
-            ['user_id' => $aidar->id],
-            ['parent_id' => null, 'position' => null, 'depth' => 0, 'path' => (string) $aidar->id]
+            ['user_id' => $users->get('aidar')->id],
+            [
+                'parent_id' => null,
+                'position' => null,
+                'depth' => 0,
+                'path' => (string) $users->get('aidar')->id,
+            ]
         );
 
+        $nodes = ['aidar' => $root];
+
         $placements = [
-            ['login' => 'erlan', 'parent' => $root, 'position' => 'L'],
-            ['login' => 'alisa', 'parent' => $root, 'position' => 'R'],
+            ['login' => 'erlan', 'parent' => 'aidar', 'position' => 'L'],
+            ['login' => 'alisa', 'parent' => 'aidar', 'position' => 'R'],
+            ['login' => 'gulnara', 'parent' => 'erlan', 'position' => 'L'],
+            ['login' => 'alexey', 'parent' => 'erlan', 'position' => 'R'],
+            ['login' => 'dinara', 'parent' => 'alisa', 'position' => 'L'],
+            ['login' => 'timur', 'parent' => 'alisa', 'position' => 'R'],
+            ['login' => 'madina', 'parent' => 'gulnara', 'position' => 'L'],
+            ['login' => 'nurlan', 'parent' => 'gulnara', 'position' => 'R'],
         ];
 
         foreach ($placements as $placement) {
             $user = $users->get($placement['login']);
-
-            if (! $user) {
-                continue;
-            }
-
-            BinaryNode::query()->updateOrCreate(
-                ['user_id' => $user->id],
-                [
-                    'parent_id' => $placement['parent']->id,
-                    'position' => $placement['position'],
-                    'depth' => 1,
-                    'path' => $placement['parent']->path.'.'.$user->id,
-                ]
-            );
-        }
-
-        $erlanNode = BinaryNode::query()->where('user_id', $users->get('erlan')?->id)->first();
-        $alisaNode = BinaryNode::query()->where('user_id', $users->get('alisa')?->id)->first();
-
-        foreach ([
-            ['login' => 'gulnara', 'parent' => $erlanNode, 'position' => 'L'],
-            ['login' => 'alexey', 'parent' => $erlanNode, 'position' => 'R'],
-            ['login' => 'dinara', 'parent' => $alisaNode, 'position' => 'L'],
-        ] as $placement) {
-            $user = $users->get($placement['login']);
-            $parent = $placement['parent'];
+            $parent = $nodes[$placement['parent']] ?? null;
 
             if (! $user || ! $parent) {
                 continue;
             }
 
-            BinaryNode::query()->updateOrCreate(
+            $nodes[$placement['login']] = BinaryNode::query()->updateOrCreate(
                 ['user_id' => $user->id],
                 [
                     'parent_id' => $parent->id,

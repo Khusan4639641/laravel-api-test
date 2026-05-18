@@ -12,10 +12,10 @@ use App\Http\Controllers\Api\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Api\Admin\SettingsController as AdminSettingsController;
 use App\Http\Controllers\Api\Admin\StatusController as AdminStatusController;
 use App\Http\Controllers\Api\Admin\StructureController as AdminStructureController;
-use App\Http\Controllers\Api\Admin\SupportTicketController as AdminSupportTicketController;
 use App\Http\Controllers\Api\Admin\TransactionController as AdminTransactionController;
 use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Admin\WithdrawalController as AdminWithdrawalController;
+use App\Http\Controllers\Api\Support\TicketController as SupportTicketController;
 use App\Http\Controllers\Api\BinaryBonusController;
 use App\Http\Controllers\Api\Dashboard\BonusController as DashboardBonusController;
 use App\Http\Controllers\Api\Dashboard\OrderController as DashboardOrderController;
@@ -81,15 +81,39 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('/withdrawals', [DashboardWithdrawalController::class, 'store']);
         Route::get('/support-tickets', [DashboardSupportTicketController::class, 'index']);
         Route::post('/support-tickets', [DashboardSupportTicketController::class, 'store']);
+        Route::middleware('own_resource:ticket')->group(function (): void {
+            Route::get('/support-tickets/{ticket}', [DashboardSupportTicketController::class, 'show']);
+            Route::put('/support-tickets/{ticket}', [DashboardSupportTicketController::class, 'update']);
+            Route::patch('/support-tickets/{ticket}/close', [DashboardSupportTicketController::class, 'close']);
+        });
     });
 
-    Route::middleware('admin')->prefix('admin')->group(function (): void {
+    Route::middleware('support_or_super_admin')->prefix('support')->group(function (): void {
+        Route::get('/tickets', [SupportTicketController::class, 'index']);
+        Route::get('/tickets/{ticket}', [SupportTicketController::class, 'show']);
+        Route::post('/tickets/{ticket}/reply', [SupportTicketController::class, 'reply']);
+        Route::patch('/tickets/{ticket}/status', [SupportTicketController::class, 'status']);
+        Route::patch('/tickets/{ticket}/assign', [SupportTicketController::class, 'assign']);
+    });
+
+    Route::middleware('support_or_super_admin')->prefix('admin')->group(function (): void {
+        Route::get('/support-tickets', [SupportTicketController::class, 'index']);
+        Route::get('/support-tickets/{ticket}', [SupportTicketController::class, 'show']);
+        Route::post('/support-tickets/{ticket}/reply', [SupportTicketController::class, 'reply']);
+        Route::patch('/support-tickets/{ticket}/reply', [SupportTicketController::class, 'reply']);
+        Route::patch('/support-tickets/{ticket}/status', [SupportTicketController::class, 'status']);
+        Route::patch('/support-tickets/{ticket}/assign', [SupportTicketController::class, 'assign']);
+        Route::patch('/support-tickets/{ticket}/close', [SupportTicketController::class, 'close']);
+    });
+
+    Route::middleware('super_admin')->prefix('admin')->group(function (): void {
         Route::get('/overview', AdminOverviewController::class);
         Route::get('/structure', AdminStructureController::class);
         Route::get('/users', [AdminUserController::class, 'index']);
         Route::get('/users/{user}', [AdminUserController::class, 'show']);
         Route::get('/products', [AdminProductController::class, 'index']);
         Route::post('/products', [AdminProductController::class, 'store']);
+        Route::get('/products/{product}', [AdminProductController::class, 'show']);
         Route::put('/products/{product}', [AdminProductController::class, 'update']);
         Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
         Route::get('/packages', [AdminPackageController::class, 'index']);
@@ -103,15 +127,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::patch('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
         Route::get('/news', [AdminNewsController::class, 'index']);
         Route::post('/news', [AdminNewsController::class, 'store']);
+        Route::get('/news/{news}', [AdminNewsController::class, 'show']);
         Route::put('/news/{news}', [AdminNewsController::class, 'update']);
         Route::delete('/news/{news}', [AdminNewsController::class, 'destroy']);
         Route::get('/faqs', [AdminFaqController::class, 'index']);
         Route::post('/faqs', [AdminFaqController::class, 'store']);
         Route::put('/faqs/{faq}', [AdminFaqController::class, 'update']);
         Route::delete('/faqs/{faq}', [AdminFaqController::class, 'destroy']);
-        Route::get('/support-tickets', [AdminSupportTicketController::class, 'index']);
-        Route::patch('/support-tickets/{ticket}/reply', [AdminSupportTicketController::class, 'reply']);
-        Route::patch('/support-tickets/{ticket}/close', [AdminSupportTicketController::class, 'close']);
         Route::get('/reports/summary', [AdminReportController::class, 'summary']);
         Route::get('/settings', [AdminSettingsController::class, 'index']);
         Route::put('/settings', [AdminSettingsController::class, 'update']);

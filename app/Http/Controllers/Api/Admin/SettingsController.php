@@ -76,6 +76,9 @@ class SettingsController extends Controller
             'withdrawals.methods.card' => true,
             'withdrawals.methods.business_account' => true,
             'withdrawals.methods.usdt' => false,
+            'contacts.public' => 'Алматы, Казахстан',
+            'support.email' => 'support@safilife.test',
+            'support.phone' => '+7 700 000 00 00',
         ];
     }
 

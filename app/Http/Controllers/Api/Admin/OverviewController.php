@@ -64,9 +64,10 @@ class OverviewController extends Controller
                 'packages' => Package::query()->count(),
             ],
             'support' => [
-                'open' => SupportTicket::query()->where('status', 'open')->count(),
-                'answered' => SupportTicket::query()->where('status', 'answered')->count(),
-                'closed' => SupportTicket::query()->where('status', 'closed')->count(),
+                'open' => SupportTicket::query()->where('status', SupportTicket::STATUS_OPEN)->count(),
+                'in_progress' => SupportTicket::query()->where('status', SupportTicket::STATUS_IN_PROGRESS)->count(),
+                'answered' => SupportTicket::query()->where('status', SupportTicket::STATUS_ANSWERED)->count(),
+                'closed' => SupportTicket::query()->where('status', SupportTicket::STATUS_CLOSED)->count(),
             ],
         ]);
     }

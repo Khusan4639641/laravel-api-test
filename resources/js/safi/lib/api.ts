@@ -99,9 +99,12 @@ export interface NewsArticle {
   id: string;
   title: string;
   date: string;
+  excerpt?: string;
   content: string;
   imageUrl?: string;
   category: string;
+  status?: string;
+  isPublished?: boolean;
 }
 
 export interface FaqCategory {
@@ -368,6 +371,28 @@ export async function createDashboardSupportTicket<T = unknown>(payload: Record<
   });
 }
 
+export async function getDashboardSupportTicket<T = unknown>(ticketId: string | number) {
+  return apiRequest<T>(endpoints.dashboard.supportTicket(ticketId), {
+    method: 'GET',
+    auth: true,
+  });
+}
+
+export async function updateDashboardSupportTicket<T = unknown>(ticketId: string | number, payload: Record<string, unknown>) {
+  return apiRequest<T>(endpoints.dashboard.supportTicket(ticketId), {
+    method: 'PUT',
+    body: payload,
+    auth: true,
+  });
+}
+
+export async function closeDashboardSupportTicket<T = unknown>(ticketId: string | number) {
+  return apiRequest<T>(endpoints.dashboard.closeSupportTicket(ticketId), {
+    method: 'PATCH',
+    auth: true,
+  });
+}
+
 export async function getOrders<T = unknown>() {
   return apiRequest<T>(endpoints.dashboard.orderCheckout, {
     method: 'GET',
@@ -606,10 +631,33 @@ export async function getAdminSupportTickets<T = unknown>() {
   });
 }
 
-export async function replyAdminSupportTicket<T = unknown>(ticketId: string | number, reply: string) {
+export async function getAdminSupportTicket<T = unknown>(ticketId: string | number) {
+  return apiRequest<T>(endpoints.admin.supportTicket(ticketId), {
+    method: 'GET',
+    auth: true,
+  });
+}
+
+export async function replyAdminSupportTicket<T = unknown>(ticketId: string | number, reply: string, status?: string) {
   return apiRequest<T>(endpoints.admin.replySupportTicket(ticketId), {
+    method: 'POST',
+    body: compactPayload({ reply, status }),
+    auth: true,
+  });
+}
+
+export async function updateAdminSupportTicketStatus<T = unknown>(ticketId: string | number, status: string) {
+  return apiRequest<T>(endpoints.admin.updateSupportTicketStatus(ticketId), {
     method: 'PATCH',
-    body: { reply },
+    body: { status },
+    auth: true,
+  });
+}
+
+export async function assignAdminSupportTicket<T = unknown>(ticketId: string | number, assignedTo?: string | number | null) {
+  return apiRequest<T>(endpoints.admin.assignSupportTicket(ticketId), {
+    method: 'PATCH',
+    body: compactPayload({ assigned_to: assignedTo }),
     auth: true,
   });
 }
@@ -916,14 +964,18 @@ export function normalizeNews(response: unknown): NewsArticle[] {
   return getArray(response, ['news']).map((item, index) => {
     const record = isRecord(item) ? item : {};
     const date = getString(record, ['published_at', 'created_at', 'date']) || '';
+    const excerpt = getString(record, ['excerpt']);
 
     return {
       id: getString(record, ['id']) || String(index + 1),
       title: getString(record, ['title']) || `News ${index + 1}`,
       date: date ? new Date(date).toLocaleDateString('ru-RU') : '',
-      content: getString(record, ['content', 'excerpt']) || '',
+      excerpt,
+      content: getString(record, ['content']) || excerpt || '',
       imageUrl: getString(record, ['imageUrl', 'image_url']),
       category: getString(record, ['category']) || 'Новости',
+      status: getString(record, ['status']) || (record.is_published === false ? 'draft' : 'published'),
+      isPublished: record.is_published !== false,
     };
   });
 }

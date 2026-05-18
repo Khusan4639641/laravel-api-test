@@ -35,6 +35,12 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasApiTokens, HasFactory, Notifiable;
 
+    public const ROLE_USER = 'user';
+
+    public const ROLE_SUPPORT = 'support';
+
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+
     /**
      * @return array<string, string>
      */
@@ -43,12 +49,28 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => 'string',
             'left_pv' => 'decimal:2',
             'right_pv' => 'decimal:2',
             'remaining_left_pv' => 'decimal:2',
             'remaining_right_pv' => 'decimal:2',
             'total_pv' => 'decimal:2',
         ];
+    }
+
+    public function isUser(): bool
+    {
+        return $this->role === self::ROLE_USER;
+    }
+
+    public function isSupport(): bool
+    {
+        return $this->role === self::ROLE_SUPPORT;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
     }
 
     public function sponsor(): BelongsTo

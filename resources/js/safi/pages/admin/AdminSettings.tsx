@@ -9,6 +9,9 @@ interface SettingsState {
   card: boolean;
   businessAccount: boolean;
   usdt: boolean;
+  contacts: string;
+  supportEmail: string;
+  supportPhone: string;
 }
 
 const defaultSettings: SettingsState = {
@@ -17,6 +20,9 @@ const defaultSettings: SettingsState = {
   card: true,
   businessAccount: true,
   usdt: false,
+  contacts: 'Алматы, Казахстан',
+  supportEmail: 'support@safilife.test',
+  supportPhone: '+7 700 000 00 00',
 };
 
 export default function AdminSettings() {
@@ -55,6 +61,9 @@ export default function AdminSettings() {
         'withdrawals.methods.card': settings.card,
         'withdrawals.methods.business_account': settings.businessAccount,
         'withdrawals.methods.usdt': settings.usdt,
+        'contacts.public': settings.contacts,
+        'support.email': settings.supportEmail,
+        'support.phone': settings.supportPhone,
       });
       setSettings(normalizeSettings(response));
       setMessage('Настройки сохранены.');
@@ -125,6 +134,41 @@ export default function AdminSettings() {
               </div>
             </div>
           </div>
+
+          <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm">
+            <h3 className="text-xl font-serif font-bold text-safi-green mb-6">Контакты и поддержка</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Contacts</label>
+                <textarea
+                  rows={4}
+                  value={settings.contacts}
+                  onChange={(event) => setSettings({ ...settings, contacts: event.target.value })}
+                  className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green resize-none"
+                />
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Support email</label>
+                  <input
+                    type="email"
+                    value={settings.supportEmail}
+                    onChange={(event) => setSettings({ ...settings, supportEmail: event.target.value })}
+                    className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Support phone</label>
+                  <input
+                    type="text"
+                    value={settings.supportPhone}
+                    onChange={(event) => setSettings({ ...settings, supportPhone: event.target.value })}
+                    className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -155,6 +199,9 @@ function normalizeSettings(response: unknown): SettingsState {
     card: getBoolean(values['withdrawals.methods.card'], defaultSettings.card),
     businessAccount: getBoolean(values['withdrawals.methods.business_account'], defaultSettings.businessAccount),
     usdt: getBoolean(values['withdrawals.methods.usdt'], defaultSettings.usdt),
+    contacts: getString(values['contacts.public']) || defaultSettings.contacts,
+    supportEmail: getString(values['support.email']) || defaultSettings.supportEmail,
+    supportPhone: getString(values['support.phone']) || defaultSettings.supportPhone,
   };
 }
 
@@ -176,7 +223,19 @@ function getNumber(value: unknown) {
 }
 
 function getBoolean(value: unknown, fallback: boolean) {
-  return typeof value === 'boolean' ? value : fallback;
+  if (typeof value === 'boolean') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return value === 1;
+  }
+
+  if (typeof value === 'string') {
+    return ['1', 'true', 'yes', 'on'].includes(value.toLowerCase());
+  }
+
+  return fallback;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -20,10 +20,8 @@ class DatabaseSeeder extends Seeder
         $this->call(FaqSeeder::class);
         $this->call(UserDemoSeeder::class);
         $this->call(BinaryTreeDemoSeeder::class);
-        $this->call(WalletDemoSeeder::class);
         $this->call(OrderDemoSeeder::class);
-        $this->call(BonusDemoSeeder::class);
-        $this->call(WithdrawalDemoSeeder::class);
+        $this->call(WalletDemoSeeder::class);
         $this->call(SupportTicketDemoSeeder::class);
     }
 }

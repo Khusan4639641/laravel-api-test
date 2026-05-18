@@ -33,6 +33,13 @@ class ProductController extends Controller
         ], 201);
     }
 
+    public function show(Product $product): JsonResponse
+    {
+        return response()->json([
+            'product' => ProductResource::make($product),
+        ]);
+    }
+
     public function update(Request $request, Product $product): JsonResponse
     {
         $validated = $this->validateProduct($request, $product);

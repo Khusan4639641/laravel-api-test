@@ -12,15 +12,15 @@ class OrderDemoSeeder extends Seeder
     public function run(): void
     {
         $user = User::query()->where('login', 'aidar')->first();
-        $products = Product::query()->whereIn('sku', ['COS-HYDRA-001', 'SAFI-COLLAGEN-GLOW', 'BAD-OMEGA-001'])->get()->keyBy('sku');
+        $products = Product::query()->whereIn('sku', ['SAFI-FACE-SERUM', 'SAFI-COLLAGEN', 'SAFI-OMEGA-3'])->get()->keyBy('sku');
 
         if (! $user || $products->isEmpty()) {
             return;
         }
 
         $orders = [
-            ['number' => 'ORD-DEMO-0001', 'items' => [['sku' => 'COS-HYDRA-001', 'quantity' => 2], ['sku' => 'BAD-OMEGA-001', 'quantity' => 1]]],
-            ['number' => 'ORD-DEMO-0002', 'items' => [['sku' => 'SAFI-COLLAGEN-GLOW', 'quantity' => 1]]],
+            ['number' => 'ORD-DEMO-0001', 'items' => [['sku' => 'SAFI-FACE-SERUM', 'quantity' => 2], ['sku' => 'SAFI-OMEGA-3', 'quantity' => 1]]],
+            ['number' => 'ORD-DEMO-0002', 'items' => [['sku' => 'SAFI-COLLAGEN', 'quantity' => 1]]],
         ];
 
         foreach ($orders as $orderData) {

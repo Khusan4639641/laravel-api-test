@@ -13,25 +13,28 @@ import {
   Settings,
   ShoppingBag,
   Trophy,
+  UserCircle,
   Users,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { logout } from '../../lib/api';
 
 const menuItems = [
-  { path: '/admin', name: 'Обзор', icon: BarChart },
-  { path: '/admin/partners', name: 'Партнеры', icon: Users },
-  { path: '/admin/structure', name: 'Структура', icon: Network },
-  { path: '/admin/transactions', name: 'Транзакции', icon: CreditCard },
-  { path: '/admin/withdrawals', name: 'Выводы', icon: ArrowUpCircle },
-  { path: '/admin/bonuses', name: 'Бонусы', icon: Gift },
-  { path: '/admin/packages', name: 'Пакеты', icon: Package },
-  { path: '/admin/statuses', name: 'Статусы', icon: Trophy },
-  { path: '/admin/products', name: 'Продукты', icon: ShoppingBag },
-  { path: '/admin/news', name: 'Новости', icon: Newspaper },
-  { path: '/admin/support', name: 'Поддержка', icon: MessageSquare },
-  { path: '/admin/reports', name: 'Отчеты', icon: PieChart },
-  { path: '/admin/settings', name: 'Настройки', icon: Settings },
+  { path: '/admin', name: 'Обзор', icon: BarChart, roles: ['super_admin'] },
+  { path: '/admin/partners', name: 'Партнёры', icon: Users, roles: ['super_admin'] },
+  { path: '/admin/structure', name: 'Структура', icon: Network, roles: ['super_admin'] },
+  { path: '/admin/transactions', name: 'Транзакции', icon: CreditCard, roles: ['super_admin'] },
+  { path: '/admin/withdrawals', name: 'Заявки на вывод', icon: ArrowUpCircle, roles: ['super_admin'] },
+  { path: '/admin/bonuses', name: 'Бонусы', icon: Gift, roles: ['super_admin'] },
+  { path: '/admin/packages', name: 'Пакеты', icon: Package, roles: ['super_admin'] },
+  { path: '/admin/statuses', name: 'Статусы', icon: Trophy, roles: ['super_admin'] },
+  { path: '/admin/products', name: 'Продукты', icon: ShoppingBag, roles: ['super_admin'] },
+  { path: '/admin/news', name: 'Новости', icon: Newspaper, roles: ['super_admin'] },
+  { path: '/admin/support', name: 'Поддержка', icon: MessageSquare, roles: ['super_admin'] },
+  { path: '/admin/reports', name: 'Отчёты', icon: PieChart, roles: ['super_admin'] },
+  { path: '/admin/settings', name: 'Настройки', icon: Settings, roles: ['super_admin'] },
+  { path: '/support', name: 'Обращения', icon: MessageSquare, roles: ['support'] },
+  { path: '/support/profile', name: 'Профиль', icon: UserCircle, roles: ['support'] },
 ];
 
 interface AdminSidebarUser {
@@ -49,6 +52,9 @@ export function AdminSidebar({
   currentUser: AdminSidebarUser;
 }) {
   const location = useLocation();
+  const role = currentUser.role.toLowerCase();
+  const visibleMenuItems = menuItems.filter((item) => item.roles.includes(role));
+  const homePath = role === 'support' ? '/support' : '/admin';
 
   return (
     <>
@@ -68,7 +74,7 @@ export function AdminSidebar({
         )}
       >
         <div className="flex h-20 shrink-0 items-center border-b border-safi-border px-6">
-          <Link to="/admin" className="flex items-center gap-3" onClick={onClose}>
+          <Link to={homePath} className="flex items-center gap-3" onClick={onClose}>
             <img
               alt="Safi Life"
               src="https://napaxiong.wordpress.com/wp-content/uploads/2026/04/safi-life.png"
@@ -93,9 +99,11 @@ export function AdminSidebar({
 
         <nav className="flex flex-1 flex-col gap-2 px-4 py-6">
           <div className="mb-2 pl-4 text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-muted">Управление</div>
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon;
-            const isActive = location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path));
+            const isRootItem = item.path === '/admin' || item.path === '/support';
+            const isLegacySupportActive = role === 'support' && item.path === '/support' && location.pathname.startsWith('/admin/support');
+            const isActive = isLegacySupportActive || location.pathname === item.path || (!isRootItem && location.pathname.startsWith(item.path));
 
             return (
               <Link

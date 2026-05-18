@@ -12,6 +12,7 @@ class SupportTicketResource extends JsonResource
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
+            'assigned_to' => $this->assigned_to,
             'subject' => $this->subject,
             'category' => $this->category,
             'message' => $this->message,
@@ -23,6 +24,8 @@ class SupportTicketResource extends JsonResource
             'last_reply_at' => $this->last_reply_at?->toISOString(),
             'metadata' => $this->metadata,
             'user' => new UserResource($this->whenLoaded('user')),
+            'assigned_user' => new UserResource($this->whenLoaded('assignedTo')),
+            'messages' => SupportTicketMessageResource::collection($this->whenLoaded('messages')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

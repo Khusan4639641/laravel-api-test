@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Outlet, useNavigate, useOutletContext } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { Bell, Menu, Search, User } from 'lucide-react';
 import { AdminSidebar } from './AdminSidebar';
 import { ApiError, clearAuthToken, getAuthToken, me } from '../../lib/api';
@@ -23,7 +23,7 @@ export function useAdminContext() {
 
 const adminDefaults: AdminCurrentUser = {
   name: 'Super Admin',
-  role: 'admin',
+  role: 'super_admin',
 };
 
 export function AdminLayout() {
@@ -31,6 +31,7 @@ export function AdminLayout() {
   const [currentUser, setCurrentUser] = useState<AdminCurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const loadCurrentUser = useCallback(async () => {
     const token = getAuthToken();
@@ -47,13 +48,16 @@ export function AdminLayout() {
       const response = await me();
       const adminUser = normalizeAdminUser(response);
 
-      if (!isAdmin(adminUser)) {
+      if (!isBackoffice(adminUser)) {
         setIsLoading(false);
         navigate('/dashboard', { replace: true });
         return;
       }
 
       setCurrentUser(adminUser);
+      if (isSupportOnly(adminUser) && !isSupportArea(location.pathname)) {
+        navigate('/support', { replace: true });
+      }
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         clearAuthToken();
@@ -68,7 +72,7 @@ export function AdminLayout() {
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     void loadCurrentUser();
@@ -86,6 +90,10 @@ export function AdminLayout() {
   }
 
   if (!currentUser) {
+    return null;
+  }
+
+  if (isSupportOnly(currentUser) && !isSupportArea(location.pathname)) {
     return null;
   }
 
@@ -125,7 +133,7 @@ export function AdminLayout() {
             <div className="hidden items-center gap-3 border-l border-safi-border pl-4 sm:flex">
               <div className="text-right">
                 <div className="text-sm font-extrabold text-safi-green">{currentUser.name}</div>
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold">Администратор</div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold">{roleLabel(currentUser.role)}</div>
               </div>
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-safi-green text-safi-gold">
                 <User className="h-5 w-5" />
@@ -157,8 +165,31 @@ function normalizeAdminUser(response: unknown): AdminCurrentUser {
   };
 }
 
-function isAdmin(user: AdminCurrentUser) {
-  return user.role.toLowerCase() === 'admin';
+function isBackoffice(user: AdminCurrentUser) {
+  return ['super_admin', 'support'].includes(user.role.toLowerCase());
+}
+
+function isSupportOnly(user: AdminCurrentUser) {
+  return user.role.toLowerCase() === 'support';
+}
+
+function isSupportArea(pathname: string) {
+  return pathname === '/support'
+    || pathname.startsWith('/support/')
+    || pathname === '/admin/support'
+    || pathname.startsWith('/admin/support/');
+}
+
+function roleLabel(role: string) {
+  if (role === 'super_admin') {
+    return 'Super Admin';
+  }
+
+  if (role === 'support') {
+    return 'Support';
+  }
+
+  return 'Пользователь';
 }
 
 function extractRole(record: Record<string, unknown>) {
@@ -179,11 +210,11 @@ function extractRole(record: Record<string, unknown>) {
   if (Array.isArray(roles)) {
     const adminRole = roles.find((role) => {
       if (typeof role === 'string') {
-        return isAdmin({ name: '', role });
+        return isBackoffice({ name: '', role });
       }
 
       if (isRecord(role)) {
-        return isAdmin({ name: '', role: getString(role, ['name', 'slug']) || '' });
+        return isBackoffice({ name: '', role: getString(role, ['name', 'slug']) || '' });
       }
 
       return false;

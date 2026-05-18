@@ -38,6 +38,13 @@ class NewsController extends Controller
         ], 201);
     }
 
+    public function show(News $news): JsonResponse
+    {
+        return response()->json([
+            'news' => NewsResource::make($news),
+        ]);
+    }
+
     public function update(Request $request, News $news): JsonResponse
     {
         $validated = $this->validateNews($request, $news);

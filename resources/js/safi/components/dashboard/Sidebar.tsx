@@ -5,10 +5,10 @@ import { logout } from '../../lib/api';
 
 const menuItems = [
   { path: '/dashboard', name: 'Обзор', icon: LayoutDashboard },
-  { path: '/dashboard/structure', name: 'Структура', icon: Users },
+  { path: '/dashboard/structure', name: 'Моя структура', icon: Users },
   { path: '/dashboard/transactions', name: 'Транзакции', icon: CreditCard },
-  { path: '/dashboard/bonuses', name: 'Бонусы', icon: Gift },
-  { path: '/dashboard/package-status', name: 'Пакет', icon: Star },
+  { path: '/dashboard/bonuses', name: 'Бонусы и вывод', icon: Gift },
+  { path: '/dashboard/package-status', name: 'Пакет и статус', icon: Star },
   { path: '/dashboard/products', name: 'Продукты', icon: ShoppingBag },
   { path: '/dashboard/news', name: 'Новости', icon: Newspaper },
   { path: '/dashboard/profile', name: 'Профиль', icon: UserCircle },
@@ -17,6 +17,7 @@ const menuItems = [
 
 interface SidebarUser {
   name: string;
+  role: string;
   partnerId: string;
   packageName: string;
   status: string;
@@ -100,12 +101,6 @@ export function Sidebar({ isOpen, onClose, currentUser }: { isOpen: boolean; onC
         </nav>
 
         <div className="flex shrink-0 flex-col gap-2 border-t border-safi-border p-4">
-          <Link
-            to="/admin"
-            className="flex w-full items-center justify-center rounded-2xl border border-safi-green bg-safi-green px-4 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-gold transition-colors hover:bg-safi-green-hover"
-          >
-            Админ-панель
-          </Link>
           <button
             type="button"
             onClick={() => {

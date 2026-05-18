@@ -1,8 +1,28 @@
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { Newspaper, Plus, Edit2, Trash2, Calendar, X } from 'lucide-react';
 import { AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { createAdminNews, deleteAdminNews, getAdminNews, getApiErrorState, NewsArticle, updateAdminNews } from '../../lib/api';
+
+interface NewsFormState {
+  id: string;
+  title: string;
+  category: string;
+  excerpt: string;
+  content: string;
+  imageUrl: string;
+  status: string;
+}
+
+const emptyForm: NewsFormState = {
+  id: '',
+  title: '',
+  category: 'События',
+  excerpt: '',
+  content: '',
+  imageUrl: '',
+  status: 'published',
+};
 
 export default function AdminNews() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
@@ -11,13 +31,7 @@ export default function AdminNews() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState('');
-  const [formData, setFormData] = useState({
-    id: '',
-    title: '',
-    category: 'События',
-    content: '',
-    imageUrl: ''
-  });
+  const [formData, setFormData] = useState<NewsFormState>(emptyForm);
 
   const loadNews = async () => {
     setIsLoading(true);
@@ -37,18 +51,20 @@ export default function AdminNews() {
     void loadNews();
   }, []);
 
-  const handlePublish = async () => {
-    if (!formData.title || !formData.content) return;
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     setActionError(null);
 
     try {
+      const isPublished = formData.status === 'published';
       const payload = {
         title: formData.title,
         category: formData.category,
+        excerpt: formData.excerpt,
         content: formData.content,
         image_url: formData.imageUrl,
-        is_published: true,
-        status: 'published',
+        is_published: isPublished,
+        status: formData.status,
       };
 
       if (formData.id) {
@@ -57,7 +73,7 @@ export default function AdminNews() {
         await createAdminNews(payload);
       }
 
-      setFormData({ id: '', title: '', category: 'События', content: '', imageUrl: '' });
+      setFormData(emptyForm);
       setShowForm(false);
       await loadNews();
     } catch (caughtError) {
@@ -84,8 +100,10 @@ export default function AdminNews() {
       id: article.id,
       title: article.title,
       category: article.category || 'События',
+      excerpt: article.excerpt || '',
       content: article.content || '',
       imageUrl: article.imageUrl || '',
+      status: article.status || (article.isPublished === false ? 'draft' : 'published'),
     });
     setActionError(null);
     setShowForm(true);
@@ -101,7 +119,7 @@ export default function AdminNews() {
         <button 
           onClick={() => {
             if (showForm) {
-              setFormData({ id: '', title: '', category: 'События', content: '', imageUrl: '' });
+              setFormData(emptyForm);
               setActionError(null);
             }
             setShowForm(!showForm);
@@ -120,7 +138,7 @@ export default function AdminNews() {
       )}
 
       {showForm && (
-        <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm animate-in fade-in slide-in-from-top-4">
+        <form onSubmit={handleSubmit} className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm animate-in fade-in slide-in-from-top-4">
           <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{formData.id ? 'Редактирование новости' : 'Создание новости'}</h3>
           <div className="space-y-4">
              <div>
@@ -130,10 +148,12 @@ export default function AdminNews() {
                   value={formData.title}
                   onChange={(e) => setFormData({...formData, title: e.target.value})}
                   placeholder="Введите заголовок..." 
+                  required
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green" 
                 />
              </div>
-             <div>
+             <div className="grid gap-4 md:grid-cols-2">
+              <div>
                 <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Категория</label>
                 <select 
                   value={formData.category}
@@ -144,6 +164,28 @@ export default function AdminNews() {
                    <option>Важно</option>
                    <option>Продукция</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Статус</label>
+                <select
+                  value={formData.status}
+                  onChange={(e) => setFormData({...formData, status: e.target.value})}
+                  className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
+                >
+                  <option value="published">published</option>
+                  <option value="draft">draft</option>
+                </select>
+              </div>
+             </div>
+             <div>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Краткое описание</label>
+                <textarea
+                  rows={3}
+                  value={formData.excerpt}
+                  onChange={(e) => setFormData({...formData, excerpt: e.target.value})}
+                  placeholder="Короткий анонс для списка новостей..."
+                  className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green resize-none"
+                />
              </div>
              <div>
                 <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Текст новости</label>
@@ -152,6 +194,7 @@ export default function AdminNews() {
                   value={formData.content}
                   onChange={(e) => setFormData({...formData, content: e.target.value})}
                   placeholder="Текст новости..." 
+                  required
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green resize-none"
                 ></textarea>
              </div>
@@ -166,13 +209,13 @@ export default function AdminNews() {
                 />
              </div>
              <button 
-                onClick={handlePublish}
+                type="submit"
                 className="px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors mt-4"
              >
-               {formData.id ? 'Сохранить' : 'Опубликовать'}
+               {formData.id ? 'Сохранить' : 'Создать'}
              </button>
           </div>
-        </div>
+        </form>
       )}
 
       <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm">
@@ -193,13 +236,16 @@ export default function AdminNews() {
                     <AdminBadge variant={article.category === 'Важно' ? 'danger' : 'default'}>
                       {article.category}
                     </AdminBadge>
+                    <AdminBadge variant={article.status === 'published' ? 'success' : 'default'}>
+                      {article.status || 'published'}
+                    </AdminBadge>
                     <span className="text-xs text-safi-text/50 font-mono flex items-center gap-1">
                       <Calendar className="w-3 h-3" />
                       {article.date}
                     </span>
                   </div>
                   <h4 className="font-bold text-sm text-safi-green">{article.title}</h4>
-                  <p className="text-xs text-safi-text/60 line-clamp-1 mt-1">{article.content}</p>
+                  <p className="text-xs text-safi-text/60 line-clamp-1 mt-1">{article.excerpt || article.content}</p>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">

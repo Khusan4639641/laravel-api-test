@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Calendar } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import { Container } from '../components/ui/Container';
-import { Button } from '../components/ui/Button';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
 import { getApiErrorState, getPublicNews, NewsArticle } from '../lib/api';
 
@@ -11,8 +10,6 @@ export default function NewsPage() {
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const featuredArticle = newsArticles[0];
-  const otherArticles = newsArticles.slice(1);
 
   const loadNews = React.useCallback(async () => {
     setIsLoading(true);
@@ -33,128 +30,63 @@ export default function NewsPage() {
   }, [loadNews]);
 
   return (
-    <div className="bg-safi-bg text-safi-green">
-      <section className="border-b border-safi-border bg-safi-bg py-16 md:py-24">
-        <Container>
-          <div className="mx-auto max-w-4xl text-center">
-            <span className="safi-kicker">News</span>
-            <h1 className="mt-4 font-serif text-5xl font-semibold leading-[1.04] text-safi-green md:text-7xl">
+    <div className="min-h-screen bg-[#F5F5F0] py-24">
+      <Container>
+        <div className="mx-auto max-w-4xl space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="mb-12 text-center md:text-left">
+            <h1 className="mb-4 font-serif text-4xl font-bold text-safi-green md:text-5xl">
               {t('news.pageTitle', 'Новости компании')}
             </h1>
-            <p className="mx-auto mt-7 max-w-2xl text-base leading-8 text-safi-muted md:text-xl">
-              Будьте в курсе событий, обновлений, продуктовых запусков и важных объявлений Safi Life.
+            <p className="max-w-2xl text-lg text-safi-text/70">
+              Будьте в курсе всех последних событий, обновлений и специальных предложений.
             </p>
           </div>
-        </Container>
-      </section>
 
-      {isLoading && (
-        <section className="bg-white py-16 md:py-24">
-          <Container>
-            <LoadingState title="Загружаем новости" description="Получаем актуальные публикации из публичного API." />
-          </Container>
-        </section>
-      )}
+          {isLoading && <LoadingState title="Загружаем новости" description="Получаем актуальные публикации из API." />}
 
-      {!isLoading && error && (
-        <section className="bg-white py-16 md:py-24">
-          <Container>
-            <ErrorState description={error} onRetry={loadNews} />
-          </Container>
-        </section>
-      )}
+          {!isLoading && error && <ErrorState description={error} onRetry={loadNews} />}
 
-      {!isLoading && !error && !featuredArticle && (
-        <section className="bg-white py-16 md:py-24">
-          <Container>
+          {!isLoading && !error && newsArticles.length === 0 && (
             <EmptyState title="Новостей пока нет" description="После публикации новости появятся на этой странице." />
-          </Container>
-        </section>
-      )}
+          )}
 
-      {!isLoading && !error && featuredArticle && (
-        <section className="bg-white py-16 md:py-24">
-          <Container>
-            <article className="grid overflow-hidden rounded-[36px] border border-safi-border bg-safi-cream shadow-[0_24px_70px_rgba(11,23,18,0.10)] lg:grid-cols-[0.95fr_1.05fr]">
-              <div className="min-h-[320px] bg-white">
-                <img
-                  src={featuredArticle.imageUrl || 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&q=80&w=1100'}
-                  alt={featuredArticle.title}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="flex flex-col justify-center p-8 md:p-10">
-                <ArticleMeta category={featuredArticle.category} date={featuredArticle.date} />
-                <h2 className="mt-5 font-serif text-4xl font-semibold leading-tight text-safi-green md:text-6xl">
-                  {featuredArticle.title}
-                </h2>
-                <p className="mt-5 text-base leading-8 text-safi-muted">{featuredArticle.content}</p>
-                <Button to="/contacts" variant="outline" className="mt-8 w-full sm:w-fit">
-                  Задать вопрос
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </article>
-          </Container>
-        </section>
-      )}
-
-      {!isLoading && !error && featuredArticle && (
-        <section className="border-y border-safi-border bg-safi-cream py-16 md:py-24">
-        <Container>
-          <div className="mb-10 flex flex-col gap-5 md:mb-14 md:flex-row md:items-end md:justify-between">
-            <div>
-              <span className="safi-kicker">Updates</span>
-              <h2 className="mt-3 font-serif text-4xl font-semibold leading-tight text-safi-green md:text-6xl">
-                Последние обновления
-              </h2>
+          {!isLoading && !error && newsArticles.length > 0 && (
+            <div className="grid gap-8">
+              {newsArticles.map((article) => <NewsCard key={article.id} article={article} />)}
             </div>
-            <Button to="/contacts" variant="outline">
-              Подписаться
-            </Button>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-2">
-            {otherArticles.length === 0 && (
-              <EmptyState
-                title="Других обновлений пока нет"
-                description="Новые публикации появятся в этом блоке."
-                className="md:col-span-2"
-              />
-            )}
-
-            {otherArticles.map((article) => (
-              <article key={article.id} className="overflow-hidden rounded-3xl border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-                {article.imageUrl && (
-                  <div className="aspect-[16/9] overflow-hidden bg-safi-cream">
-                    <img src={article.imageUrl} alt={article.title} className="h-full w-full object-cover" />
-                  </div>
-                )}
-                <div className="p-7">
-                  <ArticleMeta category={article.category} date={article.date} />
-                  <h3 className="mt-5 font-serif text-3xl font-semibold leading-tight text-safi-green">{article.title}</h3>
-                  <p className="mt-4 text-sm leading-7 text-safi-muted">{article.content}</p>
-                </div>
-              </article>
-            ))}
-          </div>
-        </Container>
-        </section>
-      )}
+          )}
+        </div>
+      </Container>
     </div>
   );
 }
 
-function ArticleMeta({ category, date }: { category: string; date: string }) {
+function NewsCard({ article }: { article: NewsArticle }) {
+  const text = article.excerpt || article.content;
+
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="rounded-full bg-safi-green px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white">
-        {category}
-      </span>
-      <span className="inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">
-        <Calendar className="h-4 w-4 text-safi-gold" />
-        {date}
-      </span>
-    </div>
+    <article className="flex flex-col overflow-hidden rounded-[32px] border border-safi-green/5 bg-white shadow-sm transition-shadow hover:shadow-md md:flex-row">
+      {article.imageUrl && (
+        <div className="relative h-64 shrink-0 overflow-hidden md:h-auto md:w-1/3">
+          <img src={article.imageUrl} alt={article.title} className="h-full w-full object-cover" />
+        </div>
+      )}
+
+      <div className="flex flex-1 flex-col justify-center p-8 md:p-10">
+        <div className="mb-6 flex flex-wrap items-center gap-3">
+          <span className="rounded-full bg-safi-green/5 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-safi-green">
+            {article.category || 'Новости'}
+          </span>
+          {article.date && (
+            <span className="flex items-center gap-1.5 font-mono text-sm text-safi-text/50">
+              <Calendar className="h-4 w-4" />
+              {article.date}
+            </span>
+          )}
+        </div>
+        <h3 className="mb-4 font-serif text-2xl font-bold text-safi-green md:text-3xl">{article.title}</h3>
+        <p className="text-base leading-relaxed text-safi-text/80">{text}</p>
+      </div>
+    </article>
   );
 }

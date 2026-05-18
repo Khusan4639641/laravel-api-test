@@ -27,8 +27,8 @@ export default function LoginPage() {
     setFieldErrors({});
 
     try {
-      await login(form);
-      navigate('/dashboard', { replace: true });
+      const response = await login(form);
+      navigate(getRedirectPath(response), { replace: true });
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message);
@@ -100,6 +100,36 @@ export default function LoginPage() {
       </Container>
     </div>
   );
+}
+
+function getRedirectPath(response: unknown) {
+  const role = extractRole(response);
+
+  if (role === 'support') {
+    return '/support';
+  }
+
+  if (role === 'super_admin') {
+    return '/admin';
+  }
+
+  return '/dashboard';
+}
+
+function extractRole(response: unknown) {
+  if (!response || typeof response !== 'object') {
+    return 'user';
+  }
+
+  const record = response as Record<string, unknown>;
+  const user = getRecord(record.user) || getRecord(getRecord(record.data)?.user) || getRecord(record.data);
+  const role = user?.role;
+
+  return typeof role === 'string' ? role.toLowerCase() : 'user';
+}
+
+function getRecord(value: unknown): Record<string, unknown> | undefined {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined;
 }
 
 function FormField({
