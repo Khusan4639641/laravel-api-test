@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'status',
     'payment_method',
     'payment_details',
+    'payout_period_days',
     'admin_comment',
     'processed_at',
 ])]
@@ -31,6 +32,7 @@ class WithdrawalRequest extends Model
             'fee_amount' => 'decimal:2',
             'net_amount' => 'decimal:2',
             'payment_details' => 'array',
+            'payout_period_days' => 'integer',
             'processed_at' => 'datetime',
         ];
     }

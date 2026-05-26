@@ -18,7 +18,7 @@ class PackageActivationTest extends TestCase
     public function test_user_can_activate_package(): void
     {
         $user = User::factory()->create();
-        $package = $this->createPackage('START', 30000, 10, 1);
+        $package = $this->createPackage('START', 60000, 10, 1);
 
         Sanctum::actingAs($user);
 
@@ -29,12 +29,39 @@ class PackageActivationTest extends TestCase
             ->assertJsonPath('user.current_package.id', $package->id);
 
         $this->assertSame($package->id, $user->refresh()->current_package_id);
+        $this->assertSame('60000.00', $user->total_pv);
+    }
+
+    public function test_start_activation_adds_sixty_thousand_pv_and_pays_sponsor_ten_percent(): void
+    {
+        $package = $this->createPackage('START', 60000, 10, 1);
+        $sponsor = User::factory()->create([
+            'current_package_id' => $package->id,
+        ]);
+        $user = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/packages/{$package->id}/activate")
+            ->assertOk()
+            ->assertJsonPath('user.total_pv', '60000.00');
+
+        $user->refresh();
+        $bonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
+        $walletTransaction = WalletTransaction::query()->where('type', 'referral_bonus')->firstOrFail();
+
+        $this->assertSame('60000.00', $user->total_pv);
+        $this->assertSame('6000.00', $bonus->amount);
+        $this->assertSame('6000.00', $walletTransaction->amount);
+        $this->assertSame($sponsor->id, $bonus->user_id);
     }
 
     public function test_activation_accrues_referral_bonus_to_sponsor_main_wallet(): void
     {
-        $sponsorPackage = $this->createPackage('BUSINESS', 60000, 10, 2);
-        $activatedPackage = $this->createPackage('VIP', 180000, 20, 3);
+        $sponsorPackage = $this->createPackage('START', 60000, 10, 1);
+        $activatedPackage = $this->createPackage('VIP', 180000, 10, 2);
         $sponsor = User::factory()->create([
             'current_package_id' => $sponsorPackage->id,
         ]);
@@ -45,7 +72,7 @@ class PackageActivationTest extends TestCase
         Wallet::query()->create([
             'user_id' => $sponsor->id,
             'type' => 'main',
-            'currency' => 'USD',
+            'currency' => 'KZT',
             'balance' => 0,
             'hold_balance' => 0,
             'status' => 'active',
@@ -65,17 +92,17 @@ class PackageActivationTest extends TestCase
         $this->assertSame($user->id, $bonus->source_user_id);
         $this->assertSame('referral', $bonus->bonus_type);
         $this->assertSame('18000.00', $bonus->amount);
-        $this->assertSame('sponsor_package', $bonus->metadata['percent_source']);
+        $this->assertSame('business_tz', $bonus->metadata['percent_source']);
         $this->assertSame($wallet->id, $walletTransaction->wallet_id);
         $this->assertSame('credit', $walletTransaction->direction);
         $this->assertSame('referral_bonus', $walletTransaction->type);
         $this->assertSame('18000.00', $walletTransaction->amount);
     }
 
-    public function test_referral_bonus_percent_comes_from_sponsor_package(): void
+    public function test_referral_bonus_is_always_ten_percent(): void
     {
-        $sponsorPackage = $this->createPackage('START', 30000, 5, 1);
-        $activatedPackage = $this->createPackage('VIP', 300000, 30, 4);
+        $sponsorPackage = $this->createPackage('START', 60000, 5, 1);
+        $activatedPackage = $this->createPackage('ELITE', 300000, 30, 3);
         $sponsor = User::factory()->create([
             'current_package_id' => $sponsorPackage->id,
         ]);
@@ -91,14 +118,51 @@ class PackageActivationTest extends TestCase
         $bonus = BonusTransaction::query()->firstOrFail();
         $wallet = $sponsor->wallets()->where('type', 'main')->firstOrFail();
 
-        $this->assertSame('15000.00', $bonus->amount);
-        $this->assertSame('5.00', $bonus->metadata['referral_percent']);
+        $this->assertSame('30000.00', $bonus->amount);
+        $this->assertSame('10', $bonus->metadata['referral_percent']);
         $this->assertSame($sponsorPackage->id, $bonus->metadata['sponsor_package_id']);
         $this->assertSame($activatedPackage->id, $bonus->metadata['referral_package_id']);
-        $this->assertSame('15000.00', $wallet->balance);
+        $this->assertSame('30000.00', $wallet->balance);
     }
 
-    private function createPackage(string $code, int $price, int $referralPercent, int $sortOrder): Package
+    public function test_user_with_current_package_cannot_activate_again(): void
+    {
+        $start = $this->createPackage('START', 60000, 10, 1);
+        $vip = $this->createPackage('VIP', 180000, 10, 2);
+        $user = User::factory()->create([
+            'current_package_id' => $start->id,
+            'total_pv' => $start->pv,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/packages/{$vip->id}/activate")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('package');
+
+        $this->assertSame($start->id, $user->refresh()->current_package_id);
+        $this->assertSame('60000.00', $user->total_pv);
+    }
+
+    public function test_inactive_package_cannot_be_activated(): void
+    {
+        $package = $this->createPackage('START', 60000, 10, 1, false);
+        $user = User::factory()->create();
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/packages/{$package->id}/activate")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('package');
+    }
+
+    private function createPackage(
+        string $code,
+        int $price,
+        int $referralPercent,
+        int $sortOrder,
+        bool $active = true,
+    ): Package
     {
         return Package::query()->create([
             'code' => $code,
@@ -109,9 +173,9 @@ class PackageActivationTest extends TestCase
             'referral_percent' => $referralPercent,
             'binary_percent' => 0,
             'sort_order' => $sortOrder,
-            'status' => 'active',
-            'is_active' => true,
-            'is_upgradeable' => true,
+            'status' => $active ? 'active' : 'inactive',
+            'is_active' => $active,
+            'is_upgradeable' => $active,
         ]);
     }
 }

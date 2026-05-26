@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -22,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Package extends Model
 {
+    public const PUBLIC_CODES = ['START', 'VIP', 'ELITE'];
+
     /**
      * @return array<string, string>
      */
@@ -41,6 +44,14 @@ class Package extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class, 'current_package_id');
+    }
+
+    public function scopeActiveStarter(Builder $query): Builder
+    {
+        return $query
+            ->whereIn('code', self::PUBLIC_CODES)
+            ->where('status', 'active')
+            ->where('is_active', true);
     }
 
     public function orderItems(): HasMany

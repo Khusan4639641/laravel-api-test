@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
+use App\Models\Package;
 use App\Models\User;
 use App\Notifications\UserRegisteredNotification;
 use App\Services\BinaryTreeService;
+use App\Services\PackageService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +24,7 @@ class AuthController extends Controller
     public function __construct(
         private readonly WalletService $walletService,
         private readonly BinaryTreeService $binaryTreeService,
+        private readonly PackageService $packageService,
     ) {
     }
 
@@ -29,6 +32,7 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
         $sponsor = $this->resolveSponsor($validated);
+        $package = $this->resolvePackage($validated);
 
         if (! empty($validated['referral_code']) && ! $sponsor) {
             throw ValidationException::withMessages([
@@ -42,15 +46,15 @@ class AuthController extends Controller
             ]);
         }
 
-        $user = DB::transaction(function () use ($validated, $sponsor): User {
+        $user = DB::transaction(function () use ($validated, $sponsor, $package): User {
             $user = User::query()->create([
                 'name' => $validated['name'],
                 'login' => $validated['login'],
                 'email' => $validated['email'],
                 'password' => Hash::make($validated['password']),
                 'sponsor_id' => $sponsor?->id,
-                'current_package_id' => $validated['package_id'] ?? null,
-                'status' => 'active',
+                'current_package_id' => null,
+                'status' => 'user',
             ]);
 
             $user->profile()->create();
@@ -60,9 +64,13 @@ class AuthController extends Controller
                 $this->binaryTreeService->placeUser($user, $sponsor, $validated['branch']);
             }
 
+            if ($package) {
+                $user = $this->packageService->upgradePackage($user->refresh(), $package);
+            }
+
             $user->notify(new UserRegisteredNotification());
 
-            return $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode']);
+            return $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])->loadCount('referrals');
         });
 
         return response()->json([
@@ -86,7 +94,7 @@ class AuthController extends Controller
         }
 
         return response()->json([
-            'user' => UserResource::make($user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])),
+            'user' => UserResource::make($user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])->loadCount('referrals')),
             'token' => $user->createToken('api')->plainTextToken,
         ]);
     }
@@ -103,7 +111,7 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         return response()->json([
-            'user' => UserResource::make($request->user()?->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])),
+            'user' => UserResource::make($request->user()?->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])->loadCount('referrals')),
         ]);
     }
 
@@ -141,5 +149,25 @@ class AuthController extends Controller
                 }
             })
             ->first();
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function resolvePackage(array $validated): ?Package
+    {
+        if (empty($validated['package_id'])) {
+            return null;
+        }
+
+        $package = Package::query()->find((int) $validated['package_id']);
+
+        if (! $package || ! $package->is_active || $package->status !== 'active' || ! in_array($package->code, Package::PUBLIC_CODES, true)) {
+            throw ValidationException::withMessages([
+                'package_id' => ['Selected package is inactive.'],
+            ]);
+        }
+
+        return $package;
     }
 }

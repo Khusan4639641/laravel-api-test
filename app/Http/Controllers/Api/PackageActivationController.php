@@ -21,21 +21,21 @@ class PackageActivationController extends Controller
     {
         $user = $request->user();
 
-        if (! $package->is_active) {
+        if (! $package->is_active || $package->status !== 'active') {
             throw ValidationException::withMessages([
                 'package' => 'Package is inactive.',
             ]);
         }
 
-        if (! $user->current_package_id && $package->code === 'ELITE') {
+        if (! in_array($package->code, Package::PUBLIC_CODES, true)) {
             throw ValidationException::withMessages([
-                'package' => 'ELITE package can only be purchased through upgrade.',
+                'package' => 'Package is not available for activation.',
             ]);
         }
 
-        if (! $this->packageService->canUpgrade($user, $package)) {
+        if ($user->current_package_id) {
             throw ValidationException::withMessages([
-                'package' => 'Selected package is lower than the current package.',
+                'package' => 'User already has an active package. Use upgrade flow.',
             ]);
         }
 

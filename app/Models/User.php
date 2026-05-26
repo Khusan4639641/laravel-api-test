@@ -118,6 +118,16 @@ class User extends Authenticatable
         return $this->hasMany(WithdrawalRequest::class);
     }
 
+    public function statusBonuses(): HasMany
+    {
+        return $this->hasMany(UserStatusBonus::class);
+    }
+
+    public function x2Bonuses(): HasMany
+    {
+        return $this->hasMany(UserX2Bonus::class);
+    }
+
     public function walletTransactions(): HasMany
     {
         return $this->hasMany(WalletTransaction::class);

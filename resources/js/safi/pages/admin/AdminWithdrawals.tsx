@@ -222,6 +222,7 @@ function normalizeWithdrawals(response: unknown): AdminWithdrawalRow[] {
   return getArray(response).map((item, index) => {
     const record = isRecord(item) ? item : {};
     const userRecord = isRecord(record.user) ? record.user : isRecord(record.partner) ? record.partner : undefined;
+    const details = isRecord(record.payment_details) ? record.payment_details : {};
 
     return {
       id: getString(record, ['id', 'uuid', 'number']) || `W-${index + 1}`,
@@ -229,10 +230,10 @@ function normalizeWithdrawals(response: unknown): AdminWithdrawalRow[] {
       partnerId: getString(userRecord, ['partner_id', 'partnerId', 'id']) || getString(record, ['partner_id', 'partnerId', 'user_id']) || '-',
       partnerName: getString(userRecord, ['name', 'full_name', 'fullName']) || getString(record, ['partner_name', 'partnerName', 'user_name']) || '-',
       amount: formatAmount(record.amount ?? record.sum),
-      method: getString(record, ['method', 'payment_method', 'paymentMethod']) || 'Карта партнера',
-      reqs: getString(record, ['reqs', 'requisites', 'card', 'iban']) || '-',
-      bank: getString(record, ['bank']) || '-',
-      iin: getString(record, ['iin', 'tax_id', 'taxId']) || '-',
+      method: methodLabel(getString(record, ['method', 'payment_method', 'paymentMethod'])),
+      reqs: getString(details, ['label', 'reqs', 'requisites', 'card', 'iban']) || getString(record, ['reqs', 'requisites', 'card', 'iban']) || '-',
+      bank: getString(details, ['bank']) || getString(record, ['bank']) || '-',
+      iin: getString(details, ['iin', 'tax_id', 'taxId']) || getString(record, ['iin', 'tax_id', 'taxId']) || '-',
       status: normalizeStatus(getString(record, ['status']) || 'Новая заявка'),
       comment: getString(record, ['comment', 'reject_reason', 'rejectReason']) || '',
       processedDate: getString(record, ['processed_date', 'processedDate', 'paid_at', 'updated_at']) || '-',
@@ -314,6 +315,18 @@ function formatAmount(value: unknown) {
   }
 
   return '0 тг';
+}
+
+function methodLabel(method?: string) {
+  if (method === 'ip_account') {
+    return 'Счет ИП';
+  }
+
+  if (method === 'card_account') {
+    return 'Карта партнера';
+  }
+
+  return method || 'Карта партнера';
 }
 
 function getString(record: Record<string, unknown> | undefined, keys: string[]) {

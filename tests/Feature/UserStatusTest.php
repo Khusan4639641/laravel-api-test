@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Package;
 use App\Models\User;
+use App\Models\UserStatusBonus;
 use App\Services\BinaryTreeService;
 use App\Services\StatusService;
+use Database\Seeders\StatusBonusDefinitionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -36,7 +38,7 @@ class UserStatusTest extends TestCase
             'status' => 'user',
             'total_pv' => 0,
         ]);
-        $package = $this->createPackage('DIRECTOR', 5000);
+        $package = $this->createPackage('START', 5000);
 
         Sanctum::actingAs($user);
 
@@ -55,7 +57,7 @@ class UserStatusTest extends TestCase
             'total_pv' => 0,
         ]);
         $leftChild = User::factory()->create();
-        $package = $this->createPackage('BRONZE', 10000);
+        $package = $this->createPackage('START', 10000);
 
         $treeService->placeUser($leftChild, $root, 'L');
 
@@ -91,6 +93,36 @@ class UserStatusTest extends TestCase
             'total_pv' => 500000,
             'status' => 'diamond_director',
         ]);
+    }
+
+    public function test_status_rewards_match_business_tz_text(): void
+    {
+        $statuses = collect(app(StatusService::class)->publicStatuses())->keyBy('id');
+
+        $this->assertSame('Путевка в санаторий + 100 000 ₸ или компенсация 400 000 ₸', $statuses['bronze_director']['reward']);
+        $this->assertSame('Путевка в теплые страны + 250 000 ₸ или компенсация 750 000 ₸', $statuses['silver_director']['reward']);
+    }
+
+    public function test_status_bonus_is_created_once_for_eligible_status(): void
+    {
+        $this->seed(StatusBonusDefinitionSeeder::class);
+
+        $user = User::factory()->create([
+            'status' => 'user',
+            'total_pv' => 5000,
+        ]);
+
+        app(StatusService::class)->recalculate($user);
+        app(StatusService::class)->recalculate($user->refresh());
+
+        $statusBonus = UserStatusBonus::query()->where('status_code', 'director')->firstOrFail();
+        $wallet = $user->wallets()->where('type', 'main')->firstOrFail();
+
+        $this->assertDatabaseCount('user_status_bonuses', 3);
+        $this->assertDatabaseCount('bonus_transactions', 1);
+        $this->assertSame($user->id, $statusBonus->user_id);
+        $this->assertSame('250000.00', $statusBonus->amount);
+        $this->assertSame('250000.00', $wallet->balance);
     }
 
     private function createPackage(string $code, int $pv): Package

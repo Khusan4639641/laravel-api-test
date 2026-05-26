@@ -79,9 +79,9 @@ class SupportTicketDemoSeeder extends Seeder
                 'category' => 'Вопрос по пакету',
                 'status' => SupportTicket::STATUS_OPEN,
                 'priority' => 'normal',
-                'message' => 'Хочу перейти с BUSINESS на VIP, подскажите сумму доплаты.',
+                'message' => 'Хочу перейти со START на VIP, подскажите сумму доплаты.',
                 'messages' => [
-                    ['author' => 'user', 'message' => 'Хочу перейти с BUSINESS на VIP, подскажите сумму доплаты.'],
+                    ['author' => 'user', 'message' => 'Хочу перейти со START на VIP, подскажите сумму доплаты.'],
                 ],
             ],
             [

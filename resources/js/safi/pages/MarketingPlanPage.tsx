@@ -79,7 +79,7 @@ export default function MarketingPlanPage() {
           </h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { title: `${t('marketing.bonus1_title', 'Реферальный бонус')} (5-10%)`, desc: t('marketing.bonus1_desc', 'Получайте бонус за личные рекомендации при покупке пакета новым партнёром.') },
+              { title: `${t('marketing.bonus1_title', 'Реферальный бонус')} (10%)`, desc: t('marketing.bonus1_desc', 'Получайте бонус за личные рекомендации при покупке пакета новым партнёром.') },
               { title: `${t('marketing.bonus2_title', 'Бинарный бонус')} (7-10%)`, desc: t('marketing.bonus2_desc', 'Начисляется с меньшей ветки вашей структуры при образовании бинарной пары.') },
               { title: 'Статусный бонус', desc: 'Единоразовые премии и подарки за достижение определенных объемов PV.' },
               { title: 'Bonus X2', desc: 'Если партнеры первой линии достигают статусов, вы удваиваете свой успех.' },

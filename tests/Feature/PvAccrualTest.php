@@ -51,7 +51,7 @@ class PvAccrualTest extends TestCase
     public function test_package_activation_without_binary_node_updates_only_user_total_pv(): void
     {
         $user = User::factory()->create();
-        $package = $this->createPackage('START', 30000, 30000, 1);
+        $package = $this->createPackage('START', 60000, 60000, 1);
 
         Sanctum::actingAs($user);
 
@@ -62,7 +62,7 @@ class PvAccrualTest extends TestCase
 
         $this->assertSame('0.00', $user->left_pv);
         $this->assertSame('0.00', $user->right_pv);
-        $this->assertSame('30000.00', $user->total_pv);
+        $this->assertSame('60000.00', $user->total_pv);
     }
 
     private function createPackage(string $code, int $price, int $pv, int $sortOrder): Package

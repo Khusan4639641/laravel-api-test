@@ -22,6 +22,7 @@ export interface DashboardCurrentUser {
   personalPV: number;
   teamPV: number;
   bonusesTotal: number;
+  referralsCount: number;
   raw?: unknown;
 }
 
@@ -44,6 +45,7 @@ const userDefaults: DashboardCurrentUser = {
   personalPV: 2500,
   teamPV: 0,
   bonusesTotal: 0,
+  referralsCount: 0,
 };
 
 export function useDashboardContext() {
@@ -217,9 +219,10 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
     registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || userDefaults.registrationDate,
     walletAvailable: getNumber(walletRecord, ['available', 'balance', 'amount']) ?? getNumber(record, ['wallet_available', 'available_balance', 'balance']) ?? userDefaults.walletAvailable,
     totalEarned: getNumber(walletRecord, ['total_earned', 'totalEarned', 'earned']) ?? getNumber(record, ['total_earned', 'totalEarned']) ?? userDefaults.totalEarned,
-    personalPV: getNumber(record, ['personal_pv', 'personalPV', 'pv']) ?? userDefaults.personalPV,
+    personalPV: getNumber(record, ['total_pv', 'totalPV', 'personal_pv', 'personalPV', 'pv']) ?? userDefaults.personalPV,
     teamPV: getNumber(record, ['team_pv', 'teamPV', 'structure_pv']) ?? userDefaults.teamPV,
     bonusesTotal: getNumber(record, ['bonuses_total', 'bonusesTotal', 'bonus_balance']) ?? userDefaults.bonusesTotal,
+    referralsCount: getNumber(record, ['referrals_count', 'referralsCount']) ?? userDefaults.referralsCount,
     raw: response,
   };
 }

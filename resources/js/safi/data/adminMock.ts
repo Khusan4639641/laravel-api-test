@@ -19,7 +19,7 @@ export const partners = Array.from({ length: 20 }).map((_, i) => ({
   city: ['Алматы', 'Астана', 'Шымкент', 'Караганда'][i % 4],
   sponsor: `SAFI-${10000 + (i > 0 ? i - 1 : 0)}`,
   invitedCount: Math.floor(Math.random() * 20),
-  package: ['BUSINESS', 'VIP', 'ELITE', 'BUSINESS'][i % 4],
+  package: ['START', 'VIP', 'ELITE', 'START'][i % 4],
   status: ['Участник', 'Менеджер', 'Лидер', 'Директор'][i % 4],
   personalPV: Math.floor(Math.random() * 1000),
   teamPV: Math.floor(Math.random() * 50000),

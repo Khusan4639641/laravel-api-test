@@ -174,11 +174,12 @@ class AdminApiTest extends TestCase
         ]);
 
         Package::query()->create([
-            'code' => 'PUBLIC-PACKAGE',
-            'name' => 'Public Package',
-            'slug' => 'public-package',
-            'price' => 1000,
-            'pv' => 100,
+            'code' => 'START',
+            'name' => 'START',
+            'slug' => 'start',
+            'price' => 60000,
+            'pv' => 60000,
+            'status' => 'active',
             'is_active' => true,
         ]);
 
@@ -199,8 +200,10 @@ class AdminApiTest extends TestCase
             'amount' => 250,
             'fee_amount' => 0,
             'net_amount' => 250,
-            'currency' => 'USD',
+            'currency' => 'KZT',
             'status' => 'pending',
+            'payment_method' => 'card_account',
+            'payout_period_days' => 14,
         ]);
 
         Sanctum::actingAs($admin);
@@ -294,7 +297,7 @@ class AdminApiTest extends TestCase
         return Wallet::query()->create([
             'user_id' => $user->id,
             'type' => 'main',
-            'currency' => 'USD',
+            'currency' => 'KZT',
             'balance' => $balance,
             'hold_balance' => $holdBalance,
             'status' => 'active',
@@ -309,8 +312,10 @@ class AdminApiTest extends TestCase
             'amount' => $amount,
             'fee_amount' => 0,
             'net_amount' => $amount,
-            'currency' => 'USD',
+            'currency' => 'KZT',
             'status' => $status,
+            'payment_method' => 'card_account',
+            'payout_period_days' => 14,
         ]);
     }
 }

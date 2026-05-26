@@ -20,6 +20,7 @@ class WithdrawalRequestResource extends JsonResource
             'status' => $this->status,
             'payment_method' => $this->payment_method,
             'payment_details' => $this->payment_details,
+            'payout_period_days' => $this->payout_period_days,
             'admin_comment' => $this->admin_comment,
             'processed_at' => $this->processed_at?->toISOString(),
             'user' => new UserResource($this->whenLoaded('user')),

@@ -10,11 +10,11 @@ export interface Status {
 export const statuses: Status[] = [
   { id: 'manager', name: 'Менеджер', pv: 1000, incomePotential: 500000, reward: '2 продукта в подарок', isCashBonus: false },
   { id: 'leader', name: 'Лидер', pv: 2500, incomePotential: 1250000, reward: 'Набор косметики', isCashBonus: false },
-  { id: 'director', name: 'Директор', pv: 5000, incomePotential: 2500000, reward: '250 000 тг', isCashBonus: true },
-  { id: 'bronze', name: 'Бронзовый директор', pv: 10000, incomePotential: 5000000, reward: 'Путевка в санаторий или 400 000 тг', isCashBonus: true },
-  { id: 'silver', name: 'Серебряный директор', pv: 25000, incomePotential: 12500000, reward: 'Путевка в теплые страны или 750 000 тг', isCashBonus: true },
-  { id: 'gold', name: 'Золотой директор', pv: 50000, incomePotential: 25000000, reward: '5 000 000 тг', isCashBonus: true },
-  { id: 'platinum', name: 'Платиновый директор', pv: 100000, incomePotential: 50000000, reward: '6 000 000 тг', isCashBonus: true },
-  { id: 'emerald', name: 'Изумрудный директор', pv: 250000, incomePotential: 125000000, reward: '10 000 000 тг (автобонус)', isCashBonus: true },
-  { id: 'diamond', name: 'Бриллиантовый директор', pv: 500000, incomePotential: 250000000, reward: '20 000 000 тг (жилищный бонус)', isCashBonus: true },
+  { id: 'director', name: 'Директор', pv: 5000, incomePotential: 2500000, reward: '250 000 ₸ cash bonus', isCashBonus: true },
+  { id: 'bronze_director', name: 'Бронзовый директор', pv: 10000, incomePotential: 5000000, reward: 'Путевка в санаторий + 100 000 ₸ или компенсация 400 000 ₸', isCashBonus: true },
+  { id: 'silver_director', name: 'Серебряный директор', pv: 25000, incomePotential: 12500000, reward: 'Путевка в теплые страны + 250 000 ₸ или компенсация 750 000 ₸', isCashBonus: true },
+  { id: 'gold_director', name: 'Золотой директор', pv: 50000, incomePotential: 25000000, reward: '5 000 000 ₸ cash bonus', isCashBonus: true },
+  { id: 'platinum_director', name: 'Платиновый директор', pv: 100000, incomePotential: 50000000, reward: '6 000 000 ₸ cash bonus', isCashBonus: true },
+  { id: 'emerald_director', name: 'Изумрудный директор', pv: 250000, incomePotential: 125000000, reward: '10 000 000 ₸ auto bonus', isCashBonus: true },
+  { id: 'diamond_director', name: 'Бриллиантовый директор', pv: 500000, incomePotential: 250000000, reward: '20 000 000 ₸ apartment bonus', isCashBonus: true },
 ];

@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\Admin\UserController as AdminUserController;
 use App\Http\Controllers\Api\Admin\WithdrawalController as AdminWithdrawalController;
 use App\Http\Controllers\Api\Support\TicketController as SupportTicketController;
 use App\Http\Controllers\Api\BinaryBonusController;
+use App\Http\Controllers\Api\DepositPurchaseController;
 use App\Http\Controllers\Api\Dashboard\BonusController as DashboardBonusController;
 use App\Http\Controllers\Api\Dashboard\OrderController as DashboardOrderController;
 use App\Http\Controllers\Api\Dashboard\OverviewController as DashboardOverviewController;
@@ -58,6 +59,7 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bonuses/binary/calculate', BinaryBonusController::class);
+    Route::post('/deposits/purchase', DepositPurchaseController::class);
     Route::post('/packages/{package}/activate', PackageActivationController::class);
     Route::post('/packages/{package}/upgrade', PackageUpgradeController::class);
     Route::get('/withdrawals', [WithdrawalController::class, 'index']);

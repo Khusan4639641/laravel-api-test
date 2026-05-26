@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\BonusTransaction;
 use App\Models\Package;
 use App\Models\User;
-use App\Models\WalletTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -13,71 +13,61 @@ class PackageUpgradeTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_can_upgrade_start_to_business_with_cashback_and_additional_pv(): void
+    public function test_user_can_upgrade_start_to_vip_with_additional_pv_and_referral_bonus(): void
     {
-        [$start, $business] = $this->createPackages(['START', 'BUSINESS']);
+        [$start, $vip] = $this->createPackages(['START', 'VIP']);
+        $sponsor = User::factory()->create([
+            'current_package_id' => $start->id,
+        ]);
         $user = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
             'current_package_id' => $start->id,
             'total_pv' => $start->pv,
-            'status' => 'silver_director',
+            'status' => 'gold_director',
         ]);
 
         Sanctum::actingAs($user);
 
-        $response = $this->postJson("/api/packages/{$business->id}/upgrade");
+        $response = $this->postJson("/api/packages/{$vip->id}/upgrade");
 
         $response
             ->assertOk()
-            ->assertJsonPath('user.current_package.id', $business->id)
-            ->assertJsonPath('payment_amount', '30000.00')
-            ->assertJsonPath('additional_pv', '30000.00')
-            ->assertJsonPath('cashback_amount', '3000.00');
+            ->assertJsonPath('user.current_package.id', $vip->id)
+            ->assertJsonPath('payment_amount', '120000.00')
+            ->assertJsonPath('additional_pv', '120000.00')
+            ->assertJsonPath('cashback_amount', '0.00');
 
         $user->refresh();
-        $bonusWallet = $user->wallets()->where('type', 'bonus')->firstOrFail();
-        $cashbackTransaction = WalletTransaction::query()
-            ->where('type', 'package_upgrade_cashback')
-            ->firstOrFail();
+        $sponsorMainWallet = $sponsor->wallets()->where('type', 'main')->firstOrFail();
+        $referralBonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
 
-        $this->assertSame($business->id, $user->current_package_id);
-        $this->assertSame('60000.00', $user->total_pv);
-        $this->assertSame('gold_director', $user->status);
-        $this->assertSame('3000.00', $bonusWallet->balance);
-        $this->assertSame('3000.00', $cashbackTransaction->amount);
-        $this->assertSame('credit', $cashbackTransaction->direction);
+        $this->assertSame($vip->id, $user->current_package_id);
+        $this->assertSame('180000.00', $user->total_pv);
+        $this->assertSame('platinum_director', $user->status);
+        $this->assertSame('12000.00', $referralBonus->amount);
+        $this->assertSame('12000.00', $sponsorMainWallet->balance);
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'type' => 'package_upgrade_cashback',
+        ]);
     }
 
-    public function test_user_cannot_skip_upgrade_chain(): void
+    public function test_user_cannot_skip_start_to_elite_upgrade(): void
     {
-        [$start, , $vip] = $this->createPackages(['START', 'BUSINESS', 'VIP']);
+        [$start, , $elite] = $this->createPackages(['START', 'VIP', 'ELITE']);
         $user = User::factory()->create([
             'current_package_id' => $start->id,
         ]);
 
         Sanctum::actingAs($user);
 
-        $this->postJson("/api/packages/{$vip->id}/upgrade")
+        $this->postJson("/api/packages/{$elite->id}/upgrade")
             ->assertUnprocessable()
             ->assertJsonValidationErrors('package');
 
         $this->assertSame($start->id, $user->refresh()->current_package_id);
     }
 
-    public function test_user_cannot_activate_elite_directly(): void
-    {
-        [$elite] = $this->createPackages(['ELITE']);
-        $user = User::factory()->create([
-            'current_package_id' => null,
-        ]);
-
-        Sanctum::actingAs($user);
-
-        $this->postJson("/api/packages/{$elite->id}/activate")
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('package');
-    }
-
-    public function test_vip_to_elite_upgrade_does_not_create_cashback(): void
+    public function test_user_can_upgrade_vip_to_elite(): void
     {
         [$vip, $elite] = $this->createPackages(['VIP', 'ELITE']);
         $user = User::factory()->create([
@@ -97,23 +87,70 @@ class PackageUpgradeTest extends TestCase
 
         $this->assertSame($elite->id, $user->current_package_id);
         $this->assertSame('300000.00', $user->total_pv);
-        $this->assertDatabaseMissing('wallet_transactions', [
-            'type' => 'package_upgrade_cashback',
+        $this->assertSame('emerald_director', $user->status);
+    }
+
+    public function test_elite_package_cannot_upgrade_further(): void
+    {
+        [$elite] = $this->createPackages(['ELITE']);
+        $user = User::factory()->create([
+            'current_package_id' => $elite->id,
+            'total_pv' => $elite->pv,
         ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/packages/{$elite->id}/upgrade")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('package');
+    }
+
+    public function test_inactive_package_cannot_be_upgrade_target(): void
+    {
+        [$start, $vip] = $this->createPackages(['START', 'VIP']);
+        $vip->forceFill([
+            'status' => 'inactive',
+            'is_active' => false,
+        ])->save();
+        $user = User::factory()->create([
+            'current_package_id' => $start->id,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/packages/{$vip->id}/upgrade")
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('package');
     }
 
     public function test_user_without_current_package_cannot_upgrade(): void
     {
-        [$business] = $this->createPackages(['BUSINESS']);
+        [$vip] = $this->createPackages(['VIP']);
         $user = User::factory()->create([
             'current_package_id' => null,
         ]);
 
         Sanctum::actingAs($user);
 
-        $this->postJson("/api/packages/{$business->id}/upgrade")
+        $this->postJson("/api/packages/{$vip->id}/upgrade")
             ->assertUnprocessable()
             ->assertJsonValidationErrors('package');
+    }
+
+    public function test_upgrade_preserves_existing_accumulated_pv(): void
+    {
+        [$start, $vip] = $this->createPackages(['START', 'VIP']);
+        $user = User::factory()->create([
+            'current_package_id' => $start->id,
+            'total_pv' => 75000,
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/packages/{$vip->id}/upgrade")
+            ->assertOk();
+
+        $this->assertSame('195000.00', $user->refresh()->total_pv);
     }
 
     /**
@@ -123,16 +160,19 @@ class PackageUpgradeTest extends TestCase
     private function createPackages(array $codes): array
     {
         $prices = [
-            'START' => 30000,
-            'BUSINESS' => 60000,
+            'START' => 60000,
             'VIP' => 180000,
             'ELITE' => 300000,
         ];
         $sortOrders = [
             'START' => 1,
-            'BUSINESS' => 2,
-            'VIP' => 3,
-            'ELITE' => 4,
+            'VIP' => 2,
+            'ELITE' => 3,
+        ];
+        $binaryPercents = [
+            'START' => 7,
+            'VIP' => 8,
+            'ELITE' => 10,
         ];
 
         return array_map(
@@ -142,8 +182,8 @@ class PackageUpgradeTest extends TestCase
                 'slug' => strtolower($code),
                 'price' => $prices[$code],
                 'pv' => $prices[$code],
-                'referral_percent' => 0,
-                'binary_percent' => 0,
+                'referral_percent' => 10,
+                'binary_percent' => $binaryPercents[$code],
                 'sort_order' => $sortOrders[$code],
                 'status' => 'active',
                 'is_active' => true,

@@ -1,9 +1,9 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ArrowUpCircle, Calculator, CheckCircle2, Info, Wallet } from 'lucide-react';
+import { ArrowUpCircle, Calculator, Info, Wallet } from 'lucide-react';
 import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ApiError, calculateBinaryBonus, createDashboardWithdrawal, getApiErrorState, getArray, getDashboardBonuses, getDashboardOverview, getDashboardWithdrawals, getNumber, getString } from '../../lib/api';
+import { ApiError, calculateBinaryBonus, createDashboardWithdrawal, getApiErrorState, getDashboardBonuses, getDashboardOverview, getDashboardWithdrawals, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
 import { cn } from '../../lib/utils';
 
 interface WithdrawalItem {
@@ -23,8 +23,9 @@ export default function Bonuses() {
   const [balance, setBalance] = useState({ pending: 0, withdrawn: 0 });
   const [bonuses, setBonuses] = useState({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
   const [structure, setStructure] = useState({ leftPV: 0, rightPV: 0, weakLeg: 'left' });
+  const [statuses, setStatuses] = useState<Status[]>([]);
   const [withdrawalAmount, setWithdrawalAmount] = useState(50000);
-  const [withdrawalMethod, setWithdrawalMethod] = useState('card');
+  const [withdrawalMethod, setWithdrawalMethod] = useState('card_account');
   const [binaryResult, setBinaryResult] = useState<number | null>(null);
   const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -38,29 +39,34 @@ export default function Bonuses() {
     setLoadError(null);
 
     try {
-      const [withdrawalsResponse, bonusesResponse, overviewResponse] = await Promise.all([
+      const [withdrawalsResponse, bonusesResponse, overviewResponse, statusItems] = await Promise.all([
         getDashboardWithdrawals(),
         getDashboardBonuses(),
         getDashboardOverview(),
+        getPublicStatuses(),
       ]);
 
       setWithdrawals(normalizeWithdrawals(withdrawalsResponse));
+      setStatuses(statusItems);
 
       const response = bonusesResponse;
       const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
       const summary = record.summary && typeof record.summary === 'object' ? record.summary as Record<string, unknown> : {};
       const byType = summary.by_type && typeof summary.by_type === 'object' ? summary.by_type as Record<string, unknown> : {};
+      const overview = overviewResponse;
+      const overviewRecord = overview && typeof overview === 'object' ? overview as Record<string, unknown> : {};
+      const wallets = Array.isArray(overviewRecord.wallets) ? overviewRecord.wallets : [];
+      const depositWallet = wallets.find((wallet) => isRecord(wallet) && getString(wallet, ['type']) === 'deposit');
+
       setBonuses({
         referral: getNumber(byType, ['referral']) ?? 0,
         binary: getNumber(byType, ['binary']) ?? 0,
         status: getNumber(byType, ['status']) ?? 0,
         cashback: getNumber(byType, ['cashback']) ?? 0,
-        deposit: 0,
-        bonusX2: 0,
+        deposit: isRecord(depositWallet) ? getNumber(depositWallet, ['balance', 'available']) ?? 0 : 0,
+        bonusX2: getNumber(byType, ['bonus_x2', 'x2']) ?? 0,
       });
 
-      const overview = overviewResponse;
-      const overviewRecord = overview && typeof overview === 'object' ? overview as Record<string, unknown> : {};
       const balances = overviewRecord.balances && typeof overviewRecord.balances === 'object' ? overviewRecord.balances as Record<string, unknown> : {};
       const structureRecord = overviewRecord.structure && typeof overviewRecord.structure === 'object' ? overviewRecord.structure as Record<string, unknown> : {};
       setBalance({
@@ -74,6 +80,7 @@ export default function Bonuses() {
       });
     } catch (caughtError) {
       setWithdrawals([]);
+      setStatuses([]);
       setBonuses({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
       setLoadError(getApiErrorState(caughtError).error);
     } finally {
@@ -84,6 +91,9 @@ export default function Bonuses() {
   useEffect(() => {
     void loadBonusData();
   }, [loadBonusData]);
+
+  const nextStatus = statuses.find((status) => status.pv > currentUser.personalPV);
+  const statusProgressTotal = nextStatus?.pv || Math.max(currentUser.personalPV, 1);
 
   const submitWithdrawal = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -195,8 +205,7 @@ export default function Bonuses() {
               <div className="mt-6 space-y-4">
                 <DetailRow label="Пакет" value={currentUser.packageName} badge />
                 <DetailRow label="Текущий процент" value="10%" highlight />
-                <DetailRow label="Приглашено лично" value="14 партнеров" />
-                <DetailRow label="Активных партнеров" value="11" />
+                <DetailRow label="Приглашено лично" value={`${currentUser.referralsCount.toLocaleString('ru-RU')} партнеров`} />
               </div>
             </article>
 
@@ -230,11 +239,11 @@ export default function Bonuses() {
             <div className="mt-6 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
               <div className="space-y-4">
                 <DetailRow label="Текущий статус" value={currentUser.status} badge />
-                <DetailRow label="Следующий статус" value="Директор" />
+                <DetailRow label="Следующий статус" value={nextStatus?.name || currentUser.status} />
                 <DetailRow label="Ваш PV" value={`${currentUser.personalPV.toLocaleString('ru-RU')} PV`} highlight />
               </div>
               <div className="rounded-3xl border border-safi-border bg-safi-cream p-6">
-                <ProgressBar label={`${currentUser.status} -> Директор`} current={currentUser.personalPV} total={5000} />
+                <ProgressBar label={`${currentUser.status} -> ${nextStatus?.name || currentUser.status}`} current={currentUser.personalPV} total={statusProgressTotal} />
               </div>
             </div>
           </article>
@@ -270,8 +279,8 @@ export default function Bonuses() {
                     onChange={(event) => setWithdrawalMethod(event.target.value)}
                     className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25"
                   >
-                    <option value="card">Карта партнера</option>
-                    <option value="bank_account">Счет ИП</option>
+                    <option value="card_account">Карта партнера</option>
+                    <option value="ip_account">Счет ИП</option>
                   </select>
                 </label>
 
@@ -291,7 +300,7 @@ export default function Bonuses() {
               <div className="mt-3 font-serif text-5xl font-semibold text-safi-gold">{currentUser.walletAvailable.toLocaleString('ru-RU')} ₸</div>
               <div className="mt-8 flex gap-3 rounded-3xl border border-white/10 bg-white/[0.08] p-4 text-sm leading-6 text-white/75">
                 <Info className="mt-1 h-5 w-5 shrink-0 text-safi-gold" />
-                <p>Заявки проверяются администратором перед выплатой. История ниже показывает последние операции.</p>
+                <p>Заявки проверяются администратором перед выплатой. Плановый период выплат - каждые 14 дней.</p>
               </div>
             </aside>
           </section>
@@ -394,7 +403,7 @@ function normalizeWithdrawals(response: unknown): WithdrawalItem[] {
       id: getString(record, ['id', 'uuid', 'number']) || `W-${index + 1}`,
       date: getString(record, ['date', 'created_at', 'createdAt']) || '-',
       amount: formatAmount(record.amount ?? record.sum),
-      method: getString(record, ['method', 'payment_method', 'paymentMethod']) || 'Карта партнера',
+      method: methodLabel(getString(record, ['method', 'payment_method', 'paymentMethod'])),
       status: getString(record, ['status']) || 'В обработке',
       paymentDate: getString(record, ['payment_date', 'paymentDate', 'paid_at']) || '-',
       comment: getString(record, ['comment']),
@@ -454,6 +463,18 @@ function formatAmount(value: unknown) {
   }
 
   return '0 тг';
+}
+
+function methodLabel(method?: string) {
+  if (method === 'ip_account') {
+    return 'Счет ИП';
+  }
+
+  if (method === 'card_account') {
+    return 'Карта партнера';
+  }
+
+  return method || 'Карта партнера';
 }
 
 function getString(record: Record<string, unknown>, keys: string[]) {

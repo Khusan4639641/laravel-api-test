@@ -15,22 +15,11 @@ class PackageSeeder extends Seeder
                 'name' => 'START',
                 'slug' => 'start',
                 'description' => 'Стартовый пакет для первого знакомства с продуктами и кабинетом.',
-                'price' => 30000,
-                'pv' => 30000,
-                'referral_percent' => 5,
-                'binary_percent' => 5,
-                'sort_order' => 1,
-            ],
-            [
-                'code' => 'BUSINESS',
-                'name' => 'BUSINESS',
-                'slug' => 'business',
-                'description' => 'Базовый бизнес-пакет для активного старта и развития структуры.',
                 'price' => 60000,
                 'pv' => 60000,
-                'referral_percent' => 7,
+                'referral_percent' => 10,
                 'binary_percent' => 7,
-                'sort_order' => 2,
+                'sort_order' => 1,
             ],
             [
                 'code' => 'VIP',
@@ -40,8 +29,8 @@ class PackageSeeder extends Seeder
                 'price' => 180000,
                 'pv' => 180000,
                 'referral_percent' => 10,
-                'binary_percent' => 10,
-                'sort_order' => 3,
+                'binary_percent' => 8,
+                'sort_order' => 2,
             ],
             [
                 'code' => 'ELITE',
@@ -50,9 +39,9 @@ class PackageSeeder extends Seeder
                 'description' => 'Максимальный пакет с расширенными возможностями и статусным ростом.',
                 'price' => 300000,
                 'pv' => 300000,
-                'referral_percent' => 12,
-                'binary_percent' => 12,
-                'sort_order' => 4,
+                'referral_percent' => 10,
+                'binary_percent' => 10,
+                'sort_order' => 3,
             ],
         ];
 
@@ -67,5 +56,13 @@ class PackageSeeder extends Seeder
                 ]
             );
         }
+
+        Package::query()
+            ->where('code', 'BUSINESS')
+            ->update([
+                'status' => 'inactive',
+                'is_active' => false,
+                'is_upgradeable' => false,
+            ]);
     }
 }

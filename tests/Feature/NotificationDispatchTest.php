@@ -39,7 +39,7 @@ class NotificationDispatchTest extends TestCase
         Notification::fake();
 
         $sponsorPackage = $this->createPackage('VIP', 180000, 10, 0);
-        $activatedPackage = $this->createPackage('START', 30000, 5, 0);
+        $activatedPackage = $this->createPackage('START', 60000, 10, 7);
         $sponsor = User::factory()->create([
             'current_package_id' => $sponsorPackage->id,
         ]);
@@ -59,7 +59,7 @@ class NotificationDispatchTest extends TestCase
     {
         Notification::fake();
 
-        $package = $this->createPackage('BUSINESS', 60000, 0, 7);
+        $package = $this->createPackage('START', 60000, 10, 7);
         $user = User::factory()->create([
             'current_package_id' => $package->id,
             'remaining_left_pv' => 1000,
@@ -82,7 +82,7 @@ class NotificationDispatchTest extends TestCase
         Wallet::query()->create([
             'user_id' => $user->id,
             'type' => 'main',
-            'currency' => 'USD',
+            'currency' => 'KZT',
             'balance' => 1000,
             'hold_balance' => 0,
             'status' => 'active',
@@ -92,6 +92,7 @@ class NotificationDispatchTest extends TestCase
 
         $this->postJson('/api/withdrawals', [
             'amount' => 250,
+            'payment_method' => 'card_account',
         ])->assertCreated();
 
         Notification::assertSentTo($user, WithdrawalRequestedNotification::class);

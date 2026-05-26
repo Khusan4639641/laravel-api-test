@@ -3,8 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Order;
+use App\Models\BonusTransaction;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\Wallet;
 use Database\Seeders\ProductSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -152,6 +154,46 @@ class ProductOrderApiTest extends TestCase
         $this->assertDatabaseHas('products', [
             'sku' => 'SAFI-FACE-SERUM',
             'status' => 'active',
+        ]);
+    }
+
+    public function test_user_can_create_deposit_purchase_with_twenty_percent_cashback(): void
+    {
+        $user = User::factory()->create();
+        Wallet::query()->create([
+            'user_id' => $user->id,
+            'type' => 'deposit',
+            'currency' => 'KZT',
+            'balance' => 100000,
+            'hold_balance' => 0,
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/deposits/purchase', [
+            'amount' => 50000,
+        ])->assertCreated()
+            ->assertJsonPath('deposit_transaction.type', 'deposit_purchase')
+            ->assertJsonPath('cashback_bonus.bonus_type', 'cashback')
+            ->assertJsonPath('cashback_bonus.amount', '10000.00');
+
+        $depositWallet = $user->wallets()->where('type', 'deposit')->firstOrFail();
+        $mainWallet = $user->wallets()->where('type', 'main')->firstOrFail();
+        $cashbackBonus = BonusTransaction::query()->where('bonus_type', 'cashback')->firstOrFail();
+
+        $this->assertSame('50000.00', $depositWallet->balance);
+        $this->assertSame('10000.00', $mainWallet->balance);
+        $this->assertSame('20', $cashbackBonus->metadata['cashback_percent']);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'type' => 'deposit_purchase',
+            'direction' => 'debit',
+            'amount' => '50000.00',
+        ]);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'type' => 'deposit_purchase_cashback',
+            'direction' => 'credit',
+            'amount' => '10000.00',
         ]);
     }
 

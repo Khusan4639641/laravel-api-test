@@ -4,6 +4,7 @@ namespace App\Http\Requests\Withdrawal;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreWithdrawalRequest extends FormRequest
 {
@@ -22,6 +23,18 @@ class StoreWithdrawalRequest extends FormRequest
                 'payment_method' => $this->input('method'),
             ]);
         }
+
+        $paymentMethod = $this->input('payment_method');
+
+        if (is_string($paymentMethod)) {
+            $this->merge([
+                'payment_method' => match ($paymentMethod) {
+                    'card' => 'card_account',
+                    'bank_account', 'business_account' => 'ip_account',
+                    default => $paymentMethod,
+                },
+            ]);
+        }
     }
 
     /**
@@ -33,7 +46,7 @@ class StoreWithdrawalRequest extends FormRequest
     {
         return [
             'amount' => ['required', 'numeric', 'gt:0'],
-            'payment_method' => ['nullable', 'string', 'max:255'],
+            'payment_method' => ['required', 'string', Rule::in(['ip_account', 'card_account'])],
             'payment_details' => ['nullable', 'array'],
         ];
     }

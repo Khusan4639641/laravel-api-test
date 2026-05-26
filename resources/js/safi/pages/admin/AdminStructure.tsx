@@ -156,7 +156,7 @@ function TreeNode({ node, isRoot }: { node: StructureNode; isRoot?: boolean }) {
     )}>
       <div className={cn(
         "w-12 h-12 rounded-full flex items-center justify-center text-lg font-serif text-white font-bold mb-3",
-        node.packageName === 'BUSINESS' ? "bg-blue-400" : node.packageName === 'VIP' ? "bg-purple-500" : "bg-safi-gold"
+        node.packageName === 'START' ? "bg-blue-400" : node.packageName === 'VIP' ? "bg-purple-500" : "bg-safi-gold"
       )}>
         {node.name.charAt(0)}
       </div>

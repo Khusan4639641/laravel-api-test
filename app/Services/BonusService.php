@@ -4,11 +4,16 @@ namespace App\Services;
 
 use App\Models\BonusTransaction;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use App\Notifications\BonusAccruedNotification;
 use Illuminate\Support\Facades\DB;
 
 class BonusService
 {
+    private const REFERRAL_PERCENT = '10';
+
+    private const DEPOSIT_CASHBACK_PERCENT = '20';
+
     public function __construct(
         private readonly WalletService $walletService,
     ) {
@@ -18,7 +23,7 @@ class BonusService
     {
         return DB::transaction(function () use ($sponsor, $referral, $baseAmount): ?BonusTransaction {
             $sponsor->loadMissing('currentPackage');
-            $percent = (string) ($sponsor->currentPackage?->referral_percent ?? 0);
+            $percent = self::REFERRAL_PERCENT;
 
             if (bccomp($percent, '0', 2) <= 0) {
                 return null;
@@ -45,7 +50,7 @@ class BonusService
                 'status' => 'completed',
                 'metadata' => [
                     'base_amount' => (string) $baseAmount,
-                    'percent_source' => 'sponsor_package',
+                    'percent_source' => 'business_tz',
                     'referral_percent' => $percent,
                     'sponsor_package_id' => $sponsor->current_package_id,
                     'referral_package_id' => $referral->current_package_id,
@@ -105,8 +110,8 @@ class BonusService
                 ->where('type', 'main')
                 ->lockForUpdate()
                 ->firstOrFail();
-            $bonusWallet = $user->wallets()
-                ->where('type', 'bonus')
+            $depositWallet = $user->wallets()
+                ->where('type', 'deposit')
                 ->lockForUpdate()
                 ->firstOrFail();
 
@@ -122,9 +127,9 @@ class BonusService
                     'base_pv' => $basePv,
                     'binary_percent' => $percent,
                     'main_percent' => '90.00',
-                    'bonus_percent' => '10.00',
+                    'deposit_percent' => '10.00',
                     'main_amount' => $mainAmount,
-                    'bonus_amount' => $bonusAmount,
+                    'deposit_amount' => $bonusAmount,
                     'package_id' => $user->current_package_id,
                     'remaining_left_pv_after' => (string) $user->remaining_left_pv,
                     'remaining_right_pv_after' => (string) $user->remaining_right_pv,
@@ -138,8 +143,8 @@ class BonusService
                 'binary_bonus_main',
                 $bonusTransaction
             );
-            $bonusWalletTransaction = $this->walletService->credit(
-                $bonusWallet,
+            $depositWalletTransaction = $this->walletService->credit(
+                $depositWallet,
                 $bonusAmount,
                 'binary_bonus_deposit',
                 $bonusTransaction
@@ -147,11 +152,62 @@ class BonusService
 
             $metadata = $bonusTransaction->metadata;
             $metadata['main_wallet_transaction_id'] = $mainWalletTransaction->id;
-            $metadata['bonus_wallet_transaction_id'] = $bonusWalletTransaction->id;
+            $metadata['deposit_wallet_transaction_id'] = $depositWalletTransaction->id;
 
             $bonusTransaction->forceFill([
                 'wallet_transaction_id' => $mainWalletTransaction->id,
                 'metadata' => $metadata,
+            ])->save();
+
+            $user->notify(new BonusAccruedNotification($bonusTransaction->refresh()));
+
+            return $bonusTransaction->refresh();
+        });
+    }
+
+    public function accrueDepositPurchaseCashback(
+        User $user,
+        float|string $purchaseAmount,
+        ?WalletTransaction $sourceTransaction = null,
+    ): ?BonusTransaction {
+        return DB::transaction(function () use ($user, $purchaseAmount, $sourceTransaction): ?BonusTransaction {
+            $purchaseAmount = (string) $purchaseAmount;
+            $amount = bcdiv(bcmul($purchaseAmount, self::DEPOSIT_CASHBACK_PERCENT, 2), '100', 2);
+
+            if (bccomp($amount, '0', 2) <= 0) {
+                return null;
+            }
+
+            $this->walletService->createUserWallets($user);
+
+            $wallet = $user->wallets()
+                ->where('type', 'main')
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $bonusTransaction = BonusTransaction::query()->create([
+                'user_id' => $user->id,
+                'bonus_type' => 'cashback',
+                'amount' => $amount,
+                'status' => 'completed',
+                'metadata' => [
+                    'purchase_amount' => $purchaseAmount,
+                    'cashback_percent' => self::DEPOSIT_CASHBACK_PERCENT,
+                    'source' => 'deposit_purchase',
+                    'deposit_wallet_transaction_id' => $sourceTransaction?->id,
+                ],
+                'calculated_at' => now(),
+            ]);
+
+            $walletTransaction = $this->walletService->credit(
+                $wallet,
+                $amount,
+                'deposit_purchase_cashback',
+                $bonusTransaction
+            );
+
+            $bonusTransaction->forceFill([
+                'wallet_transaction_id' => $walletTransaction->id,
             ])->save();
 
             $user->notify(new BonusAccruedNotification($bonusTransaction->refresh()));

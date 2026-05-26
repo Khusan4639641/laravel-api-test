@@ -46,7 +46,7 @@ class PackageController extends Controller
 
     private function validatePackage(Request $request, ?Package $package = null): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'code' => [$package ? 'sometimes' : 'required', 'string', 'max:255', Rule::unique('packages', 'code')->ignore($package)],
             'name' => [$package ? 'sometimes' : 'required', 'string', 'max:255'],
             'slug' => [$package ? 'sometimes' : 'required', 'string', 'max:255', Rule::unique('packages', 'slug')->ignore($package)],
@@ -60,5 +60,15 @@ class PackageController extends Controller
             'is_active' => ['nullable', 'boolean'],
             'is_upgradeable' => ['nullable', 'boolean'],
         ]);
+
+        $code = strtoupper((string) ($validated['code'] ?? $package?->code ?? ''));
+
+        if ($code === 'BUSINESS') {
+            $validated['status'] = 'inactive';
+            $validated['is_active'] = false;
+            $validated['is_upgradeable'] = false;
+        }
+
+        return $validated;
     }
 }

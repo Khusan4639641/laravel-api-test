@@ -74,6 +74,7 @@ export function AppRouter() {
             <Route path="structure" element={<Structure />} />
             <Route path="transactions" element={<Transactions />} />
             <Route path="bonuses" element={<Bonuses />} />
+            <Route path="package" element={<PackageStatus />} />
             <Route path="package-status" element={<PackageStatus />} />
             <Route path="products" element={<Products />} />
             <Route path="news" element={<News />} />

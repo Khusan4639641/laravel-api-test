@@ -70,7 +70,7 @@ export default function AdminPreviewPage() {
                            Иван Иванов
                          </td>
                          <td className="px-8 py-5">
-                           <span className="px-3 py-1 bg-safi-gold/10 text-safi-gold rounded-md text-[10px] uppercase tracking-widest font-bold">BUSINESS</span>
+                           <span className="px-3 py-1 bg-safi-gold/10 text-safi-gold rounded-md text-[10px] uppercase tracking-widest font-bold">START</span>
                          </td>
                          <td className="px-8 py-5 text-safi-text opacity-70">Сегодня, 14:30</td>
                        </tr>

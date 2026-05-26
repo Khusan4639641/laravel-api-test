@@ -73,8 +73,9 @@ class SettingsController extends Controller
         return [
             'company.name' => 'Safi Life',
             'withdrawals.minimum_amount' => 10000,
-            'withdrawals.methods.card' => true,
-            'withdrawals.methods.business_account' => true,
+            'withdrawals.payout_period_days' => 14,
+            'withdrawals.methods.card_account' => true,
+            'withdrawals.methods.ip_account' => true,
             'withdrawals.methods.usdt' => false,
             'contacts.public' => 'Алматы, Казахстан',
             'support.email' => 'support@safilife.test',

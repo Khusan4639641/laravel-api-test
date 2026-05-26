@@ -26,17 +26,17 @@ class WalletDemoSeeder extends Seeder
     private function seedWallets($users): array
     {
         $balances = [
-            'admin' => ['main' => [0, 0], 'bonus' => [0, 0]],
-            'support' => ['main' => [0, 0], 'bonus' => [0, 0]],
-            'aidar' => ['main' => [320000, 75000], 'bonus' => [38000, 0]],
-            'erlan' => ['main' => [120000, 25000], 'bonus' => [12000, 0]],
-            'alisa' => ['main' => [45000, 0], 'bonus' => [4000, 0]],
-            'gulnara' => ['main' => [510000, 100000], 'bonus' => [75000, 0]],
-            'alexey' => ['main' => [89000, 0], 'bonus' => [9000, 0]],
-            'dinara' => ['main' => [18000, 0], 'bonus' => [1500, 0]],
-            'timur' => ['main' => [76000, 0], 'bonus' => [8200, 0]],
-            'madina' => ['main' => [12000, 0], 'bonus' => [900, 0]],
-            'nurlan' => ['main' => [98000, 0], 'bonus' => [11000, 0]],
+            'admin' => ['main' => [0, 0], 'bonus' => [0, 0], 'deposit' => [0, 0]],
+            'support' => ['main' => [0, 0], 'bonus' => [0, 0], 'deposit' => [0, 0]],
+            'aidar' => ['main' => [320000, 75000], 'bonus' => [38000, 0], 'deposit' => [42000, 0]],
+            'erlan' => ['main' => [120000, 25000], 'bonus' => [12000, 0], 'deposit' => [14000, 0]],
+            'alisa' => ['main' => [45000, 0], 'bonus' => [4000, 0], 'deposit' => [5000, 0]],
+            'gulnara' => ['main' => [510000, 100000], 'bonus' => [75000, 0], 'deposit' => [56000, 0]],
+            'alexey' => ['main' => [89000, 0], 'bonus' => [9000, 0], 'deposit' => [9000, 0]],
+            'dinara' => ['main' => [18000, 0], 'bonus' => [1500, 0], 'deposit' => [1500, 0]],
+            'timur' => ['main' => [76000, 0], 'bonus' => [8200, 0], 'deposit' => [8200, 0]],
+            'madina' => ['main' => [12000, 0], 'bonus' => [900, 0], 'deposit' => [900, 0]],
+            'nurlan' => ['main' => [98000, 0], 'bonus' => [11000, 0], 'deposit' => [11000, 0]],
         ];
 
         $walletsByLogin = [];
@@ -177,8 +177,9 @@ class WalletDemoSeeder extends Seeder
                     'net_amount' => $withdrawalData['amount'],
                     'currency' => 'KZT',
                     'status' => $withdrawalData['status'],
-                    'payment_method' => $index % 2 === 0 ? 'card' : 'bank_account',
-                    'payment_details' => ['label' => $index % 2 === 0 ? 'Карта партнера' : 'Счет партнера'],
+                    'payment_method' => $index % 2 === 0 ? 'card_account' : 'ip_account',
+                    'payment_details' => ['label' => $index % 2 === 0 ? 'Карта партнера' : 'Счет ИП'],
+                    'payout_period_days' => 14,
                     'admin_comment' => $withdrawalData['comment'],
                     'processed_at' => $withdrawalData['processed_at'],
                 ]

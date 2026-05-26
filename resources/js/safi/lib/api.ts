@@ -79,13 +79,17 @@ export interface Product {
 
 export interface Package {
   id: string;
+  code?: string;
   name: string;
   price: number;
+  pv: number;
   referralBonus: number;
   binaryBonus: number | null;
   features: string[];
   isPopular?: boolean;
   sortOrder?: number;
+  status?: string;
+  isActive?: boolean;
 }
 
 export interface Status {
@@ -451,6 +455,14 @@ export async function calculateBinaryBonus<T = unknown>(payload: BinaryCalculati
   return apiRequest<T>(endpoints.dashboard.calculateBinaryBonus, {
     method: 'POST',
     body: compactPayload(payload),
+    auth: true,
+  });
+}
+
+export async function createDepositPurchase<T = unknown>(amount: number) {
+  return apiRequest<T>(endpoints.dashboard.depositPurchase, {
+    method: 'POST',
+    body: { amount },
     auth: true,
   });
 }
@@ -947,8 +959,10 @@ export function normalizePackages(response: unknown): Package[] {
 
     return {
       id: getString(record, ['id']) || code.toLowerCase(),
+      code,
       name,
       price: getNumber(record, ['price']) ?? 0,
+      pv: getNumber(record, ['pv']) ?? 0,
       referralBonus: getNumber(record, ['referralBonus', 'referral_percent']) ?? 0,
       binaryBonus: getNumber(record, ['binaryBonus', 'binary_percent']) ?? null,
       features: getStringArray(record, ['features']) || [
@@ -959,6 +973,8 @@ export function normalizePackages(response: unknown): Package[] {
       ],
       isPopular: name.toLowerCase() === 'vip',
       sortOrder: getNumber(record, ['sort_order', 'sortOrder']) ?? index,
+      status: getString(record, ['status']),
+      isActive: Boolean(record.is_active ?? record.isActive ?? true),
     };
   });
 }

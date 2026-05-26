@@ -16,7 +16,7 @@ class PackageController extends Controller
     public function index(Request $request): JsonResponse
     {
         $packages = Package::query()
-            ->where('is_active', true)
+            ->activeStarter()
             ->orderBy('sort_order')
             ->orderBy('id')
             ->paginate($this->perPage($request));

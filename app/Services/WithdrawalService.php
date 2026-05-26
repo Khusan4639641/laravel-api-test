@@ -56,6 +56,7 @@ class WithdrawalService
                 'status' => 'pending',
                 'payment_method' => $paymentDetails['payment_method'] ?? null,
                 'payment_details' => $paymentDetails['payment_details'] ?? null,
+                'payout_period_days' => (int) config('safi.withdrawals.payout_period_days', 14),
             ]);
 
             $walletTransaction = new WalletTransaction([

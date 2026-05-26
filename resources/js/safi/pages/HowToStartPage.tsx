@@ -8,7 +8,7 @@ export default function HowToStartPage() {
   const { t } = useTranslation();
   const steps = [
     { title: t('howToStart.steps.0.title', 'Оставьте заявку или зарегистрируйтесь'), desc: t('howToStart.steps.0.desc', 'Воспользуйтесь реферальной ссылкой или заполните форму.') },
-    { title: t('howToStart.steps.1.title', 'Выберите стартовый пакет'), desc: t('howToStart.steps.1.desc', 'Определитесь между BUSINESS, VIP или ELITE.') },
+    { title: t('howToStart.steps.1.title', 'Выберите стартовый пакет'), desc: t('howToStart.steps.1.desc', 'Определитесь между START, VIP или ELITE.') },
     { title: t('howToStart.steps.2.title', 'Доступ к кабинету'), desc: t('howToStart.steps.2.desc', 'Получите доступ к панели управления и обучению.') },
     { title: t('howToStart.steps.3.title', 'Пройдите обучение'), desc: t('howToStart.steps.3.desc', 'Изучите продукты компании и материалы для партнёров.') },
     { title: t('howToStart.steps.4.title', 'Начните продажи и приглашения'), desc: t('howToStart.steps.4.desc', 'Зарабатывайте реферальные и классические бонусы.') },

@@ -114,6 +114,7 @@ export default function PackageStatus() {
         {packages.map((pkg, index) => {
           const isCurrent = index === currentPackageIndex;
           const isLower = currentPackageIndex >= 0 && index < currentPackageIndex;
+          const isLockedUpgrade = currentPackageIndex >= 0 && index > currentPackageIndex + 1;
           const action: 'activate' | 'upgrade' = currentPackageIndex === -1 ? 'activate' : 'upgrade';
 
           return (
@@ -148,12 +149,12 @@ export default function PackageStatus() {
               ) : (
                 <button
                   type="button"
-                  disabled={isLower || pendingPackage === pkg.id}
+                  disabled={isLower || isLockedUpgrade || pendingPackage === pkg.id}
                   onClick={() => handlePackageAction(pkg.id, action)}
                   className="mt-8 inline-flex items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   <ArrowUpRight className="h-4 w-4" />
-                  {pendingPackage === pkg.id ? 'Отправляем...' : isLower ? 'Пройден' : currentPackageIndex === -1 ? 'Активировать' : 'Апгрейд'}
+                  {pendingPackage === pkg.id ? 'Отправляем...' : isLower ? 'Пройден' : isLockedUpgrade ? 'По очереди' : currentPackageIndex === -1 ? 'Активировать' : 'Апгрейд'}
                 </button>
               )}
             </article>

@@ -66,16 +66,16 @@ export default function AdminPackages() {
   const openEditForm = (pkg: ApiPackage) => {
     setForm({
       id: pkg.id,
-      code: '',
+      code: pkg.code || '',
       slug: '',
       name: pkg.name,
       price: String(pkg.price || ''),
-      pv: '',
+      pv: String(pkg.pv || ''),
       referralPercent: String(pkg.referralBonus || 0),
       binaryPercent: String(pkg.binaryBonus || 0),
       sortOrder: String(pkg.sortOrder || 0),
-      status: 'active',
-      isActive: true,
+      status: pkg.status || 'active',
+      isActive: pkg.isActive ?? true,
     });
     setActionError(null);
     setShowForm(true);
@@ -196,7 +196,9 @@ export default function AdminPackages() {
           {packages.map((pkg) => (
             <div key={pkg.id} className="bg-white rounded-[32px] border border-safi-green/5 shadow-sm p-6 relative overflow-hidden group">
               <div className="mb-4">
-                <AdminBadge variant="gold">Активен</AdminBadge>
+                <AdminBadge variant={pkg.isActive === false || pkg.status === 'inactive' ? 'danger' : 'gold'}>
+                  {pkg.isActive === false || pkg.status === 'inactive' ? 'Неактивен' : 'Активен'}
+                </AdminBadge>
               </div>
               <Package className="w-10 h-10 text-safi-green/20 absolute top-6 right-6" />
               <h3 className="text-2xl font-serif font-bold text-safi-green mb-1">{pkg.name}</h3>

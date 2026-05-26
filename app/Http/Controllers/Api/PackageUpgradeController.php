@@ -19,7 +19,7 @@ class PackageUpgradeController extends Controller
 
     public function __invoke(Request $request, Package $package): JsonResponse
     {
-        if (! $package->is_active) {
+        if (! $package->is_active || $package->status !== 'active' || ! $package->is_upgradeable) {
             throw ValidationException::withMessages([
                 'package' => 'Package is inactive.',
             ]);

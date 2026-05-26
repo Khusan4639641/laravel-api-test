@@ -35,8 +35,9 @@ class WithdrawalDemoSeeder extends Seeder
                     'net_amount' => $withdrawal['amount'],
                     'currency' => 'KZT',
                     'status' => $withdrawal['status'],
-                    'payment_method' => $index === 1 ? 'bank_account' : 'card',
+                    'payment_method' => $index === 1 ? 'ip_account' : 'card_account',
                     'payment_details' => ['label' => $index === 1 ? 'Счет ИП' : 'Карта партнера'],
+                    'payout_period_days' => 14,
                     'admin_comment' => $withdrawal['comment'],
                     'processed_at' => $withdrawal['processed_at'],
                 ]

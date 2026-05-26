@@ -11,17 +11,13 @@ use Illuminate\Validation\ValidationException;
 class PackageService
 {
     private const UPGRADE_CHAIN = [
-        'START' => 'BUSINESS',
-        'BUSINESS' => 'VIP',
+        'START' => 'VIP',
         'VIP' => 'ELITE',
     ];
-
-    private const CASHBACK_PERCENT = '10';
 
     public function __construct(
         private readonly BonusService $bonusService,
         private readonly PvService $pvService,
-        private readonly WalletService $walletService,
     ) {
     }
 
@@ -52,10 +48,12 @@ class PackageService
         $user->loadMissing('currentPackage');
 
         if (! $user->currentPackage) {
-            return true;
+            return $package->is_active && $package->status === 'active';
         }
 
-        return $package->sort_order >= $user->currentPackage->sort_order;
+        return $package->is_active
+            && $package->status === 'active'
+            && $package->code === (self::UPGRADE_CHAIN[$user->currentPackage->code] ?? null);
     }
 
     /**
@@ -77,6 +75,12 @@ class PackageService
 
             $currentPackage = $user->currentPackage;
             $expectedNextCode = self::UPGRADE_CHAIN[$currentPackage->code] ?? null;
+
+            if (! $targetPackage->is_active || $targetPackage->status !== 'active' || ! $targetPackage->is_upgradeable) {
+                throw ValidationException::withMessages([
+                    'package' => 'Package is inactive.',
+                ]);
+            }
 
             if ($expectedNextCode !== $targetPackage->code) {
                 throw ValidationException::withMessages([
@@ -104,29 +108,11 @@ class PackageService
 
             $cashbackAmount = '0.00';
 
-            if (! ($currentPackage->code === 'VIP' && $targetPackage->code === 'ELITE')) {
-                $cashbackAmount = bcdiv(bcmul($paymentAmount, self::CASHBACK_PERCENT, 2), '100', 2);
+            if ($user->sponsor_id) {
+                $sponsor = User::query()->find($user->sponsor_id);
 
-                if (bccomp($cashbackAmount, '0', 2) > 0) {
-                    $this->walletService->createUserWallets($user);
-
-                    $bonusWallet = $user->wallets()
-                        ->where('type', 'bonus')
-                        ->lockForUpdate()
-                        ->firstOrFail();
-
-                    $this->walletService->credit(
-                        $bonusWallet,
-                        $cashbackAmount,
-                        'package_upgrade_cashback',
-                        null,
-                        [
-                            'current_package_id' => $currentPackage->id,
-                            'target_package_id' => $targetPackage->id,
-                            'payment_amount' => $paymentAmount,
-                            'cashback_percent' => self::CASHBACK_PERCENT,
-                        ]
-                    );
+                if ($sponsor) {
+                    $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $paymentAmount);
                 }
             }
 

@@ -58,8 +58,8 @@ export default function AdminSettings() {
       const response = await updateAdminSettings({
         'company.name': settings.companyName,
         'withdrawals.minimum_amount': Number(settings.minimumWithdrawal || 0),
-        'withdrawals.methods.card': settings.card,
-        'withdrawals.methods.business_account': settings.businessAccount,
+        'withdrawals.methods.card_account': settings.card,
+        'withdrawals.methods.ip_account': settings.businessAccount,
         'withdrawals.methods.usdt': settings.usdt,
         'contacts.public': settings.contacts,
         'support.email': settings.supportEmail,
@@ -196,8 +196,8 @@ function normalizeSettings(response: unknown): SettingsState {
   return {
     companyName: getString(values['company.name']) || defaultSettings.companyName,
     minimumWithdrawal: String(getNumber(values['withdrawals.minimum_amount']) ?? defaultSettings.minimumWithdrawal),
-    card: getBoolean(values['withdrawals.methods.card'], defaultSettings.card),
-    businessAccount: getBoolean(values['withdrawals.methods.business_account'], defaultSettings.businessAccount),
+    card: getBoolean(values['withdrawals.methods.card_account'], defaultSettings.card),
+    businessAccount: getBoolean(values['withdrawals.methods.ip_account'], defaultSettings.businessAccount),
     usdt: getBoolean(values['withdrawals.methods.usdt'], defaultSettings.usdt),
     contacts: getString(values['contacts.public']) || defaultSettings.contacts,
     supportEmail: getString(values['support.email']) || defaultSettings.supportEmail,
