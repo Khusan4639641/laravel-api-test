@@ -85,4 +85,69 @@ class BinaryTreeServiceTest extends TestCase
         $this->assertSame($sponsorNode->id, $userNode->parent_id);
         $this->assertSame('R', $userNode->position);
     }
+
+    public function test_register_places_user_by_referral_code_and_branch(): void
+    {
+        $sponsor = User::factory()->create([
+            'login' => 'SAFI',
+        ]);
+
+        $response = $this->postJson('/api/register', [
+            'name' => 'Referral Code User',
+            'login' => 'referral_code_user',
+            'email' => 'referral-code@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'referral_code' => 'SAFI',
+            'branch' => 'left',
+        ]);
+
+        $response->assertCreated();
+
+        $user = User::query()->where('login', 'referral_code_user')->firstOrFail();
+        $sponsorNode = BinaryNode::query()->where('user_id', $sponsor->id)->firstOrFail();
+        $userNode = BinaryNode::query()->where('user_id', $user->id)->firstOrFail();
+
+        $this->assertSame($sponsor->id, $user->sponsor_id);
+        $this->assertSame($sponsorNode->id, $userNode->parent_id);
+        $this->assertSame('L', $userNode->position);
+    }
+
+    public function test_register_without_referral_does_not_assign_sponsor_or_branch(): void
+    {
+        $response = $this->postJson('/api/register', [
+            'name' => 'Normal User',
+            'login' => 'normal_user',
+            'email' => 'normal@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ]);
+
+        $response->assertCreated();
+
+        $user = User::query()->where('login', 'normal_user')->firstOrFail();
+
+        $this->assertNull($user->sponsor_id);
+        $this->assertFalse(BinaryNode::query()->where('user_id', $user->id)->exists());
+    }
+
+    public function test_register_rejects_missing_referral_branch(): void
+    {
+        User::factory()->create([
+            'login' => 'SAFI',
+        ]);
+
+        $response = $this->postJson('/api/register', [
+            'name' => 'Missing Branch User',
+            'login' => 'missing_branch_user',
+            'email' => 'missing-branch@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'referral_code' => 'SAFI',
+        ]);
+
+        $response
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['branch']);
+    }
 }

@@ -102,7 +102,7 @@ export default function Overview() {
   }, [loadOverview]);
 
   const copyLink = async (branch: 'left' | 'right') => {
-    const link = `${window.location.origin}/register?ref=${currentUser.referralCode}&branch=${branch}`;
+    const link = `${window.location.origin}/register-ref-branch?ref=${currentUser.referralCode}&branch=${branch}`;
 
     try {
       await navigator.clipboard.writeText(link);
@@ -309,7 +309,7 @@ function ActionButton({ icon, label, onClick, to }: { icon: React.ReactNode; lab
 }
 
 function ReferralLink({ branch, label, referralCode, copied, onCopy }: { branch: 'left' | 'right'; label: string; referralCode: string; copied: boolean; onCopy: () => void }) {
-  const link = `${window.location.origin}/register?ref=${referralCode}&branch=${branch}`;
+  const link = `${window.location.origin}/register-ref-branch?ref=${referralCode}&branch=${branch}`;
 
   return (
     <div className="rounded-3xl border border-safi-border bg-safi-cream p-5">

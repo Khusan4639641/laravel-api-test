@@ -34,6 +34,9 @@ export interface RegisterPayload {
   password: string;
   password_confirmation: string;
   sponsor_id?: string;
+  referral_code?: string;
+  ref?: string;
+  sponsor_code?: string;
   branch?: string;
   package_id?: string;
 }

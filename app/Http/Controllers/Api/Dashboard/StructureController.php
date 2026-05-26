@@ -56,7 +56,7 @@ class StructureController extends Controller
         return $this->paginated($partners, BinaryNodeResource::class, 'partners', $request, [
             'structure' => [
                 'root_user_id' => $user->id,
-                'referral_code' => (string) $user->id,
+                'referral_code' => $user->login ?: (string) $user->id,
                 'left_pv' => $user->left_pv,
                 'right_pv' => $user->right_pv,
                 'remaining_left_pv' => $user->remaining_left_pv,

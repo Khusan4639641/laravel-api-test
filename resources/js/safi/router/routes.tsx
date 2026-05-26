@@ -63,6 +63,7 @@ export function AppRouter() {
             <Route path="faq" element={<FAQPage />} />
             <Route path="contacts" element={<ContactsPage />} />
             <Route path="register" element={<RegisterPage />} />
+            <Route path="register-ref-branch" element={<RegisterPage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="legal" element={<LegalPage />} />
           </Route>

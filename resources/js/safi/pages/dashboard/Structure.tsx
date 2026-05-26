@@ -229,7 +229,7 @@ function BranchCard({ title, partners, pv, weak }: { title: string; partners: nu
 }
 
 function ReferralBox({ label, code, branch }: { label: string; code: string; branch: 'left' | 'right' }) {
-  const link = `${window.location.origin}/register?ref=${code}&branch=${branch}`;
+  const link = `${window.location.origin}/register-ref-branch?ref=${code}&branch=${branch}`;
 
   return (
     <div className="rounded-3xl border border-safi-border bg-safi-cream p-5">

@@ -1,17 +1,46 @@
-import React, { FormEvent, useEffect, useState } from 'react';
+import React, { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
 import { ApiError, getPublicPackages, Package, register } from '../lib/api';
 
 type FieldErrors = Record<string, string[]>;
+type ReferralBranch = 'left' | 'right';
 
 const inputClass = 'w-full px-5 py-4 rounded-xl border border-safi-green/20 bg-[#F5F5F0] focus:ring-2 focus:ring-safi-green focus:border-safi-green focus:bg-white outline-none transition-all placeholder:text-safi-text/40';
+const lockedInputClass = 'w-full px-5 py-4 rounded-xl border border-safi-gold/30 bg-safi-cream font-bold text-safi-green outline-none transition-all read-only:cursor-not-allowed disabled:cursor-not-allowed disabled:opacity-100';
+const branchLabels: Record<ReferralBranch, string> = {
+  left: 'Левая ветка',
+  right: 'Правая ветка',
+};
 
 export default function RegisterPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+  const normalizedPath = location.pathname.replace(/\/+$/, '') || '/';
+  const urlReferralCode = (searchParams.get('ref') || searchParams.get('referral_code') || searchParams.get('sponsor_code') || '').trim();
+  const urlBranch = (searchParams.get('branch') || '').trim().toLowerCase();
+  const hasReferralQuery = searchParams.has('ref') || searchParams.has('referral_code') || searchParams.has('sponsor_code') || searchParams.has('branch');
+  const isReferralMode = normalizedPath === '/register-ref-branch' || hasReferralQuery;
+  const normalizedBranch = isReferralBranch(urlBranch) ? urlBranch : '';
+  const referralLinkError = useMemo(() => {
+    if (!isReferralMode) {
+      return '';
+    }
+
+    if (!urlReferralCode || !urlBranch) {
+      return 'Некорректная реферальная ссылка';
+    }
+
+    if (!isReferralBranch(urlBranch)) {
+      return 'Некорректная ветка';
+    }
+
+    return '';
+  }, [isReferralMode, urlBranch, urlReferralCode]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
   const [form, setForm] = useState({
@@ -20,7 +49,7 @@ export default function RegisterPage() {
     email: '',
     password: '',
     password_confirmation: '',
-    sponsor_id: '',
+    referral_code: '',
     branch: '',
     package_id: '',
   });
@@ -35,18 +64,43 @@ export default function RegisterPage() {
       .finally(() => setPackagesLoading(false));
   }, []);
 
+  useEffect(() => {
+    setForm((current) => ({
+      ...current,
+      referral_code: isReferralMode ? urlReferralCode : '',
+      branch: isReferralMode ? normalizedBranch : '',
+    }));
+  }, [isReferralMode, normalizedBranch, urlReferralCode]);
+
   const updateField = (field: keyof typeof form, value: string) => {
     setForm((current) => ({ ...current, [field]: value }));
   };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsSubmitting(true);
     setError('');
     setFieldErrors({});
 
+    if (referralLinkError) {
+      setError(referralLinkError);
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
-      await register(form);
+      await register({
+        name: form.name,
+        login: form.login,
+        email: form.email,
+        password: form.password,
+        password_confirmation: form.password_confirmation,
+        package_id: form.package_id,
+        ...(isReferralMode ? {
+          referral_code: form.referral_code,
+          branch: form.branch,
+        } : {}),
+      });
       navigate('/dashboard', { replace: true });
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
@@ -59,6 +113,9 @@ export default function RegisterPage() {
       setIsSubmitting(false);
     }
   };
+
+  const visibleError = error || referralLinkError;
+  const referralFieldError = fieldErrors.referral_code?.[0] || fieldErrors.ref?.[0] || fieldErrors.sponsor_code?.[0] || fieldErrors.sponsor_id?.[0];
 
   return (
     <div className="py-20 bg-safi-bg min-h-[calc(100vh-80px)] flex flex-col justify-center relative overflow-hidden">
@@ -74,9 +131,9 @@ export default function RegisterPage() {
             <p className="text-sm text-safi-text opacity-70">Станьте партнером Safi Life</p>
           </div>
 
-          {error && (
+          {visibleError && (
             <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
-              {error}
+              {visibleError}
             </div>
           )}
 
@@ -144,29 +201,41 @@ export default function RegisterPage() {
               </FormField>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-6">
-              <FormField label="Код пригласителя (Реферал)" error={fieldErrors.sponsor_id?.[0]}>
-                <input
-                  type="text"
-                  value={form.sponsor_id}
-                  onChange={(event) => updateField('sponsor_id', event.target.value)}
-                  className={inputClass}
-                  placeholder="Необязательно"
-                />
-              </FormField>
+            {isReferralMode && (
+              <>
+                {!referralLinkError && (
+                  <div className="rounded-xl border border-safi-green/15 bg-safi-green/5 px-4 py-3 text-sm font-bold text-safi-green">
+                    Вы регистрируетесь по приглашению партнёра
+                  </div>
+                )}
 
-              <FormField label="Ветка" error={fieldErrors.branch?.[0]}>
-                <select
-                  value={form.branch}
-                  onChange={(event) => updateField('branch', event.target.value)}
-                  className={`${inputClass} text-sm text-safi-green`}
-                >
-                  <option value="">Не выбрана</option>
-                  <option value="left">Левая</option>
-                  <option value="right">Правая</option>
-                </select>
-              </FormField>
-            </div>
+                <div className="grid sm:grid-cols-2 gap-6">
+                  <FormField label="Код пригласителя (Реферал)" error={referralFieldError}>
+                    <input
+                      type="text"
+                      value={form.referral_code}
+                      className={lockedInputClass}
+                      placeholder="Код партнёра"
+                      readOnly
+                      required
+                    />
+                  </FormField>
+
+                  <FormField label="Ветка" error={fieldErrors.branch?.[0]}>
+                    <select
+                      value={form.branch}
+                      className={`${lockedInputClass} text-sm`}
+                      disabled
+                      required
+                    >
+                      <option value="">Не выбрана</option>
+                      <option value="left">{branchLabels.left}</option>
+                      <option value="right">{branchLabels.right}</option>
+                    </select>
+                  </FormField>
+                </div>
+              </>
+            )}
 
             <FormField label="Стартовый пакет" error={fieldErrors.package_id?.[0]}>
               <select
@@ -191,7 +260,7 @@ export default function RegisterPage() {
             </div>
 
             <div className="pt-4">
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
+              <Button type="submit" className="w-full" disabled={isSubmitting || Boolean(referralLinkError)}>
                 {isSubmitting ? 'Регистрируем...' : t('auth.regAction', 'Зарегистрироваться')}
               </Button>
             </div>
@@ -204,6 +273,10 @@ export default function RegisterPage() {
       </Container>
     </div>
   );
+}
+
+function isReferralBranch(value: string): value is ReferralBranch {
+  return value === 'left' || value === 'right';
 }
 
 function FormField({

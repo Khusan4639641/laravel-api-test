@@ -33,6 +33,16 @@ class RegisterRequest extends FormRequest
             ]);
         }
 
+        $referralCode = $this->input('referral_code')
+            ?? $this->input('ref')
+            ?? $this->input('sponsor_code');
+
+        if (is_string($referralCode)) {
+            $this->merge([
+                'referral_code' => trim($referralCode),
+            ]);
+        }
+
         $packageId = $this->input('package_id');
 
         if (is_string($packageId) && ! ctype_digit($packageId)) {
@@ -62,8 +72,19 @@ class RegisterRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'sponsor_id' => ['nullable', 'integer', 'exists:users,id'],
-            'branch' => ['nullable', 'string', Rule::in(['L', 'R'])],
+            'referral_code' => ['nullable', 'string', 'max:255'],
+            'ref' => ['nullable', 'string', 'max:255'],
+            'sponsor_code' => ['nullable', 'string', 'max:255'],
+            'branch' => ['nullable', 'required_with:sponsor_id,referral_code', 'string', Rule::in(['L', 'R'])],
             'package_id' => ['nullable', 'integer', 'exists:packages,id'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'branch.required_with' => 'Некорректная реферальная ссылка',
+            'branch.in' => 'Некорректная ветка',
         ];
     }
 }
