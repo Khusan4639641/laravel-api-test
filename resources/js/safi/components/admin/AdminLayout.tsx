@@ -35,6 +35,7 @@ export function AdminLayout() {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
+  const isStructurePage = location.pathname === '/admin/structure';
 
   const loadCurrentUser = useCallback(async () => {
     const token = getAuthToken();
@@ -104,7 +105,7 @@ export function AdminLayout() {
     <div className="flex min-h-screen bg-safi-bg text-safi-green">
       <AdminSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentUser={currentUser} permissions={permissions} />
 
-      <div className="relative flex min-h-screen max-w-full flex-1 flex-col overflow-hidden xl:ml-[280px]">
+      <div className="relative flex min-h-screen min-w-0 max-w-full flex-1 flex-col overflow-hidden xl:ml-[280px]">
         <header className="sticky top-0 z-30 flex h-20 shrink-0 items-center justify-between border-b border-safi-border/80 bg-safi-bg/90 px-4 backdrop-blur-xl md:px-8">
           <div className="flex items-center gap-4">
             <button
@@ -145,8 +146,8 @@ export function AdminLayout() {
           </div>
         </header>
 
-        <main className="relative flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
-          <div className="relative mx-auto w-full max-w-[1600px] pb-20">
+        <main className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
+          <div className={cn('relative w-full pb-20', isStructurePage ? 'max-w-none' : 'mx-auto max-w-[1600px]')}>
             <Outlet context={{ currentUser, permissions, refreshCurrentUser: loadCurrentUser } satisfies AdminContextValue} />
           </div>
         </main>

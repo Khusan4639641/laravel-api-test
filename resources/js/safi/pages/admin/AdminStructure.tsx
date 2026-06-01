@@ -100,6 +100,7 @@ export default function AdminStructure() {
   }, [nodes, query]);
 
   const hasChildren = Boolean(rootNode?.children.left || rootNode?.children.right);
+  const treeCanvasWidth = useMemo(() => `${Math.max(1400, (Number(selectedDepth) || 5) * 360)}px`, [selectedDepth]);
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -119,7 +120,7 @@ export default function AdminStructure() {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
+    <div className="w-full max-w-none space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Структура дерева</h1>
@@ -184,20 +185,28 @@ export default function AdminStructure() {
       )}
 
       {!isLoading && !error && rootNode && view === 'tree' && (
-        <div className="bg-white rounded-[32px] border border-safi-green/5 shadow-sm p-8 min-h-[520px] overflow-x-auto relative hidden-scrollbar">
-          <div className="absolute top-4 right-4 flex items-center gap-2 text-xs text-safi-text/50">
-            <Info className="w-4 h-4" />
-            Данные из backend API, depth {selectedDepth}
+        <div className="rounded-[32px] border border-safi-green/5 bg-white p-4 shadow-sm md:p-6">
+          <div className="mb-4 flex flex-col gap-2 text-xs font-bold text-safi-text/50 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 shrink-0" />
+              <span>Используйте горизонтальную прокрутку для просмотра всей структуры</span>
+            </div>
+            <span>Данные из backend API, depth {selectedDepth}</span>
           </div>
 
-          {!hasChildren && (
-            <div className="absolute bottom-5 left-5 right-5 rounded-2xl bg-[#F5F5F0] px-4 py-3 text-center text-xs font-bold text-safi-text/60">
-              У партнёра пока нет нижестоящих участников
-            </div>
-          )}
+          <div className="relative max-h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-auto rounded-[24px] border border-safi-border bg-white">
+            {!hasChildren && (
+              <div className="sticky bottom-5 left-5 z-10 mx-5 mt-5 rounded-2xl bg-[#F5F5F0] px-4 py-3 text-center text-xs font-bold text-safi-text/60">
+                У партнёра пока нет нижестоящих участников
+              </div>
+            )}
 
-          <div className="flex min-w-max justify-center py-10 pr-10">
-            <TreeNode node={rootNode} isRoot onOpen={openNodeTree} />
+            <div
+              className="flex min-h-[700px] w-max items-start justify-center px-10 py-12"
+              style={{ minWidth: treeCanvasWidth }}
+            >
+              <TreeNode node={rootNode} isRoot onOpen={openNodeTree} />
+            </div>
           </div>
         </div>
       )}
@@ -267,7 +276,7 @@ function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: bool
         type="button"
         onClick={() => onOpen(node.userId)}
         className={cn(
-          'w-48 cursor-pointer rounded-2xl bg-white p-4 text-center shadow-sm transition-transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-safi-green/20',
+          'w-48 shrink-0 cursor-pointer rounded-2xl bg-white p-4 text-center shadow-sm transition-transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-safi-green/20',
           isRoot ? 'border-2 border-safi-gold shadow-md' : 'border border-safi-green/10'
         )}
         title="Открыть дерево партнёра"
@@ -306,7 +315,7 @@ function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: bool
 
 function BranchColumn({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <div className="relative flex min-w-[210px] flex-col items-center pt-6">
+    <div className="relative flex min-w-[210px] shrink-0 flex-col items-center pt-6">
       <div className="absolute top-0 h-6 border-l-2 border-safi-green/20" />
       <div className="mb-2 rounded-full bg-white px-2 text-center text-[10px] font-bold text-safi-text/40">{label}</div>
       {children}
@@ -316,7 +325,7 @@ function BranchColumn({ label, children }: { label: string; children: ReactNode 
 
 function EmptyTreeSlot() {
   return (
-    <div className="flex w-48 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-safi-green/20 bg-[#F5F5F0]/50 p-4 text-center opacity-70">
+    <div className="flex w-48 shrink-0 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-safi-green/20 bg-[#F5F5F0]/50 p-4 text-center opacity-70">
       <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-safi-green/5 pb-1 text-xl text-safi-green/40">+</div>
       <div className="text-xs font-bold text-safi-text/50">Свободная позиция</div>
     </div>
