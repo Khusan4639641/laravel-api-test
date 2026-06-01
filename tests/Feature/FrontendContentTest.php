@@ -29,7 +29,7 @@ class FrontendContentTest extends TestCase
     {
         $this->get('/marketing')->assertOk();
 
-        $statuses = collect($this->getJson('/api/public/statuses')->assertOk()->json('statuses'))->keyBy('id');
+        $statuses = collect($this->getJson('/api/public/statuses', ['Accept-Language' => 'ru'])->assertOk()->json('statuses'))->keyBy('id');
 
         $this->assertSame(1000, $statuses['manager']['pv']);
         $this->assertSame(2500, $statuses['leader']['pv']);

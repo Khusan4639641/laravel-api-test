@@ -97,6 +97,8 @@ class UserStatusTest extends TestCase
 
     public function test_status_rewards_match_business_tz_text(): void
     {
+        app()->setLocale('ru');
+
         $statuses = collect(app(StatusService::class)->publicStatuses())->keyBy('id');
 
         $this->assertSame('Путевка в санаторий + 100 000 ₸ или компенсация 400 000 ₸', $statuses['bronze_director']['reward']);

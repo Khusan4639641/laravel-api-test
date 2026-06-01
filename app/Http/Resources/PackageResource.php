@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\LocalizedValue;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -12,9 +13,9 @@ class PackageResource extends JsonResource
         return [
             'id' => $this->id,
             'code' => $this->code,
-            'name' => $this->name,
+            'name' => LocalizedValue::get($this->name_translations, $this->name),
             'slug' => $this->slug,
-            'description' => $this->description,
+            'description' => LocalizedValue::get($this->description_translations, $this->description),
             'price' => $this->price,
             'pv' => $this->pv,
             'referral_percent' => $this->referral_percent,
@@ -25,6 +26,10 @@ class PackageResource extends JsonResource
             'status' => $this->status,
             'is_active' => $this->is_active,
             'is_upgradeable' => $this->is_upgradeable,
+            'translations' => [
+                'name' => $this->name_translations,
+                'description' => $this->description_translations,
+            ],
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

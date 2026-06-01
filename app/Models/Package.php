@@ -20,6 +20,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'status',
     'is_active',
     'is_upgradeable',
+    'name_translations',
+    'description_translations',
 ])]
 class Package extends Model
 {
@@ -38,6 +40,8 @@ class Package extends Model
             'sort_order' => 'integer',
             'is_active' => 'boolean',
             'is_upgradeable' => 'boolean',
+            'name_translations' => 'array',
+            'description_translations' => 'array',
         ];
     }
 

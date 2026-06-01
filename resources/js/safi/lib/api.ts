@@ -1,4 +1,5 @@
 import { API_BASE_URL, endpoints } from './endpoints';
+import { getCurrentLanguage } from './language';
 
 export { API_BASE_URL, endpoints };
 
@@ -847,6 +848,7 @@ export async function apiRequest<T = unknown>(endpoint: string, options: ApiRequ
   const token = getAuthToken();
   const headers: Record<string, string> = {
     Accept: 'application/json',
+    'Accept-Language': getCurrentLanguage(),
     ...options.headers,
   };
   const body = serializeRequestBody(options.body);

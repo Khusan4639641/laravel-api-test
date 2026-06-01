@@ -85,7 +85,7 @@ class RolePermissionsTest extends TestCase
     {
         Sanctum::actingAs(User::factory()->create(['role' => $role]));
 
-        return $this->getJson('/api/me/permissions')
+        return $this->getJson('/api/me/permissions', ['Accept-Language' => 'ru'])
             ->assertOk()
             ->assertJsonPath('role', $role)
             ->json();

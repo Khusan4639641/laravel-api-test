@@ -57,6 +57,8 @@ class StatusBonusTest extends TestCase
 
     public function test_reward_text_matches_business_tz(): void
     {
+        app()->setLocale('ru');
+
         $statuses = collect(app(StatusService::class)->publicStatuses())->keyBy('id');
 
         $this->assertSame('2 продукта в подарок', $statuses['manager']['reward']);

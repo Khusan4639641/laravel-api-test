@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SystemSettingResource;
 use App\Models\SystemSetting;
+use App\Support\LocalizedValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -20,7 +21,11 @@ class SettingsController extends Controller
             ->get();
 
         return response()->json([
-            'settings' => $settings->pluck('value', 'key')->all(),
+            'settings' => $settings
+                ->mapWithKeys(fn (SystemSetting $setting): array => [
+                    $setting->key => $this->localizedValue($setting->value),
+                ])
+                ->all(),
             'data' => SystemSettingResource::collection($settings),
         ]);
     }
@@ -91,5 +96,17 @@ class SettingsController extends Controller
             is_array($value) => 'array',
             default => 'string',
         };
+    }
+
+    private function localizedValue(mixed $value): mixed
+    {
+        if (! is_array($value)) {
+            return $value;
+        }
+
+        $hasLanguageKeys = collect(LocalizedValue::LANGUAGES)
+            ->contains(fn (string $language): bool => array_key_exists($language, $value));
+
+        return $hasLanguageKeys ? LocalizedValue::get($value, $value['ru'] ?? null) : $value;
     }
 }

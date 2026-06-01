@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Model;
     'status',
     'is_active',
     'metadata',
+    'category_translations',
+    'question_translations',
+    'answer_translations',
 ])]
 class Faq extends Model
 {
@@ -25,6 +28,9 @@ class Faq extends Model
             'is_active' => 'boolean',
             'sort_order' => 'integer',
             'metadata' => 'array',
+            'category_translations' => 'array',
+            'question_translations' => 'array',
+            'answer_translations' => 'array',
         ];
     }
 }

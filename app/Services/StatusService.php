@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Support\LocalizedValue;
 
 class StatusService
 {
@@ -21,12 +22,62 @@ class StatusService
         ['id' => 'diamond_director', 'name' => 'Бриллиантовый директор', 'pv' => 500000, 'income_potential' => 250000000, 'reward' => '20 000 000 ₸ apartment bonus', 'is_cash_bonus' => true, 'reward_type' => 'apartment', 'amount' => '20000000.00'],
     ];
 
+    private const STATUS_TRANSLATIONS = [
+        'manager' => [
+            'name' => ['ru' => 'Менеджер', 'kk' => 'Менеджер', 'en' => 'Manager', 'mn' => 'Менежер'],
+            'reward' => ['ru' => '2 продукта в подарок', 'kk' => 'Сыйлыққа 2 өнім', 'en' => '2 products as a gift', 'mn' => 'Бэлгэнд 2 бүтээгдэхүүн'],
+        ],
+        'leader' => [
+            'name' => ['ru' => 'Лидер', 'kk' => 'Лидер', 'en' => 'Leader', 'mn' => 'Лидер'],
+            'reward' => ['ru' => 'Набор косметики', 'kk' => 'Косметика жиынтығы', 'en' => 'Cosmetics set', 'mn' => 'Гоо сайхны багц'],
+        ],
+        'director' => [
+            'name' => ['ru' => 'Директор', 'kk' => 'Директор', 'en' => 'Director', 'mn' => 'Директор'],
+            'reward' => ['ru' => '250 000 ₸ cash bonus', 'kk' => '250 000 ₸ ақшалай бонус', 'en' => '250,000 ₸ cash bonus', 'mn' => '250 000 ₸ мөнгөн бонус'],
+        ],
+        'bronze_director' => [
+            'name' => ['ru' => 'Бронзовый директор', 'kk' => 'Қола директор', 'en' => 'Bronze Director', 'mn' => 'Хүрэл директор'],
+            'reward' => ['ru' => 'Путевка в санаторий + 100 000 ₸ или компенсация 400 000 ₸', 'kk' => 'Санаторий жолдамасы + 100 000 ₸ немесе 400 000 ₸ өтемақы', 'en' => 'Sanatorium trip + 100,000 ₸ or 400,000 ₸ compensation', 'mn' => 'Сувиллын эрх + 100 000 ₸ эсвэл 400 000 ₸ нөхөн олговор'],
+        ],
+        'silver_director' => [
+            'name' => ['ru' => 'Серебряный директор', 'kk' => 'Күміс директор', 'en' => 'Silver Director', 'mn' => 'Мөнгөн директор'],
+            'reward' => ['ru' => 'Путевка в теплые страны + 250 000 ₸ или компенсация 750 000 ₸', 'kk' => 'Жылы елдерге жолдама + 250 000 ₸ немесе 750 000 ₸ өтемақы', 'en' => 'Warm country trip + 250,000 ₸ or 750,000 ₸ compensation', 'mn' => 'Дулаан орон руу аялал + 250 000 ₸ эсвэл 750 000 ₸ нөхөн олговор'],
+        ],
+        'gold_director' => [
+            'name' => ['ru' => 'Золотой директор', 'kk' => 'Алтын директор', 'en' => 'Gold Director', 'mn' => 'Алтан директор'],
+            'reward' => ['ru' => '5 000 000 ₸ cash bonus', 'kk' => '5 000 000 ₸ ақшалай бонус', 'en' => '5,000,000 ₸ cash bonus', 'mn' => '5 000 000 ₸ мөнгөн бонус'],
+        ],
+        'platinum_director' => [
+            'name' => ['ru' => 'Платиновый директор', 'kk' => 'Платина директор', 'en' => 'Platinum Director', 'mn' => 'Платинум директор'],
+            'reward' => ['ru' => '6 000 000 ₸ cash bonus', 'kk' => '6 000 000 ₸ ақшалай бонус', 'en' => '6,000,000 ₸ cash bonus', 'mn' => '6 000 000 ₸ мөнгөн бонус'],
+        ],
+        'emerald_director' => [
+            'name' => ['ru' => 'Изумрудный директор', 'kk' => 'Изумруд директор', 'en' => 'Emerald Director', 'mn' => 'Маргад директор'],
+            'reward' => ['ru' => '10 000 000 ₸ auto bonus', 'kk' => '10 000 000 ₸ авто бонус', 'en' => '10,000,000 ₸ auto bonus', 'mn' => '10 000 000 ₸ авто бонус'],
+        ],
+        'diamond_director' => [
+            'name' => ['ru' => 'Бриллиантовый директор', 'kk' => 'Бриллиант директор', 'en' => 'Diamond Director', 'mn' => 'Очир директор'],
+            'reward' => ['ru' => '20 000 000 ₸ apartment bonus', 'kk' => '20 000 000 ₸ пәтер бонусы', 'en' => '20,000,000 ₸ apartment bonus', 'mn' => '20 000 000 ₸ байрны бонус'],
+        ],
+    ];
+
     /**
      * @return array<int, array{id: string, name: string, pv: int, income_potential: int, reward: string, is_cash_bonus: bool}>
      */
     public function publicStatuses(): array
     {
-        return self::STATUS_DEFINITIONS;
+        return collect(self::STATUS_DEFINITIONS)
+            ->map(function (array $definition): array {
+                $translations = self::STATUS_TRANSLATIONS[$definition['id']] ?? [];
+
+                $definition['name'] = LocalizedValue::get($translations['name'] ?? null, $definition['name']);
+                $definition['reward'] = LocalizedValue::get($translations['reward'] ?? null, $definition['reward']);
+                $definition['translations'] = $translations;
+
+                return $definition;
+            })
+            ->values()
+            ->all();
     }
 
     public function statusForPv(float|string $totalPv): string

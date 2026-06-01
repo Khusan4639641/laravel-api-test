@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { Bell, Menu, Search, User } from 'lucide-react';
 import { AdminSidebar } from './AdminSidebar';
+import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { ApiError, clearAuthToken, getAuthToken, getMyPermissions, me } from '../../lib/api';
 import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
 import { cn } from '../../lib/utils';
@@ -128,6 +129,7 @@ export function AdminLayout() {
           </div>
 
           <div className="flex items-center gap-4">
+            <LanguageSwitcher />
             <button
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:bg-safi-green hover:text-white"

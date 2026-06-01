@@ -1,0 +1,221 @@
+{
+  "nav": {
+    "products": "Products",
+    "business": "Opportunities",
+    "marketing": "Marketing plan",
+    "howToStart": "How to start",
+    "contacts": "Contacts",
+    "login": "Log in",
+    "register": "Register",
+    "home": "Home",
+    "about": "About company",
+    "faq": "FAQ"
+  },
+  "hero": {
+    "title1": "Unlock your",
+    "title2": "potential with",
+    "title3": "Safi",
+    "subtitle": "Innovative wellness products and a clear business model for your growth.",
+    "startNow": "Start business",
+    "buyProducts": "Buy products",
+    "disclaimer": "*Income depends on personal activity. This information is not an income guarantee.",
+    "kzProducts": "Domestic products of Kazakhstan"
+  },
+  "features": {
+    "products": "Premium products",
+    "productsDesc": "High quality",
+    "business": "Business",
+    "businessDesc": "Generous marketing"
+  },
+  "news": {
+    "title": "News",
+    "viewAll": "All",
+    "viewAllBtn": "View all",
+    "pageTitle": "News",
+    "pageSubtitle": "Follow the latest events and updates"
+  },
+  "footer": {
+    "rights": "All rights reserved."
+  },
+  "trustBadges": {
+    "binary": "Binary +",
+    "classic": "Classic",
+    "days": "14 days",
+    "payouts": "Bonus payouts",
+    "pv": "PV",
+    "accumulation": "Accumulation system"
+  },
+  "productCard": {
+    "cashbackTitle": "Cashback",
+    "cashbackBonus": "bonus",
+    "hit": "Bestseller",
+    "desc": "Rejuvenating peptide serum with anti-age effect and deep skin hydration.",
+    "catalog": "Catalog"
+  },
+  "benefits": {
+    "title1": "Why people choose",
+    "title2": "Safi Life",
+    "subtitle": "Natural products from Kazakhstan and a transparent marketing plan that works.",
+    "domestic": "Domestic products",
+    "domesticDesc": "We produce health and beauty goods from quality raw materials.",
+    "binary": "Binary + Classic",
+    "binaryDesc": "Balanced payouts from the left and right branches plus cashback.",
+    "payout": "Payouts every 14 days",
+    "payoutDesc": "Stable accruals directly to your account without hidden fees.",
+    "upgrade": "Package upgrades",
+    "upgradeDesc": "Start small and upgrade your package as your business grows.",
+    "pv": "Accumulated points (PV)",
+    "pvDesc": "Points are saved and carried forward, helping you reach statuses faster.",
+    "transparent": "Transparent marketing",
+    "transparentDesc": "No complicated conditions. Real achievements and fair payouts."
+  },
+  "popular": {
+    "title1": "Popular",
+    "title2": "products",
+    "subtitle": "Start with bestsellers already chosen by thousands of partners.",
+    "allCatalogBtn": "FULL CATALOG"
+  },
+  "packages": {
+    "title1": "Starter",
+    "title2": "packages",
+    "subtitle": "Choose the package that fits you and start earning with Safi Life.",
+    "hit": "Bestseller",
+    "refBonus": "Referral bonus",
+    "binBonus": "Binary bonus",
+    "binNone": "None",
+    "selectBtn": "Choose package"
+  },
+  "cta": {
+    "title1": "Ready to start",
+    "title2": "a business?",
+    "subtitle": "Leave a request and our manager will contact you about packages and the marketing plan.",
+    "consultBtn": "Get consultation",
+    "marketingBtn": "Study marketing plan"
+  },
+  "productsPage": {
+    "title1": "Product",
+    "title2": "catalog",
+    "subtitle": "Health, beauty and everyday use",
+    "orderBtn": "Order",
+    "moreBtn": "More details",
+    "descLabel": "Description",
+    "benefitsLabel": "Benefits",
+    "compLabel": "Composition",
+    "usageLabel": "How to use",
+    "addCartBtn": "Add to cart"
+  },
+  "about": {
+    "title1": "About company",
+    "subtitle": "Safi Life connects people, products and entrepreneurial opportunities.",
+    "mission1": "Our",
+    "mission2": "mission",
+    "missionDesc": "We create a platform where every partner can grow sales, build a team and receive support at every stage. Our goal is to let people use quality domestic products while building a stable and transparent business.",
+    "path1": "Our",
+    "path2": "path",
+    "pathDesc": "Safi Life's main market is Kazakhstan. We plan to expand to other CIS countries, opening new opportunities for current and future partners.",
+    "values": "Values"
+  },
+  "business": {
+    "title1": "Become a partner",
+    "subtitle": "An opportunity for additional income and your own business growth",
+    "forWho1": "Who is",
+    "forWho2": "this business for?",
+    "why1": "Why",
+    "why2": "Safi Life?",
+    "disclaimer": "Potential income depends on personal sales, activity, team structure and marketing plan conditions. This information is not an income guarantee."
+  },
+  "marketing": {
+    "title1": "Marketing",
+    "title2": "plan",
+    "subtitle": "A transparent reward system for your success",
+    "bonus1_title": "Referral bonus",
+    "bonus1_desc": "Paid for every personal invitation. Depends on your starter package from 10% to 20%.",
+    "bonus2_title": "Binary bonus",
+    "bonus2_desc": "Paid from the smaller branch turnover. Depends on the package from 7% to 10%. No cuts: points move to the next period.",
+    "bonus3_title": "Matching bonus",
+    "bonus3_desc": "Earn a percentage from binary bonuses of your personally invited partners.",
+    "bonus4_title": "Cashback 20%",
+    "bonus4_desc": "Receive 20% back from repeat personal product purchases from 35 PV."
+  },
+  "howToStart": {
+    "title1": "How",
+    "title2": "to start",
+    "subtitle": "4 simple steps to your own business with Safi Life",
+    "step1": "Registration",
+    "step1Desc": "Fill in the simple registration form. It takes no more than 2 minutes and gives access to your account.",
+    "step2": "Choose a package",
+    "step2Desc": "Choose a starter package. Your reward percentage depends on the selected package.",
+    "step3": "Receive products",
+    "step3Desc": "Products are included in the package price. Choose products matching your package PV.",
+    "step4": "Training and start",
+    "step4Desc": "Complete free training from the company and mentors. Start inviting partners and earning.",
+    "pageTitle": "Where",
+    "pageSubtitle": "7 simple steps to build a business with Safi Life",
+    "startBtn": "Start with Safi Life",
+    "steps": {
+      "0": {
+        "title": "Leave a request or register",
+        "desc": "Use a referral link or fill in the form."
+      },
+      "1": {
+        "title": "Choose a starter package",
+        "desc": "Choose between START, VIP or ELITE."
+      },
+      "2": {
+        "title": "Account access",
+        "desc": "Get access to your dashboard and training."
+      },
+      "3": {
+        "title": "Complete training",
+        "desc": "Study company products and partner materials."
+      },
+      "4": {
+        "title": "Start sales and invitations",
+        "desc": "Earn referral and classic bonuses."
+      },
+      "5": {
+        "title": "Grow the binary",
+        "desc": "Build left and right branches to earn 7-10% from the smaller branch."
+      },
+      "6": {
+        "title": "Reach statuses",
+        "desc": "Receive rewards and track team growth."
+      }
+    }
+  },
+  "legal": {
+    "title1": "Legal",
+    "title2": "information",
+    "date": "Last updated: May 1, 2024",
+    "termsBtn": "Terms of use",
+    "privacyBtn": "Privacy policy"
+  },
+  "faq": {
+    "title1": "Frequently asked",
+    "title2": "questions",
+    "subtitle": "Answers to popular questions about the company and business",
+    "q1": "Is it mandatory to sell products?",
+    "q1Desc": "No, you can build a consumer network and earn through the marketing system without direct sales.",
+    "q2": "Can I upgrade the package later?",
+    "q2Desc": "Yes, you can upgrade your status at any time by paying the package price difference."
+  },
+  "contacts": {
+    "title1": "Contact",
+    "title2": "us",
+    "subtitle": "We are always available and ready to answer your questions",
+    "formName": "Your name",
+    "formPhone": "Phone",
+    "formSubject": "Subject",
+    "formMessage": "Message",
+    "formSubmit": "Send message"
+  },
+  "auth": {
+    "loginTitle": "Log in to",
+    "loginAction": "Log in",
+    "regTitle": "Create",
+    "regAccount": "account",
+    "regAction": "Register",
+    "loginInstead": "Already have an account? Log in",
+    "regInstead": "No account? Register"
+  }
+}

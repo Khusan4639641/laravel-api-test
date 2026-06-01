@@ -17,6 +17,10 @@ use Illuminate\Database\Eloquent\Model;
     'published_at',
     'sort_order',
     'metadata',
+    'title_translations',
+    'category_translations',
+    'excerpt_translations',
+    'content_translations',
 ])]
 class News extends Model
 {
@@ -32,6 +36,10 @@ class News extends Model
             'published_at' => 'datetime',
             'sort_order' => 'integer',
             'metadata' => 'array',
+            'title_translations' => 'array',
+            'category_translations' => 'array',
+            'excerpt_translations' => 'array',
+            'content_translations' => 'array',
         ];
     }
 }

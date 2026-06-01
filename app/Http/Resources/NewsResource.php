@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\LocalizedValue;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -11,11 +12,11 @@ class NewsResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'title' => $this->title,
+            'title' => LocalizedValue::get($this->title_translations, $this->title),
             'slug' => $this->slug,
-            'category' => $this->category,
-            'excerpt' => $this->excerpt,
-            'content' => $this->content,
+            'category' => LocalizedValue::get($this->category_translations, $this->category),
+            'excerpt' => LocalizedValue::get($this->excerpt_translations, $this->excerpt),
+            'content' => LocalizedValue::get($this->content_translations, $this->content),
             'image_url' => $this->image_url,
             'imageUrl' => $this->image_url,
             'status' => $this->status,
@@ -23,6 +24,12 @@ class NewsResource extends JsonResource
             'published_at' => $this->published_at?->toISOString(),
             'sort_order' => $this->sort_order,
             'metadata' => $this->metadata,
+            'translations' => [
+                'title' => $this->title_translations,
+                'category' => $this->category_translations,
+                'excerpt' => $this->excerpt_translations,
+                'content' => $this->content_translations,
+            ],
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

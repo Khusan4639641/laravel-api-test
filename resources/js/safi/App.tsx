@@ -4,8 +4,13 @@
  */
 
 import { AppRouter } from './router/routes';
+import { RuntimeTextLocalizer } from './i18n/runtimeTranslations';
 
 export default function App() {
-  return <AppRouter />;
+  return (
+    <>
+      <RuntimeTextLocalizer />
+      <AppRouter />
+    </>
+  );
 }
-
