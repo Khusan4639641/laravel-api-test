@@ -43,9 +43,9 @@ export function StatCard({
         <div className={cn("text-[10px] uppercase font-extrabold tracking-[0.16em]", titleColors[variant])}>{title}</div>
         {icon && <div className={variant === 'default' ? "text-safi-green/35 transition-colors group-hover:text-safi-gold" : "text-current/40"}>{icon}</div>}
       </div>
-      <div className={cn("relative z-10 font-serif text-2xl font-semibold md:text-3xl", valueColors[variant])}>{value}</div>
+      <div className={cn("safi-numeric relative z-10 font-serif text-2xl font-semibold md:text-3xl", valueColors[variant])}>{value}</div>
       {trend && (
-        <div className={cn("relative z-10 mt-2 text-xs font-bold", trend.isPositive ? (variant === 'default' ? "text-green-600" : "text-green-300") : (variant === 'default' ? "text-red-600" : "text-red-300"))}>
+        <div className={cn("safi-numeric relative z-10 mt-2 text-xs font-bold", trend.isPositive ? (variant === 'default' ? "text-green-600" : "text-green-300") : (variant === 'default' ? "text-red-600" : "text-red-300"))}>
           {trend.isPositive ? '+' : ''}{trend.value}
         </div>
       )}
@@ -60,7 +60,7 @@ export function ProgressBar({ label, current, total, percentageOverride }: { lab
     <div className="w-full">
       <div className="mb-2 flex items-end justify-between text-sm font-bold">
         <span className="text-safi-green">{label}</span>
-        <span className="text-xs text-safi-gold">{percentage.toFixed(0)}%</span>
+        <span className="safi-numeric text-xs text-safi-gold">{percentage.toFixed(0)}%</span>
       </div>
       <div className="h-2 w-full overflow-hidden rounded-full bg-safi-cream">
         <div 
@@ -68,7 +68,7 @@ export function ProgressBar({ label, current, total, percentageOverride }: { lab
           style={{ width: `${percentage}%` }}
         />
       </div>
-      <div className="mt-2 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
+      <div className="safi-numeric mt-2 flex items-center justify-between text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
         <span>{current.toLocaleString('ru-RU')}</span>
         <span>{total.toLocaleString('ru-RU')}</span>
       </div>

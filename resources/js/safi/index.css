@@ -22,6 +22,8 @@
   html {
     scroll-behavior: smooth;
     text-rendering: geometricPrecision;
+    font-variant-numeric: lining-nums tabular-nums;
+    font-feature-settings: "lnum" 1, "tnum" 1;
   }
 
   body {
@@ -29,6 +31,8 @@
     background-color: var(--color-safi-bg);
     color: var(--color-safi-green);
     font-family: var(--font-sans);
+    font-variant-numeric: lining-nums tabular-nums;
+    font-feature-settings: "lnum" 1, "tnum" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
@@ -45,6 +49,15 @@
   textarea,
   select {
     font: inherit;
+    font-variant-numeric: inherit;
+    font-feature-settings: inherit;
+  }
+
+  table,
+  th,
+  td {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-feature-settings: "lnum" 1, "tnum" 1;
   }
 
   ::selection {
@@ -54,6 +67,24 @@
 }
 
 @layer utilities {
+  .safi-numeric {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-feature-settings: "lnum" 1, "tnum" 1;
+    line-height: 1.15;
+  }
+
+  .safi-numeric-proportional {
+    font-variant-numeric: lining-nums proportional-nums;
+    font-feature-settings: "lnum" 1, "pnum" 1;
+  }
+
+  .font-serif,
+  .font-mono,
+  .tabular-nums {
+    font-variant-numeric: lining-nums tabular-nums;
+    font-feature-settings: "lnum" 1, "tnum" 1;
+  }
+
   .safi-kicker {
     @apply text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-gold;
   }
