@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { ApiError, login } from '../lib/api';
+import { ApiError, getMyPermissions, login } from '../lib/api';
+import { normalizePermissions } from '../lib/permissions';
 
 type FieldErrors = Record<string, string[]>;
 
@@ -28,7 +29,12 @@ export default function LoginPage() {
 
     try {
       const response = await login(form);
-      navigate(getRedirectPath(response), { replace: true });
+      try {
+        const permissions = normalizePermissions(await getMyPermissions());
+        navigate(permissions.redirect_after_login, { replace: true });
+      } catch {
+        navigate(getRedirectPath(response), { replace: true });
+      }
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message);
@@ -109,7 +115,7 @@ function getRedirectPath(response: unknown) {
     return '/support';
   }
 
-  if (role === 'super_admin') {
+  if (role === 'admin' || role === 'super_admin') {
     return '/admin';
   }
 

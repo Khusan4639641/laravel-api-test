@@ -15,7 +15,7 @@ class EnsureSupportOrSuperAdmin
     {
         $user = $request->user();
 
-        if (! $user || (! $user->isSupport() && ! $user->isSuperAdmin())) {
+        if (! $user || (! $user->isSupport() && ! $user->isAdmin() && ! $user->isSuperAdmin())) {
             abort(403, 'Support access required.');
         }
 

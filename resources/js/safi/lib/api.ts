@@ -41,6 +41,18 @@ export interface RegisterPayload {
   package_id?: string;
 }
 
+export interface AdminPartnerPayload {
+  name: string;
+  login: string;
+  email: string;
+  phone?: string;
+  password: string;
+  password_confirmation: string;
+  sponsor_id?: string;
+  branch?: string;
+  role?: string;
+}
+
 export interface OrderPayload {
   product_id: string | number;
   quantity?: number;
@@ -265,6 +277,13 @@ export async function me<T = unknown>() {
   });
 }
 
+export async function getMyPermissions<T = unknown>() {
+  return apiRequest<T>(endpoints.auth.permissions, {
+    method: 'GET',
+    auth: true,
+  });
+}
+
 export async function getPublicProducts() {
   const response = await apiRequest(endpoints.public.products, { method: 'GET', auth: false });
   return normalizeProducts(response);
@@ -484,6 +503,14 @@ export async function getAdminStructure<T = unknown>() {
 export async function getAdminUsers<T = unknown>() {
   return apiRequest<T>(endpoints.admin.users, {
     method: 'GET',
+    auth: true,
+  });
+}
+
+export async function createAdminPartner<T = unknown>(payload: AdminPartnerPayload) {
+  return apiRequest<T>(endpoints.admin.partners, {
+    method: 'POST',
+    body: compactPayload(payload),
     auth: true,
   });
 }

@@ -12,6 +12,7 @@ export const endpoints = {
     register: '/register',
     logout: '/logout',
     me: '/me',
+    permissions: '/me/permissions',
   },
   public: {
     products: '/public/products',
@@ -45,6 +46,7 @@ export const endpoints = {
   },
   admin: {
     overview: '/admin/overview',
+    partners: '/admin/partners',
     structure: '/admin/structure',
     users: '/admin/users',
     user: (user: EndpointId) => `/admin/users/${encodeEndpointId(user)}`,

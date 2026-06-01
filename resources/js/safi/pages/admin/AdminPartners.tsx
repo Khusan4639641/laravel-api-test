@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, Filter, Network, Search } from 'lucide-react';
+import { Copy, Eye, Filter, Network, Plus, Search, X } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { getAdminUsers, getApiErrorState } from '../../lib/api';
+import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState } from '../../lib/api';
 
 interface AdminPartnerRow {
   id: string;
+  login: string;
   fullName: string;
   phone: string;
   email: string;
@@ -24,11 +25,41 @@ interface AdminPartnerRow {
   accountStatus: string;
 }
 
+interface CreatedCredentials {
+  login: string;
+  email: string;
+  password: string;
+  login_url: string;
+}
+
+type FieldErrors = Record<string, string[]>;
+
+const initialCreateForm = {
+  name: '',
+  login: '',
+  email: '',
+  phone: '',
+  password: '',
+  password_confirmation: '',
+  sponsor_id: '',
+  branch: '',
+  role: 'user',
+};
+
+const modalInputClass = 'w-full rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-sm font-bold text-safi-green outline-none transition-colors focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60';
+
 export default function AdminPartners() {
   const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState(initialCreateForm);
+  const [isCreating, setIsCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
+  const [copyStatus, setCopyStatus] = useState('');
 
   const loadUsers = async () => {
     setIsLoading(true);
@@ -48,6 +79,72 @@ export default function AdminPartners() {
   useEffect(() => {
     void loadUsers();
   }, []);
+
+  const openCreateModal = () => {
+    setCreateForm(initialCreateForm);
+    setCreateError(null);
+    setFieldErrors({});
+    setCreatedCredentials(null);
+    setCopyStatus('');
+    setIsCreateOpen(true);
+  };
+
+  const closeCreateModal = () => {
+    setIsCreateOpen(false);
+    setCreatedCredentials(null);
+    setCopyStatus('');
+  };
+
+  const submitCreatePartner = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsCreating(true);
+    setCreateError(null);
+    setFieldErrors({});
+    setCreatedCredentials(null);
+    setCopyStatus('');
+
+    try {
+      const response = await createAdminPartner(createForm);
+      const credentials = normalizeCredentials(response);
+
+      setCreatedCredentials(credentials);
+      setCreateForm((current) => ({
+        ...initialCreateForm,
+        sponsor_id: current.sponsor_id,
+        branch: current.branch,
+      }));
+      await loadUsers();
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setCreateError(caughtError.message);
+        setFieldErrors(caughtError.errors || {});
+      } else {
+        setCreateError('Не удалось создать партнёра. Попробуйте позже.');
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const copyCredentials = async () => {
+    if (!createdCredentials) {
+      return;
+    }
+
+    const text = [
+      `Логин: ${createdCredentials.login}`,
+      `Email: ${createdCredentials.email}`,
+      `Пароль: ${createdCredentials.password}`,
+      `Ссылка для входа: ${createdCredentials.login_url}`,
+    ].join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopyStatus('Доступы скопированы');
+    } catch {
+      setCopyStatus('Не удалось скопировать автоматически');
+    }
+  };
 
   const visiblePartners = useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim();
@@ -72,6 +169,14 @@ export default function AdminPartners() {
               Пользователи, пакеты, PV, балансы и статус аккаунта.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={openCreateModal}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90"
+          >
+            <Plus className="h-4 w-4 text-safi-gold" />
+            Добавить партнёра
+          </button>
         </div>
       </section>
 
@@ -159,6 +264,22 @@ export default function AdminPartners() {
           ))}
         </AdminTable>
       )}
+
+      {isCreateOpen && (
+        <CreatePartnerModal
+          form={createForm}
+          partners={partners}
+          fieldErrors={fieldErrors}
+          error={createError}
+          isCreating={isCreating}
+          credentials={createdCredentials}
+          copyStatus={copyStatus}
+          onClose={closeCreateModal}
+          onCopy={copyCredentials}
+          onSubmit={submitCreatePartner}
+          onChange={(field, value) => setCreateForm((current) => ({ ...current, [field]: value }))}
+        />
+      )}
     </div>
   );
 }
@@ -172,18 +293,245 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function CreatePartnerModal({
+  form,
+  partners,
+  fieldErrors,
+  error,
+  isCreating,
+  credentials,
+  copyStatus,
+  onClose,
+  onCopy,
+  onSubmit,
+  onChange,
+}: {
+  form: typeof initialCreateForm;
+  partners: AdminPartnerRow[];
+  fieldErrors: FieldErrors;
+  error: string | null;
+  isCreating: boolean;
+  credentials: CreatedCredentials | null;
+  copyStatus: string;
+  onClose: () => void;
+  onCopy: () => void;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onChange: (field: keyof typeof initialCreateForm, value: string) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/35 px-4 py-6 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-[28px] border border-safi-border bg-white shadow-[0_24px_70px_rgba(11,23,18,0.2)]">
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-safi-border bg-white px-6 py-5">
+          <div>
+            <div className="safi-kicker">Super admin</div>
+            <h2 className="mt-2 font-serif text-3xl font-semibold text-safi-green">Добавить партнёра</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-safi-cream text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+            aria-label="Закрыть"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        <div className="grid gap-6 p-6 lg:grid-cols-[1fr_320px]">
+          <form className="space-y-5" onSubmit={onSubmit}>
+            {error && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {error}
+              </div>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <ModalField label="Имя" error={fieldErrors.name?.[0]}>
+                <input
+                  value={form.name}
+                  onChange={(event) => onChange('name', event.target.value)}
+                  className={modalInputClass}
+                  autoComplete="name"
+                  required
+                />
+              </ModalField>
+              <ModalField label="Логин" error={fieldErrors.login?.[0]}>
+                <input
+                  value={form.login}
+                  onChange={(event) => onChange('login', event.target.value)}
+                  className={modalInputClass}
+                  autoComplete="username"
+                  required
+                />
+              </ModalField>
+              <ModalField label="Email" error={fieldErrors.email?.[0]}>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => onChange('email', event.target.value)}
+                  className={modalInputClass}
+                  autoComplete="email"
+                  required
+                />
+              </ModalField>
+              <ModalField label="Телефон" error={fieldErrors.phone?.[0]}>
+                <input
+                  value={form.phone}
+                  onChange={(event) => onChange('phone', event.target.value)}
+                  className={modalInputClass}
+                  autoComplete="tel"
+                />
+              </ModalField>
+              <ModalField label="Пароль" error={fieldErrors.password?.[0]}>
+                <input
+                  type="password"
+                  value={form.password}
+                  onChange={(event) => onChange('password', event.target.value)}
+                  className={modalInputClass}
+                  autoComplete="new-password"
+                  required
+                />
+              </ModalField>
+              <ModalField label="Повтор пароля" error={fieldErrors.password_confirmation?.[0]}>
+                <input
+                  type="password"
+                  value={form.password_confirmation}
+                  onChange={(event) => onChange('password_confirmation', event.target.value)}
+                  className={modalInputClass}
+                  autoComplete="new-password"
+                  required
+                />
+              </ModalField>
+              <ModalField label="Спонсор / пригласитель" error={fieldErrors.sponsor_id?.[0]}>
+                <select
+                  value={form.sponsor_id}
+                  onChange={(event) => onChange('sponsor_id', event.target.value)}
+                  className={modalInputClass}
+                >
+                  <option value="">Без спонсора</option>
+                  {partners.map((partner) => (
+                    <option key={partner.id} value={partner.id}>
+                      {partner.fullName} ({partner.login || partner.email})
+                    </option>
+                  ))}
+                </select>
+              </ModalField>
+              <ModalField label="Ветка" error={fieldErrors.branch?.[0]}>
+                <select
+                  value={form.branch}
+                  onChange={(event) => onChange('branch', event.target.value)}
+                  className={modalInputClass}
+                  disabled={!form.sponsor_id}
+                >
+                  <option value="">Автоматически</option>
+                  <option value="left">left</option>
+                  <option value="right">right</option>
+                </select>
+              </ModalField>
+              <ModalField label="Роль" error={fieldErrors.role?.[0]}>
+                <select
+                  value={form.role}
+                  onChange={(event) => onChange('role', event.target.value)}
+                  className={modalInputClass}
+                >
+                  <option value="user">user</option>
+                  <option value="support">support</option>
+                  <option value="admin">admin</option>
+                </select>
+              </ModalField>
+            </div>
+
+            <div className="flex flex-col gap-3 border-t border-safi-border pt-5 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-full border border-safi-border bg-white px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-cream"
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                disabled={isCreating}
+                className="rounded-full border border-safi-green bg-safi-green px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isCreating ? 'Создание...' : 'Создать партнёра'}
+              </button>
+            </div>
+          </form>
+
+          <aside className="rounded-[24px] border border-safi-border bg-safi-cream p-5">
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Доступы</div>
+            {credentials ? (
+              <div className="mt-4 space-y-4">
+                <CredentialRow label="Логин" value={credentials.login} />
+                <CredentialRow label="Email" value={credentials.email} />
+                <CredentialRow label="Пароль" value={credentials.password} />
+                <button
+                  type="button"
+                  onClick={onCopy}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-safi-green bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+                >
+                  <Copy className="h-4 w-4" />
+                  Скопировать доступы
+                </button>
+                {copyStatus && <div className="text-xs font-bold text-safi-muted">{copyStatus}</div>}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm leading-7 text-safi-muted">
+                После создания здесь появятся логин, email и пароль. Пароль не сохраняется в открытом виде и будет доступен только в этом блоке.
+              </p>
+            )}
+          </aside>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalField({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</span>
+      {children}
+      {error && <span className="mt-2 block text-xs font-bold text-red-600">{error}</span>}
+    </label>
+  );
+}
+
+function CredentialRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>
+      <div className="mt-1 break-all font-mono text-sm font-bold text-safi-green">{value}</div>
+    </div>
+  );
+}
+
+function normalizeCredentials(response: unknown): CreatedCredentials {
+  const record = isRecord(response) ? response : {};
+  const credentials = isRecord(record.credentials) ? record.credentials : {};
+
+  return {
+    login: getString(credentials, ['login']) || '-',
+    email: getString(credentials, ['email']) || '-',
+    password: getString(credentials, ['password']) || '-',
+    login_url: getString(credentials, ['login_url', 'loginUrl']) || 'https://safilife.kz/login',
+  };
+}
+
 function normalizePartners(response: unknown): AdminPartnerRow[] {
   return getArray(response).map((item, index) => {
     const record = isRecord(item) ? item : {};
     const packageRecord = isRecord(record.package) ? record.package : undefined;
     const sponsorRecord = isRecord(record.sponsor) ? record.sponsor : undefined;
+    const profileRecord = isRecord(record.profile) ? record.profile : undefined;
 
     return {
       id: getString(record, ['partner_id', 'partnerId', 'code', 'id']) || `USER-${index + 1}`,
+      login: getString(record, ['login', 'username']) || '',
       fullName: getString(record, ['full_name', 'fullName', 'name']) || `Partner ${index + 1}`,
-      phone: getString(record, ['phone', 'phone_number', 'phoneNumber']) || '-',
+      phone: getString(record, ['phone', 'phone_number', 'phoneNumber']) || getString(profileRecord, ['phone']) || '-',
       email: getString(record, ['email']) || '-',
-      city: getString(record, ['city']) || '-',
+      city: getString(record, ['city']) || getString(profileRecord, ['city']) || '-',
       sponsor: getString(sponsorRecord, ['partner_id', 'name', 'id']) || getString(record, ['sponsor_id', 'sponsorId']) || '-',
       invitedCount: getNumber(record, ['invited_count', 'invitedCount', 'children_count']) ?? 0,
       package: getString(packageRecord, ['name', 'title']) || getString(record, ['package_name', 'packageName', 'package']) || '-',

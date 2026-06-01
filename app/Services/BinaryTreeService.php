@@ -129,7 +129,11 @@ class BinaryTreeService
 
     private function normalizePosition(?string $position): string
     {
-        $position = strtoupper((string) $position);
+        if ($position === null || trim($position) === '') {
+            return 'L';
+        }
+
+        $position = strtoupper($position);
 
         return match ($position) {
             'L', 'LEFT' => 'L',

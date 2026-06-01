@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Outlet, useNavigate, useOutletContext } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { Bell, Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
-import { ApiError, clearAuthToken, getAuthToken, me } from '../../lib/api';
+import { ApiError, clearAuthToken, getAuthToken, getMyPermissions, me } from '../../lib/api';
+import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
 
 export interface DashboardCurrentUser {
   id?: string | number;
@@ -28,6 +29,7 @@ export interface DashboardCurrentUser {
 
 export interface DashboardContextValue {
   currentUser: DashboardCurrentUser;
+  permissions: RolePermissions;
   refreshCurrentUser: () => Promise<void>;
 }
 
@@ -55,9 +57,11 @@ export function useDashboardContext() {
 export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<DashboardCurrentUser | null>(null);
+  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   const loadCurrentUser = useCallback(async () => {
     const token = getAuthToken();
@@ -72,15 +76,22 @@ export function DashboardLayout() {
     setAuthError(null);
 
     try {
-      const response = await me();
+      const [response, permissionsResponse] = await Promise.all([me(), getMyPermissions()]);
       const user = normalizeCurrentUser(response);
+      const rolePermissions = normalizePermissions(permissionsResponse);
 
-      if (['super_admin', 'support'].includes(user.role.toLowerCase())) {
-        navigate(user.role === 'support' ? '/support' : '/admin', { replace: true });
+      if (rolePermissions.role !== 'user' || user.role.toLowerCase() !== 'user') {
+        navigate(rolePermissions.redirect_after_login, { replace: true });
+        return;
+      }
+
+      if (!canAccessPath(location.pathname, rolePermissions)) {
+        navigate(rolePermissions.redirect_after_login, { replace: true });
         return;
       }
 
       setCurrentUser(user);
+      setPermissions(rolePermissions);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         clearAuthToken();
@@ -90,11 +101,12 @@ export function DashboardLayout() {
       }
 
       setCurrentUser(null);
+      setPermissions(null);
       setAuthError('Не удалось получить данные пользователя. Попробуйте обновить страницу.');
     } finally {
       setIsLoading(false);
     }
-  }, [navigate]);
+  }, [location.pathname, navigate]);
 
   useEffect(() => {
     void loadCurrentUser();
@@ -111,7 +123,7 @@ export function DashboardLayout() {
     );
   }
 
-  if (authError || !currentUser) {
+  if (authError || !currentUser || !permissions) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-safi-bg px-5 text-center text-safi-green">
         <div className="max-w-md rounded-[32px] border border-safi-border bg-white p-8 shadow-[0_18px_48px_rgba(11,23,18,0.06)]">
@@ -137,6 +149,7 @@ export function DashboardLayout() {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         currentUser={currentUser}
+        permissions={permissions}
       />
 
       <div className="relative flex min-h-screen max-w-full flex-1 flex-col overflow-hidden lg:ml-[280px]">
@@ -180,7 +193,7 @@ export function DashboardLayout() {
 
         <main className="relative flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
           <div className="relative mx-auto w-full max-w-7xl pb-20">
-            <Outlet context={{ currentUser, refreshCurrentUser: loadCurrentUser } satisfies DashboardContextValue} />
+            <Outlet context={{ currentUser, permissions, refreshCurrentUser: loadCurrentUser } satisfies DashboardContextValue} />
           </div>
         </main>
       </div>

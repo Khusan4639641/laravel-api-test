@@ -103,6 +103,7 @@ export function AppRouter() {
           {/* Support Routes */}
           <Route path="/support" element={<AdminLayoutComponent />}>
             <Route index element={<AdminSupport />} />
+            <Route path="tickets" element={<AdminSupport />} />
             <Route path="profile" element={<AdminProfile />} />
           </Route>
 

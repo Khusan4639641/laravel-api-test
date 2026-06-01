@@ -35,6 +35,7 @@ class AssignSupportTicketRequest extends FormRequest
                 'integer',
                 Rule::exists('users', 'id')->where(fn ($query) => $query->whereIn('role', [
                     User::ROLE_SUPPORT,
+                    User::ROLE_ADMIN,
                     User::ROLE_SUPER_ADMIN,
                 ])),
             ],

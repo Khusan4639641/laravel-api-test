@@ -15,7 +15,7 @@ class EnsureAdmin
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {
-        $allowedRoles = $roles === [] ? ['super_admin'] : $roles;
+        $allowedRoles = $roles === [] ? ['admin', 'super_admin'] : $roles;
 
         if (! in_array($request->user()?->role, $allowedRoles, true)) {
             abort(403, 'Admin access required.');

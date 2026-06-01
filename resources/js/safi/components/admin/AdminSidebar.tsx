@@ -18,24 +18,24 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { logout } from '../../lib/api';
+import { menuLabel, RolePermissions } from '../../lib/permissions';
 
-const menuItems = [
-  { path: '/admin', name: 'Обзор', icon: BarChart, roles: ['super_admin'] },
-  { path: '/admin/partners', name: 'Партнёры', icon: Users, roles: ['super_admin'] },
-  { path: '/admin/structure', name: 'Структура', icon: Network, roles: ['super_admin'] },
-  { path: '/admin/transactions', name: 'Транзакции', icon: CreditCard, roles: ['super_admin'] },
-  { path: '/admin/withdrawals', name: 'Заявки на вывод', icon: ArrowUpCircle, roles: ['super_admin'] },
-  { path: '/admin/bonuses', name: 'Бонусы', icon: Gift, roles: ['super_admin'] },
-  { path: '/admin/packages', name: 'Пакеты', icon: Package, roles: ['super_admin'] },
-  { path: '/admin/statuses', name: 'Статусы', icon: Trophy, roles: ['super_admin'] },
-  { path: '/admin/products', name: 'Продукты', icon: ShoppingBag, roles: ['super_admin'] },
-  { path: '/admin/news', name: 'Новости', icon: Newspaper, roles: ['super_admin'] },
-  { path: '/admin/support', name: 'Поддержка', icon: MessageSquare, roles: ['super_admin'] },
-  { path: '/admin/reports', name: 'Отчёты', icon: PieChart, roles: ['super_admin'] },
-  { path: '/admin/settings', name: 'Настройки', icon: Settings, roles: ['super_admin'] },
-  { path: '/support', name: 'Обращения', icon: MessageSquare, roles: ['support'] },
-  { path: '/support/profile', name: 'Профиль', icon: UserCircle, roles: ['support'] },
-];
+const iconMap = {
+  'arrow-up-circle': ArrowUpCircle,
+  'bar-chart': BarChart,
+  'credit-card': CreditCard,
+  gift: Gift,
+  'message-square': MessageSquare,
+  network: Network,
+  newspaper: Newspaper,
+  package: Package,
+  'pie-chart': PieChart,
+  settings: Settings,
+  'shopping-bag': ShoppingBag,
+  trophy: Trophy,
+  'user-circle': UserCircle,
+  users: Users,
+} as const;
 
 interface AdminSidebarUser {
   name: string;
@@ -46,15 +46,15 @@ export function AdminSidebar({
   isOpen,
   onClose,
   currentUser,
+  permissions,
 }: {
   isOpen: boolean;
   onClose: () => void;
   currentUser: AdminSidebarUser;
+  permissions: RolePermissions;
 }) {
   const location = useLocation();
-  const role = currentUser.role.toLowerCase();
-  const visibleMenuItems = menuItems.filter((item) => item.roles.includes(role));
-  const homePath = role === 'support' ? '/support' : '/admin';
+  const homePath = permissions.redirect_after_login;
 
   return (
     <>
@@ -99,11 +99,10 @@ export function AdminSidebar({
 
         <nav className="flex flex-1 flex-col gap-2 px-4 py-6">
           <div className="mb-2 pl-4 text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-muted">Управление</div>
-          {visibleMenuItems.map((item) => {
-            const Icon = item.icon;
+          {permissions.menu.map((item) => {
+            const Icon = iconMap[item.icon as keyof typeof iconMap] || BarChart;
             const isRootItem = item.path === '/admin' || item.path === '/support';
-            const isLegacySupportActive = role === 'support' && item.path === '/support' && location.pathname.startsWith('/admin/support');
-            const isActive = isLegacySupportActive || location.pathname === item.path || (!isRootItem && location.pathname.startsWith(item.path));
+            const isActive = location.pathname === item.path || (!isRootItem && location.pathname.startsWith(item.path));
 
             return (
               <Link
@@ -118,7 +117,7 @@ export function AdminSidebar({
                 )}
               >
                 <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-safi-gold' : 'text-current')} />
-                {item.name}
+                {menuLabel(item)}
               </Link>
             );
           })}

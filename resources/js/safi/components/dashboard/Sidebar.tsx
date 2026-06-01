@@ -2,18 +2,19 @@ import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { LayoutDashboard, Users, CreditCard, Gift, Star, UserCircle, HelpCircle, LogOut, ShoppingBag, Newspaper } from 'lucide-react';
 import { logout } from '../../lib/api';
+import { menuLabel, RolePermissions } from '../../lib/permissions';
 
-const menuItems = [
-  { path: '/dashboard', name: 'Обзор', icon: LayoutDashboard },
-  { path: '/dashboard/structure', name: 'Моя структура', icon: Users },
-  { path: '/dashboard/transactions', name: 'Транзакции', icon: CreditCard },
-  { path: '/dashboard/bonuses', name: 'Бонусы и вывод', icon: Gift },
-  { path: '/dashboard/package-status', name: 'Пакет и статус', icon: Star },
-  { path: '/dashboard/products', name: 'Продукты', icon: ShoppingBag },
-  { path: '/dashboard/news', name: 'Новости', icon: Newspaper },
-  { path: '/dashboard/profile', name: 'Профиль', icon: UserCircle },
-  { path: '/dashboard/support', name: 'Поддержка', icon: HelpCircle },
-];
+const iconMap = {
+  'layout-dashboard': LayoutDashboard,
+  users: Users,
+  'credit-card': CreditCard,
+  gift: Gift,
+  star: Star,
+  'user-circle': UserCircle,
+  'help-circle': HelpCircle,
+  'shopping-bag': ShoppingBag,
+  newspaper: Newspaper,
+} as const;
 
 interface SidebarUser {
   name: string;
@@ -23,7 +24,17 @@ interface SidebarUser {
   status: string;
 }
 
-export function Sidebar({ isOpen, onClose, currentUser }: { isOpen: boolean; onClose: () => void; currentUser: SidebarUser }) {
+export function Sidebar({
+  isOpen,
+  onClose,
+  currentUser,
+  permissions,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  currentUser: SidebarUser;
+  permissions: RolePermissions;
+}) {
   const location = useLocation();
 
   return (
@@ -77,8 +88,8 @@ export function Sidebar({ isOpen, onClose, currentUser }: { isOpen: boolean; onC
 
         <nav className="flex flex-1 flex-col gap-2 px-4 py-6">
           <div className="mb-2 pl-4 text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-muted">Навигация</div>
-          {menuItems.map((item) => {
-            const Icon = item.icon;
+          {permissions.menu.map((item) => {
+            const Icon = iconMap[item.icon as keyof typeof iconMap] || LayoutDashboard;
             const isActive = location.pathname === item.path || (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
 
             return (
@@ -94,7 +105,7 @@ export function Sidebar({ isOpen, onClose, currentUser }: { isOpen: boolean; onC
                 )}
               >
                 <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-safi-gold' : 'text-current')} />
-                {item.name}
+                {menuLabel(item)}
               </Link>
             );
           })}

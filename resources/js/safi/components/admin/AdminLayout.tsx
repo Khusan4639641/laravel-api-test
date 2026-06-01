@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { Bell, Menu, Search, User } from 'lucide-react';
 import { AdminSidebar } from './AdminSidebar';
-import { ApiError, clearAuthToken, getAuthToken, me } from '../../lib/api';
+import { ApiError, clearAuthToken, getAuthToken, getMyPermissions, me } from '../../lib/api';
+import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
 
 export interface AdminCurrentUser {
   id?: string | number;
@@ -14,6 +15,7 @@ export interface AdminCurrentUser {
 
 export interface AdminContextValue {
   currentUser: AdminCurrentUser;
+  permissions: RolePermissions;
   refreshCurrentUser: () => Promise<void>;
 }
 
@@ -29,6 +31,7 @@ const adminDefaults: AdminCurrentUser = {
 export function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<AdminCurrentUser | null>(null);
+  const [permissions, setPermissions] = useState<RolePermissions | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,19 +48,23 @@ export function AdminLayout() {
     setIsLoading(true);
 
     try {
-      const response = await me();
+      const [response, permissionsResponse] = await Promise.all([me(), getMyPermissions()]);
       const adminUser = normalizeAdminUser(response);
+      const rolePermissions = normalizePermissions(permissionsResponse);
 
       if (!isBackoffice(adminUser)) {
         setIsLoading(false);
-        navigate('/dashboard', { replace: true });
+        navigate(rolePermissions.redirect_after_login || '/dashboard', { replace: true });
+        return;
+      }
+
+      if (!canAccessPath(location.pathname, rolePermissions)) {
+        navigate(rolePermissions.redirect_after_login, { replace: true });
         return;
       }
 
       setCurrentUser(adminUser);
-      if (isSupportOnly(adminUser) && !isSupportArea(location.pathname)) {
-        navigate('/support', { replace: true });
-      }
+      setPermissions(rolePermissions);
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         clearAuthToken();
@@ -89,17 +96,13 @@ export function AdminLayout() {
     );
   }
 
-  if (!currentUser) {
-    return null;
-  }
-
-  if (isSupportOnly(currentUser) && !isSupportArea(location.pathname)) {
+  if (!currentUser || !permissions) {
     return null;
   }
 
   return (
     <div className="flex min-h-screen bg-safi-bg text-safi-green">
-      <AdminSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentUser={currentUser} />
+      <AdminSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentUser={currentUser} permissions={permissions} />
 
       <div className="relative flex min-h-screen max-w-full flex-1 flex-col overflow-hidden xl:ml-[280px]">
         <header className="sticky top-0 z-30 flex h-20 shrink-0 items-center justify-between border-b border-safi-border/80 bg-safi-bg/90 px-4 backdrop-blur-xl md:px-8">
@@ -144,7 +147,7 @@ export function AdminLayout() {
 
         <main className="relative flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
           <div className="relative mx-auto w-full max-w-[1600px] pb-20">
-            <Outlet context={{ currentUser, refreshCurrentUser: loadCurrentUser } satisfies AdminContextValue} />
+            <Outlet context={{ currentUser, permissions, refreshCurrentUser: loadCurrentUser } satisfies AdminContextValue} />
           </div>
         </main>
       </div>
@@ -166,18 +169,7 @@ function normalizeAdminUser(response: unknown): AdminCurrentUser {
 }
 
 function isBackoffice(user: AdminCurrentUser) {
-  return ['super_admin', 'support'].includes(user.role.toLowerCase());
-}
-
-function isSupportOnly(user: AdminCurrentUser) {
-  return user.role.toLowerCase() === 'support';
-}
-
-function isSupportArea(pathname: string) {
-  return pathname === '/support'
-    || pathname.startsWith('/support/')
-    || pathname === '/admin/support'
-    || pathname.startsWith('/admin/support/');
+  return ['super_admin', 'admin', 'support'].includes(user.role.toLowerCase());
 }
 
 function roleLabel(role: string) {
@@ -187,6 +179,10 @@ function roleLabel(role: string) {
 
   if (role === 'support') {
     return 'Support';
+  }
+
+  if (role === 'admin') {
+    return 'Admin';
   }
 
   return 'Пользователь';

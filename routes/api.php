@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Admin\NewsController as AdminNewsController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
 use App\Http\Controllers\Api\Admin\OverviewController as AdminOverviewController;
 use App\Http\Controllers\Api\Admin\PackageController as AdminPackageController;
+use App\Http\Controllers\Api\Admin\PartnerController as AdminPartnerController;
 use App\Http\Controllers\Api\Admin\ProductController as AdminProductController;
 use App\Http\Controllers\Api\Admin\ReportController as AdminReportController;
 use App\Http\Controllers\Api\Admin\SettingsController as AdminSettingsController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\Api\Dashboard\WithdrawalController as DashboardWithdraw
 use App\Http\Controllers\Api\PackageActivationController;
 use App\Http\Controllers\Api\PackageUpgradeController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PublicApi\FaqController as PublicFaqController;
 use App\Http\Controllers\Api\PublicApi\NewsController as PublicNewsController;
@@ -69,6 +71,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/orders/{order}', [OrderController::class, 'show']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/me/permissions', PermissionController::class);
 
     Route::prefix('dashboard')->group(function (): void {
         Route::get('/overview', DashboardOverviewController::class);
@@ -90,7 +93,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         });
     });
 
-    Route::middleware('support_or_super_admin')->prefix('support')->group(function (): void {
+    Route::middleware('role_permission:support.manage')->prefix('support')->group(function (): void {
         Route::get('/tickets', [SupportTicketController::class, 'index']);
         Route::get('/tickets/{ticket}', [SupportTicketController::class, 'show']);
         Route::post('/tickets/{ticket}/reply', [SupportTicketController::class, 'reply']);
@@ -98,7 +101,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::patch('/tickets/{ticket}/assign', [SupportTicketController::class, 'assign']);
     });
 
-    Route::middleware('support_or_super_admin')->prefix('admin')->group(function (): void {
+    Route::middleware('role_permission:support.manage')->prefix('admin')->group(function (): void {
         Route::get('/support-tickets', [SupportTicketController::class, 'index']);
         Route::get('/support-tickets/{ticket}', [SupportTicketController::class, 'show']);
         Route::post('/support-tickets/{ticket}/reply', [SupportTicketController::class, 'reply']);
@@ -108,37 +111,55 @@ Route::middleware('auth:sanctum')->group(function (): void {
         Route::patch('/support-tickets/{ticket}/close', [SupportTicketController::class, 'close']);
     });
 
-    Route::middleware('super_admin')->prefix('admin')->group(function (): void {
-        Route::get('/overview', AdminOverviewController::class);
-        Route::get('/structure', AdminStructureController::class);
-        Route::get('/users', [AdminUserController::class, 'index']);
-        Route::get('/users/{user}', [AdminUserController::class, 'show']);
-        Route::get('/products', [AdminProductController::class, 'index']);
-        Route::post('/products', [AdminProductController::class, 'store']);
-        Route::get('/products/{product}', [AdminProductController::class, 'show']);
-        Route::put('/products/{product}', [AdminProductController::class, 'update']);
-        Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
-        Route::get('/packages', [AdminPackageController::class, 'index']);
-        Route::post('/packages', [AdminPackageController::class, 'store']);
-        Route::put('/packages/{package}', [AdminPackageController::class, 'update']);
-        Route::get('/orders', [AdminOrderController::class, 'index']);
-        Route::get('/transactions', [AdminTransactionController::class, 'index']);
-        Route::get('/bonuses', [AdminBonusController::class, 'index']);
-        Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
-        Route::patch('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve']);
-        Route::patch('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
-        Route::get('/news', [AdminNewsController::class, 'index']);
-        Route::post('/news', [AdminNewsController::class, 'store']);
-        Route::get('/news/{news}', [AdminNewsController::class, 'show']);
-        Route::put('/news/{news}', [AdminNewsController::class, 'update']);
-        Route::delete('/news/{news}', [AdminNewsController::class, 'destroy']);
-        Route::get('/faqs', [AdminFaqController::class, 'index']);
-        Route::post('/faqs', [AdminFaqController::class, 'store']);
-        Route::put('/faqs/{faq}', [AdminFaqController::class, 'update']);
-        Route::delete('/faqs/{faq}', [AdminFaqController::class, 'destroy']);
-        Route::get('/reports/summary', [AdminReportController::class, 'summary']);
-        Route::get('/settings', [AdminSettingsController::class, 'index']);
-        Route::put('/settings', [AdminSettingsController::class, 'update']);
-        Route::get('/statuses', AdminStatusController::class);
+    Route::prefix('admin')->group(function (): void {
+        Route::middleware('role_permission:admin.read')->group(function (): void {
+            Route::get('/overview', AdminOverviewController::class);
+            Route::get('/structure', AdminStructureController::class);
+            Route::get('/users', [AdminUserController::class, 'index']);
+            Route::get('/users/{user}', [AdminUserController::class, 'show']);
+            Route::get('/products', [AdminProductController::class, 'index']);
+            Route::get('/products/{product}', [AdminProductController::class, 'show']);
+            Route::get('/packages', [AdminPackageController::class, 'index']);
+            Route::get('/orders', [AdminOrderController::class, 'index']);
+            Route::get('/transactions', [AdminTransactionController::class, 'index']);
+            Route::get('/bonuses', [AdminBonusController::class, 'index']);
+            Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
+            Route::get('/news', [AdminNewsController::class, 'index']);
+            Route::get('/news/{news}', [AdminNewsController::class, 'show']);
+            Route::get('/faqs', [AdminFaqController::class, 'index']);
+            Route::get('/statuses', AdminStatusController::class);
+        });
+
+        Route::middleware('role_permission:admin.catalog.write')->group(function (): void {
+            Route::post('/products', [AdminProductController::class, 'store']);
+            Route::put('/products/{product}', [AdminProductController::class, 'update']);
+            Route::delete('/products/{product}', [AdminProductController::class, 'destroy']);
+            Route::post('/packages', [AdminPackageController::class, 'store']);
+            Route::put('/packages/{package}', [AdminPackageController::class, 'update']);
+            Route::post('/news', [AdminNewsController::class, 'store']);
+            Route::put('/news/{news}', [AdminNewsController::class, 'update']);
+            Route::delete('/news/{news}', [AdminNewsController::class, 'destroy']);
+            Route::post('/faqs', [AdminFaqController::class, 'store']);
+            Route::put('/faqs/{faq}', [AdminFaqController::class, 'update']);
+            Route::delete('/faqs/{faq}', [AdminFaqController::class, 'destroy']);
+        });
+
+        Route::middleware('role_permission:admin.withdrawals.manage')->group(function (): void {
+            Route::patch('/withdrawals/{withdrawal}/approve', [AdminWithdrawalController::class, 'approve']);
+            Route::patch('/withdrawals/{withdrawal}/reject', [AdminWithdrawalController::class, 'reject']);
+        });
+
+        Route::middleware('role_permission:admin.partners.create')->group(function (): void {
+            Route::post('/partners', [AdminPartnerController::class, 'store']);
+        });
+
+        Route::middleware('role_permission:admin.reports')->group(function (): void {
+            Route::get('/reports/summary', [AdminReportController::class, 'summary']);
+        });
+
+        Route::middleware('role_permission:admin.settings')->group(function (): void {
+            Route::get('/settings', [AdminSettingsController::class, 'index']);
+            Route::put('/settings', [AdminSettingsController::class, 'update']);
+        });
     });
 });
