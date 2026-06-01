@@ -4,6 +4,7 @@ import { Bell, Menu, Search, User } from 'lucide-react';
 import { AdminSidebar } from './AdminSidebar';
 import { ApiError, clearAuthToken, getAuthToken, getMyPermissions, me } from '../../lib/api';
 import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
+import { cn } from '../../lib/utils';
 
 export interface AdminCurrentUser {
   id?: string | number;
