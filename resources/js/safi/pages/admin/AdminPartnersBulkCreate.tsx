@@ -6,6 +6,7 @@ import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { bulkCreateAdminPartners, getAdminUsers, getApiErrorState, getArray, getString } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
+import { features } from '../../config/features';
 
 interface BulkRow {
   localId: number;
@@ -251,7 +252,7 @@ export default function AdminPartnersBulkCreate() {
                   <td className="px-4 py-3">
                     <select value={row.role} onChange={(event) => updateRow(row.localId, 'role', event.target.value)} className={inputClass}>
                       <option value="user">user</option>
-                      <option value="support">support</option>
+                      {features.support && <option value="support">support</option>}
                       <option value="accountant">accountant</option>
                       <option value="admin">admin</option>
                     </select>

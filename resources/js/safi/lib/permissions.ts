@@ -1,3 +1,5 @@
+import { features, isSupportFrontendPath } from '../config/features';
+
 export interface PermissionMenuItem {
   path: string;
   label?: string;
@@ -23,13 +25,15 @@ export const fallbackPermissions: RolePermissions = {
 
 export function normalizePermissions(response: unknown): RolePermissions {
   const record = isRecord(response) ? response : {};
+  const allowedRoutes = getStringArray(record.allowed_routes) || getStringArray(record.allowedRoutes) || fallbackPermissions.allowed_routes;
+  const menu = normalizeMenu(record.menu);
 
   return {
     role: getString(record, ['role']) || fallbackPermissions.role,
     label: getString(record, ['label']) || fallbackPermissions.label,
     redirect_after_login: getString(record, ['redirect_after_login', 'redirectAfterLogin']) || fallbackPermissions.redirect_after_login,
-    allowed_routes: getStringArray(record.allowed_routes) || getStringArray(record.allowedRoutes) || fallbackPermissions.allowed_routes,
-    menu: normalizeMenu(record.menu),
+    allowed_routes: filterFeatureRoutes(allowedRoutes),
+    menu: filterFeatureMenu(menu),
   };
 }
 
@@ -69,6 +73,22 @@ function normalizeMenu(value: unknown): PermissionMenuItem[] {
       icon: getString(item, ['icon']),
     }))
     .filter((item) => item.path !== '/');
+}
+
+function filterFeatureRoutes(routes: string[]) {
+  if (features.support) {
+    return routes;
+  }
+
+  return routes.filter((route) => !isSupportFrontendPath(route));
+}
+
+function filterFeatureMenu(menu: PermissionMenuItem[]) {
+  if (features.support) {
+    return menu;
+  }
+
+  return menu.filter((item) => !isSupportFrontendPath(item.path));
 }
 
 function normalizePath(value: string) {

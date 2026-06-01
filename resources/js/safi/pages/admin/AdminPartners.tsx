@@ -6,6 +6,7 @@ import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
+import { features } from '../../config/features';
 
 interface AdminPartnerRow {
   id: string;
@@ -452,7 +453,7 @@ function CreatePartnerModal({
                   className={modalInputClass}
                 >
                   <option value="user">user</option>
-                  <option value="support">support</option>
+                  {features.support && <option value="support">support</option>}
                   <option value="accountant">accountant</option>
                   <option value="admin">admin</option>
                 </select>

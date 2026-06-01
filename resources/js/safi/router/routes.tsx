@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
+import { features } from '../config/features';
 
 // Mock pages for now
 const HomePage = React.lazy(() => import('../pages/HomePage'));
@@ -80,7 +81,7 @@ export function AppRouter() {
             <Route path="products" element={<Products />} />
             <Route path="news" element={<News />} />
             <Route path="profile" element={<Profile />} />
-            <Route path="support" element={<Support />} />
+            <Route path="support" element={features.support ? <Support /> : <Navigate to="/dashboard" replace />} />
           </Route>
 
           {/* Admin Routes */}
@@ -97,17 +98,21 @@ export function AppRouter() {
             <Route path="statuses" element={<AdminStatuses />} />
             <Route path="products" element={<AdminProducts />} />
             <Route path="news" element={<AdminNews />} />
-            <Route path="support" element={<AdminSupport />} />
+            <Route path="support" element={features.support ? <AdminSupport /> : <Navigate to="/admin" replace />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 
           {/* Support Routes */}
-          <Route path="/support" element={<AdminLayoutComponent />}>
-            <Route index element={<AdminSupport />} />
-            <Route path="tickets" element={<AdminSupport />} />
-            <Route path="profile" element={<AdminProfile />} />
-          </Route>
+          {features.support ? (
+            <Route path="/support" element={<AdminLayoutComponent />}>
+              <Route index element={<AdminSupport />} />
+              <Route path="tickets" element={<AdminSupport />} />
+              <Route path="profile" element={<AdminProfile />} />
+            </Route>
+          ) : (
+            <Route path="/support/*" element={<SupportUnavailable />} />
+          )}
 
           <Route path="/admin-preview" element={<AdminPreviewPage />} />
           
@@ -116,5 +121,18 @@ export function AppRouter() {
         </Routes>
       </React.Suspense>
     </BrowserRouter>
+  );
+}
+
+function SupportUnavailable() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-safi-bg px-5 text-center text-safi-green">
+      <section className="max-w-md rounded-[32px] border border-safi-border bg-white p-8 shadow-[0_18px_48px_rgba(11,23,18,0.06)]">
+        <div className="font-serif text-3xl font-semibold">Раздел временно недоступен</div>
+        <p className="mt-3 text-sm leading-7 text-safi-muted">
+          Этот раздел временно скрыт во frontend. Основные разделы кабинета доступны в меню.
+        </p>
+      </section>
+    </main>
   );
 }

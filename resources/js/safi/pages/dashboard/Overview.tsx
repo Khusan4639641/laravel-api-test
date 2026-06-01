@@ -6,6 +6,7 @@ import { useDashboardContext } from '../../components/dashboard/DashboardLayout'
 import { cn } from '../../lib/utils';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getApiErrorState, getArray, getDashboardOverview, getNumber, getString } from '../../lib/api';
+import { features } from '../../config/features';
 
 interface TransactionItem {
   id: string;
@@ -200,13 +201,15 @@ export default function Overview() {
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="font-serif text-3xl font-semibold text-safi-green">Быстрые действия</h2>
-                <p className="mt-2 text-sm leading-7 text-safi-muted">Частые операции по кошельку и обращениям.</p>
+                <p className="mt-2 text-sm leading-7 text-safi-muted">
+                  {features.support ? 'Частые операции по кошельку и обращениям.' : 'Частые операции по кошельку.'}
+                </p>
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className={cn('grid gap-3', features.support ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
               <ActionButton icon={<ArrowUpCircle />} label="Вывод" to="/dashboard/bonuses" />
-              <ActionButton icon={<HelpCircle />} label="Поддержка" to="/dashboard/support" />
+              {features.support && <ActionButton icon={<HelpCircle />} label="Поддержка" to="/dashboard/support" />}
             </div>
 
             <div className="mt-7 grid gap-4 xl:grid-cols-2">
