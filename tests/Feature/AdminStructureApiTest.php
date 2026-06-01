@@ -12,37 +12,38 @@ class AdminStructureApiTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_super_admin_can_get_structure_for_selected_user(): void
+    public function test_admin_structure_returns_recursive_children(): void
     {
-        [$root, $left, $right] = $this->createBinaryTree();
+        [$root, $left, $right, $leftGrandchild] = $this->createNestedBinaryTree();
 
         Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
 
-        $this->getJson("/api/admin/structure?user_id={$left->id}")
+        $this->getJson("/api/admin/structure?user_id={$root->id}")
             ->assertOk()
-            ->assertJsonPath('root_user_id', $left->id)
-            ->assertJsonPath('root.id', $left->id)
-            ->assertJsonPath('root.login', $left->login)
-            ->assertJsonPath('root.children.left.id', $right->id);
+            ->assertJsonPath('root_user_id', $root->id)
+            ->assertJsonPath('root.id', $root->id)
+            ->assertJsonPath('root.children.left.id', $left->id)
+            ->assertJsonPath('root.children.right.id', $right->id)
+            ->assertJsonPath('root.children.left.children.left.id', $leftGrandchild->id);
     }
 
-    public function test_structure_endpoint_does_not_always_return_current_admin_user(): void
+    public function test_admin_structure_returns_selected_user_as_root(): void
     {
-        [, $partner] = $this->createBinaryTree();
+        [, $left] = $this->createNestedBinaryTree();
         $admin = User::factory()->create(['role' => 'admin']);
 
         Sanctum::actingAs($admin);
 
-        $this->getJson("/api/admin/structure?user_id={$partner->id}")
+        $this->getJson("/api/admin/structure?user_id={$left->id}")
             ->assertOk()
-            ->assertJsonPath('root.id', $partner->id);
+            ->assertJsonPath('root.id', $left->id);
 
-        $this->assertNotSame($admin->id, $partner->id);
+        $this->assertNotSame($admin->id, $left->id);
     }
 
     public function test_different_user_id_returns_different_root(): void
     {
-        [$root, $left] = $this->createBinaryTree();
+        [$root, $left] = $this->createNestedBinaryTree();
 
         Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
 
@@ -52,6 +53,55 @@ class AdminStructureApiTest extends TestCase
             ->assertOk();
 
         $this->assertNotSame($rootResponse->json('root.id'), $leftResponse->json('root.id'));
+    }
+
+    public function test_admin_structure_includes_downline_and_branch_counts(): void
+    {
+        [$root, , , , , , , $rightRight] = $this->createSevenDescendantTree();
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $this->getJson("/api/admin/structure?user_id={$root->id}&include_flat=true")
+            ->assertOk()
+            ->assertJsonPath('stats.total_downline_count', 7)
+            ->assertJsonPath('stats.left_branch_count', 4)
+            ->assertJsonPath('stats.right_branch_count', 3)
+            ->assertJsonCount(7, 'flat')
+            ->assertJsonFragment([
+                'id' => $rightRight->id,
+                'login' => 'rightright',
+            ]);
+    }
+
+    public function test_admin_structure_includes_direct_invited_count(): void
+    {
+        [$root] = $this->createNestedBinaryTree();
+        User::factory()->create(['sponsor_id' => $root->id]);
+        User::factory()->create(['sponsor_id' => $root->id]);
+        User::factory()->create(['sponsor_id' => $root->id]);
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $this->getJson("/api/admin/structure?user_id={$root->id}")
+            ->assertOk()
+            ->assertJsonPath('stats.direct_invited_count', 3);
+    }
+
+    public function test_admin_structure_respects_depth(): void
+    {
+        [$root, $left, , $leftGrandchild, $greatGrandchild] = $this->createNestedBinaryTree();
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $this->getJson("/api/admin/structure?user_id={$root->id}&depth=1")
+            ->assertOk()
+            ->assertJsonPath('root.children.left.id', $left->id)
+            ->assertJsonPath('root.children.left.children.left', null);
+
+        $this->getJson("/api/admin/structure?user_id={$root->id}&depth=3")
+            ->assertOk()
+            ->assertJsonPath('root.children.left.children.left.id', $leftGrandchild->id)
+            ->assertJsonPath('root.children.left.children.left.children.left.id', $greatGrandchild->id);
     }
 
     public function test_structure_endpoint_returns_404_for_missing_user_id(): void
@@ -93,49 +143,72 @@ class AdminStructureApiTest extends TestCase
             ->assertJsonPath('root.id', $partner->id)
             ->assertJsonPath('root.name', 'No Node Partner')
             ->assertJsonPath('root.children.left', null)
-            ->assertJsonPath('root.children.right', null);
+            ->assertJsonPath('root.children.right', null)
+            ->assertJsonPath('stats.total_downline_count', 0);
     }
 
     /**
-     * @return array{0: User, 1: User, 2: User}
+     * @return array{0: User, 1: User, 2: User, 3: User, 4: User}
      */
-    private function createBinaryTree(): array
+    private function createNestedBinaryTree(): array
     {
-        $root = User::factory()->create([
-            'name' => 'Root Partner',
-            'login' => 'rootpartner',
-        ]);
-        $left = User::factory()->create([
-            'name' => 'Left Partner',
-            'login' => 'leftpartner',
-        ]);
-        $right = User::factory()->create([
-            'name' => 'Right Under Left',
-            'login' => 'rightunderleft',
-        ]);
+        $root = $this->user('Root Partner', 'rootpartner');
+        $left = $this->user('Left Partner', 'leftpartner');
+        $right = $this->user('Right Partner', 'rightpartner');
+        $leftGrandchild = $this->user('Left Grandchild', 'leftgrandchild');
+        $greatGrandchild = $this->user('Great Grandchild', 'greatgrandchild');
 
-        $rootNode = BinaryNode::query()->create([
-            'user_id' => $root->id,
-            'parent_id' => null,
-            'position' => null,
-            'depth' => 0,
-            'path' => (string) $root->id,
-        ]);
-        $leftNode = BinaryNode::query()->create([
-            'user_id' => $left->id,
-            'parent_id' => $rootNode->id,
-            'position' => 'L',
-            'depth' => 1,
-            'path' => $rootNode->path.'.'.$left->id,
-        ]);
-        BinaryNode::query()->create([
-            'user_id' => $right->id,
-            'parent_id' => $leftNode->id,
-            'position' => 'L',
-            'depth' => 2,
-            'path' => $leftNode->path.'.'.$right->id,
-        ]);
+        $rootNode = $this->node($root);
+        $leftNode = $this->node($left, $rootNode, 'L');
+        $this->node($right, $rootNode, 'R');
+        $leftGrandchildNode = $this->node($leftGrandchild, $leftNode, 'L');
+        $this->node($greatGrandchild, $leftGrandchildNode, 'L');
 
-        return [$root, $left, $right];
+        return [$root, $left, $right, $leftGrandchild, $greatGrandchild];
+    }
+
+    /**
+     * @return array<int, User>
+     */
+    private function createSevenDescendantTree(): array
+    {
+        $root = $this->user('Root Partner', 'rootseven');
+        $left = $this->user('Left Partner', 'leftseven');
+        $right = $this->user('Right Partner', 'rightseven');
+        $leftLeft = $this->user('Left Left', 'leftleft');
+        $leftRight = $this->user('Left Right', 'leftright');
+        $leftLeftLeft = $this->user('Left Left Left', 'leftleftleft');
+        $rightLeft = $this->user('Right Left', 'rightleft');
+        $rightRight = $this->user('Right Right', 'rightright');
+
+        $rootNode = $this->node($root);
+        $leftNode = $this->node($left, $rootNode, 'L');
+        $rightNode = $this->node($right, $rootNode, 'R');
+        $leftLeftNode = $this->node($leftLeft, $leftNode, 'L');
+        $this->node($leftRight, $leftNode, 'R');
+        $this->node($leftLeftLeft, $leftLeftNode, 'L');
+        $this->node($rightLeft, $rightNode, 'L');
+        $this->node($rightRight, $rightNode, 'R');
+
+        return [$root, $left, $right, $leftLeft, $leftRight, $leftLeftLeft, $rightLeft, $rightRight];
+    }
+
+    private function user(string $name, string $login): User
+    {
+        return User::factory()->create([
+            'name' => $name,
+            'login' => $login,
+        ]);
+    }
+
+    private function node(User $user, ?BinaryNode $parent = null, ?string $position = null): BinaryNode
+    {
+        return BinaryNode::query()->create([
+            'user_id' => $user->id,
+            'parent_id' => $parent?->id,
+            'position' => $position,
+            'depth' => $parent ? $parent->depth + 1 : 0,
+            'path' => $parent ? $parent->path.'.'.$user->id : (string) $user->id,
+        ]);
     }
 }

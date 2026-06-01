@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
@@ -14,11 +14,14 @@ interface StructureNode {
   name: string;
   login: string;
   email: string;
+  sponsor: string;
   packageName: string;
   status: string;
   pv: number;
   leftPV: number;
   rightPV: number;
+  balance: number;
+  totalBalance: number;
   depth: number;
   children: {
     left: StructureNode | null;
@@ -26,14 +29,30 @@ interface StructureNode {
   };
 }
 
+interface StructureStats {
+  directInvitedCount: number;
+  totalDownlineCount: number;
+  leftBranchCount: number;
+  rightBranchCount: number;
+}
+
+const emptyStats: StructureStats = {
+  directInvitedCount: 0,
+  totalDownlineCount: 0,
+  leftBranchCount: 0,
+  rightBranchCount: 0,
+};
+
 export default function AdminStructure() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const selectedUserId = searchParams.get('user_id') || '';
+  const selectedDepth = searchParams.get('depth') || '5';
   const [view, setView] = useState<'tree' | 'list'>('tree');
   const [query, setQuery] = useState(selectedUserId);
   const [rootNode, setRootNode] = useState<StructureNode | null>(null);
   const [nodes, setNodes] = useState<StructureNode[]>([]);
+  const [stats, setStats] = useState<StructureStats>(emptyStats);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,16 +61,23 @@ export default function AdminStructure() {
     setError(null);
     setRootNode(null);
     setNodes([]);
+    setStats(emptyStats);
 
     try {
-      const response = await getAdminStructure(selectedUserId ? { user_id: selectedUserId } : {});
+      const response = await getAdminStructure({
+        ...(selectedUserId ? { user_id: selectedUserId } : {}),
+        depth: selectedDepth,
+        include_flat: 'true',
+      });
       const root = normalizeRoot(response);
 
       setRootNode(root);
-      setNodes(root ? flattenTree(root) : normalizeFlatNodes(response));
+      setStats(normalizeStats(response));
+      setNodes(normalizeFlatNodes(response, root));
     } catch (caughtError) {
       setRootNode(null);
       setNodes([]);
+      setStats(emptyStats);
       setError(getApiErrorState(caughtError).error || 'Не удалось загрузить структуру.');
     } finally {
       setIsLoading(false);
@@ -61,7 +87,7 @@ export default function AdminStructure() {
   useEffect(() => {
     setQuery(selectedUserId);
     void loadStructure();
-  }, [selectedUserId]);
+  }, [selectedUserId, selectedDepth]);
 
   const visibleNodes = useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim();
@@ -82,6 +108,14 @@ export default function AdminStructure() {
     if (/^\d+$/.test(normalizedQuery)) {
       navigate(`/admin/structure?user_id=${encodeURIComponent(normalizedQuery)}`);
     }
+  };
+
+  const openNodeTree = (userId: string) => {
+    if (!userId || userId === '-') {
+      return;
+    }
+
+    navigate(`/admin/structure?user_id=${encodeURIComponent(userId)}`);
   };
 
   return (
@@ -134,6 +168,15 @@ export default function AdminStructure() {
         </button>
       </form>
 
+      {!isLoading && !error && rootNode && (
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <SummaryCard label="Лично пригласил" value={stats.directInvitedCount.toLocaleString('ru-RU')} />
+          <SummaryCard label="Всего в структуре" value={stats.totalDownlineCount.toLocaleString('ru-RU')} />
+          <SummaryCard label="Левая ветка" value={stats.leftBranchCount.toLocaleString('ru-RU')} />
+          <SummaryCard label="Правая ветка" value={stats.rightBranchCount.toLocaleString('ru-RU')} />
+        </section>
+      )}
+
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadStructure} />}
       {!isLoading && !error && !rootNode && (
@@ -141,10 +184,10 @@ export default function AdminStructure() {
       )}
 
       {!isLoading && !error && rootNode && view === 'tree' && (
-        <div className="bg-white rounded-[32px] border border-safi-green/5 shadow-sm p-8 min-h-[520px] flex items-center justify-center overflow-x-auto relative hidden-scrollbar">
+        <div className="bg-white rounded-[32px] border border-safi-green/5 shadow-sm p-8 min-h-[520px] overflow-x-auto relative hidden-scrollbar">
           <div className="absolute top-4 right-4 flex items-center gap-2 text-xs text-safi-text/50">
             <Info className="w-4 h-4" />
-            Данные из backend API
+            Данные из backend API, depth {selectedDepth}
           </div>
 
           {!hasChildren && (
@@ -153,39 +196,51 @@ export default function AdminStructure() {
             </div>
           )}
 
-          <div className="flex flex-col items-center gap-8 min-w-[680px] py-10">
-            <TreeNode node={rootNode} isRoot />
-
-            <div className="flex gap-16 relative">
-              <div className="absolute -top-8 left-1/4 right-1/4 h-8 border-t-2 border-l-2 border-r-2 border-safi-green/20 rounded-t-xl" />
-              <div className="absolute -top-8 left-1/2 bottom-full border-l-2 border-safi-green/20" />
-
-              <div className="flex flex-col items-center gap-8 relative">
-                <div className="absolute -top-4 w-12 text-center text-[10px] font-bold text-safi-text/40 bg-white left-1/2 -ml-6">Левая</div>
-                {rootNode.children.left ? <TreeNode node={rootNode.children.left} /> : <EmptyTreeSlot />}
-              </div>
-
-              <div className="flex flex-col items-center gap-8 relative">
-                <div className="absolute -top-4 w-12 text-center text-[10px] font-bold text-safi-text/40 bg-white left-1/2 -ml-6">Правая</div>
-                {rootNode.children.right ? <TreeNode node={rootNode.children.right} /> : <EmptyTreeSlot />}
-              </div>
-            </div>
+          <div className="flex min-w-max justify-center py-10 pr-10">
+            <TreeNode node={rootNode} isRoot onOpen={openNodeTree} />
           </div>
         </div>
       )}
 
+      {!isLoading && !error && visibleNodes.length === 0 && rootNode && view === 'list' && (
+        <EmptyState title="Нижестоящие партнёры не найдены" description="Список появится после размещения участников в бинарной структуре." />
+      )}
+
       {!isLoading && !error && visibleNodes.length > 0 && view === 'list' && (
-        <AdminTable headers={['Партнер', 'Пакет', 'PV', 'Ветка', 'Уровень']}>
+        <AdminTable headers={['ID', 'Партнёр', 'Логин', 'Спонсор', 'Ветка', 'Уровень', 'Пакет', 'Статус', 'PV', 'Баланс', 'Действия']}>
           {visibleNodes.map((node) => (
             <tr key={`${node.id}-${node.userId}`} className="hover:bg-safi-green/5 transition-colors">
+              <td className="px-6 py-4 font-mono text-[10px] text-safi-text/50">{node.userId}</td>
               <td className="px-6 py-4">
                 <div className="font-bold text-safi-green">{node.name}</div>
-                <div className="text-[10px] font-mono text-safi-text/50">{node.login || node.userId}</div>
+                <div className="text-[10px] text-safi-text/50">{node.email || '-'}</div>
               </td>
-              <td className="px-6 py-4"><AdminBadge variant="gold">{node.packageName}</AdminBadge></td>
-              <td className="px-6 py-4 font-bold text-safi-green">{node.pv.toLocaleString('ru-RU')} PV</td>
+              <td className="px-6 py-4 font-mono text-xs text-safi-text/70">{node.login || '-'}</td>
+              <td className="px-6 py-4">{node.sponsor || '-'}</td>
               <td className="px-6 py-4">{formatPosition(node.position)}</td>
               <td className="px-6 py-4">{node.depth}</td>
+              <td className="px-6 py-4"><AdminBadge variant="gold">{node.packageName}</AdminBadge></td>
+              <td className="px-6 py-4"><AdminBadge variant="default">{node.status}</AdminBadge></td>
+              <td className="px-6 py-4 font-bold text-safi-green">{node.pv.toLocaleString('ru-RU')} PV</td>
+              <td className="px-6 py-4">{node.balance.toLocaleString('ru-RU')}</td>
+              <td className="px-6 py-4">
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => openNodeTree(node.userId)}
+                    className="cursor-pointer rounded-full border border-safi-green bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+                  >
+                    Открыть дерево
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/admin/partners/${encodeURIComponent(node.userId)}`)}
+                    className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10"
+                  >
+                    Профиль
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}
         </AdminTable>
@@ -194,35 +249,131 @@ export default function AdminStructure() {
   );
 }
 
-function TreeNode({ node, isRoot }: { node: StructureNode; isRoot?: boolean }) {
+function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className={cn(
-      'w-48 p-4 bg-white rounded-2xl flex flex-col items-center text-center shadow-sm cursor-pointer hover:-translate-y-1 transition-transform',
-      isRoot ? 'border-2 border-safi-gold shadow-md' : 'border border-safi-green/10'
-    )}>
-      <div className={cn(
-        'w-12 h-12 rounded-full flex items-center justify-center text-lg font-serif text-white font-bold mb-3',
-        node.packageName === 'START' ? 'bg-blue-400' : node.packageName === 'VIP' ? 'bg-purple-500' : 'bg-safi-gold'
-      )}>
-        {node.name.charAt(0)}
-      </div>
-      <div className="font-bold text-sm text-safi-green mb-1 line-clamp-1 truncate w-full" title={node.name}>{node.name}</div>
-      <div className="text-[10px] font-mono text-safi-text/50 bg-[#F5F5F0] px-2 py-0.5 rounded mb-2">{node.login || node.userId}</div>
-      <div className="w-full flex justify-between items-center text-[10px] border-t border-safi-green/5 pt-2 mt-1">
-        <AdminBadge variant={node.packageName === 'ELITE' || node.packageName === 'VIP' ? 'gold' : 'default'} className="px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
-        <span className="font-bold text-safi-green">{node.pv} PV</span>
-      </div>
+    <article className="rounded-3xl border border-safi-border bg-white p-5 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+      <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>
+      <div className="mt-3 font-serif text-2xl font-semibold text-safi-green">{value}</div>
+    </article>
+  );
+}
+
+function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: boolean; onOpen: (userId: string) => void }) {
+  const hasChildren = Boolean(node.children.left || node.children.right);
+
+  return (
+    <div className="flex flex-col items-center">
+      <button
+        type="button"
+        onClick={() => onOpen(node.userId)}
+        className={cn(
+          'w-48 cursor-pointer rounded-2xl bg-white p-4 text-center shadow-sm transition-transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-safi-green/20',
+          isRoot ? 'border-2 border-safi-gold shadow-md' : 'border border-safi-green/10'
+        )}
+        title="Открыть дерево партнёра"
+      >
+        <div className={cn(
+          'mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold font-serif text-white',
+          node.packageName === 'START' ? 'bg-blue-400' : node.packageName === 'VIP' ? 'bg-purple-500' : 'bg-safi-gold'
+        )}>
+          {node.name.charAt(0)}
+        </div>
+        <div className="mb-1 w-full truncate text-sm font-bold text-safi-green" title={node.name}>{node.name}</div>
+        <div className="mb-2 rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-[10px] text-safi-text/50">{node.login || node.userId}</div>
+        <div className="mt-1 flex w-full items-center justify-between border-t border-safi-green/5 pt-2 text-[10px]">
+          <AdminBadge variant={node.packageName === 'ELITE' || node.packageName === 'VIP' ? 'gold' : 'default'} className="px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
+          <span className="font-bold text-safi-green">{node.pv.toLocaleString('ru-RU')} PV</span>
+        </div>
+      </button>
+
+      {hasChildren && (
+        <div className="mt-6 flex flex-col items-center">
+          <div className="h-6 border-l-2 border-safi-green/20" />
+          <div className="relative grid grid-cols-2 gap-6 lg:gap-8">
+            <div className="absolute left-1/4 right-1/4 top-0 border-t-2 border-safi-green/20" />
+            <BranchColumn label="Левая">
+              {node.children.left ? <TreeNode node={node.children.left} onOpen={onOpen} /> : <EmptyTreeSlot />}
+            </BranchColumn>
+            <BranchColumn label="Правая">
+              {node.children.right ? <TreeNode node={node.children.right} onOpen={onOpen} /> : <EmptyTreeSlot />}
+            </BranchColumn>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BranchColumn({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="relative flex min-w-[210px] flex-col items-center pt-6">
+      <div className="absolute top-0 h-6 border-l-2 border-safi-green/20" />
+      <div className="mb-2 rounded-full bg-white px-2 text-center text-[10px] font-bold text-safi-text/40">{label}</div>
+      {children}
     </div>
   );
 }
 
 function EmptyTreeSlot() {
   return (
-    <div className="w-48 p-4 bg-[#F5F5F0]/50 border-2 border-dashed border-safi-green/20 rounded-2xl flex flex-col items-center text-center justify-center opacity-70">
-      <div className="w-10 h-10 rounded-full bg-safi-green/5 text-safi-green/40 flex items-center justify-center text-xl pb-1 mb-2">+</div>
+    <div className="flex w-48 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-safi-green/20 bg-[#F5F5F0]/50 p-4 text-center opacity-70">
+      <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-safi-green/5 pb-1 text-xl text-safi-green/40">+</div>
       <div className="text-xs font-bold text-safi-text/50">Свободная позиция</div>
     </div>
   );
+}
+
+function normalizeStats(response: unknown): StructureStats {
+  const stats = unwrapRecord(response, ['stats']);
+
+  return {
+    directInvitedCount: getNumber(stats, ['direct_invited_count', 'directInvitedCount']) ?? 0,
+    totalDownlineCount: getNumber(stats, ['total_downline_count', 'totalDownlineCount']) ?? 0,
+    leftBranchCount: getNumber(stats, ['left_branch_count', 'leftBranchCount']) ?? 0,
+    rightBranchCount: getNumber(stats, ['right_branch_count', 'rightBranchCount']) ?? 0,
+  };
+}
+
+function normalizeSponsor(record: Record<string, unknown>) {
+  const sponsor = record.sponsor && typeof record.sponsor === 'object' ? record.sponsor as Record<string, unknown> : undefined;
+
+  if (!sponsor) {
+    return '-';
+  }
+
+  return getString(sponsor, ['name', 'login', 'id']) || '-';
+}
+
+function normalizePackage(record: Record<string, unknown>) {
+  const pkg = record.package && typeof record.package === 'object' ? record.package as Record<string, unknown> : undefined;
+
+  return getString(pkg, ['name', 'code']) || getString(record, ['package']) || '-';
+}
+
+function normalizeNodeRecord(record: Record<string, unknown>, index = 0): StructureNode {
+  const children = record.children && typeof record.children === 'object' ? record.children as Record<string, unknown> : {};
+  const left = children.left && typeof children.left === 'object' ? normalizeTreeNode(children.left as Record<string, unknown>) : null;
+  const right = children.right && typeof children.right === 'object' ? normalizeTreeNode(children.right as Record<string, unknown>) : null;
+
+  return {
+    id: getString(record, ['binary_node_id', 'id']) || String(index + 1),
+    userId: getString(record, ['user_id', 'id']) || '-',
+    parentId: getString(record, ['parent_id']) || '',
+    position: getString(record, ['position', 'branch']) || '',
+    name: getString(record, ['name']) || `Partner ${index + 1}`,
+    login: getString(record, ['login']) || '',
+    email: getString(record, ['email']) || '',
+    sponsor: normalizeSponsor(record),
+    packageName: normalizePackage(record),
+    status: getString(record, ['status']) || '-',
+    pv: getNumber(record, ['total_pv']) ?? 0,
+    leftPV: getNumber(record, ['left_pv']) ?? 0,
+    rightPV: getNumber(record, ['right_pv']) ?? 0,
+    balance: getNumber(record, ['balance']) ?? 0,
+    totalBalance: getNumber(record, ['total_balance', 'totalBalance']) ?? 0,
+    depth: getNumber(record, ['level', 'depth']) ?? 0,
+    children: { left, right },
+  };
 }
 
 function normalizeRoot(response: unknown): StructureNode | null {
@@ -236,51 +387,21 @@ function normalizeRoot(response: unknown): StructureNode | null {
 }
 
 function normalizeTreeNode(record: Record<string, unknown>): StructureNode {
-  const children = record.children && typeof record.children === 'object' ? record.children as Record<string, unknown> : {};
-  const left = children.left && typeof children.left === 'object' ? normalizeTreeNode(children.left as Record<string, unknown>) : null;
-  const right = children.right && typeof children.right === 'object' ? normalizeTreeNode(children.right as Record<string, unknown>) : null;
-
-  return {
-    id: getString(record, ['binary_node_id', 'id']) || '-',
-    userId: getString(record, ['user_id', 'id']) || '-',
-    parentId: getString(record, ['parent_id']) || '',
-    position: getString(record, ['position', 'branch']) || '',
-    name: getString(record, ['name']) || '-',
-    login: getString(record, ['login']) || '',
-    email: getString(record, ['email']) || '',
-    packageName: getString(record, ['package']) || '-',
-    status: getString(record, ['status']) || '-',
-    pv: getNumber(record, ['total_pv']) ?? 0,
-    leftPV: getNumber(record, ['left_pv']) ?? 0,
-    rightPV: getNumber(record, ['right_pv']) ?? 0,
-    depth: getNumber(record, ['level', 'depth']) ?? 0,
-    children: { left, right },
-  };
+  return normalizeNodeRecord(record);
 }
 
-function normalizeFlatNodes(response: unknown): StructureNode[] {
-  return getArray(response, ['nodes']).map((item, index) => {
-    const node = item && typeof item === 'object' ? item as Record<string, unknown> : {};
-    const user = node.user && typeof node.user === 'object' ? node.user as Record<string, unknown> : {};
-    const pkg = user.current_package && typeof user.current_package === 'object' ? user.current_package as Record<string, unknown> : {};
+function normalizeFlatNodes(response: unknown, root: StructureNode | null): StructureNode[] {
+  const flat = getArray(response, ['flat', 'descendants']);
 
-    return {
-      id: getString(node, ['id']) || String(index + 1),
-      userId: getString(node, ['user_id']) || getString(user, ['id']) || '-',
-      parentId: getString(node, ['parent_id']) || '',
-      position: getString(node, ['position', 'branch']) || '',
-      name: getString(user, ['name']) || getString(node, ['name']) || `Partner ${index + 1}`,
-      login: getString(user, ['login']) || getString(node, ['login']) || '',
-      email: getString(user, ['email']) || getString(node, ['email']) || '',
-      packageName: getString(pkg, ['name', 'code']) || getString(node, ['package']) || '-',
-      status: getString(user, ['status']) || getString(node, ['status']) || '-',
-      pv: getNumber(user, ['total_pv']) ?? getNumber(node, ['total_pv']) ?? 0,
-      leftPV: getNumber(user, ['left_pv']) ?? getNumber(node, ['left_pv']) ?? 0,
-      rightPV: getNumber(user, ['right_pv']) ?? getNumber(node, ['right_pv']) ?? 0,
-      depth: getNumber(node, ['depth', 'level']) ?? 0,
-      children: { left: null, right: null },
-    };
-  });
+  if (flat.length > 0) {
+    return flat.map((item, index) => {
+      const record = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+
+      return normalizeNodeRecord(record, index);
+    });
+  }
+
+  return root ? flattenTree(root).filter((node) => node.userId !== root.userId) : [];
 }
 
 function flattenTree(root: StructureNode): StructureNode[] {
