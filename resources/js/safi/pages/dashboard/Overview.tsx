@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ArrowUpCircle, ArrowUpRight, Copy, HelpCircle, Plus, ShoppingBag, Users, Wallet } from 'lucide-react';
+import { Activity, ArrowUpCircle, ArrowUpRight, Copy, HelpCircle, ShoppingBag, Users, Wallet } from 'lucide-react';
 import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { cn } from '../../lib/utils';
@@ -200,13 +200,11 @@ export default function Overview() {
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="font-serif text-3xl font-semibold text-safi-green">Быстрые действия</h2>
-                <p className="mt-2 text-sm leading-7 text-safi-muted">Ссылки для приглашений и частые операции.</p>
+                <p className="mt-2 text-sm leading-7 text-safi-muted">Частые операции по кошельку и обращениям.</p>
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <ActionButton icon={<Copy />} label="Копировать ссылку" onClick={() => copyLink('left')} />
-              <ActionButton icon={<Plus />} label="Пригласить" onClick={() => copyLink('right')} />
+            <div className="grid gap-3 sm:grid-cols-2">
               <ActionButton icon={<ArrowUpCircle />} label="Вывод" to="/dashboard/bonuses" />
               <ActionButton icon={<HelpCircle />} label="Поддержка" to="/dashboard/support" />
             </div>
@@ -295,14 +293,14 @@ function ActionButton({ icon, label, onClick, to }: { icon: React.ReactNode; lab
 
   if (to) {
     return (
-      <Link to={to} className="group flex min-h-28 flex-col items-center justify-center rounded-3xl border border-safi-border bg-safi-cream p-4 text-safi-green transition-all hover:border-safi-green hover:bg-white">
+      <Link to={to} className="group flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-3xl border border-safi-border bg-safi-cream p-4 text-safi-green transition-all hover:border-safi-green hover:bg-white">
         {content}
       </Link>
     );
   }
 
   return (
-    <button type="button" onClick={onClick} className="group flex min-h-28 flex-col items-center justify-center rounded-3xl border border-safi-border bg-safi-cream p-4 text-safi-green transition-all hover:border-safi-green hover:bg-white">
+    <button type="button" onClick={onClick} className="group flex min-h-28 cursor-pointer flex-col items-center justify-center rounded-3xl border border-safi-border bg-safi-cream p-4 text-safi-green transition-all hover:border-safi-green hover:bg-white">
       {content}
     </button>
   );
@@ -318,7 +316,7 @@ function ReferralLink({ branch, label, referralCode, copied, onCopy }: { branch:
         {copied && <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-green-700">Скопировано</span>}
       </div>
       <div className="truncate font-mono text-xs text-safi-green">{link}</div>
-      <button type="button" onClick={onCopy} className="mt-4 inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:text-safi-green">
+      <button type="button" onClick={onCopy} className="mt-4 inline-flex cursor-pointer items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:text-safi-green">
         <Copy className="h-4 w-4" />
         Копировать
       </button>
