@@ -285,7 +285,7 @@ class PartnerController extends Controller
     private function loadPartner(User $user): User
     {
         return $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
-            ->loadCount('referrals');
+            ->loadCount(['referrals', 'invitedUsers as invited_count']);
     }
 
     /**

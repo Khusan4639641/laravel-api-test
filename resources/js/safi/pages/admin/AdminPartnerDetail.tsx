@@ -693,18 +693,21 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
   const pkg = isRecord(user.current_package) ? user.current_package : isRecord(user.package) ? user.package : {};
   const wallets = Array.isArray(user.wallets) ? user.wallets.filter(isRecord) : [];
   const accountStatus = getString(user, ['account_status']) || 'active';
-  const availableBalance = wallets.reduce((sum, wallet) => sum + (getNumber(wallet, ['balance']) ?? 0), 0);
+  const mainBalance = getNumber(user, ['balance', 'main_balance', 'available_balance'])
+    ?? getWalletBalance(wallets, 'main');
+  const totalBalance = getNumber(user, ['total_balance', 'totalBalance', 'total_income'])
+    ?? mainBalance + getWalletBalance(wallets, 'bonus') + getWalletBalance(wallets, 'deposit');
 
   return {
     id: getString(user, ['id']) || fallbackId,
     login: getString(user, ['login']) || fallbackId,
     fullName: getString(user, ['name']) || '-',
-    phone: getString(profile, ['phone']) || '-',
+    phone: getString(user, ['phone']) || getString(profile, ['phone']) || '-',
     email: getString(user, ['email']) || '-',
-    city: getString(profile, ['city']) || '-',
+    city: getString(user, ['city']) || getString(profile, ['city']) || '-',
     sponsorId: getString(user, ['sponsor_id']) || '',
     sponsor: getString(sponsor, ['name', 'login', 'id']) || getString(user, ['sponsor_id']) || '-',
-    invitedCount: getNumber(user, ['referrals_count']) ?? 0,
+    invitedCount: getNumber(user, ['invited_count', 'invited_users_count', 'referrals_count']) ?? 0,
     packageId: getString(user, ['current_package_id']) || '',
     package: getString(pkg, ['name', 'code']) || '-',
     status: getString(user, ['status']) || 'user',
@@ -712,8 +715,8 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     teamPV: (getNumber(user, ['left_pv']) ?? 0) + (getNumber(user, ['right_pv']) ?? 0),
     leftPV: getNumber(user, ['left_pv']) ?? 0,
     rightPV: getNumber(user, ['right_pv']) ?? 0,
-    totalIncome: 0,
-    availableBalance,
+    totalIncome: totalBalance,
+    availableBalance: mainBalance,
     registrationDate: getString(user, ['created_at']) || '-',
     accountStatus,
     accountStatusLabel: ['blocked', 'inactive'].includes(accountStatus) ? 'Заблокирован' : 'Активен',
@@ -761,6 +764,12 @@ function formatCredentials(credentials: Credentials) {
 
 function generatePassword() {
   return `Safi${Math.random().toString(36).slice(2, 8)}${Math.floor(10 + Math.random() * 90)}`;
+}
+
+function getWalletBalance(wallets: Record<string, unknown>[], type: string) {
+  return wallets
+    .filter((wallet) => getString(wallet, ['type']) === type)
+    .reduce((sum, wallet) => sum + (getNumber(wallet, ['balance']) ?? 0), 0);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

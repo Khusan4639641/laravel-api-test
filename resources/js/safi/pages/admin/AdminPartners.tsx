@@ -552,9 +552,16 @@ function normalizeCredentials(response: unknown): CreatedCredentials {
 function normalizePartners(response: unknown): AdminPartnerRow[] {
   return getArray(response).map((item, index) => {
     const record = isRecord(item) ? item : {};
-    const packageRecord = isRecord(record.package) ? record.package : undefined;
+    const packageRecord = isRecord(record.current_package) ? record.current_package : isRecord(record.package) ? record.package : undefined;
     const sponsorRecord = isRecord(record.sponsor) ? record.sponsor : undefined;
     const profileRecord = isRecord(record.profile) ? record.profile : undefined;
+    const wallets = Array.isArray(record.wallets) ? record.wallets.filter(isRecord) : [];
+    const leftPV = getNumber(record, ['left_pv', 'leftPV', 'personal_pv', 'personalPV', 'pv']) ?? 0;
+    const rightPV = getNumber(record, ['right_pv', 'rightPV', 'team_pv', 'teamPV']) ?? 0;
+    const mainBalance = getNumber(record, ['balance', 'main_balance', 'mainBalance', 'available_balance', 'availableBalance'])
+      ?? getWalletBalance(wallets, 'main');
+    const totalBalance = getNumber(record, ['total_balance', 'totalBalance', 'total_income', 'totalIncome', 'total_earned'])
+      ?? mainBalance + getWalletBalance(wallets, 'bonus') + getWalletBalance(wallets, 'deposit');
 
     return {
       id: getString(record, ['partner_id', 'partnerId', 'code', 'id']) || `USER-${index + 1}`,
@@ -563,14 +570,14 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       phone: getString(record, ['phone', 'phone_number', 'phoneNumber']) || getString(profileRecord, ['phone']) || '-',
       email: getString(record, ['email']) || '-',
       city: getString(record, ['city']) || getString(profileRecord, ['city']) || '-',
-      sponsor: getString(sponsorRecord, ['partner_id', 'name', 'id']) || getString(record, ['sponsor_id', 'sponsorId']) || '-',
-      invitedCount: getNumber(record, ['invited_count', 'invitedCount', 'children_count']) ?? 0,
-      package: getString(packageRecord, ['name', 'title']) || getString(record, ['package_name', 'packageName', 'package']) || '-',
+      sponsor: getString(sponsorRecord, ['name', 'login', 'partner_id', 'id']) || getString(record, ['sponsor_id', 'sponsorId']) || '-',
+      invitedCount: getNumber(record, ['invited_count', 'invitedCount', 'invited_users_count', 'referrals_count', 'children_count']) ?? 0,
+      package: getString(packageRecord, ['name', 'title', 'code']) || getString(record, ['package_name', 'packageName', 'package']) || '-',
       status: getString(record, ['status_name', 'statusName', 'status']) || 'Участник',
-      personalPV: getNumber(record, ['personal_pv', 'personalPV', 'pv']) ?? 0,
-      teamPV: getNumber(record, ['team_pv', 'teamPV']) ?? 0,
-      totalIncome: getNumber(record, ['total_income', 'totalIncome', 'total_earned']) ?? 0,
-      availableBalance: getNumber(record, ['available_balance', 'availableBalance', 'balance']) ?? 0,
+      personalPV: leftPV,
+      teamPV: rightPV,
+      totalIncome: totalBalance,
+      availableBalance: mainBalance,
       registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || '-',
       activity: getString(record, ['activity', 'activity_status', 'activityStatus']) || 'Активен',
       accountStatus: ['blocked', 'inactive'].includes(getString(record, ['account_status', 'accountStatus', 'state']) || '') ? 'Заблокирован' : 'Активен',
@@ -629,7 +636,7 @@ function getNumber(record: Record<string, unknown>, keys: string[]) {
     }
 
     if (typeof value === 'string') {
-      const normalized = Number(value.replace(/\s/g, ''));
+      const normalized = Number(value.replace(/[^\d.-]/g, ''));
 
       if (Number.isFinite(normalized)) {
         return normalized;
@@ -638,6 +645,12 @@ function getNumber(record: Record<string, unknown>, keys: string[]) {
   }
 
   return undefined;
+}
+
+function getWalletBalance(wallets: Record<string, unknown>[], type: string) {
+  return wallets
+    .filter((wallet) => getString(wallet, ['type']) === type)
+    .reduce((sum, wallet) => sum + (getNumber(wallet, ['balance']) ?? 0), 0);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

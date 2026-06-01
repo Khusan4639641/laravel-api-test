@@ -17,7 +17,7 @@ class UserController extends Controller
     {
         $users = User::query()
             ->with(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
-            ->withCount('referrals')
+            ->withCount(['referrals', 'invitedUsers as invited_count'])
             ->latest()
             ->paginate($this->perPage($request));
 
@@ -29,7 +29,7 @@ class UserController extends Controller
         return response()->json([
             'user' => UserResource::make(
                 $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
-                    ->loadCount('referrals')
+                    ->loadCount(['referrals', 'invitedUsers as invited_count'])
             ),
         ]);
     }

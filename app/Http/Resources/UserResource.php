@@ -9,12 +9,25 @@ class UserResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $wallets = $this->resource->relationLoaded('wallets') ? $this->wallets : collect();
+        $mainBalance = (float) $wallets->where('type', 'main')->sum('balance');
+        $bonusBalance = (float) $wallets->where('type', 'bonus')->sum('balance');
+        $depositBalance = (float) $wallets->where('type', 'deposit')->sum('balance');
+        $totalBalance = $mainBalance + $bonusBalance + $depositBalance;
+        $attributes = $this->resource->getAttributes();
+        $invitedCount = (int) ($attributes['invited_count']
+            ?? $attributes['invited_users_count']
+            ?? $attributes['referrals_count']
+            ?? 0);
+
         return [
             'id' => $this->id,
             'name' => $this->name,
             'login' => $this->login,
             'referral_code' => $this->login ?: (string) $this->id,
             'email' => $this->email,
+            'phone' => $this->resource->relationLoaded('profile') ? $this->profile?->phone : null,
+            'city' => $this->resource->relationLoaded('profile') ? $this->profile?->city : null,
             'role' => $this->role,
             'sponsor_id' => $this->sponsor_id,
             'current_package_id' => $this->current_package_id,
@@ -26,6 +39,11 @@ class UserResource extends JsonResource
             'remaining_left_pv' => $this->remaining_left_pv,
             'remaining_right_pv' => $this->remaining_right_pv,
             'total_pv' => $this->total_pv,
+            'invited_count' => $invitedCount,
+            'balance' => $mainBalance,
+            'bonus_balance' => $bonusBalance,
+            'deposit_balance' => $depositBalance,
+            'total_balance' => $totalBalance,
             'current_package' => new PackageResource($this->whenLoaded('currentPackage')),
             'package' => new PackageResource($this->whenLoaded('currentPackage')),
             'profile' => new UserProfileResource($this->whenLoaded('profile')),

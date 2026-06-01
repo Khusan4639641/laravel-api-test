@@ -92,6 +92,11 @@ class User extends Authenticatable
         return $this->hasMany(User::class, 'sponsor_id');
     }
 
+    public function invitedUsers(): HasMany
+    {
+        return $this->hasMany(User::class, 'sponsor_id');
+    }
+
     public function currentPackage(): BelongsTo
     {
         return $this->belongsTo(Package::class, 'current_package_id');
