@@ -17,6 +17,7 @@ class TransactionController extends Controller
     {
         $transactions = WalletTransaction::query()
             ->with(['user.profile', 'wallet'])
+            ->when($request->filled('user_id'), fn ($query) => $query->where('user_id', (int) $request->integer('user_id')))
             ->latest()
             ->paginate($this->perPage($request));
 

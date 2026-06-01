@@ -17,6 +17,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
             'support_or_super_admin' => \App\Http\Middleware\EnsureSupportOrSuperAdmin::class,
             'role_permission' => \App\Http\Middleware\EnsureRolePermission::class,
+            'account_active' => \App\Http\Middleware\EnsureAccountActive::class,
             'own_resource' => \App\Http\Middleware\EnsureUserCanAccessOwnResource::class,
         ]);
     })

@@ -43,7 +43,11 @@ export function canAccessPath(pathname: string, permissions: RolePermissions) {
       return true;
     }
 
-    return allowed !== '/' && path.startsWith(`${allowed}/`);
+    if (allowed === '/admin' || allowed === '/dashboard' || allowed === '/support') {
+      return false;
+    }
+
+    return routePatternMatches(allowed, path);
   });
 }
 
@@ -73,6 +77,23 @@ function normalizePath(value: string) {
   }
 
   return value || '/';
+}
+
+function routePatternMatches(pattern: string, path: string) {
+  const patternSegments = pattern.split('/').filter(Boolean);
+  const pathSegments = path.split('/').filter(Boolean);
+
+  if (patternSegments.length !== pathSegments.length) {
+    return false;
+  }
+
+  return patternSegments.every((segment, index) => {
+    if (!segment.startsWith(':')) {
+      return segment === pathSegments[index];
+    }
+
+    return segment.toLowerCase().includes('id') ? /^\d+$/.test(pathSegments[index]) : pathSegments[index] !== '';
+  });
 }
 
 function getString(record: Record<string, unknown>, keys: string[]) {

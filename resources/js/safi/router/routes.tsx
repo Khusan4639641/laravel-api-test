@@ -32,6 +32,7 @@ const News = React.lazy(() => import('../pages/dashboard/News'));
 // Admin Pages
 const AdminOverview = React.lazy(() => import('../pages/admin/AdminOverview'));
 const AdminPartners = React.lazy(() => import('../pages/admin/AdminPartners'));
+const AdminPartnersBulkCreate = React.lazy(() => import('../pages/admin/AdminPartnersBulkCreate'));
 const AdminPartnerDetail = React.lazy(() => import('../pages/admin/AdminPartnerDetail'));
 const AdminStructure = React.lazy(() => import('../pages/admin/AdminStructure'));
 const AdminTransactions = React.lazy(() => import('../pages/admin/AdminTransactions'));
@@ -86,6 +87,7 @@ export function AppRouter() {
           <Route path="/admin" element={<AdminLayoutComponent />}>
             <Route index element={<AdminOverview />} />
             <Route path="partners" element={<AdminPartners />} />
+            <Route path="partners/bulk-create" element={<AdminPartnersBulkCreate />} />
             <Route path="partners/:id" element={<AdminPartnerDetail />} />
             <Route path="structure" element={<AdminStructure />} />
             <Route path="transactions" element={<AdminTransactions />} />

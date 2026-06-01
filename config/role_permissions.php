@@ -50,6 +50,7 @@ return [
             'allowed_routes' => [
                 '/admin',
                 '/admin/partners',
+                '/admin/partners/:id',
                 '/admin/structure',
                 '/admin/transactions',
                 '/admin/withdrawals',
@@ -81,6 +82,8 @@ return [
             'allowed_routes' => [
                 '/admin',
                 '/admin/partners',
+                '/admin/partners/:id',
+                '/admin/partners/bulk-create',
                 '/admin/structure',
                 '/admin/transactions',
                 '/admin/withdrawals',
@@ -119,6 +122,7 @@ return [
         'admin.settings' => ['super_admin'],
         'admin.reports' => ['super_admin'],
         'admin.partners.create' => ['super_admin'],
+        'admin.partners.manage' => ['admin', 'super_admin'],
         'admin.withdrawals.manage' => ['super_admin'],
     ],
 ];

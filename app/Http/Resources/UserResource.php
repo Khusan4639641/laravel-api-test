@@ -19,6 +19,8 @@ class UserResource extends JsonResource
             'sponsor_id' => $this->sponsor_id,
             'current_package_id' => $this->current_package_id,
             'status' => $this->status,
+            'account_status' => $this->account_status,
+            'admin_note' => $this->admin_note,
             'left_pv' => $this->left_pv,
             'right_pv' => $this->right_pv,
             'remaining_left_pv' => $this->remaining_left_pv,

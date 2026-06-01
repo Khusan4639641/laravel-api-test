@@ -93,6 +93,12 @@ class AuthController extends Controller
             ]);
         }
 
+        if (in_array($user->account_status, ['blocked', 'inactive'], true)) {
+            throw ValidationException::withMessages([
+                $field => ['Аккаунт заблокирован. Обратитесь в поддержку.'],
+            ]);
+        }
+
         return response()->json([
             'user' => UserResource::make($user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])->loadCount('referrals')),
             'token' => $user->createToken('api')->plainTextToken,

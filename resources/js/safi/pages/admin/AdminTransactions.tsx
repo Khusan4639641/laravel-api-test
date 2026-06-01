@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { Search, Filter, Download } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminTransactions, getApiErrorState, getArray, getNumber, getString } from '../../lib/api';
 
 export default function AdminTransactions() {
+  const [searchParams] = useSearchParams();
   const [transactions, setTransactions] = useState<Array<{ id: string; date: string; partnerId: string; partnerName: string; type: string; amount: string; status: string; comment: string }>>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +22,7 @@ export default function AdminTransactions() {
     setError(null);
 
     try {
-      const response = await getAdminTransactions();
+      const response = await getAdminTransactions({ user_id: searchParams.get('user_id') || undefined });
       setTransactions(getArray(response, ['transactions']).map((item, index) => {
         const trx = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const user = trx.user && typeof trx.user === 'object' ? trx.user as Record<string, unknown> : {};
@@ -47,7 +49,7 @@ export default function AdminTransactions() {
 
   useEffect(() => {
     void loadTransactions();
-  }, []);
+  }, [searchParams]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -57,7 +59,7 @@ export default function AdminTransactions() {
           <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Транзакции</h1>
           <p className="text-sm text-safi-text/70">История всех финансовых операций в системе</p>
         </div>
-        <button className="flex items-center gap-2 px-4 py-2 bg-[#F5F5F0] hover:bg-safi-green/10 text-safi-green rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors">
+        <button className="flex cursor-not-allowed items-center gap-2 rounded-xl bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green opacity-60 transition-colors" disabled title="Экспорт CSV пока недоступен">
           <Download className="w-4 h-4" /> Экспорт CSV
         </button>
       </div>
@@ -80,7 +82,7 @@ export default function AdminTransactions() {
             className="w-full pl-12 pr-4 py-3 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
           />
         </div>
-        <button className="flex items-center justify-center gap-2 px-6 py-3 bg-[#F5F5F0] hover:bg-safi-green/10 text-safi-green rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors shrink-0">
+        <button className="flex cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-[#F5F5F0] px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green opacity-60 transition-colors shrink-0" disabled title="Фильтры пока недоступны">
           <Filter className="w-4 h-4" /> Фильтры
         </button>
       </div>

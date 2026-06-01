@@ -59,7 +59,7 @@ Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
-Route::middleware('auth:sanctum')->group(function (): void {
+Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
     Route::post('/bonuses/binary/calculate', BinaryBonusController::class);
     Route::post('/deposits/purchase', DepositPurchaseController::class);
     Route::post('/packages/{package}/activate', PackageActivationController::class);
@@ -150,7 +150,24 @@ Route::middleware('auth:sanctum')->group(function (): void {
         });
 
         Route::middleware('role_permission:admin.partners.create')->group(function (): void {
+            Route::post('/partners/bulk-create', [AdminPartnerController::class, 'bulkCreate']);
             Route::post('/partners', [AdminPartnerController::class, 'store']);
+        });
+
+        Route::middleware('role_permission:admin.read')->group(function (): void {
+            Route::get('/partners/{user}', [AdminPartnerController::class, 'show']);
+            Route::get('/partners/{user}/transactions', [AdminPartnerController::class, 'transactions']);
+            Route::get('/partners/{user}/tree', [AdminPartnerController::class, 'tree']);
+        });
+
+        Route::middleware('role_permission:admin.partners.manage')->group(function (): void {
+            Route::put('/partners/{user}', [AdminPartnerController::class, 'update']);
+            Route::patch('/partners/{user}/status', [AdminPartnerController::class, 'status']);
+            Route::patch('/partners/{user}/package', [AdminPartnerController::class, 'package']);
+            Route::patch('/partners/{user}/block', [AdminPartnerController::class, 'block']);
+            Route::patch('/partners/{user}/unblock', [AdminPartnerController::class, 'unblock']);
+            Route::patch('/partners/{user}/note', [AdminPartnerController::class, 'note']);
+            Route::post('/partners/{user}/change-password', [AdminPartnerController::class, 'changePassword']);
         });
 
         Route::middleware('role_permission:admin.reports')->group(function (): void {

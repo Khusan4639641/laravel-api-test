@@ -53,6 +53,10 @@ export interface AdminPartnerPayload {
   role?: string;
 }
 
+export interface AdminPartnerBulkPayload {
+  partners: AdminPartnerPayload[];
+}
+
 export interface OrderPayload {
   product_id: string | number;
   quantity?: number;
@@ -507,10 +511,78 @@ export async function getAdminUsers<T = unknown>() {
   });
 }
 
+export async function getAdminPartner<T = unknown>(userId: string | number) {
+  return apiRequest<T>(endpoints.admin.partner(userId), {
+    method: 'GET',
+    auth: true,
+  });
+}
+
 export async function createAdminPartner<T = unknown>(payload: AdminPartnerPayload) {
   return apiRequest<T>(endpoints.admin.partners, {
     method: 'POST',
     body: compactPayload(payload),
+    auth: true,
+  });
+}
+
+export async function bulkCreateAdminPartners<T = unknown>(payload: AdminPartnerBulkPayload) {
+  return apiRequest<T>(endpoints.admin.partnersBulkCreate, {
+    method: 'POST',
+    body: payload,
+    auth: true,
+  });
+}
+
+export async function changeAdminPartnerPassword<T = unknown>(userId: string | number, payload: { password: string; password_confirmation: string }) {
+  return apiRequest<T>(endpoints.admin.partnerPassword(userId), {
+    method: 'POST',
+    body: payload,
+    auth: true,
+  });
+}
+
+export async function blockAdminPartner<T = unknown>(userId: string | number) {
+  return apiRequest<T>(endpoints.admin.partnerBlock(userId), {
+    method: 'PATCH',
+    auth: true,
+  });
+}
+
+export async function unblockAdminPartner<T = unknown>(userId: string | number) {
+  return apiRequest<T>(endpoints.admin.partnerUnblock(userId), {
+    method: 'PATCH',
+    auth: true,
+  });
+}
+
+export async function changeAdminPartnerPackage<T = unknown>(userId: string | number, packageId: string | number) {
+  return apiRequest<T>(endpoints.admin.partnerPackage(userId), {
+    method: 'PATCH',
+    body: { package_id: packageId },
+    auth: true,
+  });
+}
+
+export async function changeAdminPartnerStatus<T = unknown>(userId: string | number, status: string) {
+  return apiRequest<T>(endpoints.admin.partnerStatus(userId), {
+    method: 'PATCH',
+    body: { status },
+    auth: true,
+  });
+}
+
+export async function saveAdminPartnerNote<T = unknown>(userId: string | number, adminNote: string) {
+  return apiRequest<T>(endpoints.admin.partnerNote(userId), {
+    method: 'PATCH',
+    body: { admin_note: adminNote },
+    auth: true,
+  });
+}
+
+export async function getAdminPartnerTransactions<T = unknown>(userId: string | number, limit = 10) {
+  return apiRequest<T>(`${endpoints.admin.partnerTransactions(userId)}?limit=${encodeURIComponent(String(limit))}`, {
+    method: 'GET',
     auth: true,
   });
 }
@@ -583,8 +655,16 @@ export async function getAdminOrders<T = unknown>() {
   });
 }
 
-export async function getAdminTransactions<T = unknown>() {
-  return apiRequest<T>(endpoints.admin.transactions, {
+export async function getAdminTransactions<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') {
+      query.set(key, String(value));
+    }
+  });
+
+  return apiRequest<T>(`${endpoints.admin.transactions}${query.toString() ? `?${query.toString()}` : ''}`, {
     method: 'GET',
     auth: true,
   });

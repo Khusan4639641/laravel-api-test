@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Copy, Eye, Filter, Network, Plus, Search, X } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
+import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState } from '../../lib/api';
 
@@ -49,6 +50,7 @@ const initialCreateForm = {
 const modalInputClass = 'w-full rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-sm font-bold text-safi-green outline-none transition-colors focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60';
 
 export default function AdminPartners() {
+  const { currentUser } = useAdminContext();
   const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -157,6 +159,7 @@ export default function AdminPartners() {
       `${partner.id} ${partner.fullName} ${partner.phone} ${partner.email}`.toLowerCase().includes(normalizedQuery)
     );
   }, [partners, query]);
+  const canCreatePartners = currentUser.role === 'super_admin';
 
   return (
     <div className="space-y-8">
@@ -169,14 +172,37 @@ export default function AdminPartners() {
               Пользователи, пакеты, PV, балансы и статус аккаунта.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={openCreateModal}
-            className="inline-flex items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90"
-          >
-            <Plus className="h-4 w-4 text-safi-gold" />
-            Добавить партнёра
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={openCreateModal}
+              disabled={!canCreatePartners}
+              title={canCreatePartners ? 'Создать партнёра' : 'Создание партнёров доступно только super admin'}
+              className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Plus className="h-4 w-4 text-safi-gold" />
+              Добавить партнёра
+            </button>
+            {canCreatePartners ? (
+              <Link
+                to="/admin/partners/bulk-create"
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green/10"
+              >
+                <Plus className="h-4 w-4" />
+                Массово добавить
+              </Link>
+            ) : (
+              <button
+                type="button"
+                disabled
+                title="Массовое добавление доступно только super admin"
+                className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green opacity-60"
+              >
+                <Plus className="h-4 w-4" />
+                Массово добавить
+              </button>
+            )}
+          </div>
         </div>
       </section>
 
@@ -199,7 +225,12 @@ export default function AdminPartners() {
               className="w-full rounded-full border border-safi-border bg-safi-cream py-3 pl-12 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
             />
           </label>
-          <button className="inline-flex items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green">
+          <button
+            type="button"
+            disabled
+            title="Фильтры пока недоступны"
+            className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green opacity-60"
+          >
             <Filter className="h-4 w-4" />
             Фильтры
           </button>
@@ -217,7 +248,7 @@ export default function AdminPartners() {
           {visiblePartners.map((partner) => (
             <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
               <td className="px-6 py-4">
-                <Link to={`/admin/partners/${partner.id}`} className="block hover:opacity-80">
+                <Link to={`/admin/partners/${partner.id}`} className="block cursor-pointer hover:opacity-80">
                   <div className="font-bold text-safi-green">{partner.fullName}</div>
                   <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</div>
                   <div className="mt-1 text-[10px] text-safi-muted">Рег: {partner.registrationDate}</div>
@@ -252,10 +283,10 @@ export default function AdminPartners() {
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-2">
-                  <Link to={`/admin/partners/${partner.id}`} className="rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Открыть профиль">
+                  <Link to={`/admin/partners/${partner.id}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Открыть профиль">
                     <Eye className="h-4 w-4" />
                   </Link>
-                  <Link to="/admin/structure" className="rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Структура">
+                  <Link to={`/admin/structure?user_id=${encodeURIComponent(partner.id)}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Структура">
                     <Network className="h-4 w-4" />
                   </Link>
                 </div>
@@ -329,7 +360,7 @@ function CreatePartnerModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-safi-cream text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+            className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-safi-border bg-safi-cream text-safi-green transition-colors hover:bg-safi-green hover:text-white"
             aria-label="Закрыть"
           >
             <X className="h-5 w-5" />
@@ -444,14 +475,14 @@ function CreatePartnerModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-full border border-safi-border bg-white px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-cream"
+                className="cursor-pointer rounded-full border border-safi-border bg-white px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-cream"
               >
                 Отмена
               </button>
               <button
                 type="submit"
                 disabled={isCreating}
-                className="rounded-full border border-safi-green bg-safi-green px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
+                className="cursor-pointer rounded-full border border-safi-green bg-safi-green px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCreating ? 'Создание...' : 'Создать партнёра'}
               </button>
@@ -468,7 +499,7 @@ function CreatePartnerModal({
                 <button
                   type="button"
                   onClick={onCopy}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-safi-green bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+                  className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green hover:text-white"
                 >
                   <Copy className="h-4 w-4" />
                   Скопировать доступы
@@ -542,7 +573,7 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       availableBalance: getNumber(record, ['available_balance', 'availableBalance', 'balance']) ?? 0,
       registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || '-',
       activity: getString(record, ['activity', 'activity_status', 'activityStatus']) || 'Активен',
-      accountStatus: getString(record, ['account_status', 'accountStatus', 'state']) || 'Активен',
+      accountStatus: ['blocked', 'inactive'].includes(getString(record, ['account_status', 'accountStatus', 'state']) || '') ? 'Заблокирован' : 'Активен',
     };
   });
 }

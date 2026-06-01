@@ -22,6 +22,8 @@ use Laravel\Sanctum\HasApiTokens;
     'sponsor_id',
     'current_package_id',
     'status',
+    'account_status',
+    'admin_note',
     'role',
     'left_pv',
     'right_pv',
