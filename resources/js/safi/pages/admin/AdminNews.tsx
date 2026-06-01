@@ -3,6 +3,7 @@ import { Newspaper, Plus, Edit2, Trash2, Calendar, X } from 'lucide-react';
 import { AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { createAdminNews, deleteAdminNews, getAdminNews, getApiErrorState, NewsArticle, updateAdminNews } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 interface NewsFormState {
   id: string;
@@ -17,7 +18,7 @@ interface NewsFormState {
 const emptyForm: NewsFormState = {
   id: '',
   title: '',
-  category: 'События',
+  category: adminText('a_0KHQvtCx0YvR'),
   excerpt: '',
   content: '',
   imageUrl: '',
@@ -41,7 +42,7 @@ export default function AdminNews() {
       setArticles(await getAdminNews());
     } catch (caughtError) {
       setArticles([]);
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить новости.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_2'));
     } finally {
       setIsLoading(false);
     }
@@ -77,7 +78,7 @@ export default function AdminNews() {
       setShowForm(false);
       await loadNews();
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || 'Не удалось сохранить новость.');
+      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_3'));
     }
   };
 
@@ -89,7 +90,7 @@ export default function AdminNews() {
       await deleteAdminNews(id);
       await loadNews();
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || 'Не удалось удалить новость.');
+      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_4'));
     } finally {
       setPendingId('');
     }
@@ -99,7 +100,7 @@ export default function AdminNews() {
     setFormData({
       id: article.id,
       title: article.title,
-      category: article.category || 'События',
+      category: article.category || adminText('a_0KHQvtCx0YvR'),
       excerpt: article.excerpt || '',
       content: article.content || '',
       imageUrl: article.imageUrl || '',
@@ -113,8 +114,8 @@ export default function AdminNews() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Управление новостями</h1>
-          <p className="text-sm text-safi-text/70">Создание и публикация новостей для партнёров</p>
+          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0KPQv9GA0LDQ')}</h1>
+          <p className="text-sm text-safi-text/70">{adminText('a_0KHQvtC30LTQ')}</p>
         </div>
         <button 
           onClick={() => {
@@ -127,7 +128,7 @@ export default function AdminNews() {
           className="flex items-center gap-2 px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors shadow-lg"
         >
           {showForm ? <X className="w-4 h-4 ml-[-4px]" /> : <Plus className="w-4 h-4 ml-[-4px]" />} 
-          {showForm ? 'Отмена' : 'Добавить новость'}
+          {showForm ? adminText('a_0J7RgtC80LXQ') : adminText('a_0JTQvtCx0LDQ')}
         </button>
       </div>
 
@@ -139,34 +140,34 @@ export default function AdminNews() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm animate-in fade-in slide-in-from-top-4">
-          <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{formData.id ? 'Редактирование новости' : 'Создание новости'}</h3>
+          <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{formData.id ? adminText('a_0KDQtdC00LDQ') : adminText('a_0KHQvtC30LTQ_2')}</h3>
           <div className="space-y-4">
              <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Заголовок</label>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0JfQsNCz0L7Q')}</label>
                 <input 
                   type="text" 
                   value={formData.title}
                   onChange={(e) => setFormData({...formData, title: e.target.value})}
-                  placeholder="Введите заголовок..." 
+                  placeholder={adminText('a_0JLQstC10LTQ')}
                   required
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green" 
                 />
              </div>
              <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Категория</label>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0JrQsNGC0LXQ')}</label>
                 <select 
                   value={formData.category}
                   onChange={(e) => setFormData({...formData, category: e.target.value})}
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
                 >
-                   <option>События</option>
-                   <option>Важно</option>
-                   <option>Продукция</option>
+                   <option>{adminText('a_0KHQvtCx0YvR')}</option>
+                   <option>{adminText('a_0JLQsNC20L3Q')}</option>
+                   <option>{adminText('a_0J_RgNC-0LTR')}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Статус</label>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KHRgtCw0YLR')}</label>
                 <select
                   value={formData.status}
                   onChange={(e) => setFormData({...formData, status: e.target.value})}
@@ -178,28 +179,28 @@ export default function AdminNews() {
               </div>
              </div>
              <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Краткое описание</label>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0JrRgNCw0YLQ')}</label>
                 <textarea
                   rows={3}
                   value={formData.excerpt}
                   onChange={(e) => setFormData({...formData, excerpt: e.target.value})}
-                  placeholder="Короткий анонс для списка новостей..."
+                  placeholder={adminText('a_0JrQvtGA0L7R')}
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green resize-none"
                 />
              </div>
              <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Текст новости</label>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KLQtdC60YHR')}</label>
                 <textarea 
                   rows={5} 
                   value={formData.content}
                   onChange={(e) => setFormData({...formData, content: e.target.value})}
-                  placeholder="Текст новости..." 
+                  placeholder={adminText('a_0KLQtdC60YHR_2')}
                   required
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green resize-none"
                 ></textarea>
              </div>
              <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Ссылка на изображение</label>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KHRgdGL0LvQ')}</label>
                 <input 
                   type="text" 
                   value={formData.imageUrl}
@@ -212,7 +213,7 @@ export default function AdminNews() {
                 type="submit"
                 className="px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors mt-4"
              >
-               {formData.id ? 'Сохранить' : 'Создать'}
+               {formData.id ? adminText('a_0KHQvtGF0YDQ') : adminText('a_0KHQvtC30LTQ_3')}
              </button>
           </div>
         </form>
@@ -220,12 +221,11 @@ export default function AdminNews() {
 
       <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm">
         <h3 className="text-xl font-serif font-bold text-safi-green mb-6 flex items-center gap-3">
-           <Newspaper className="w-5 h-5 text-safi-gold" /> Опубликованные новости
-        </h3>
+           <Newspaper className="w-5 h-5 text-safi-gold" />{adminText('a_0J7Qv9GD0LHQ')}</h3>
         
         {isLoading && <LoadingState />}
         {!isLoading && error && <ErrorState description={error} onRetry={loadNews} />}
-        {!isLoading && !error && articles.length === 0 && <EmptyState title="Новости не опубликованы" description="Добавьте первую новость через форму выше." />}
+        {!isLoading && !error && articles.length === 0 && <EmptyState title={adminText('a_0J3QvtCy0L7R')} description={adminText('a_0JTQvtCx0LDQ_2')} />}
 
         {!isLoading && !error && articles.length > 0 && (
           <div className="space-y-4">
@@ -233,7 +233,7 @@ export default function AdminNews() {
               <div key={article.id} className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border border-safi-green/10 rounded-2xl hover:bg-safi-green/5 transition-colors">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
-                    <AdminBadge variant={article.category === 'Важно' ? 'danger' : 'default'}>
+                    <AdminBadge variant={article.category === adminText('a_0JLQsNC20L3Q') ? 'danger' : 'default'}>
                       {article.category}
                     </AdminBadge>
                     <AdminBadge variant={article.status === 'published' ? 'success' : 'default'}>

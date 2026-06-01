@@ -133,6 +133,10 @@ const manualTranslations: Record<string, TranslationEntry> = {
 const sourceMap = buildSourceMap();
 const originalText = new WeakMap<Text, string>();
 
+export function translateRuntimeLiteral(value: string, language: SupportedLanguage) {
+  return translateLiteral(value, language);
+}
+
 export function RuntimeTextLocalizer() {
   const { i18n } = useTranslation();
   const language = normalizeLanguage(i18n.resolvedLanguage || i18n.language);
@@ -275,6 +279,14 @@ function buildSourceMap(): Record<string, TranslationEntry> {
       en: flattenLeaves(localeResources.en)[key],
       mn: flattenLeaves(localeResources.mn)[key],
     };
+  });
+
+  Object.values(map).forEach((entry) => {
+    Object.values(entry).forEach((source) => {
+      if (source && !map[source]) {
+        map[source] = entry;
+      }
+    });
   });
 
   return map;

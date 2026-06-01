@@ -5,6 +5,7 @@ import { cn } from '../../lib/utils';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminStructure, getApiErrorState, getArray, getNumber, getString, unwrapRecord } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 interface StructureNode {
   id: string;
@@ -78,7 +79,7 @@ export default function AdminStructure() {
       setRootNode(null);
       setNodes([]);
       setStats(emptyStats);
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить структуру.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_26'));
     } finally {
       setIsLoading(false);
     }
@@ -123,11 +124,11 @@ export default function AdminStructure() {
     <div className="w-full max-w-none space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Структура дерева</h1>
+          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0KHRgtGA0YPQ_2')}</h1>
           <p className="text-sm text-safi-text/70">
             {selectedUserId && rootNode
-              ? `Дерево партнёра: ${rootNode.name} / ID ${rootNode.userId}`
-              : 'Визуализация бинарной структуры партнёров'}
+              ? `${adminText('partner_tree_label')}: ${rootNode.name} / ID ${rootNode.userId}`
+              : adminText('a_0JLQuNC30YPQ')}
           </p>
         </div>
 
@@ -136,16 +137,12 @@ export default function AdminStructure() {
             type="button"
             onClick={() => setView('tree')}
             className={cn('cursor-pointer px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors', view === 'tree' ? 'bg-white text-safi-green shadow-sm' : 'text-safi-text/50 hover:text-safi-green')}
-          >
-            Дерево
-          </button>
+          >{adminText('a_0JTQtdGA0LXQ')}</button>
           <button
             type="button"
             onClick={() => setView('list')}
             className={cn('cursor-pointer px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors', view === 'list' ? 'bg-white text-safi-green shadow-sm' : 'text-safi-text/50 hover:text-safi-green')}
-          >
-            Список ветвей
-          </button>
+          >{adminText('a_0KHQv9C40YHQ_3')}</button>
         </div>
       </div>
 
@@ -156,7 +153,7 @@ export default function AdminStructure() {
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Введите ID партнёра, чтобы открыть его ветку..."
+            placeholder={adminText('a_0JLQstC10LTQ_2')}
             className="w-full pl-12 pr-4 py-3 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
           />
         </div>
@@ -164,24 +161,22 @@ export default function AdminStructure() {
           type="submit"
           disabled={!/^\d+$/.test(query.trim())}
           className="w-full cursor-pointer rounded-xl bg-safi-green px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
-        >
-          Открыть
-        </button>
+        >{adminText('a_0J7RgtC60YDR_3')}</button>
       </form>
 
       {!isLoading && !error && rootNode && (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard label="Лично пригласил" value={stats.directInvitedCount.toLocaleString('ru-RU')} />
-          <SummaryCard label="Всего в структуре" value={stats.totalDownlineCount.toLocaleString('ru-RU')} />
-          <SummaryCard label="Левая ветка" value={stats.leftBranchCount.toLocaleString('ru-RU')} />
-          <SummaryCard label="Правая ветка" value={stats.rightBranchCount.toLocaleString('ru-RU')} />
+          <SummaryCard label={adminText('a_0JvQuNGH0L3Q_2')} value={stats.directInvitedCount.toLocaleString('ru-RU')} />
+          <SummaryCard label={adminText('a_0JLRgdC10LPQ_4')} value={stats.totalDownlineCount.toLocaleString('ru-RU')} />
+          <SummaryCard label={adminText('a_0JvQtdCy0LDR_2')} value={stats.leftBranchCount.toLocaleString('ru-RU')} />
+          <SummaryCard label={adminText('a_0J_RgNCw0LLQ_2')} value={stats.rightBranchCount.toLocaleString('ru-RU')} />
         </section>
       )}
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadStructure} />}
       {!isLoading && !error && !rootNode && (
-        <EmptyState title="Структура не найдена" description="Бинарное дерево появится после размещения партнеров." />
+        <EmptyState title={adminText('a_0KHRgtGA0YPQ_3')} description={adminText('a_0JHQuNC90LDR_3')} />
       )}
 
       {!isLoading && !error && rootNode && view === 'tree' && (
@@ -189,16 +184,14 @@ export default function AdminStructure() {
           <div className="mb-4 flex flex-col gap-2 text-xs font-bold text-safi-text/50 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-2">
               <Info className="h-4 w-4 shrink-0" />
-              <span>Используйте горизонтальную прокрутку для просмотра всей структуры</span>
+              <span>{adminText('a_0JjRgdC_0L7Q')}</span>
             </div>
-            <span>Данные из backend API, depth {selectedDepth}</span>
+            <span>{adminText('a_0JTQsNC90L3R_4')}{selectedDepth}</span>
           </div>
 
           <div className="relative max-h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-auto rounded-[24px] border border-safi-border bg-white">
             {!hasChildren && (
-              <div className="sticky bottom-5 left-5 z-10 mx-5 mt-5 rounded-2xl bg-[#F5F5F0] px-4 py-3 text-center text-xs font-bold text-safi-text/60">
-                У партнёра пока нет нижестоящих участников
-              </div>
+              <div className="sticky bottom-5 left-5 z-10 mx-5 mt-5 rounded-2xl bg-[#F5F5F0] px-4 py-3 text-center text-xs font-bold text-safi-text/60">{adminText('a_0KMg0L_QsNGA')}</div>
             )}
 
             <div
@@ -212,11 +205,11 @@ export default function AdminStructure() {
       )}
 
       {!isLoading && !error && visibleNodes.length === 0 && rootNode && view === 'list' && (
-        <EmptyState title="Нижестоящие партнёры не найдены" description="Список появится после размещения участников в бинарной структуре." />
+        <EmptyState title={adminText('a_0J3QuNC20LXR')} description={adminText('a_0KHQv9C40YHQ_4')} />
       )}
 
       {!isLoading && !error && visibleNodes.length > 0 && view === 'list' && (
-        <AdminTable headers={['ID', 'Партнёр', 'Логин', 'Спонсор', 'Ветка', 'Уровень', 'Пакет', 'Статус', 'PV', 'Баланс', 'Действия']}>
+        <AdminTable headers={['ID', adminText('a_0J_QsNGA0YLQ'), adminText('a_0JvQvtCz0LjQ'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0JLQtdGC0LrQ'), adminText('a_0KPRgNC-0LLQ'), adminText('a_0J_QsNC60LXR_4'), adminText('a_0KHRgtCw0YLR'), 'PV', adminText('a_0JHQsNC70LDQ'), adminText('a_0JTQtdC50YHR')]}>
           {visibleNodes.map((node) => (
             <tr key={`${node.id}-${node.userId}`} className="hover:bg-safi-green/5 transition-colors">
               <td className="px-6 py-4 font-mono text-[10px] text-safi-text/50">{node.userId}</td>
@@ -238,16 +231,12 @@ export default function AdminStructure() {
                     type="button"
                     onClick={() => openNodeTree(node.userId)}
                     className="cursor-pointer rounded-full border border-safi-green bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white"
-                  >
-                    Открыть дерево
-                  </button>
+                  >{adminText('a_0J7RgtC60YDR_4')}</button>
                   <button
                     type="button"
                     onClick={() => navigate(`/admin/partners/${encodeURIComponent(node.userId)}`)}
                     className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10"
-                  >
-                    Профиль
-                  </button>
+                  >{adminText('a_0J_RgNC-0YTQ')}</button>
                 </div>
               </td>
             </tr>
@@ -279,7 +268,7 @@ function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: bool
           'w-48 shrink-0 cursor-pointer rounded-2xl bg-white p-4 text-center shadow-sm transition-transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-safi-green/20',
           isRoot ? 'border-2 border-safi-gold shadow-md' : 'border border-safi-green/10'
         )}
-        title="Открыть дерево партнёра"
+        title={adminText('a_0J7RgtC60YDR_5')}
       >
         <div className={cn(
           'mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold font-serif text-white',
@@ -300,10 +289,10 @@ function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: bool
           <div className="h-6 border-l-2 border-safi-green/20" />
           <div className="relative grid grid-cols-2 gap-6 lg:gap-8">
             <div className="absolute left-1/4 right-1/4 top-0 border-t-2 border-safi-green/20" />
-            <BranchColumn label="Левая">
+            <BranchColumn label={adminText('a_0JvQtdCy0LDR')}>
               {node.children.left ? <TreeNode node={node.children.left} onOpen={onOpen} /> : <EmptyTreeSlot />}
             </BranchColumn>
-            <BranchColumn label="Правая">
+            <BranchColumn label={adminText('a_0J_RgNCw0LLQ')}>
               {node.children.right ? <TreeNode node={node.children.right} onOpen={onOpen} /> : <EmptyTreeSlot />}
             </BranchColumn>
           </div>
@@ -327,7 +316,7 @@ function EmptyTreeSlot() {
   return (
     <div className="flex w-48 shrink-0 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-safi-green/20 bg-[#F5F5F0]/50 p-4 text-center opacity-70">
       <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-safi-green/5 pb-1 text-xl text-safi-green/40">+</div>
-      <div className="text-xs font-bold text-safi-text/50">Свободная позиция</div>
+      <div className="text-xs font-bold text-safi-text/50">{adminText('a_0KHQstC-0LHQ')}</div>
     </div>
   );
 }
@@ -425,11 +414,11 @@ function formatPosition(position: string) {
   const normalized = position.toLowerCase();
 
   if (['l', 'left'].includes(normalized)) {
-    return 'Левая';
+    return adminText('a_0JvQtdCy0LDR');
   }
 
   if (['r', 'right'].includes(normalized)) {
-    return 'Правая';
+    return adminText('a_0J_RgNCw0LLQ');
   }
 
   return position || '-';

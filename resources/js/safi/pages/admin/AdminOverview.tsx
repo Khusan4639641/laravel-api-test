@@ -4,6 +4,7 @@ import { Activity, ArrowUpCircle, CreditCard, FileText, Package, Search, Setting
 import { AdminStatCard } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminOverview, getApiErrorState } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 interface AdminOverviewSummary {
   usersTotal: number;
@@ -31,7 +32,7 @@ export default function AdminOverview() {
       setSummary(normalizeOverview(response));
     } catch (caughtError) {
       setSummary(null);
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить сводку.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_5'));
     } finally {
       setIsLoading(false);
     }
@@ -54,14 +55,14 @@ export default function AdminOverview() {
   };
 
   const cards = useMemo(() => [
-    { title: 'Всего партнеров', value: currentSummary.usersTotal.toLocaleString('ru-RU'), icon: Users, trend: `Активные: ${currentSummary.activeUsers.toLocaleString('ru-RU')}` },
-    { title: 'Общий оборот', value: formatMoney(currentSummary.revenue), icon: TrendingUp },
-    { title: 'Выплачено бонусов', value: formatMoney(currentSummary.bonusesPaid), icon: CreditCard },
-    { title: 'Ожидает вывода', value: formatMoney(currentSummary.pendingWithdrawalsAmount), icon: ArrowUpCircle, trend: `${currentSummary.pendingWithdrawals} заявок`, className: 'border-safi-gold/30 bg-safi-gold/5' },
-    { title: 'Активные партнеры', value: currentSummary.activeUsers.toLocaleString('ru-RU'), icon: Activity },
-    { title: 'Неактивные партнеры', value: currentSummary.inactiveUsers.toLocaleString('ru-RU'), icon: Users },
-    { title: 'Продано пакетов', value: currentSummary.packagesSold.toLocaleString('ru-RU'), icon: Package },
-    { title: 'Общий PV', value: `${currentSummary.totalPV.toLocaleString('ru-RU')} PV`, icon: Activity },
+    { title: adminText('a_0JLRgdC10LPQ'), value: currentSummary.usersTotal.toLocaleString('ru-RU'), icon: Users, trend: `${adminText('active_count')}: ${currentSummary.activeUsers.toLocaleString('ru-RU')}` },
+    { title: adminText('a_0J7QsdGJ0LjQ'), value: formatMoney(currentSummary.revenue), icon: TrendingUp },
+    { title: adminText('a_0JLRi9C_0LvQ'), value: formatMoney(currentSummary.bonusesPaid), icon: CreditCard },
+    { title: adminText('a_0J7QttC40LTQ'), value: formatMoney(currentSummary.pendingWithdrawalsAmount), icon: ArrowUpCircle, trend: `${currentSummary.pendingWithdrawals} ${adminText('applications_count')}`, className: 'border-safi-gold/30 bg-safi-gold/5' },
+    { title: adminText('a_0JDQutGC0LjQ'), value: currentSummary.activeUsers.toLocaleString('ru-RU'), icon: Activity },
+    { title: adminText('a_0J3QtdCw0LrR'), value: currentSummary.inactiveUsers.toLocaleString('ru-RU'), icon: Users },
+    { title: adminText('a_0J_RgNC-0LTQ'), value: currentSummary.packagesSold.toLocaleString('ru-RU'), icon: Package },
+    { title: adminText('a_0J7QsdGJ0LjQ_2'), value: `${currentSummary.totalPV.toLocaleString('ru-RU')} PV`, icon: Activity },
   ], [currentSummary]);
 
   return (
@@ -70,17 +71,15 @@ export default function AdminOverview() {
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <span className="safi-kicker">Admin dashboard</span>
-            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Сводка</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-              Общая статистика платформы Safi Life по партнерам, обороту и заявкам.
-            </p>
+            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">{adminText('a_0KHQstC-0LTQ')}</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">{adminText('a_0J7QsdGJ0LDR')}</p>
           </div>
         </div>
       </section>
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadSummary} />}
-      {!isLoading && !error && !summary && <EmptyState title="Сводка пока пустая" description="Данные появятся после первых операций в системе." />}
+      {!isLoading && !error && !summary && <EmptyState title={adminText('a_0KHQstC-0LTQ_2')} description={adminText('a_0JTQsNC90L3R')} />}
 
       {!isLoading && !error && summary && (
         <>
@@ -101,21 +100,19 @@ export default function AdminOverview() {
         <article className="rounded-[32px] border border-safi-border bg-white p-8 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
           <div className="flex min-h-72 flex-col items-center justify-center rounded-[28px] border border-dashed border-safi-border bg-safi-cream p-8 text-center">
             <TrendingUp className="mb-4 h-12 w-12 text-safi-gold" />
-            <h2 className="font-serif text-3xl font-semibold text-safi-green">График роста структуры</h2>
-            <p className="mt-3 max-w-md text-sm leading-7 text-safi-muted">
-              Здесь будет отображаться динамика партнеров, оборота и PV после подключения аналитического endpoint.
-            </p>
+            <h2 className="font-serif text-3xl font-semibold text-safi-green">{adminText('a_0JPRgNCw0YTQ')}</h2>
+            <p className="mt-3 max-w-md text-sm leading-7 text-safi-muted">{adminText('a_0JfQtNC10YHR')}</p>
           </div>
         </article>
 
         <article className="rounded-[32px] border border-safi-green bg-safi-green p-8 text-white shadow-[0_18px_48px_rgba(11,23,18,0.08)]">
-          <h2 className="font-serif text-3xl font-semibold text-white">Быстрые действия</h2>
+          <h2 className="font-serif text-3xl font-semibold text-white">{adminText('a_0JHRi9GB0YLR')}</h2>
           <div className="mt-7 space-y-3">
-            <QuickLink to="/admin/partners" icon={<Search className="h-4 w-4" />} label="Найти партнера" />
-            <QuickLink to="/admin/withdrawals" icon={<ArrowUpCircle className="h-4 w-4" />} label={`Заявки на вывод: ${currentSummary.pendingWithdrawals}`} />
-            <QuickLink to="/admin/transactions" icon={<CreditCard className="h-4 w-4" />} label="Транзакции" />
-            <QuickLink to="/admin/reports" icon={<FileText className="h-4 w-4" />} label="Отчеты" />
-            <QuickLink to="/admin/settings" icon={<Settings className="h-4 w-4" />} label="Настройки системы" />
+            <QuickLink to="/admin/partners" icon={<Search className="h-4 w-4" />} label={adminText('a_0J3QsNC50YLQ')} />
+            <QuickLink to="/admin/withdrawals" icon={<ArrowUpCircle className="h-4 w-4" />} label={`${adminText('a_0JfQsNGP0LLQ')}: ${currentSummary.pendingWithdrawals}`} />
+            <QuickLink to="/admin/transactions" icon={<CreditCard className="h-4 w-4" />} label={adminText('a_0KLRgNCw0L3Q')} />
+            <QuickLink to="/admin/reports" icon={<FileText className="h-4 w-4" />} label={adminText('a_0J7RgtGH0LXR')} />
+            <QuickLink to="/admin/settings" icon={<Settings className="h-4 w-4" />} label={adminText('a_0J3QsNGB0YLR')} />
           </div>
         </article>
       </section>

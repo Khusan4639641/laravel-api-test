@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminBonuses, getApiErrorState, getArray, getNumber, getString } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 export default function AdminBonuses() {
   const [bonuses, setBonuses] = useState<Array<{ date: string; partnerId: string; partnerName: string; type: string; basis: string; percentage: string; amount: string; status: string }>>([]);
@@ -22,15 +23,15 @@ export default function AdminBonuses() {
           partnerId: getString(user, ['id', 'login']) || getString(bonus, ['user_id']) || '-',
           partnerName: getString(user, ['name']) || '-',
           type: getString(bonus, ['bonus_type']) || '-',
-          basis: getString(bonus, ['description']) || 'Система',
+          basis: getString(bonus, ['description']) || adminText('a_0KHQuNGB0YLQ'),
           percentage: '',
-          amount: `${(getNumber(bonus, ['amount']) ?? 0).toLocaleString('ru-RU')} тг`,
+          amount: `${(getNumber(bonus, ['amount']) ?? 0).toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`,
           status: getString(bonus, ['status']) || '-',
         };
       }));
     } catch (caughtError) {
       setBonuses([]);
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить бонусы.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0'));
     } finally {
       setIsLoading(false);
     }
@@ -44,17 +45,17 @@ export default function AdminBonuses() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Бонусы</h1>
-          <p className="text-sm text-safi-text/70">Начисления и статистика</p>
+          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0JHQvtC90YPR')}</h1>
+          <p className="text-sm text-safi-text/70">{adminText('a_0J3QsNGH0LjR')}</p>
         </div>
       </div>
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadBonuses} />}
-      {!isLoading && !error && bonuses.length === 0 && <EmptyState title="Бонусов пока нет" description="Начисления появятся после покупок и расчета бонусов." />}
+      {!isLoading && !error && bonuses.length === 0 && <EmptyState title={adminText('a_0JHQvtC90YPR_2')} description={adminText('a_0J3QsNGH0LjR_2')} />}
 
       {!isLoading && !error && bonuses.length > 0 && (
-        <AdminTable headers={['Дата', 'Партнёр', 'Тип бонуса', 'Обоснование', 'Сумма', 'Статус']}>
+        <AdminTable headers={[adminText('a_0JTQsNGC0LA'), adminText('a_0J_QsNGA0YLQ'), adminText('a_0KLQuNC_INCx'), adminText('a_0J7QsdC-0YHQ'), adminText('a_0KHRg9C80LzQ'), adminText('a_0KHRgtCw0YLR')]}>
           {bonuses.map((b, i) => (
             <tr key={i} className="hover:bg-safi-green/5 transition-colors group">
               <td className="px-6 py-4 text-xs">{b.date}</td>

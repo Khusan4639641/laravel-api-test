@@ -5,6 +5,7 @@ import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 interface AdminPartnerRow {
   id: string;
@@ -71,7 +72,7 @@ export default function AdminPartners() {
       setPartners(normalizePartners(response));
     } catch (caughtError) {
       setPartners([]);
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить партнеров.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_15'));
     } finally {
       setIsLoading(false);
     }
@@ -120,7 +121,7 @@ export default function AdminPartners() {
         setCreateError(caughtError.message);
         setFieldErrors(caughtError.errors || {});
       } else {
-        setCreateError('Не удалось создать партнёра. Попробуйте позже.');
+        setCreateError(adminText('a_0J3QtSDRg9C0_16'));
       }
     } finally {
       setIsCreating(false);
@@ -133,17 +134,17 @@ export default function AdminPartners() {
     }
 
     const text = [
-      `Логин: ${createdCredentials.login}`,
+      `${adminText('a_0JvQvtCz0LjQ')}: ${createdCredentials.login}`,
       `Email: ${createdCredentials.email}`,
-      `Пароль: ${createdCredentials.password}`,
-      `Ссылка для входа: ${createdCredentials.login_url}`,
+      `${adminText('a_0J_QsNGA0L7Q_2')}: ${createdCredentials.password}`,
+      `${adminText('login_link_label')}: ${createdCredentials.login_url}`,
     ].join('\n');
 
     try {
       await navigator.clipboard.writeText(text);
-      setCopyStatus('Доступы скопированы');
+      setCopyStatus(adminText('a_0JTQvtGB0YLR'));
     } catch {
-      setCopyStatus('Не удалось скопировать автоматически');
+      setCopyStatus(adminText('a_0J3QtSDRg9C0_17'));
     }
   };
 
@@ -166,50 +167,42 @@ export default function AdminPartners() {
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <span className="safi-kicker">Admin users</span>
-            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Партнеры</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-              Пользователи, пакеты, PV, балансы и статус аккаунта.
-            </p>
+            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">{adminText('a_0J_QsNGA0YLQ_5')}</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">{adminText('a_0J_QvtC70YzQ_2')}</p>
           </div>
           <div className="flex flex-wrap gap-3">
             <button
               type="button"
               onClick={openCreateModal}
               disabled={!canCreatePartners}
-              title={canCreatePartners ? 'Создать партнёра' : 'Создание партнёров доступно только super admin'}
+              title={canCreatePartners ? adminText('a_0KHQvtC30LTQ_5') : adminText('a_0KHQvtC30LTQ_6')}
               className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Plus className="h-4 w-4 text-safi-gold" />
-              Добавить партнёра
-            </button>
+              <Plus className="h-4 w-4 text-safi-gold" />{adminText('a_0JTQvtCx0LDQ_4')}</button>
             {canCreatePartners ? (
               <Link
                 to="/admin/partners/bulk-create"
                 className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green/10"
               >
-                <Plus className="h-4 w-4" />
-                Массово добавить
-              </Link>
+                <Plus className="h-4 w-4" />{adminText('a_0JzQsNGB0YHQ')}</Link>
             ) : (
               <button
                 type="button"
                 disabled
-                title="Массовое добавление доступно только super admin"
+                title={adminText('a_0JzQsNGB0YHQ_2')}
                 className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green opacity-60"
               >
-                <Plus className="h-4 w-4" />
-                Массово добавить
-              </button>
+                <Plus className="h-4 w-4" />{adminText('a_0JzQsNGB0YHQ')}</button>
             )}
           </div>
         </div>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label="Всего партнеров" value={partners.length.toLocaleString('ru-RU')} />
-        <SummaryCard label="Активные" value={partners.filter((partner) => partner.accountStatus === 'Активен').length.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={partners.length.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={partners.filter((partner) => partner.accountStatus === adminText('a_0JDQutGC0LjQ_2')).length.toLocaleString('ru-RU')} />
         <SummaryCard label="VIP / ELITE" value={partners.filter((partner) => ['VIP', 'ELITE'].includes(partner.package)).length.toLocaleString('ru-RU')} />
-        <SummaryCard label="Баланс" value={`${partners.reduce((sum, partner) => sum + partner.availableBalance, 0).toLocaleString('ru-RU')} ₸`} />
+        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={`${partners.reduce((sum, partner) => sum + partner.availableBalance, 0).toLocaleString('ru-RU')} ₸`} />
       </section>
 
       <section className="rounded-[28px] border border-safi-border bg-white p-4 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -220,37 +213,35 @@ export default function AdminPartners() {
               type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Поиск по ID, ФИО, телефону или email"
+              placeholder={adminText('a_0J_QvtC40YHQ')}
               className="w-full rounded-full border border-safi-border bg-safi-cream py-3 pl-12 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
             />
           </label>
           <button
             type="button"
             disabled
-            title="Фильтры пока недоступны"
+            title={adminText('a_0KTQuNC70YzR')}
             className="inline-flex cursor-not-allowed items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green opacity-60"
           >
-            <Filter className="h-4 w-4" />
-            Фильтры
-          </button>
+            <Filter className="h-4 w-4" />{adminText('a_0KTQuNC70YzR_2')}</button>
         </div>
       </section>
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadUsers} />}
       {!isLoading && !error && visiblePartners.length === 0 && (
-        <EmptyState title="Партнеры не найдены" description={query ? 'Попробуйте изменить поисковый запрос.' : 'Список появится после регистрации пользователей.'} />
+        <EmptyState title={adminText('a_0J_QsNGA0YLQ_6')} description={query ? adminText('a_0J_QvtC_0YDQ') : adminText('a_0KHQv9C40YHQ')} />
       )}
 
       {!isLoading && !error && visiblePartners.length > 0 && (
-        <AdminTable headers={['Партнер', 'Контакты', 'Спонсор', 'Пакет / статус', 'PV', 'Финансы', 'Аккаунт', 'Действия']}>
+        <AdminTable headers={[adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0JrQvtC90YLQ'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0J_QsNC60LXR_5'), 'PV', adminText('a_0KTQuNC90LDQ'), adminText('a_0JDQutC60LDR'), adminText('a_0JTQtdC50YHR')]}>
           {visiblePartners.map((partner) => (
             <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
               <td className="px-6 py-4">
                 <Link to={`/admin/partners/${partner.id}`} className="block cursor-pointer hover:opacity-80">
                   <div className="font-bold text-safi-green">{partner.fullName}</div>
                   <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</div>
-                  <div className="mt-1 text-[10px] text-safi-muted">Рег: {partner.registrationDate}</div>
+                  <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0KDQtdCzOg')}{partner.registrationDate}</div>
                 </Link>
               </td>
               <td className="px-6 py-4">
@@ -260,29 +251,29 @@ export default function AdminPartners() {
               </td>
               <td className="px-6 py-4">
                 <div className="inline-block rounded-full bg-safi-cream px-3 py-1 font-mono text-xs font-bold text-safi-green">{partner.sponsor}</div>
-                <div className="mt-1 text-[10px] text-safi-muted">Пригласил: {partner.invitedCount}</div>
+                <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0J_RgNC40LPQ')}{partner.invitedCount}</div>
               </td>
               <td className="px-6 py-4">
                 <div className="mb-2"><AdminBadge variant="gold">{partner.package}</AdminBadge></div>
                 <AdminBadge variant="default">{partner.status}</AdminBadge>
               </td>
               <td className="px-6 py-4">
-                <div className="text-sm">Л: <span className="font-bold text-safi-green">{partner.personalPV}</span></div>
-                <div className="mt-1 text-xs text-safi-muted">К: {partner.teamPV}</div>
+                <div className="text-sm">{adminText('a_0Js6')}<span className="font-bold text-safi-green">{partner.personalPV}</span></div>
+                <div className="mt-1 text-xs text-safi-muted">{adminText('a_0Jo6')}{partner.teamPV}</div>
               </td>
               <td className="px-6 py-4">
-                <div className="text-sm font-bold text-safi-green">Баланс: {partner.availableBalance.toLocaleString('ru-RU')}</div>
-                <div className="mt-1 text-[10px] text-safi-muted">Всего: {partner.totalIncome.toLocaleString('ru-RU')}</div>
+                <div className="text-sm font-bold text-safi-green">{adminText('a_0JHQsNC70LDQ_2')}{partner.availableBalance.toLocaleString('ru-RU')}</div>
+                <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0JLRgdC10LPQ_3')}{partner.totalIncome.toLocaleString('ru-RU')}</div>
               </td>
               <td className="px-6 py-4">
-                <AdminBadge variant={partner.accountStatus === 'Активен' ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
+                <AdminBadge variant={partner.accountStatus === adminText('a_0JDQutGC0LjQ_2') ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-2">
-                  <Link to={`/admin/partners/${partner.id}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Открыть профиль">
+                  <Link to={`/admin/partners/${partner.id}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title={adminText('a_0J7RgtC60YDR_2')}>
                     <Eye className="h-4 w-4" />
                   </Link>
-                  <Link to={`/admin/structure?user_id=${encodeURIComponent(partner.id)}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title="Структура">
+                  <Link to={`/admin/structure?user_id=${encodeURIComponent(partner.id)}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title={adminText('a_0KHRgtGA0YPQ')}>
                     <Network className="h-4 w-4" />
                   </Link>
                 </div>
@@ -351,13 +342,13 @@ function CreatePartnerModal({
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-safi-border bg-white px-6 py-5">
           <div>
             <div className="safi-kicker">Super admin</div>
-            <h2 className="mt-2 font-serif text-3xl font-semibold text-safi-green">Добавить партнёра</h2>
+            <h2 className="mt-2 font-serif text-3xl font-semibold text-safi-green">{adminText('a_0JTQvtCx0LDQ_4')}</h2>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-safi-border bg-safi-cream text-safi-green transition-colors hover:bg-safi-green hover:text-white"
-            aria-label="Закрыть"
+            aria-label={adminText('a_0JfQsNC60YDR')}
           >
             <X className="h-5 w-5" />
           </button>
@@ -372,7 +363,7 @@ function CreatePartnerModal({
             )}
 
             <div className="grid gap-4 md:grid-cols-2">
-              <ModalField label="Имя" error={fieldErrors.name?.[0]}>
+              <ModalField label={adminText('a_0JjQvNGP')} error={fieldErrors.name?.[0]}>
                 <input
                   value={form.name}
                   onChange={(event) => onChange('name', event.target.value)}
@@ -381,7 +372,7 @@ function CreatePartnerModal({
                   required
                 />
               </ModalField>
-              <ModalField label="Логин" error={fieldErrors.login?.[0]}>
+              <ModalField label={adminText('a_0JvQvtCz0LjQ')} error={fieldErrors.login?.[0]}>
                 <input
                   value={form.login}
                   onChange={(event) => onChange('login', event.target.value)}
@@ -400,7 +391,7 @@ function CreatePartnerModal({
                   required
                 />
               </ModalField>
-              <ModalField label="Телефон" error={fieldErrors.phone?.[0]}>
+              <ModalField label={adminText('a_0KLQtdC70LXR')} error={fieldErrors.phone?.[0]}>
                 <input
                   value={form.phone}
                   onChange={(event) => onChange('phone', event.target.value)}
@@ -408,7 +399,7 @@ function CreatePartnerModal({
                   autoComplete="tel"
                 />
               </ModalField>
-              <ModalField label="Пароль" error={fieldErrors.password?.[0]}>
+              <ModalField label={adminText('a_0J_QsNGA0L7Q_2')} error={fieldErrors.password?.[0]}>
                 <input
                   type="password"
                   value={form.password}
@@ -418,7 +409,7 @@ function CreatePartnerModal({
                   required
                 />
               </ModalField>
-              <ModalField label="Повтор пароля" error={fieldErrors.password_confirmation?.[0]}>
+              <ModalField label={adminText('a_0J_QvtCy0YLQ_2')} error={fieldErrors.password_confirmation?.[0]}>
                 <input
                   type="password"
                   value={form.password_confirmation}
@@ -428,13 +419,13 @@ function CreatePartnerModal({
                   required
                 />
               </ModalField>
-              <ModalField label="Спонсор / пригласитель" error={fieldErrors.sponsor_id?.[0]}>
+              <ModalField label={adminText('a_0KHQv9C-0L3R_3')} error={fieldErrors.sponsor_id?.[0]}>
                 <select
                   value={form.sponsor_id}
                   onChange={(event) => onChange('sponsor_id', event.target.value)}
                   className={modalInputClass}
                 >
-                  <option value="">Без спонсора</option>
+                  <option value="">{adminText('a_0JHQtdC3INGB')}</option>
                   {partners.map((partner) => (
                     <option key={partner.id} value={partner.id}>
                       {partner.fullName} ({partner.login || partner.email})
@@ -442,19 +433,19 @@ function CreatePartnerModal({
                   ))}
                 </select>
               </ModalField>
-              <ModalField label="Ветка" error={fieldErrors.branch?.[0]}>
+              <ModalField label={adminText('a_0JLQtdGC0LrQ')} error={fieldErrors.branch?.[0]}>
                 <select
                   value={form.branch}
                   onChange={(event) => onChange('branch', event.target.value)}
                   className={modalInputClass}
                   disabled={!form.sponsor_id}
                 >
-                  <option value="">Автоматически</option>
+                  <option value="">{adminText('a_0JDQstGC0L7Q')}</option>
                   <option value="left">left</option>
                   <option value="right">right</option>
                 </select>
               </ModalField>
-              <ModalField label="Роль" error={fieldErrors.role?.[0]}>
+              <ModalField label={adminText('a_0KDQvtC70Yw')} error={fieldErrors.role?.[0]}>
                 <select
                   value={form.role}
                   onChange={(event) => onChange('role', event.target.value)}
@@ -473,40 +464,34 @@ function CreatePartnerModal({
                 type="button"
                 onClick={onClose}
                 className="cursor-pointer rounded-full border border-safi-border bg-white px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-cream"
-              >
-                Отмена
-              </button>
+              >{adminText('a_0J7RgtC80LXQ')}</button>
               <button
                 type="submit"
                 disabled={isCreating}
                 className="cursor-pointer rounded-full border border-safi-green bg-safi-green px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isCreating ? 'Создание...' : 'Создать партнёра'}
+                {isCreating ? adminText('a_0KHQvtC30LTQ_7') : adminText('a_0KHQvtC30LTQ_5')}
               </button>
             </div>
           </form>
 
           <aside className="rounded-[24px] border border-safi-border bg-safi-cream p-5">
-            <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Доступы</div>
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{adminText('a_0JTQvtGB0YLR_3')}</div>
             {credentials ? (
               <div className="mt-4 space-y-4">
-                <CredentialRow label="Логин" value={credentials.login} />
+                <CredentialRow label={adminText('a_0JvQvtCz0LjQ')} value={credentials.login} />
                 <CredentialRow label="Email" value={credentials.email} />
-                <CredentialRow label="Пароль" value={credentials.password} />
+                <CredentialRow label={adminText('a_0J_QsNGA0L7Q_2')} value={credentials.password} />
                 <button
                   type="button"
                   onClick={onCopy}
                   className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green hover:text-white"
                 >
-                  <Copy className="h-4 w-4" />
-                  Скопировать доступы
-                </button>
+                  <Copy className="h-4 w-4" />{adminText('a_0KHQutC-0L_Q')}</button>
                 {copyStatus && <div className="text-xs font-bold text-safi-muted">{copyStatus}</div>}
               </div>
             ) : (
-              <p className="mt-4 text-sm leading-7 text-safi-muted">
-                После создания здесь появятся логин, email и пароль. Пароль не сохраняется в открытом виде и будет доступен только в этом блоке.
-              </p>
+              <p className="mt-4 text-sm leading-7 text-safi-muted">{adminText('a_0J_QvtGB0LvQ_2')}</p>
             )}
           </aside>
         </div>
@@ -570,7 +555,7 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       sponsor: getString(sponsorRecord, ['name', 'login', 'partner_id', 'id']) || getString(record, ['sponsor_id', 'sponsorId']) || '-',
       invitedCount: getNumber(record, ['invited_count', 'invitedCount', 'invited_users_count', 'referrals_count', 'children_count']) ?? 0,
       package: getString(packageRecord, ['name', 'title', 'code']) || getString(record, ['package_name', 'packageName', 'package']) || '-',
-      status: getString(record, ['status_name', 'statusName', 'status']) || 'Участник',
+      status: getString(record, ['status_name', 'statusName', 'status']) || adminText('a_0KPRh9Cw0YHR'),
       personalPV: leftPV,
       teamPV: rightPV,
       totalIncome: totalBalance,
@@ -650,7 +635,7 @@ function getWalletBalance(wallets: Record<string, unknown>[], type: string) {
 }
 
 function getAccountStatusLabel(status?: string) {
-  return status === 'blocked' ? 'Заблокирован' : 'Активен';
+  return status === 'blocked' ? adminText('a_0JfQsNCx0LvQ_2') : adminText('a_0JDQutGC0LjQ_2');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

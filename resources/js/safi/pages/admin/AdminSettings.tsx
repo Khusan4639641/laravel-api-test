@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Settings, Save } from 'lucide-react';
 import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminSettings, getApiErrorState, updateAdminSettings } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 interface SettingsState {
   companyName: string;
@@ -20,7 +21,7 @@ const defaultSettings: SettingsState = {
   card: true,
   businessAccount: true,
   usdt: false,
-  contacts: 'Алматы, Казахстан',
+  contacts: adminText('a_0JDQu9C80LDR'),
   supportEmail: 'support@safilife.test',
   supportPhone: '+7 700 000 00 00',
 };
@@ -39,7 +40,7 @@ export default function AdminSettings() {
     try {
       setSettings(normalizeSettings(await getAdminSettings()));
     } catch (caughtError) {
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить настройки.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_23'));
     } finally {
       setIsLoading(false);
     }
@@ -66,9 +67,9 @@ export default function AdminSettings() {
         'support.phone': settings.supportPhone,
       });
       setSettings(normalizeSettings(response));
-      setMessage('Настройки сохранены.');
+      setMessage(adminText('a_0J3QsNGB0YLR_2'));
     } catch (caughtError) {
-      setError(getApiErrorState(caughtError).error || 'Не удалось сохранить настройки.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_24'));
     } finally {
       setIsSaving(false);
     }
@@ -78,15 +79,15 @@ export default function AdminSettings() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Настройки</h1>
-          <p className="text-sm text-safi-text/70">Глобальные параметры системы</p>
+          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0J3QsNGB0YLR_3')}</h1>
+          <p className="text-sm text-safi-text/70">{adminText('a_0JPQu9C-0LHQ')}</p>
         </div>
         <button
           onClick={handleSave}
           disabled={isLoading || isSaving}
           className="flex items-center gap-2 px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors shadow-lg disabled:opacity-50"
         >
-          <Save className="w-4 h-4 ml-[-4px]" /> {isSaving ? 'Сохранение...' : 'Сохранить настройки'}
+          <Save className="w-4 h-4 ml-[-4px]" /> {isSaving ? adminText('a_0KHQvtGF0YDQ_2') : adminText('a_0KHQvtGF0YDQ_4')}
         </button>
       </div>
 
@@ -103,11 +104,10 @@ export default function AdminSettings() {
         <div className="grid gap-8">
           <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm">
             <h3 className="text-xl font-serif font-bold text-safi-green mb-6 flex items-center gap-3">
-              <Settings className="w-5 h-5 text-safi-gold" /> Основные настройки
-            </h3>
+              <Settings className="w-5 h-5 text-safi-gold" />{adminText('a_0J7RgdC90L7Q_2')}</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Название компании</label>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0J3QsNC30LLQ_2')}</label>
                 <input
                   type="text"
                   value={settings.companyName}
@@ -116,7 +116,7 @@ export default function AdminSettings() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Минимальная сумма вывода</label>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0JzQuNC90LjQ')}</label>
                 <input
                   type="number"
                   value={settings.minimumWithdrawal}
@@ -125,10 +125,10 @@ export default function AdminSettings() {
                 />
               </div>
               <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Доступные способы вывода</label>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0JTQvtGB0YLR_4')}</label>
                 <div className="flex flex-col gap-2 p-3 bg-[#F5F5F0] rounded-xl">
-                  <Toggle label="Банковская карта (KZT)" checked={settings.card} onChange={(checked) => setSettings({ ...settings, card: checked })} />
-                  <Toggle label="Счёт ИП" checked={settings.businessAccount} onChange={(checked) => setSettings({ ...settings, businessAccount: checked })} />
+                  <Toggle label={adminText('a_0JHQsNC90LrQ')} checked={settings.card} onChange={(checked) => setSettings({ ...settings, card: checked })} />
+                  <Toggle label={adminText('a_0KHRh9GR0YIg')} checked={settings.businessAccount} onChange={(checked) => setSettings({ ...settings, businessAccount: checked })} />
                   <Toggle label="USDT ERC-20 / TRC-20" checked={settings.usdt} onChange={(checked) => setSettings({ ...settings, usdt: checked })} />
                 </div>
               </div>
@@ -136,7 +136,7 @@ export default function AdminSettings() {
           </div>
 
           <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm">
-            <h3 className="text-xl font-serif font-bold text-safi-green mb-6">Контакты и поддержка</h3>
+            <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{adminText('a_0JrQvtC90YLQ_2')}</h3>
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Contacts</label>

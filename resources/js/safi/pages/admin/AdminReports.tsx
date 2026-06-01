@@ -3,6 +3,7 @@ import { Download, FileText, Package, RefreshCw, TrendingUp, Users, Wallet } fro
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminReportsSummary, getApiErrorState } from '../../lib/api';
 import { cn } from '../../lib/utils';
+import { adminText } from '../../i18n/adminText';
 
 interface ReportSummary {
   totalUsers: number;
@@ -55,7 +56,7 @@ export default function AdminReports() {
     try {
       setReports(normalizeReports(await getAdminReportsSummary()));
     } catch (caughtError) {
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить отчеты.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_22'));
     } finally {
       setIsLoading(false);
     }
@@ -99,15 +100,15 @@ export default function AdminReports() {
     link.download = `safi-reports-${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     URL.revokeObjectURL(url);
-    setExportStatus('CSV экспортирован');
+    setExportStatus(adminText('a_Q1NWINGN0LrR'));
   };
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="mb-1 font-serif text-3xl font-bold text-safi-green">Отчёты</h1>
-          <p className="text-sm text-safi-text/70">Финансовая аналитика, PV, заявки на вывод и рост партнёров</p>
+          <h1 className="mb-1 font-serif text-3xl font-bold text-safi-green">{adminText('a_0J7RgtGH0ZHR')}</h1>
+          <p className="text-sm text-safi-text/70">{adminText('a_0KTQuNC90LDQ_2')}</p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -116,9 +117,9 @@ export default function AdminReports() {
             onChange={(event) => setPeriodFilter(event.target.value)}
             className="cursor-pointer rounded-xl border border-safi-green/10 bg-white px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green outline-none transition-colors hover:border-safi-green/30 focus:border-safi-green"
           >
-            <option value="3">3 месяца</option>
-            <option value="6">6 месяцев</option>
-            <option value="all">Все периоды</option>
+            <option value="3">{adminText('a_MyDQvNC10YHR')}</option>
+            <option value="6">{adminText('a_NiDQvNC10YHR')}</option>
+            <option value="all">{adminText('a_0JLRgdC1INC_')}</option>
           </select>
           <button
             type="button"
@@ -126,19 +127,15 @@ export default function AdminReports() {
             disabled={isLoading}
             className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-safi-border bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
-            Обновить
-          </button>
+            <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />{adminText('a_0J7QsdC90L7Q')}</button>
           <button
             type="button"
             onClick={exportCsv}
             disabled={isLoading || visibleChart.length === 0}
-            title={visibleChart.length === 0 ? 'Нет данных для экспорта' : 'Скачать CSV отчёт'}
+            title={visibleChart.length === 0 ? adminText('a_0J3QtdGCINC0') : adminText('a_0KHQutCw0YfQ')}
             className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-safi-green px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            <Download className="h-4 w-4" />
-            Экспорт
-          </button>
+            <Download className="h-4 w-4" />{adminText('a_0K3QutGB0L_Q')}</button>
         </div>
       </div>
 
@@ -150,18 +147,18 @@ export default function AdminReports() {
       {!isLoading && !error && (
         <>
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <ReportCard title="Оборот" value={`${formatMoney(reports.summary.totalTurnover)} ₸`} icon={TrendingUp} />
-            <ReportCard title="Бонусы выплачены" value={`${formatMoney(reports.summary.totalBonusPaid)} ₸`} icon={Wallet} />
-            <ReportCard title="Заявки на вывод" value={`${formatMoney(reports.summary.pendingWithdrawals)} ₸`} icon={Download} />
-            <ReportCard title="Партнёры" value={formatNumber(reports.summary.totalUsers)} icon={Users} />
-            <ReportCard title="PV / Пакеты" value={`${formatNumber(reports.summary.totalPv)} PV`} subValue={`${formatNumber(reports.summary.packagesSold)} продаж`} icon={Package} />
+            <ReportCard title={adminText('a_0J7QsdC-0YDQ')} value={`${formatMoney(reports.summary.totalTurnover)} ₸`} icon={TrendingUp} />
+            <ReportCard title={adminText('a_0JHQvtC90YPR_3')} value={`${formatMoney(reports.summary.totalBonusPaid)} ₸`} icon={Wallet} />
+            <ReportCard title={adminText('a_0JfQsNGP0LLQ')} value={`${formatMoney(reports.summary.pendingWithdrawals)} ₸`} icon={Download} />
+            <ReportCard title={adminText('a_0J_QsNGA0YLQ_8')} value={formatNumber(reports.summary.totalUsers)} icon={Users} />
+            <ReportCard title={adminText('a_UFYgLyDQn9Cw')} value={`${formatNumber(reports.summary.totalPv)} PV`} subValue={`${formatNumber(reports.summary.packagesSold)} ${adminText('sales_count')}`} icon={Package} />
           </section>
 
           <section className="rounded-[32px] border border-safi-green/5 bg-white p-6 shadow-sm md:p-8">
             <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="font-serif text-2xl font-bold text-safi-green">Динамика отчётов</h2>
-                <p className="mt-1 text-sm text-safi-text/60">Оборот, бонусы, выводы, партнёры, продажи пакетов и PV по месяцам</p>
+                <h2 className="font-serif text-2xl font-bold text-safi-green">{adminText('a_0JTQuNC90LDQ')}</h2>
+                <p className="mt-1 text-sm text-safi-text/60">{adminText('a_0J7QsdC-0YDQ_2')}</p>
               </div>
               <div className="flex items-center gap-2 rounded-full bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">
                 <FileText className="h-4 w-4" />
@@ -170,7 +167,7 @@ export default function AdminReports() {
             </div>
 
             {visibleChart.length === 0 ? (
-              <EmptyState title="Данных для графика пока нет" description="Диаграмма появится после заказов, бонусов и заявок на вывод." className="min-h-[240px] shadow-none" />
+              <EmptyState title={adminText('a_0JTQsNC90L3R_3')} description={adminText('a_0JTQuNCw0LPR')} className="min-h-[240px] shadow-none" />
             ) : (
               <ReportChart data={visibleChart} />
             )}
@@ -203,9 +200,9 @@ function ReportChart({ data }: { data: ChartPoint[] }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">
-        <Legend color="bg-safi-green" label="Оборот" />
-        <Legend color="bg-safi-gold" label="Бонусы" />
-        <Legend color="bg-red-400" label="Выводы" />
+        <Legend color="bg-safi-green" label={adminText('a_0J7QsdC-0YDQ')} />
+        <Legend color="bg-safi-gold" label={adminText('a_0JHQvtC90YPR')} />
+        <Legend color="bg-red-400" label={adminText('a_0JLRi9Cy0L7Q')} />
         <Legend color="bg-blue-400" label="PV" />
       </div>
       <div className="overflow-x-auto">
@@ -220,8 +217,8 @@ function ReportChart({ data }: { data: ChartPoint[] }) {
                 <Bar color="bg-blue-400" value={item.pv} max={maxPv} label={`${formatNumber(item.pv)} PV`} />
               </div>
               <div className="space-y-1 text-right text-[10px] font-bold uppercase tracking-widest text-safi-text/50">
-                <div>Партнёры: <span className="text-safi-green">{item.users}</span></div>
-                <div>Пакеты: <span className="text-safi-green">{item.packageSales}</span></div>
+                <div>{adminText('a_0J_QsNGA0YLQ_9')}<span className="text-safi-green">{item.users}</span></div>
+                <div>{adminText('a_0J_QsNC60LXR_6')}<span className="text-safi-green">{item.packageSales}</span></div>
               </div>
             </div>
           ))}

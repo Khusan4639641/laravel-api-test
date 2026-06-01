@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { Plus, Edit, Trash2, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { adminText } from '../../i18n/adminText';
 import {
   createAdminProduct,
   deleteAdminProduct,
@@ -51,7 +52,7 @@ export default function AdminProducts() {
       setProducts(normalizeProducts(response));
     } catch (caughtError) {
       setProducts([]);
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить товары.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_19'));
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +115,7 @@ export default function AdminProducts() {
       closeForm();
       await loadProducts();
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || 'Не удалось сохранить товар.');
+      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_20'));
     }
   };
 
@@ -126,7 +127,7 @@ export default function AdminProducts() {
       await deleteAdminProduct(productId);
       await loadProducts();
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || 'Не удалось удалить товар.');
+      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_21'));
     } finally {
       setPendingId('');
     }
@@ -136,8 +137,8 @@ export default function AdminProducts() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Товары</h1>
-          <p className="text-sm text-safi-text/70">Управление каталогом продукции</p>
+          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0KLQvtCy0LDR')}</h1>
+          <p className="text-sm text-safi-text/70">{adminText('a_0KPQv9GA0LDQ_3')}</p>
         </div>
         <button
           type="button"
@@ -145,7 +146,7 @@ export default function AdminProducts() {
           className="flex items-center gap-2 px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors shadow-lg"
         >
           {showForm ? <X className="w-4 h-4 ml-[-4px]" /> : <Plus className="w-4 h-4 ml-[-4px]" />}
-          {showForm ? 'Отмена' : 'Добавить товар'}
+          {showForm ? adminText('a_0J7RgtC80LXQ') : adminText('a_0JTQvtCx0LDQ_6')}
         </button>
       </div>
 
@@ -157,15 +158,15 @@ export default function AdminProducts() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm">
-          <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{form.id ? 'Редактирование товара' : 'Новый товар'}</h3>
+          <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{form.id ? adminText('a_0KDQtdC00LDQ_4') : adminText('a_0J3QvtCy0YvQ_3')}</h3>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Название" value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
-            <Field label="Категория" value={form.category} onChange={(value) => setForm({ ...form, category: value })} />
-            <Field label="Цена" type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} required />
+            <Field label={adminText('a_0J3QsNC30LLQ')} value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
+            <Field label={adminText('a_0JrQsNGC0LXQ')} value={form.category} onChange={(value) => setForm({ ...form, category: value })} />
+            <Field label={adminText('a_0KbQtdC90LA')} type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} required />
             <Field label="PV" type="number" value={form.pv} onChange={(value) => setForm({ ...form, pv: value })} required />
-            <Field label="Остаток" type="number" value={form.stock} onChange={(value) => setForm({ ...form, stock: value })} />
+            <Field label={adminText('a_0J7RgdGC0LDR')} type="number" value={form.stock} onChange={(value) => setForm({ ...form, stock: value })} />
             <div>
-              <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Статус</label>
+              <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KHRgtCw0YLR')}</label>
               <select
                 value={form.status}
                 onChange={(event) => setForm({ ...form, status: event.target.value })}
@@ -176,7 +177,7 @@ export default function AdminProducts() {
               </select>
             </div>
             <div className="md:col-span-2">
-              <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Описание</label>
+              <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0J7Qv9C40YHQ')}</label>
               <textarea
                 rows={4}
                 value={form.description}
@@ -186,17 +187,17 @@ export default function AdminProducts() {
             </div>
           </div>
           <button type="submit" className="mt-6 px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors">
-            {form.id ? 'Сохранить' : 'Создать'}
+            {form.id ? adminText('a_0KHQvtGF0YDQ') : adminText('a_0KHQvtC30LTQ_3')}
           </button>
         </form>
       )}
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadProducts} />}
-      {!isLoading && !error && products.length === 0 && <EmptyState title="Товары не добавлены" description="Создайте первый товар через форму выше." />}
+      {!isLoading && !error && products.length === 0 && <EmptyState title={adminText('a_0KLQvtCy0LDR_2')} description={adminText('a_0KHQvtC30LTQ_9')} />}
 
       {!isLoading && !error && products.length > 0 && (
-        <AdminTable headers={['Товар', 'Категория', 'Цена / PV', 'Остаток', 'Статус', 'Действия']}>
+        <AdminTable headers={[adminText('a_0KLQvtCy0LDR_3'), adminText('a_0JrQsNGC0LXQ'), adminText('a_0KbQtdC90LAg'), adminText('a_0J7RgdGC0LDR'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
           {products.map((product) => (
             <tr key={product.id} className="hover:bg-safi-green/5 transition-colors group">
               <td className="px-6 py-4">
@@ -206,7 +207,7 @@ export default function AdminProducts() {
                   </div>
                   <div>
                     <div className="font-bold text-safi-green">{product.name}</div>
-                    <div className="text-[10px] text-safi-text/50 mt-1">Добавлен: {product.createdAt || '-'}</div>
+                    <div className="text-[10px] text-safi-text/50 mt-1">{adminText('a_0JTQvtCx0LDQ_7')}{product.createdAt || '-'}</div>
                   </div>
                 </div>
               </td>
@@ -218,7 +219,7 @@ export default function AdminProducts() {
                 <div className="text-[10px] uppercase font-bold text-safi-gold mt-1 tracking-widest">{product.pv} PV</div>
               </td>
               <td className="px-6 py-4">
-                <div className="text-sm font-bold">{product.stock || 0} шт</div>
+                <div className="text-sm font-bold">{product.stock || 0}{adminText('a_0YjRgg')}</div>
               </td>
               <td className="px-6 py-4">
                 <AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{product.status || 'active'}</AdminBadge>

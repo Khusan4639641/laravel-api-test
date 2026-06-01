@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminStatuses, getApiErrorState, Status } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 export default function AdminStatuses() {
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -16,7 +17,7 @@ export default function AdminStatuses() {
       setStatuses(await getAdminStatuses());
     } catch (caughtError) {
       setStatuses([]);
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить статусы.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_25'));
     } finally {
       setIsLoading(false);
     }
@@ -30,17 +31,17 @@ export default function AdminStatuses() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Статусы</h1>
-          <p className="text-sm text-safi-text/70">Лестница статусов и условия достижения</p>
+          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0KHRgtCw0YLR_3')}</h1>
+          <p className="text-sm text-safi-text/70">{adminText('a_0JvQtdGB0YLQ')}</p>
         </div>
       </div>
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadStatuses} />}
-      {!isLoading && !error && statuses.length === 0 && <EmptyState title="Статусы не настроены" description="Список статусов появится после ответа backend API." />}
+      {!isLoading && !error && statuses.length === 0 && <EmptyState title={adminText('a_0KHRgtCw0YLR_4')} description={adminText('a_0KHQv9C40YHQ_2')} />}
 
       {!isLoading && !error && statuses.length > 0 && (
-        <AdminTable headers={['Статус', 'Условия (PV)', 'Премия / Подарок', 'Партнёров на статусе']}>
+        <AdminTable headers={[adminText('a_0KHRgtCw0YLR'), adminText('a_0KPRgdC70L7Q'), adminText('a_0J_RgNC10LzQ'), adminText('a_0J_QsNGA0YLQ_10')]}>
           {statuses.map((status) => (
             <tr key={status.id} className="hover:bg-safi-green/5 transition-colors group">
               <td className="px-6 py-4 font-bold text-safi-green text-sm">{status.name}</td>

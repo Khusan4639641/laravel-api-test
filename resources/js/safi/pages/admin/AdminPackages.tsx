@@ -3,6 +3,7 @@ import { AdminBadge } from '../../components/admin/ui';
 import { Package, Plus, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { createAdminPackage, getAdminPackages, getApiErrorState, Package as ApiPackage, updateAdminPackage } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 interface PackageFormState {
   id?: string;
@@ -47,7 +48,7 @@ export default function AdminPackages() {
       setPackages(await getAdminPackages());
     } catch (caughtError) {
       setPackages([]);
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить пакеты.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_6'));
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +122,7 @@ export default function AdminPackages() {
       closeForm();
       await loadPackages();
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || 'Не удалось сохранить пакет.');
+      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_7'));
     }
   };
 
@@ -129,8 +130,8 @@ export default function AdminPackages() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Пакеты</h1>
-          <p className="text-sm text-safi-text/70">Управление вступительными пакетами</p>
+          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0J_QsNC60LXR')}</h1>
+          <p className="text-sm text-safi-text/70">{adminText('a_0KPQv9GA0LDQ_2')}</p>
         </div>
         <button
           type="button"
@@ -138,7 +139,7 @@ export default function AdminPackages() {
           className="flex items-center gap-2 px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors shadow-lg"
         >
           {showForm ? <X className="w-4 h-4 ml-[-4px]" /> : <Plus className="w-4 h-4 ml-[-4px]" />}
-          {showForm ? 'Отмена' : 'Добавить пакет'}
+          {showForm ? adminText('a_0J7RgtC80LXQ') : adminText('a_0JTQvtCx0LDQ_3')}
         </button>
       </div>
 
@@ -150,18 +151,18 @@ export default function AdminPackages() {
 
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm max-w-5xl">
-          <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{form.id ? 'Редактирование пакета' : 'Новый пакет'}</h3>
+          <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{form.id ? adminText('a_0KDQtdC00LDQ_2') : adminText('a_0J3QvtCy0YvQ')}</h3>
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Код" value={form.code} onChange={(value) => setForm({ ...form, code: value })} required={!form.id} />
+            <Field label={adminText('a_0JrQvtC0')} value={form.code} onChange={(value) => setForm({ ...form, code: value })} required={!form.id} />
             <Field label="Slug" value={form.slug} onChange={(value) => setForm({ ...form, slug: value })} required={!form.id} />
-            <Field label="Название" value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
-            <Field label="Цена" type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} required />
+            <Field label={adminText('a_0J3QsNC30LLQ')} value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
+            <Field label={adminText('a_0KbQtdC90LA')} type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} required />
             <Field label="PV" type="number" value={form.pv} onChange={(value) => setForm({ ...form, pv: value })} />
-            <Field label="Реферальный %" type="number" value={form.referralPercent} onChange={(value) => setForm({ ...form, referralPercent: value })} />
-            <Field label="Бинарный %" type="number" value={form.binaryPercent} onChange={(value) => setForm({ ...form, binaryPercent: value })} />
-            <Field label="Сортировка" type="number" value={form.sortOrder} onChange={(value) => setForm({ ...form, sortOrder: value })} />
+            <Field label={adminText('a_0KDQtdGE0LXR')} type="number" value={form.referralPercent} onChange={(value) => setForm({ ...form, referralPercent: value })} />
+            <Field label={adminText('a_0JHQuNC90LDR')} type="number" value={form.binaryPercent} onChange={(value) => setForm({ ...form, binaryPercent: value })} />
+            <Field label={adminText('a_0KHQvtGA0YLQ')} type="number" value={form.sortOrder} onChange={(value) => setForm({ ...form, sortOrder: value })} />
             <div>
-              <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Статус</label>
+              <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KHRgtCw0YLR')}</label>
               <select
                 value={form.status}
                 onChange={(event) => setForm({ ...form, status: event.target.value })}
@@ -178,18 +179,16 @@ export default function AdminPackages() {
               checked={form.isActive}
               onChange={(event) => setForm({ ...form, isActive: event.target.checked })}
               className="rounded text-safi-green focus:ring-safi-green"
-            />
-            Активен
-          </label>
+            />{adminText('a_0JDQutGC0LjQ_2')}</label>
           <button type="submit" className="mt-6 px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors">
-            {form.id ? 'Сохранить' : 'Создать'}
+            {form.id ? adminText('a_0KHQvtGF0YDQ') : adminText('a_0KHQvtC30LTQ_3')}
           </button>
         </form>
       )}
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadPackages} />}
-      {!isLoading && !error && packages.length === 0 && <EmptyState title="Пакеты не добавлены" description="Создайте первый пакет через форму выше." />}
+      {!isLoading && !error && packages.length === 0 && <EmptyState title={adminText('a_0J_QsNC60LXR_2')} description={adminText('a_0KHQvtC30LTQ_4')} />}
 
       {!isLoading && !error && packages.length > 0 && (
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl">
@@ -197,7 +196,7 @@ export default function AdminPackages() {
             <div key={pkg.id} className="bg-white rounded-[32px] border border-safi-green/5 shadow-sm p-6 relative overflow-hidden group">
               <div className="mb-4">
                 <AdminBadge variant={pkg.isActive === false || pkg.status === 'inactive' ? 'danger' : 'gold'}>
-                  {pkg.isActive === false || pkg.status === 'inactive' ? 'Неактивен' : 'Активен'}
+                  {pkg.isActive === false || pkg.status === 'inactive' ? adminText('a_0J3QtdCw0LrR_2') : adminText('a_0JDQutGC0LjQ_2')}
                 </AdminBadge>
               </div>
               <Package className="w-10 h-10 text-safi-green/20 absolute top-6 right-6" />
@@ -206,15 +205,15 @@ export default function AdminPackages() {
 
               <div className="space-y-3 mb-6 flex-1">
                 <div className="flex justify-between items-center text-sm border-b border-safi-green/5 pb-2">
-                  <span className="text-safi-text/60">Реферальный</span>
+                  <span className="text-safi-text/60">{adminText('a_0KDQtdGE0LXR_2')}</span>
                   <span className="font-bold text-safi-green">{pkg.referralBonus}%</span>
                 </div>
                 <div className="flex justify-between items-center text-sm border-b border-safi-green/5 pb-2">
-                  <span className="text-safi-text/60">Бинарный</span>
+                  <span className="text-safi-text/60">{adminText('a_0JHQuNC90LDR_2')}</span>
                   <span className="font-bold text-safi-green">{pkg.binaryBonus || 0}%</span>
                 </div>
                 <div className="flex justify-between items-center text-sm pb-2">
-                  <span className="text-safi-text/60">Пользователей</span>
+                  <span className="text-safi-text/60">{adminText('a_0J_QvtC70YzQ')}</span>
                   <span className="font-bold">-</span>
                 </div>
               </div>
@@ -223,9 +222,7 @@ export default function AdminPackages() {
                 type="button"
                 onClick={() => openEditForm(pkg)}
                 className="w-full py-3 bg-[#F5F5F0] group-hover:bg-safi-green group-hover:text-white rounded-xl text-[10px] uppercase font-bold tracking-widest text-safi-green transition-colors"
-              >
-                Редактировать
-              </button>
+              >{adminText('a_0KDQtdC00LDQ_3')}</button>
             </div>
           ))}
         </div>

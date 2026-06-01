@@ -1,5 +1,6 @@
 import { Mail, Shield, User } from 'lucide-react';
 import { useAdminContext } from '../../components/admin/AdminLayout';
+import { adminText } from '../../i18n/adminText';
 
 const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 py-4 text-sm font-bold text-safi-green outline-none transition-all placeholder:text-safi-muted/50 focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25';
 
@@ -11,7 +12,7 @@ export default function AdminProfile() {
       <section className="flex flex-col gap-5 rounded-[28px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:flex-row md:items-end md:justify-between">
         <div>
           <span className="safi-kicker">Profile</span>
-          <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green">Профиль</h1>
+          <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green">{adminText('a_0J_RgNC-0YTQ')}</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">{currentUser.email || currentUser.role}</p>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-safi-border bg-safi-cream px-5 py-3 text-xs font-extrabold uppercase tracking-[0.16em] text-safi-green">
@@ -33,12 +34,10 @@ export default function AdminProfile() {
           <h2 className="mb-6 flex items-center gap-3 font-serif text-2xl font-semibold text-safi-green">
             <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-safi-cream text-safi-green">
               <User className="h-5 w-5" />
-            </span>
-            Данные аккаунта
-          </h2>
+            </span>{adminText('a_0JTQsNC90L3R_2')}</h2>
           <div className="grid gap-5 md:grid-cols-2">
-            <ConfigInput label="Имя" value={currentUser.name} />
-            <ConfigInput label="Роль" value={roleLabel(currentUser.role)} />
+            <ConfigInput label={adminText('a_0JjQvNGP')} value={currentUser.name} />
+            <ConfigInput label={adminText('a_0KDQvtC70Yw')} value={roleLabel(currentUser.role)} />
             <label className="block md:col-span-2">
               <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Email</span>
               <div className="relative">
@@ -71,5 +70,5 @@ function roleLabel(role: string) {
     return 'Support';
   }
 
-  return 'Пользователь';
+  return adminText('a_0J_QvtC70YzQ_3');
 }

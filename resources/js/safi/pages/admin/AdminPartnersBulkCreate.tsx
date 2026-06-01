@@ -5,6 +5,7 @@ import { EmptyState } from '../../components/ui/AsyncState';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { bulkCreateAdminPartners, getAdminUsers, getApiErrorState, getArray, getString } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 interface BulkRow {
   localId: number;
@@ -111,7 +112,7 @@ export default function AdminPartnersBulkCreate() {
 
       return { ...row, password, password_confirmation: password };
     }));
-    showToast('Пароли сгенерированы для всех строк', 'info');
+    showToast(adminText('a_0J_QsNGA0L7Q_3'), 'info');
   };
 
   const submitRows = async () => {
@@ -125,9 +126,9 @@ export default function AdminPartnersBulkCreate() {
       const normalizedResults = normalizeResults(response, rows);
 
       setResults(normalizedResults);
-      showToast('Массовое добавление завершено');
+      showToast(adminText('a_0JzQsNGB0YHQ_3'));
     } catch (caughtError) {
-      showToast(getApiErrorState(caughtError).error || 'Не удалось выполнить массовое добавление.', 'error');
+      showToast(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_18'), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -141,14 +142,14 @@ export default function AdminPartnersBulkCreate() {
     try {
       await navigator.clipboard.writeText(createdResults.map((result, index) => [
         `${index + 1})`,
-        `Логин: ${result.login}`,
+        `${adminText('a_0JvQvtCz0LjQ')}: ${result.login}`,
         `Email: ${result.email}`,
-        `Пароль: ${result.password}`,
-        'Ссылка для входа: https://safilife.kz/login',
+        `${adminText('a_0J_QsNGA0L7Q_2')}: ${result.password}`,
+        adminText('a_0KHRgdGL0LvQ_2'),
       ].join('\n')).join('\n\n'));
-      showToast('Все доступы скопированы');
+      showToast(adminText('a_0JLRgdC1INC0'));
     } catch {
-      showToast('Не удалось скопировать доступы автоматически.', 'error');
+      showToast(adminText('a_0J3QtSDRg9C0_14'), 'error');
     }
   };
 
@@ -156,9 +157,8 @@ export default function AdminPartnersBulkCreate() {
     return (
       <div className="space-y-8">
         <Link to="/admin/partners" className="inline-flex cursor-pointer items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold hover:underline">
-          <ArrowLeft className="h-4 w-4" /> Назад
-        </Link>
-        <EmptyState title="Недостаточно прав" description="Массовое добавление партнёров доступно только super admin." />
+          <ArrowLeft className="h-4 w-4" />{adminText('a_0J3QsNC30LDQ_2')}</Link>
+        <EmptyState title={adminText('a_0J3QtdC00L7R')} description={adminText('a_0JzQsNGB0YHQ_4')} />
       </div>
     );
   }
@@ -171,10 +171,9 @@ export default function AdminPartnersBulkCreate() {
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <Link to="/admin/partners" className="mb-4 inline-flex cursor-pointer items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold hover:underline">
-              <ArrowLeft className="h-4 w-4" /> Назад
-            </Link>
+              <ArrowLeft className="h-4 w-4" />{adminText('a_0J3QsNC30LDQ_2')}</Link>
             <span className="safi-kicker">Bulk partners</span>
-            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Массово добавить</h1>
+            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">{adminText('a_0JzQsNGB0YHQ')}</h1>
           </div>
           <div className="flex flex-wrap gap-3">
             <button
@@ -183,22 +182,20 @@ export default function AdminPartnersBulkCreate() {
               disabled={rows.length >= 100}
               className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Plus className="h-4 w-4" /> Добавить строку
-            </button>
+              <Plus className="h-4 w-4" />{adminText('a_0JTQvtCx0LDQ_5')}</button>
             <button
               type="button"
               onClick={generateAllPasswords}
               className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green/10"
             >
-              <Shuffle className="h-4 w-4" /> Пароли для всех
-            </button>
+              <Shuffle className="h-4 w-4" />{adminText('a_0J_QsNGA0L7Q_4')}</button>
             <button
               type="button"
               onClick={submitRows}
               disabled={isSubmitting || rows.length === 0}
               className="inline-flex cursor-pointer items-center justify-center rounded-full border border-safi-green bg-safi-green px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? 'Создание...' : 'Создать всех'}
+              {isSubmitting ? adminText('a_0KHQvtC30LTQ_7') : adminText('a_0KHQvtC30LTQ_8')}
             </button>
           </div>
         </div>
@@ -209,7 +206,7 @@ export default function AdminPartnersBulkCreate() {
           <table className="min-w-[1380px] w-full text-left text-sm">
             <thead className="sticky top-0 z-10 bg-safi-green text-[10px] uppercase tracking-widest text-white">
               <tr>
-                {['№', 'Имя', 'Логин', 'Email', 'Телефон', 'Пароль', 'Спонсор', 'Ветка', 'Роль', 'Действия'].map((header) => (
+                {['№', adminText('a_0JjQvNGP'), adminText('a_0JvQvtCz0LjQ'), 'Email', adminText('a_0KLQtdC70LXR'), adminText('a_0J_QsNGA0L7Q_2'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0JLQtdGC0LrQ'), adminText('a_0KDQvtC70Yw'), adminText('a_0JTQtdC50YHR')].map((header) => (
                   <th key={header} className="px-4 py-3 font-extrabold">{header}</th>
                 ))}
               </tr>
@@ -232,7 +229,7 @@ export default function AdminPartnersBulkCreate() {
                         type="button"
                         onClick={() => generateRowPassword(row.localId)}
                         className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-safi-border bg-safi-cream text-safi-green transition-colors hover:bg-safi-green/10"
-                        title="Сгенерировать пароль"
+                        title={adminText('a_0KHQs9C10L3Q')}
                       >
                         <Shuffle className="h-4 w-4" />
                       </button>
@@ -240,13 +237,13 @@ export default function AdminPartnersBulkCreate() {
                   </td>
                   <td className="px-4 py-3">
                     <select value={row.sponsor_id} onChange={(event) => updateRow(row.localId, 'sponsor_id', event.target.value)} className={inputClass}>
-                      <option value="">Без спонсора</option>
+                      <option value="">{adminText('a_0JHQtdC3INGB')}</option>
                       {sponsors.map((sponsor) => <option key={sponsor.id} value={sponsor.id}>{sponsor.label}</option>)}
                     </select>
                   </td>
                   <td className="px-4 py-3">
                     <select value={row.branch} onChange={(event) => updateRow(row.localId, 'branch', event.target.value)} className={inputClass} disabled={!row.sponsor_id}>
-                      <option value="">Авто</option>
+                      <option value="">{adminText('a_0JDQstGC0L4')}</option>
                       <option value="left">left</option>
                       <option value="right">right</option>
                     </select>
@@ -265,7 +262,7 @@ export default function AdminPartnersBulkCreate() {
                       onClick={() => removeRow(row.localId)}
                       disabled={rows.length === 1}
                       className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-red-100 bg-red-50 text-red-600 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
-                      title="Удалить строку"
+                      title={adminText('a_0KPQtNCw0LvQ')}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -280,21 +277,20 @@ export default function AdminPartnersBulkCreate() {
       {results.length > 0 && (
         <section className="rounded-[28px] border border-safi-border bg-white p-5 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
           <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <h2 className="font-serif text-2xl font-semibold text-safi-green">Результаты</h2>
+            <h2 className="font-serif text-2xl font-semibold text-safi-green">{adminText('a_0KDQtdC30YPQ')}</h2>
             <button
               type="button"
               onClick={copyAllCredentials}
               disabled={createdResults.length === 0}
               className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-white px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <Copy className="h-4 w-4" /> Скопировать все доступы
-            </button>
+              <Copy className="h-4 w-4" />{adminText('a_0KHQutC-0L_Q_2')}</button>
           </div>
           <div className="overflow-x-auto">
             <table className="min-w-[760px] w-full text-left text-sm">
               <thead className="text-[10px] uppercase tracking-widest text-safi-muted">
                 <tr>
-                  {['Логин', 'Email', 'Пароль', 'Статус', 'Ошибка'].map((header) => <th key={header} className="pb-3">{header}</th>)}
+                  {[adminText('a_0JvQvtCz0LjQ'), 'Email', adminText('a_0J_QsNGA0L7Q_2'), adminText('a_0KHRgtCw0YLR'), adminText('a_0J7RiNC40LHQ')].map((header) => <th key={header} className="pb-3">{header}</th>)}
                 </tr>
               </thead>
               <tbody className="divide-y divide-safi-border">
@@ -354,7 +350,7 @@ function normalizeResults(response: unknown, rows: BulkRow[]): BulkResult[] {
 
 function flattenErrors(errors: unknown) {
   if (!errors || typeof errors !== 'object' || Array.isArray(errors)) {
-    return 'Ошибка строки';
+    return adminText('a_0J7RiNC40LHQ_2');
   }
 
   return Object.values(errors as Record<string, unknown>)

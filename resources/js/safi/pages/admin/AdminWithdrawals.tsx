@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle, Search, XCircle } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ApiError, approveAdminWithdrawal, getAdminWithdrawals, rejectAdminWithdrawal } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 interface AdminWithdrawalRow {
   id: string;
@@ -39,7 +40,7 @@ export default function AdminWithdrawals() {
       setWithdrawals(data);
     } catch {
       setWithdrawals([]);
-      setLoadError('Не удалось загрузить заявки на вывод.');
+      setLoadError(adminText('a_0J3QtSDRg9C0_33'));
     } finally {
       setIsLoading(false);
     }
@@ -62,10 +63,10 @@ export default function AdminWithdrawals() {
   }, [withdrawals, query]);
 
   const stats = useMemo(() => ({
-    new: withdrawals.filter((withdrawal) => withdrawal.status === 'Новая заявка').length,
-    processing: withdrawals.filter((withdrawal) => withdrawal.status === 'В обработке').length,
-    approved: withdrawals.filter((withdrawal) => withdrawal.status === 'Выплачено' || withdrawal.status === 'Одобрено').length,
-    rejected: withdrawals.filter((withdrawal) => withdrawal.status === 'Отклонено').length,
+    new: withdrawals.filter((withdrawal) => withdrawal.status === adminText('a_0J3QvtCy0LDR')).length,
+    processing: withdrawals.filter((withdrawal) => withdrawal.status === adminText('a_0JIg0L7QsdGA')).length,
+    approved: withdrawals.filter((withdrawal) => withdrawal.status === adminText('a_0JLRi9C_0LvQ_2') || withdrawal.status === adminText('a_0J7QtNC-0LHR')).length,
+    rejected: withdrawals.filter((withdrawal) => withdrawal.status === adminText('a_0J7RgtC60LvQ')).length,
   }), [withdrawals]);
 
   const handleAction = async (withdrawalId: string, action: 'approve' | 'reject') => {
@@ -80,13 +81,13 @@ export default function AdminWithdrawals() {
         await rejectAdminWithdrawal(withdrawalId);
       }
 
-      setMessage(action === 'approve' ? 'Заявка одобрена.' : 'Заявка отклонена.');
+      setMessage(action === 'approve' ? adminText('a_0JfQsNGP0LLQ_2') : adminText('a_0JfQsNGP0LLQ_3'));
       await loadWithdrawals();
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message);
       } else {
-        setError('Не удалось обработать заявку.');
+        setError(adminText('a_0J3QtSDRg9C0_34'));
       }
     } finally {
       setPendingId('');
@@ -99,10 +100,8 @@ export default function AdminWithdrawals() {
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <span className="safi-kicker">Admin withdrawals</span>
-            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Заявки на вывод</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-              Проверка реквизитов, одобрение и отклонение заявок партнеров.
-            </p>
+            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">{adminText('a_0JfQsNGP0LLQ')}</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">{adminText('a_0J_RgNC-0LLQ_2')}</p>
           </div>
         </div>
       </section>
@@ -117,17 +116,15 @@ export default function AdminWithdrawals() {
         <div className="flex items-start gap-3">
           <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
           <div className="text-sm leading-6 text-amber-900">
-            <strong className="block">Внимание администраторам</strong>
-            Перед подтверждением выплаты проверьте реквизиты партнера, доступный баланс и историю операций.
-          </div>
+            <strong className="block">{adminText('a_0JLQvdC40LzQ')}</strong>{adminText('a_0J_QtdGA0LXQ')}</div>
         </div>
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatBox title="Новые" value={String(stats.new)} color="text-blue-600" />
-        <StatBox title="В обработке" value={String(stats.processing)} color="text-amber-600" />
-        <StatBox title="Одобрено" value={String(stats.approved)} color="text-emerald-600" />
-        <StatBox title="Отклонено" value={String(stats.rejected)} color="text-red-600" />
+        <StatBox title={adminText('a_0J3QvtCy0YvQ_4')} value={String(stats.new)} color="text-blue-600" />
+        <StatBox title={adminText('a_0JIg0L7QsdGA')} value={String(stats.processing)} color="text-amber-600" />
+        <StatBox title={adminText('a_0J7QtNC-0LHR')} value={String(stats.approved)} color="text-emerald-600" />
+        <StatBox title={adminText('a_0J7RgtC60LvQ')} value={String(stats.rejected)} color="text-red-600" />
       </section>
 
       <section className="rounded-[28px] border border-safi-border bg-white p-4 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -137,7 +134,7 @@ export default function AdminWithdrawals() {
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Поиск по ID заявки или ФИО партнера"
+            placeholder={adminText('a_0J_QvtC40YHQ_4')}
             className="w-full rounded-full border border-safi-border bg-safi-cream py-3 pl-12 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
           />
         </label>
@@ -146,11 +143,11 @@ export default function AdminWithdrawals() {
       {isLoading && <LoadingState />}
       {!isLoading && loadError && <ErrorState description={loadError} onRetry={loadWithdrawals} />}
       {!isLoading && !loadError && visibleWithdrawals.length === 0 && (
-        <EmptyState title="Заявок не найдено" description={query ? 'Попробуйте изменить поисковый запрос.' : 'Заявки появятся после запросов на вывод.'} />
+        <EmptyState title={adminText('a_0JfQsNGP0LLQ_4')} description={query ? adminText('a_0J_QvtC_0YDQ') : adminText('a_0JfQsNGP0LLQ_5')} />
       )}
 
       {!isLoading && !loadError && visibleWithdrawals.length > 0 && (
-        <AdminTable headers={['Заявка / дата', 'Партнер', 'Сумма / способ', 'Реквизиты', 'Статус', 'Действия']}>
+        <AdminTable headers={[adminText('a_0JfQsNGP0LLQ_6'), adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0KHRg9C80LzQ_2'), adminText('a_0KDQtdC60LLQ'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
           {visibleWithdrawals.map((withdrawal) => (
             <tr key={withdrawal.id} className="transition-colors hover:bg-safi-cream/70">
               <td className="px-6 py-5">
@@ -167,7 +164,7 @@ export default function AdminWithdrawals() {
               </td>
               <td className="px-6 py-5">
                 <div className="max-w-[220px] truncate font-mono text-sm">{withdrawal.reqs}</div>
-                <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank} / ИИН: {withdrawal.iin}</div>
+                <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank}{adminText('a_LyDQmNCY0J06')}{withdrawal.iin}</div>
               </td>
               <td className="px-6 py-5">
                 <AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.status)}>{withdrawal.status}</AdminBadge>
@@ -186,7 +183,7 @@ export default function AdminWithdrawals() {
                         className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-emerald-100 bg-emerald-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-emerald-700 transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-50"
                       >
                         <CheckCircle className="h-5 w-5" />
-                        {pendingId === withdrawal.id ? '...' : 'Одобр.'}
+                        {pendingId === withdrawal.id ? '...' : adminText('a_0J7QtNC-0LHR_2')}
                       </button>
                       <button
                         type="button"
@@ -195,7 +192,7 @@ export default function AdminWithdrawals() {
                         className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-red-100 bg-red-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-red-700 transition-colors hover:bg-red-600 hover:text-white disabled:opacity-50"
                       >
                         <XCircle className="h-5 w-5" />
-                        {pendingId === withdrawal.id ? '...' : 'Откл.'}
+                        {pendingId === withdrawal.id ? '...' : adminText('a_0J7RgtC60Lsu')}
                       </button>
                     </>
                   )}
@@ -234,7 +231,7 @@ function normalizeWithdrawals(response: unknown): AdminWithdrawalRow[] {
       reqs: getString(details, ['label', 'reqs', 'requisites', 'card', 'iban']) || getString(record, ['reqs', 'requisites', 'card', 'iban']) || '-',
       bank: getString(details, ['bank']) || getString(record, ['bank']) || '-',
       iin: getString(details, ['iin', 'tax_id', 'taxId']) || getString(record, ['iin', 'tax_id', 'taxId']) || '-',
-      status: normalizeStatus(getString(record, ['status']) || 'Новая заявка'),
+      status: normalizeStatus(getString(record, ['status']) || adminText('a_0J3QvtCy0LDR')),
       comment: getString(record, ['comment', 'reject_reason', 'rejectReason']) || '',
       processedDate: getString(record, ['processed_date', 'processedDate', 'paid_at', 'updated_at']) || '-',
     };
@@ -264,15 +261,15 @@ function getArray(response: unknown) {
 }
 
 function getWithdrawalBadgeVariant(status: string) {
-  if (status === 'Отклонено') {
+  if (status === adminText('a_0J7RgtC60LvQ')) {
     return 'danger';
   }
 
-  if (status === 'В обработке') {
+  if (status === adminText('a_0JIg0L7QsdGA')) {
     return 'warning';
   }
 
-  if (status === 'Выплачено' || status === 'Одобрено') {
+  if (status === adminText('a_0JLRi9C_0LvQ_2') || status === adminText('a_0J7QtNC-0LHR')) {
     return 'success';
   }
 
@@ -280,26 +277,26 @@ function getWithdrawalBadgeVariant(status: string) {
 }
 
 function isProcessed(status: string) {
-  return ['Выплачено', 'Отклонено', 'Одобрено'].includes(status);
+  return [adminText('a_0JLRi9C_0LvQ_2'), adminText('a_0J7RgtC60LvQ'), adminText('a_0J7QtNC-0LHR')].includes(status);
 }
 
 function normalizeStatus(status: string) {
   const normalized = status.toLowerCase();
 
   if (['approved', 'paid', 'completed'].includes(normalized)) {
-    return 'Выплачено';
+    return adminText('a_0JLRi9C_0LvQ_2');
   }
 
   if (['rejected', 'declined', 'failed'].includes(normalized)) {
-    return 'Отклонено';
+    return adminText('a_0J7RgtC60LvQ');
   }
 
   if (['processing', 'in_progress'].includes(normalized)) {
-    return 'В обработке';
+    return adminText('a_0JIg0L7QsdGA');
   }
 
   if (['pending', 'new'].includes(normalized)) {
-    return 'Новая заявка';
+    return adminText('a_0J3QvtCy0LDR');
   }
 
   return status;
@@ -307,26 +304,26 @@ function normalizeStatus(status: string) {
 
 function formatAmount(value: unknown) {
   if (typeof value === 'number') {
-    return `${value.toLocaleString('ru-RU')} тг`;
+    return `${value.toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`;
   }
 
   if (typeof value === 'string' && value.trim() !== '') {
-    return value.includes('тг') || value.includes('₸') ? value : `${value} тг`;
+    return value.includes(adminText('a_0YLQsw')) || value.includes('₸') ? value : `${value} ${adminText('currency_kzt_short')}`;
   }
 
-  return '0 тг';
+  return adminText('a_MCDRgtCz');
 }
 
 function methodLabel(method?: string) {
   if (method === 'ip_account') {
-    return 'Счет ИП';
+    return adminText('a_0KHRh9C10YIg');
   }
 
   if (method === 'card_account') {
-    return 'Карта партнера';
+    return adminText('a_0JrQsNGA0YLQ');
   }
 
-  return method || 'Карта партнера';
+  return method || adminText('a_0JrQsNGA0YLQ');
 }
 
 function getString(record: Record<string, unknown> | undefined, keys: string[]) {

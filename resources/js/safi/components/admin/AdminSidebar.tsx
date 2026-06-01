@@ -19,6 +19,7 @@ import {
 import { cn } from '../../lib/utils';
 import { logout } from '../../lib/api';
 import { menuLabel, RolePermissions } from '../../lib/permissions';
+import { adminText } from '../../i18n/adminText';
 
 const iconMap = {
   'arrow-up-circle': ArrowUpCircle,
@@ -61,7 +62,7 @@ export function AdminSidebar({
       {isOpen && (
         <button
           type="button"
-          aria-label="Закрыть меню"
+          aria-label={adminText('a_0JfQsNC60YDR_3')}
           className="fixed inset-0 z-40 bg-safi-green/30 backdrop-blur-sm xl:hidden"
           onClick={onClose}
         />
@@ -98,7 +99,7 @@ export function AdminSidebar({
         </div>
 
         <nav className="flex flex-1 flex-col gap-2 px-4 py-6">
-          <div className="mb-2 pl-4 text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-muted">Управление</div>
+          <div className="mb-2 pl-4 text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-muted">{adminText('a_0KPQv9GA0LDQ_4')}</div>
           {permissions.menu.map((item) => {
             const Icon = iconMap[item.icon as keyof typeof iconMap] || BarChart;
             const isRootItem = item.path === '/admin' || item.path === '/support';
@@ -132,9 +133,7 @@ export function AdminSidebar({
             }}
             className="flex w-full items-center justify-center gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-red-600 transition-colors hover:border-red-200 hover:bg-red-100"
           >
-            <LogOut className="h-5 w-5" />
-            Выйти
-          </button>
+            <LogOut className="h-5 w-5" />{adminText('a_0JLRi9C50YLQ')}</button>
         </div>
       </aside>
     </>

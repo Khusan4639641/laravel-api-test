@@ -4,6 +4,7 @@ import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { Search, Filter, Download } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminTransactions, getApiErrorState, getArray, getNumber, getString } from '../../lib/api';
+import { adminText } from '../../i18n/adminText';
 
 export default function AdminTransactions() {
   const [searchParams] = useSearchParams();
@@ -11,10 +12,10 @@ export default function AdminTransactions() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const summary = [
-    { label: 'Всего начислено', value: transactions.filter((trx) => trx.amount.startsWith('+')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
-    { label: 'Всего выплачено', value: transactions.filter((trx) => trx.amount.startsWith('-')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
-    { label: 'В обработке', value: transactions.filter((trx) => trx.status === 'pending').reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
-    { label: 'Отложено', value: 0 },
+    { label: adminText('a_0JLRgdC10LPQ_5'), value: transactions.filter((trx) => trx.amount.startsWith('+')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
+    { label: adminText('a_0JLRgdC10LPQ_6'), value: transactions.filter((trx) => trx.amount.startsWith('-')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
+    { label: adminText('a_0JIg0L7QsdGA'), value: transactions.filter((trx) => trx.status === 'pending').reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
+    { label: adminText('a_0J7RgtC70L7Q'), value: 0 },
   ];
 
   const loadTransactions = async () => {
@@ -34,14 +35,14 @@ export default function AdminTransactions() {
           partnerId: getString(user, ['id', 'login']) || getString(trx, ['user_id']) || '-',
           partnerName: getString(user, ['name']) || '-',
           type: getString(trx, ['type']) || '-',
-          amount: `${direction === 'credit' ? '+' : '-'}${amount.toLocaleString('ru-RU')} тг`,
+          amount: `${direction === 'credit' ? '+' : '-'}${amount.toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`,
           status: getString(trx, ['status']) || '-',
           comment: getString(trx, ['description']) || '-',
         };
       }));
     } catch (caughtError) {
       setTransactions([]);
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить транзакции.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_32'));
     } finally {
       setIsLoading(false);
     }
@@ -56,12 +57,11 @@ export default function AdminTransactions() {
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Транзакции</h1>
-          <p className="text-sm text-safi-text/70">История всех финансовых операций в системе</p>
+          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0KLRgNCw0L3Q')}</h1>
+          <p className="text-sm text-safi-text/70">{adminText('a_0JjRgdGC0L7R_2')}</p>
         </div>
-        <button className="flex cursor-not-allowed items-center gap-2 rounded-xl bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green opacity-60 transition-colors" disabled title="Экспорт CSV пока недоступен">
-          <Download className="w-4 h-4" /> Экспорт CSV
-        </button>
+        <button className="flex cursor-not-allowed items-center gap-2 rounded-xl bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green opacity-60 transition-colors" disabled title={adminText('a_0K3QutGB0L_Q_2')}>
+          <Download className="w-4 h-4" />{adminText('a_0K3QutGB0L_Q_3')}</button>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -78,21 +78,20 @@ export default function AdminTransactions() {
           <Search className="w-5 h-5 text-safi-text/40 absolute left-4 top-1/2 -translate-y-1/2" />
           <input 
             type="text" 
-            placeholder="Поиск по партнёру, ID транзакции..." 
+            placeholder={adminText('a_0J_QvtC40YHQ_3')}
             className="w-full pl-12 pr-4 py-3 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
           />
         </div>
-        <button className="flex cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-[#F5F5F0] px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green opacity-60 transition-colors shrink-0" disabled title="Фильтры пока недоступны">
-          <Filter className="w-4 h-4" /> Фильтры
-        </button>
+        <button className="flex cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-[#F5F5F0] px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green opacity-60 transition-colors shrink-0" disabled title={adminText('a_0KTQuNC70YzR')}>
+          <Filter className="w-4 h-4" />{adminText('a_0KTQuNC70YzR_2')}</button>
       </div>
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadTransactions} />}
-      {!isLoading && !error && transactions.length === 0 && <EmptyState title="Транзакций пока нет" description="Операции появятся после начислений, заказов или выплат." />}
+      {!isLoading && !error && transactions.length === 0 && <EmptyState title={adminText('a_0KLRgNCw0L3Q_2')} description={adminText('a_0J7Qv9C10YDQ_2')} />}
 
       {!isLoading && !error && transactions.length > 0 && (
-        <AdminTable headers={['Транзакция / Дата', 'Партнёр', 'Тип операции', 'Сумма', 'Статус', 'Источник / Комментарий']}>
+        <AdminTable headers={[adminText('a_0KLRgNCw0L3Q_3'), adminText('a_0J_QsNGA0YLQ'), adminText('a_0KLQuNC_INC-'), adminText('a_0KHRg9C80LzQ'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JjRgdGC0L7R_3')]}>
           {transactions.map((trx, i) => (
             <tr key={i} className="hover:bg-safi-green/5 transition-colors cursor-pointer group">
               <td className="px-6 py-4">
@@ -112,7 +111,7 @@ export default function AdminTransactions() {
                 </div>
               </td>
               <td className="px-6 py-4">
-                <AdminBadge variant={trx.status === 'Отклонено' ? 'danger' : trx.status === 'В обработке' ? 'warning' : 'success'}>
+                <AdminBadge variant={trx.status === adminText('a_0J7RgtC60LvQ') ? 'danger' : trx.status === adminText('a_0JIg0L7QsdGA') ? 'warning' : 'success'}>
                   {trx.status}
                 </AdminBadge>
               </td>

@@ -6,6 +6,7 @@ import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { ApiError, clearAuthToken, getAuthToken, getMyPermissions, me } from '../../lib/api';
 import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
 import { cn } from '../../lib/utils';
+import { adminText } from '../../i18n/adminText';
 
 export interface AdminCurrentUser {
   id?: string | number;
@@ -93,7 +94,7 @@ export function AdminLayout() {
       <div className="flex min-h-screen items-center justify-center bg-safi-bg px-5 text-center text-safi-green">
         <div>
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-safi-border border-t-safi-gold" />
-          <div className="font-serif text-2xl font-semibold">Проверка доступа</div>
+          <div className="font-serif text-2xl font-semibold">{adminText('a_0J_RgNC-0LLQ_3')}</div>
         </div>
       </div>
     );
@@ -114,7 +115,7 @@ export function AdminLayout() {
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:bg-safi-cream xl:hidden"
               onClick={() => setIsSidebarOpen(true)}
-              aria-label="Открыть меню"
+              aria-label={adminText('a_0J7RgtC60YDR_6')}
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -122,7 +123,7 @@ export function AdminLayout() {
               <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-safi-muted" />
               <input
                 type="text"
-                placeholder="Глобальный поиск"
+                placeholder={adminText('a_0JPQu9C-0LHQ_2')}
                 className="w-80 rounded-full border border-safi-border bg-white py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none transition-colors placeholder:text-safi-muted/60 focus:border-safi-green"
               />
             </label>
@@ -133,7 +134,7 @@ export function AdminLayout() {
             <button
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:bg-safi-green hover:text-white"
-              aria-label="Уведомления"
+              aria-label={adminText('a_0KPQstC10LTQ')}
             >
               <Bell className="h-5 w-5" />
             </button>
@@ -190,10 +191,10 @@ function roleLabel(role: string) {
   }
 
   if (role === 'accountant') {
-    return 'Бухгалтер';
+    return adminText('a_0JHRg9GF0LPQ');
   }
 
-  return 'Пользователь';
+  return adminText('a_0J_QvtC70YzQ_3');
 }
 
 function extractRole(record: Record<string, unknown>) {

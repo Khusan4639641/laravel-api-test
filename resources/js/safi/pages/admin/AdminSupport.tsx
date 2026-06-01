@@ -3,6 +3,7 @@ import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { Search, UserCheck } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { useAdminContext } from '../../components/admin/AdminLayout';
+import { adminText } from '../../i18n/adminText';
 import {
   assignAdminSupportTicket,
   getAdminSupportTicket,
@@ -41,14 +42,14 @@ interface SupportTicketRow {
 }
 
 const statuses = [
-  { value: 'open', label: 'Новое' },
-  { value: 'in_progress', label: 'В работе' },
-  { value: 'answered', label: 'Отвечено' },
-  { value: 'closed', label: 'Закрыто' },
+  { value: 'open', label: adminText('a_0J3QvtCy0L7Q') },
+  { value: 'in_progress', label: adminText('a_0JIg0YDQsNCx') },
+  { value: 'answered', label: adminText('a_0J7RgtCy0LXR') },
+  { value: 'closed', label: adminText('a_0JfQsNC60YDR_2') },
 ];
 
 const statusFilters = [
-  { value: 'all', label: 'Все статусы' },
+  { value: 'all', label: adminText('a_0JLRgdC1INGB') },
   ...statuses,
 ];
 
@@ -113,7 +114,7 @@ export default function AdminSupport() {
         return current.map((item) => item.id === ticket.id ? ticket : item);
       });
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || 'Не удалось открыть обращение.');
+      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_27'));
     } finally {
       setIsLoadingDetail(false);
     }
@@ -141,7 +142,7 @@ export default function AdminSupport() {
       setSupportTickets([]);
       setSelectedTicket(null);
       setSelectedTicketId('');
-      setError(getApiErrorState(caughtError).error || 'Не удалось загрузить обращения.');
+      setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_28'));
     } finally {
       setIsLoading(false);
     }
@@ -169,11 +170,11 @@ export default function AdminSupport() {
     try {
       await replyAdminSupportTicket(selectedTicketId, replyText, statusValue);
       setReplyText('');
-      setMessage('Ответ отправлен.');
+      setMessage(adminText('a_0J7RgtCy0LXR_2'));
       await loadTicketDetail(selectedTicketId);
       await loadTickets();
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || 'Не удалось отправить ответ.');
+      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_29'));
     } finally {
       setIsSaving(false);
     }
@@ -190,11 +191,11 @@ export default function AdminSupport() {
 
     try {
       await updateAdminSupportTicketStatus(selectedTicketId, statusValue);
-      setMessage('Статус обновлён.');
+      setMessage(adminText('a_0KHRgtCw0YLR_5'));
       await loadTicketDetail(selectedTicketId);
       await loadTickets();
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || 'Не удалось сменить статус.');
+      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_30'));
     } finally {
       setIsSaving(false);
     }
@@ -211,11 +212,11 @@ export default function AdminSupport() {
 
     try {
       await assignAdminSupportTicket(selectedTicketId, currentUser.id ?? undefined);
-      setMessage('Обращение назначено.');
+      setMessage(adminText('a_0J7QsdGA0LDR'));
       await loadTicketDetail(selectedTicketId);
       await loadTickets();
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || 'Не удалось назначить обращение.');
+      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_31'));
     } finally {
       setIsSaving(false);
     }
@@ -225,8 +226,8 @@ export default function AdminSupport() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="mb-1 font-serif text-3xl font-bold text-safi-green">Обращения</h1>
-          <p className="text-sm text-safi-text/70">Все обращения пользователей, ответы, статусы и ответственные сотрудники</p>
+          <h1 className="mb-1 font-serif text-3xl font-bold text-safi-green">{adminText('a_0J7QsdGA0LDR_2')}</h1>
+          <p className="text-sm text-safi-text/70">{adminText('a_0JLRgdC1INC-')}</p>
         </div>
       </div>
 
@@ -237,7 +238,7 @@ export default function AdminSupport() {
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
             className="w-full rounded-2xl border border-safi-border bg-safi-cream py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
-            placeholder="Поиск по ID, партнёру, email, теме"
+            placeholder={adminText('a_0J_QvtC40YHQ_2')}
           />
         </label>
         <select
@@ -261,19 +262,16 @@ export default function AdminSupport() {
         <section className="grid gap-6 rounded-[28px] border border-safi-green/5 bg-white p-6 shadow-sm xl:grid-cols-[0.45fr_0.55fr]">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">Обращение #{selectedTicket.id}</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('a_0J7QsdGA0LDR_3')}{selectedTicket.id}</div>
               <AdminBadge variant={badgeVariant(selectedTicket.statusCode)}>{selectedTicket.status}</AdminBadge>
             </div>
             <h2 className="mt-2 font-serif text-2xl font-bold text-safi-green">{selectedTicket.subject}</h2>
             <div className="mt-2 text-sm font-bold text-safi-text/70">{selectedTicket.partner} · {selectedTicket.email}</div>
-            <div className="mt-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
-              Ответственный: {selectedTicket.assignedTo}
+            <div className="mt-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">{adminText('a_0J7RgtCy0LXR_3')}{selectedTicket.assignedTo}
             </div>
 
             {isLoadingDetail && (
-              <div className="mt-5 rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-xs font-extrabold uppercase tracking-[0.16em] text-safi-muted">
-                Загружаем детали обращения...
-              </div>
+              <div className="mt-5 rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-xs font-extrabold uppercase tracking-[0.16em] text-safi-muted">{adminText('a_0JfQsNCz0YDR')}</div>
             )}
 
             <div className="mt-5 rounded-3xl border border-safi-green/5 bg-[#F5F5F0] p-5">
@@ -282,9 +280,9 @@ export default function AdminSupport() {
             </div>
 
             <div className="mt-4 space-y-3">
-              <div className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">История</div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('a_0JjRgdGC0L7R')}</div>
               {selectedTicket.messages.length === 0 && (
-                <div className="rounded-2xl border border-safi-border bg-white p-4 text-sm text-safi-muted">Сообщений пока нет.</div>
+                <div className="rounded-2xl border border-safi-border bg-white p-4 text-sm text-safi-muted">{adminText('a_0KHQvtC-0LHR')}</div>
               )}
               {selectedTicket.messages.map((ticketMessage) => (
                 <div key={ticketMessage.id} className={`rounded-2xl border p-4 ${ticketMessage.isStaff ? 'border-safi-green/10 bg-white' : 'border-safi-border bg-safi-cream'}`}>
@@ -300,13 +298,13 @@ export default function AdminSupport() {
 
           <div>
             <label className="block">
-              <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-safi-text/50">Ответ поддержки</span>
+              <span className="mb-2 block text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('a_0J7RgtCy0LXR_4')}</span>
               <textarea
                 rows={7}
                 value={replyText}
                 onChange={(event) => setReplyText(event.target.value)}
                 className="w-full resize-none rounded-xl bg-[#F5F5F0] px-5 py-3.5 text-sm font-medium text-safi-green outline-none focus:ring-2 focus:ring-safi-green/20"
-                placeholder="Напишите ответ пользователю"
+                placeholder={adminText('a_0J3QsNC_0LjR')}
               />
             </label>
 
@@ -325,9 +323,7 @@ export default function AdminSupport() {
                 disabled={isSaving}
                 className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#F5F5F0] px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:opacity-60"
               >
-                <UserCheck className="h-4 w-4" />
-                Назначить на меня
-              </button>
+                <UserCheck className="h-4 w-4" />{adminText('a_0J3QsNC30L3Q')}</button>
             </div>
 
             <div className="mt-3 grid gap-3 md:grid-cols-2">
@@ -335,16 +331,12 @@ export default function AdminSupport() {
                 onClick={handleReply}
                 disabled={isSaving || !replyText.trim()}
                 className="rounded-xl bg-safi-green px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:opacity-60"
-              >
-                Отправить ответ
-              </button>
+              >{adminText('a_0J7RgtC_0YDQ')}</button>
               <button
                 onClick={handleStatusChange}
                 disabled={isSaving}
                 className="rounded-xl bg-[#F5F5F0] px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:opacity-60"
-              >
-                Сменить статус
-              </button>
+              >{adminText('a_0KHQvNC10L3Q')}</button>
             </div>
           </div>
         </section>
@@ -352,19 +344,19 @@ export default function AdminSupport() {
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadTickets} />}
-      {!isLoading && !error && supportTickets.length === 0 && <EmptyState title="Обращений пока нет" description="Тикеты появятся после сообщений от пользователей." />}
+      {!isLoading && !error && supportTickets.length === 0 && <EmptyState title={adminText('a_0J7QsdGA0LDR_4')} description={adminText('a_0KLQuNC60LXR')} />}
       {!isLoading && !error && supportTickets.length > 0 && filteredTickets.length === 0 && (
-        <EmptyState title="Ничего не найдено" description="Измените поиск или фильтр статуса." />
+        <EmptyState title={adminText('a_0J3QuNGH0LXQ')} description={adminText('a_0JjQt9C80LXQ_5')} />
       )}
 
       {!isLoading && !error && filteredTickets.length > 0 && (
-        <AdminTable headers={['Тикет / даты', 'Отправитель', 'Тематика', 'Статус', 'Ответственный', 'Действие']}>
+        <AdminTable headers={[adminText('a_0KLQuNC60LXR_2'), adminText('a_0J7RgtC_0YDQ_2'), adminText('a_0KLQtdC80LDR'), adminText('a_0KHRgtCw0YLR'), adminText('a_0J7RgtCy0LXR_5'), adminText('a_0JTQtdC50YHR_2')]}>
           {filteredTickets.map((ticket) => (
             <tr key={ticket.id} className={`group cursor-pointer transition-colors hover:bg-safi-green/5 ${ticket.id === selectedTicketId ? 'bg-safi-green/5' : ''}`}>
               <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
                 <div className="font-mono font-bold text-safi-green">#{ticket.id}</div>
-                <div className="mt-1 text-[10px] text-safi-text/50">Создан: {ticket.date}</div>
-                {ticket.lastReply !== '-' && <div className="mt-1 text-[10px] font-bold text-safi-gold">Активность: {ticket.lastReply}</div>}
+                <div className="mt-1 text-[10px] text-safi-text/50">{adminText('a_0KHQvtC30LTQ_10')}{ticket.date}</div>
+                {ticket.lastReply !== '-' && <div className="mt-1 text-[10px] font-bold text-safi-gold">{adminText('a_0JDQutGC0LjQ_4')}{ticket.lastReply}</div>}
               </td>
               <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
                 <div className="text-sm font-bold text-safi-green">{ticket.partner}</div>
@@ -384,9 +376,7 @@ export default function AdminSupport() {
                 <button
                   onClick={() => selectTicket(ticket)}
                   className="rounded-lg bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white"
-                >
-                  Открыть
-                </button>
+                >{adminText('a_0J7RgtC60YDR_3')}</button>
               </td>
             </tr>
           ))}
@@ -418,7 +408,7 @@ function normalizeTicket(item: unknown, index = 0): SupportTicketRow {
     statusCode,
     priority: getString(ticket, ['priority']) || '-',
     lastReply: getString(ticket, ['last_reply_at', 'replied_at']) || '-',
-    assignedTo: getString(assignedUser, ['name']) || (assignedToId ? `ID ${assignedToId}` : 'Не назначено'),
+    assignedTo: getString(assignedUser, ['name']) || (assignedToId ? `ID ${assignedToId}` : adminText('a_0J3QtSDQvdCw')),
     assignedToId,
     messages,
   };
@@ -434,7 +424,7 @@ function getMessages(ticket: Record<string, unknown>): SupportTicketMessage[] {
 
     return {
       id: getString(record, ['id']) || String(index + 1),
-      author: getString(user, ['name']) || (isStaff ? 'Support' : 'Пользователь'),
+      author: getString(user, ['name']) || (isStaff ? 'Support' : adminText('a_0J_QvtC70YzQ_3')),
       message: getString(record, ['message']) || '',
       isStaff,
       date: getString(record, ['created_at']) || '-',
@@ -486,19 +476,19 @@ function badgeVariant(status: string): 'default' | 'success' | 'warning' | 'dang
 
 function normalizeStatus(status: string) {
   if (status === 'closed') {
-    return 'Закрыто';
+    return adminText('a_0JfQsNC60YDR_2');
   }
 
   if (status === 'answered') {
-    return 'Отвечено';
+    return adminText('a_0J7RgtCy0LXR');
   }
 
   if (status === 'in_progress') {
-    return 'В работе';
+    return adminText('a_0JIg0YDQsNCx');
   }
 
   if (status === 'open') {
-    return 'Новое';
+    return adminText('a_0J3QvtCy0L7Q');
   }
 
   return status;
