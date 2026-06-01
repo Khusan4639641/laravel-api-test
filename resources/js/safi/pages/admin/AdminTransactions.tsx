@@ -6,11 +6,27 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncS
 import { getAdminTransactions, getApiErrorState, getArray, getNumber, getString } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 
+type TransactionRow = {
+  id: string;
+  date: string;
+  partnerId: string;
+  partnerName: string;
+  type: string;
+  amount: string;
+  status: string;
+  comment: string;
+};
+
 export default function AdminTransactions() {
   const [searchParams] = useSearchParams();
-  const [transactions, setTransactions] = useState<Array<{ id: string; date: string; partnerId: string; partnerName: string; type: string; amount: string; status: string; comment: string }>>([]);
+  const userIdFilter = searchParams.get('user_id') || undefined;
+  const searchParam = searchParams.get('search') || '';
+  const [search, setSearch] = useState(searchParam);
+  const [debouncedSearch, setDebouncedSearch] = useState(search.trim());
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const hasSearch = debouncedSearch.trim() !== '';
   const summary = [
     { label: adminText('a_0JLRgdC10LPQ_5'), value: transactions.filter((trx) => trx.amount.startsWith('+')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
     { label: adminText('a_0JLRgdC10LPQ_6'), value: transactions.filter((trx) => trx.amount.startsWith('-')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
@@ -23,7 +39,10 @@ export default function AdminTransactions() {
     setError(null);
 
     try {
-      const response = await getAdminTransactions({ user_id: searchParams.get('user_id') || undefined });
+      const response = await getAdminTransactions({
+        user_id: userIdFilter,
+        search: debouncedSearch.trim() || undefined,
+      });
       setTransactions(getArray(response, ['transactions']).map((item, index) => {
         const trx = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const user = trx.user && typeof trx.user === 'object' ? trx.user as Record<string, unknown> : {};
@@ -49,8 +68,20 @@ export default function AdminTransactions() {
   };
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      setDebouncedSearch(search.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setSearch(searchParam);
+  }, [searchParam]);
+
+  useEffect(() => {
     void loadTransactions();
-  }, [searchParams]);
+  }, [debouncedSearch, userIdFilter]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -79,6 +110,8 @@ export default function AdminTransactions() {
           <input 
             type="text" 
             placeholder={adminText('a_0J_QvtC40YHQ_3')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
             className="w-full pl-12 pr-4 py-3 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
           />
         </div>
@@ -88,10 +121,15 @@ export default function AdminTransactions() {
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadTransactions} />}
-      {!isLoading && !error && transactions.length === 0 && <EmptyState title={adminText('a_0KLRgNCw0L3Q_2')} description={adminText('a_0J7Qv9C10YDQ_2')} />}
+      {!isLoading && !error && transactions.length === 0 && (
+        <EmptyState
+          title={hasSearch ? adminText('transactions_not_found') : adminText('a_0KLRgNCw0L3Q_2')}
+          description={hasSearch ? adminText('a_0J_QvtC_0YDQ') : adminText('a_0J7Qv9C10YDQ_2')}
+        />
+      )}
 
       {!isLoading && !error && transactions.length > 0 && (
-        <AdminTable headers={[adminText('a_0KLRgNCw0L3Q_3'), adminText('a_0J_QsNGA0YLQ'), adminText('a_0KLQuNC_INC-'), adminText('a_0KHRg9C80LzQ'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JjRgdGC0L7R_3')]}>
+        <AdminTable headers={[adminText('transaction_id_date'), adminText('partner_id_header'), adminText('a_0KLQuNC_INC-'), adminText('a_0KHRg9C80LzQ'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JjRgdGC0L7R_3')]}>
           {transactions.map((trx, i) => (
             <tr key={i} className="hover:bg-safi-green/5 transition-colors cursor-pointer group">
               <td className="px-6 py-4">

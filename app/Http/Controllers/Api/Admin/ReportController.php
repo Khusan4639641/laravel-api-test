@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Models\WithdrawalRequest;
 use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 
 class ReportController extends Controller
@@ -15,22 +16,19 @@ class ReportController extends Controller
     public function summary(): JsonResponse
     {
         $now = CarbonImmutable::now();
-        $usersTotal = User::query()->count();
-        $activeUsers = User::query()
-            ->where(function ($query): void {
-                $query->whereNull('status')
-                    ->orWhere('status', '!=', 'inactive');
-            })
+        $usersTotal = $this->partnerUsers()->count();
+        $activeUsers = $this->partnerUsers()
+            ->where('account_status', 'active')
             ->count();
 
-        $totalTurnover = (float) Order::query()->sum('total_amount');
-        $totalBonusPaid = (float) BonusTransaction::query()
+        $totalTurnover = (float) $this->partnerOrders()->sum('total_amount');
+        $totalBonusPaid = (float) $this->partnerBonuses()
             ->whereIn('status', ['paid', 'completed', 'approved'])
             ->sum('amount');
-        $pendingWithdrawals = (float) WithdrawalRequest::query()
+        $pendingWithdrawals = (float) $this->partnerWithdrawals()
             ->where('status', 'pending')
             ->sum('amount');
-        $totalPv = (float) Order::query()->sum('total_pv');
+        $totalPv = (float) $this->partnerUsers()->sum('total_pv');
 
         return response()->json([
             'summary' => [
@@ -43,18 +41,18 @@ class ReportController extends Controller
             'chart' => $this->chartData($now),
             'partners' => [
                 'total' => $usersTotal,
-                'new_14_days' => User::query()->where('created_at', '>=', $now->subDays(14))->count(),
+                'new_14_days' => $this->partnerUsers()->where('created_at', '>=', $now->subDays(14))->count(),
                 'active' => $activeUsers,
                 'inactive' => max($usersTotal - $activeUsers, 0),
             ],
             'finance' => [
                 'revenue' => $totalTurnover,
                 'bonuses_paid' => $totalBonusPaid,
-                'bonuses_total' => (float) BonusTransaction::query()->sum('amount'),
+                'bonuses_total' => (float) $this->partnerBonuses()->sum('amount'),
                 'pending_withdrawals' => $pendingWithdrawals,
             ],
             'packages' => [
-                'sold' => Order::query()->count(),
+                'sold' => $this->partnerOrders()->count(),
                 'pv' => $totalPv,
             ],
         ]);
@@ -69,17 +67,17 @@ class ReportController extends Controller
         $periods = collect(range(0, 5))
             ->map(fn (int $offset): CarbonImmutable => $start->addMonths($offset));
 
-        $orders = Order::query()
+        $orders = $this->partnerOrders()
             ->where('created_at', '>=', $start)
             ->get(['created_at', 'total_amount', 'total_pv']);
-        $bonuses = BonusTransaction::query()
+        $bonuses = $this->partnerBonuses()
             ->where('created_at', '>=', $start)
             ->whereIn('status', ['paid', 'completed', 'approved'])
             ->get(['created_at', 'amount']);
-        $withdrawals = WithdrawalRequest::query()
+        $withdrawals = $this->partnerWithdrawals()
             ->where('created_at', '>=', $start)
             ->get(['created_at', 'amount']);
-        $users = User::query()
+        $users = $this->partnerUsers()
             ->where('created_at', '>=', $start)
             ->get(['created_at']);
 
@@ -106,5 +104,30 @@ class ReportController extends Controller
             })
             ->values()
             ->all();
+    }
+
+    private function partnerUsers(): Builder
+    {
+        return User::query()->where('role', User::ROLE_USER);
+    }
+
+    private function partnerOrders(): Builder
+    {
+        return Order::query()->whereHas('user', $this->partnerRoleFilter());
+    }
+
+    private function partnerBonuses(): Builder
+    {
+        return BonusTransaction::query()->whereHas('user', $this->partnerRoleFilter());
+    }
+
+    private function partnerWithdrawals(): Builder
+    {
+        return WithdrawalRequest::query()->whereHas('user', $this->partnerRoleFilter());
+    }
+
+    private function partnerRoleFilter(): callable
+    {
+        return static fn (Builder $query): Builder => $query->where('role', User::ROLE_USER);
     }
 }

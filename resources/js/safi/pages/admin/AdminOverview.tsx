@@ -16,6 +16,18 @@ interface AdminOverviewSummary {
   pendingWithdrawalsAmount: number;
   packagesSold: number;
   totalPV: number;
+  recentTransactions: AdminOverviewTransaction[];
+  chart: unknown[];
+}
+
+interface AdminOverviewTransaction {
+  id: string;
+  partnerId: string;
+  partnerName: string;
+  amount: number;
+  direction: string;
+  status: string;
+  createdAt: string;
 }
 
 export default function AdminOverview() {
@@ -52,7 +64,10 @@ export default function AdminOverview() {
     pendingWithdrawalsAmount: 0,
     packagesSold: 0,
     totalPV: 0,
+    recentTransactions: [],
+    chart: [],
   };
+  const hasChartData = currentSummary.chart.length > 0;
 
   const cards = useMemo(() => [
     { title: adminText('a_0JLRgdC10LPQ'), value: currentSummary.usersTotal.toLocaleString('ru-RU'), icon: Users, trend: `${adminText('active_count')}: ${currentSummary.activeUsers.toLocaleString('ru-RU')}` },
@@ -101,7 +116,9 @@ export default function AdminOverview() {
           <div className="flex min-h-72 flex-col items-center justify-center rounded-[28px] border border-dashed border-safi-border bg-safi-cream p-8 text-center">
             <TrendingUp className="mb-4 h-12 w-12 text-safi-gold" />
             <h2 className="font-serif text-3xl font-semibold text-safi-green">{adminText('a_0JPRgNCw0YTQ')}</h2>
-            <p className="mt-3 max-w-md text-sm leading-7 text-safi-muted">{adminText('a_0JfQtNC10YHR')}</p>
+            <p className="mt-3 max-w-md text-sm leading-7 text-safi-muted">
+              {hasChartData ? adminText('a_0JfQtNC10YHR') : adminText('overview_chart_empty')}
+            </p>
           </div>
         </article>
 
@@ -115,6 +132,41 @@ export default function AdminOverview() {
             <QuickLink to="/admin/settings" icon={<Settings className="h-4 w-4" />} label={adminText('a_0J3QsNGB0YLR')} />
           </div>
         </article>
+      </section>
+
+      <section className="rounded-[32px] border border-safi-border bg-white p-8 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+        <div className="mb-6 flex items-center justify-between gap-4">
+          <h2 className="font-serif text-3xl font-semibold text-safi-green">{adminText('a_0J_QvtGB0LvQ')}</h2>
+          <Link to="/admin/transactions" className="text-xs font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:text-safi-gold">
+            {adminText('a_0KHQvNC-0YLR')}
+          </Link>
+        </div>
+
+        {currentSummary.recentTransactions.length === 0 ? (
+          <div className="flex min-h-44 flex-col items-center justify-center rounded-[28px] border border-dashed border-safi-border bg-safi-cream p-8 text-center">
+            <CreditCard className="mb-4 h-10 w-10 text-safi-gold" />
+            <h3 className="font-serif text-2xl font-semibold text-safi-green">{adminText('a_0KLRgNCw0L3Q_2')}</h3>
+            <p className="mt-3 max-w-md text-sm leading-7 text-safi-muted">{adminText('a_0J7Qv9C10YDQ_2')}</p>
+          </div>
+        ) : (
+          <div className="divide-y divide-safi-border/70">
+            {currentSummary.recentTransactions.map((transaction) => (
+              <div key={transaction.id} className="grid gap-3 py-4 text-sm md:grid-cols-[1fr_1fr_auto] md:items-center">
+                <div>
+                  <div className="safi-numeric font-bold text-safi-text">#{transaction.id}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{transaction.createdAt || '-'}</div>
+                </div>
+                <div>
+                  <div className="font-bold text-safi-green">{transaction.partnerName}</div>
+                  <div className="safi-numeric mt-1 text-xs text-safi-muted">ID {transaction.partnerId}</div>
+                </div>
+                <div className={`safi-numeric font-bold ${transaction.direction === 'debit' ? 'text-red-500' : 'text-green-600'}`}>
+                  {formatSignedMoney(transaction.amount, transaction.direction)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
         </>
       )}
@@ -148,11 +200,44 @@ function normalizeOverview(response: unknown): AdminOverviewSummary {
     pendingWithdrawalsAmount: getNumericValue(withdrawals.pending_amount),
     packagesSold: getNumericValue(orders.packages_sold || orders.total),
     totalPV: getNumericValue(orders.total_pv),
+    recentTransactions: getArrayValue(root, 'recent_transactions').map(normalizeOverviewTransaction),
+    chart: getArrayValue(root, 'chart'),
+  };
+}
+
+function normalizeOverviewTransaction(item: unknown, index: number): AdminOverviewTransaction {
+  const transaction = isRecord(item) ? item : {};
+  const user = isRecord(transaction.user) ? transaction.user : {};
+
+  return {
+    id: getStringValue(transaction.id) || String(index + 1),
+    partnerId: getStringValue(user.id) || getStringValue(transaction.user_id) || '-',
+    partnerName: getStringValue(user.name) || '-',
+    amount: getNumericValue(transaction.amount),
+    direction: getStringValue(transaction.direction) || 'credit',
+    status: getStringValue(transaction.status) || '-',
+    createdAt: getStringValue(transaction.created_at) || '-',
   };
 }
 
 function getRecord(record: Record<string, unknown>, key: string) {
   return isRecord(record[key]) ? record[key] as Record<string, unknown> : {};
+}
+
+function getArrayValue(record: Record<string, unknown>, key: string) {
+  return Array.isArray(record[key]) ? record[key] as unknown[] : [];
+}
+
+function getStringValue(value: unknown) {
+  if (typeof value === 'string' && value.trim() !== '') {
+    return value;
+  }
+
+  if (typeof value === 'number') {
+    return String(value);
+  }
+
+  return undefined;
 }
 
 function getNumericValue(value: unknown) {
@@ -170,6 +255,12 @@ function getNumericValue(value: unknown) {
 
 function formatMoney(value: number) {
   return `${value.toLocaleString('ru-RU')} ₸`;
+}
+
+function formatSignedMoney(value: number, direction: string) {
+  const sign = direction === 'debit' ? '-' : '+';
+
+  return `${sign}${value.toLocaleString('ru-RU')} ₸`;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

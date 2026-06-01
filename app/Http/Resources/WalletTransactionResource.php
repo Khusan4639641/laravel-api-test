@@ -11,8 +11,10 @@ class WalletTransactionResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'transaction_type' => 'wallet_transaction',
             'wallet_id' => $this->wallet_id,
             'user_id' => $this->user_id,
+            'partner_id' => $this->user_id,
             'type' => $this->type,
             'direction' => $this->direction,
             'amount' => $this->amount,
@@ -22,6 +24,7 @@ class WalletTransactionResource extends JsonResource
             'source_type' => $this->source_type,
             'source_id' => $this->source_id,
             'description' => $this->description,
+            'comment' => $this->description,
             'metadata' => $this->metadata,
             'wallet' => new WalletResource($this->whenLoaded('wallet')),
             'user' => new UserResource($this->whenLoaded('user')),

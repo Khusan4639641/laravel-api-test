@@ -60,7 +60,7 @@ class ReportsApiTest extends TestCase
 
     private function seedReportData(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['total_pv' => 5000]);
         $wallet = Wallet::query()->create([
             'user_id' => $user->id,
             'type' => 'main',
