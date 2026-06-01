@@ -307,6 +307,7 @@ class PartnerController extends Controller
                 User::ROLE_USER,
                 User::ROLE_SUPPORT,
                 User::ROLE_ADMIN,
+                User::ROLE_ACCOUNTANT,
                 User::ROLE_SUPER_ADMIN,
             ])],
         ];

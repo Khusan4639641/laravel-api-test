@@ -115,7 +115,7 @@ function getRedirectPath(response: unknown) {
     return '/support';
   }
 
-  if (role === 'admin' || role === 'super_admin') {
+  if (role === 'admin' || role === 'accountant' || role === 'super_admin') {
     return '/admin';
   }
 

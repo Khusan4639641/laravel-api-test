@@ -14,7 +14,7 @@ class WalletDemoSeeder extends Seeder
     public function run(): void
     {
         $users = User::query()
-            ->whereIn('login', ['admin', 'support', 'aidar', 'erlan', 'alisa', 'gulnara', 'alexey', 'dinara', 'timur', 'madina', 'nurlan'])
+            ->whereIn('login', ['admin', 'operator', 'accountant', 'support', 'aidar', 'erlan', 'alisa', 'gulnara', 'alexey', 'dinara', 'timur', 'madina', 'nurlan'])
             ->get()
             ->keyBy('login');
 
@@ -27,6 +27,8 @@ class WalletDemoSeeder extends Seeder
     {
         $balances = [
             'admin' => ['main' => [0, 0], 'bonus' => [0, 0], 'deposit' => [0, 0]],
+            'operator' => ['main' => [0, 0], 'bonus' => [0, 0], 'deposit' => [0, 0]],
+            'accountant' => ['main' => [0, 0], 'bonus' => [0, 0], 'deposit' => [0, 0]],
             'support' => ['main' => [0, 0], 'bonus' => [0, 0], 'deposit' => [0, 0]],
             'aidar' => ['main' => [320000, 75000], 'bonus' => [38000, 0], 'deposit' => [42000, 0]],
             'erlan' => ['main' => [120000, 25000], 'bonus' => [12000, 0], 'deposit' => [14000, 0]],

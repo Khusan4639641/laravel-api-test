@@ -76,6 +76,23 @@ return [
             ],
         ],
 
+        'accountant' => [
+            'label' => 'Бухгалтер',
+            'redirect_after_login' => '/admin',
+            'allowed_routes' => [
+                '/admin',
+                '/admin/transactions',
+                '/admin/withdrawals',
+                '/admin/reports',
+            ],
+            'menu' => [
+                ['path' => '/admin', 'label' => 'Обзор', 'icon' => 'bar-chart'],
+                ['path' => '/admin/transactions', 'label' => 'Транзакции', 'icon' => 'credit-card'],
+                ['path' => '/admin/withdrawals', 'label' => 'Заявки на вывод', 'icon' => 'arrow-up-circle'],
+                ['path' => '/admin/reports', 'label' => 'Отчёты', 'icon' => 'pie-chart'],
+            ],
+        ],
+
         'super_admin' => [
             'label' => 'Super Admin',
             'redirect_after_login' => '/admin',
@@ -117,10 +134,13 @@ return [
     'api_permissions' => [
         'dashboard.access' => ['user'],
         'support.manage' => ['support', 'admin', 'super_admin'],
+        'admin.overview' => ['admin', 'accountant', 'super_admin'],
+        'admin.transactions.read' => ['admin', 'accountant', 'super_admin'],
+        'admin.withdrawals.read' => ['admin', 'accountant', 'super_admin'],
         'admin.read' => ['admin', 'super_admin'],
         'admin.catalog.write' => ['super_admin'],
         'admin.settings' => ['super_admin'],
-        'admin.reports' => ['super_admin'],
+        'admin.reports' => ['accountant', 'super_admin'],
         'admin.partners.create' => ['super_admin'],
         'admin.partners.manage' => ['admin', 'super_admin'],
         'admin.withdrawals.manage' => ['super_admin'],

@@ -255,6 +255,7 @@ export default function AdminPartnersBulkCreate() {
                     <select value={row.role} onChange={(event) => updateRow(row.localId, 'role', event.target.value)} className={inputClass}>
                       <option value="user">user</option>
                       <option value="support">support</option>
+                      <option value="accountant">accountant</option>
                       <option value="admin">admin</option>
                     </select>
                   </td>

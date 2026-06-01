@@ -46,6 +46,28 @@ class RolePermissionsTest extends TestCase
         $this->assertNotContains('/admin/reports', $permissions['allowed_routes']);
     }
 
+    public function test_accountant_permissions_contain_only_accounting_admin_routes(): void
+    {
+        $permissions = $this->permissionsFor('accountant');
+        $expectedRoutes = [
+            '/admin',
+            '/admin/transactions',
+            '/admin/withdrawals',
+            '/admin/reports',
+        ];
+
+        $this->assertSame('accountant', $permissions['role']);
+        $this->assertSame('Бухгалтер', $permissions['label']);
+        $this->assertSame('/admin', $permissions['redirect_after_login']);
+        $this->assertSame($expectedRoutes, $permissions['allowed_routes']);
+        $this->assertSame($expectedRoutes, array_column($permissions['menu'], 'path'));
+        $this->assertNotContains('/admin/partners', $permissions['allowed_routes']);
+        $this->assertNotContains('/admin/products', $permissions['allowed_routes']);
+        $this->assertNotContains('/admin/news', $permissions['allowed_routes']);
+        $this->assertNotContains('/admin/settings', $permissions['allowed_routes']);
+        $this->assertNotContains('/admin/support', $permissions['allowed_routes']);
+    }
+
     public function test_super_admin_permissions_contain_all_admin_routes(): void
     {
         $permissions = $this->permissionsFor('super_admin');

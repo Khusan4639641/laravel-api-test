@@ -462,6 +462,7 @@ function CreatePartnerModal({
                 >
                   <option value="user">user</option>
                   <option value="support">support</option>
+                  <option value="accountant">accountant</option>
                   <option value="admin">admin</option>
                 </select>
               </ModalField>

@@ -112,8 +112,19 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
     });
 
     Route::prefix('admin')->group(function (): void {
-        Route::middleware('role_permission:admin.read')->group(function (): void {
+        Route::middleware('role_permission:admin.overview')->group(function (): void {
             Route::get('/overview', AdminOverviewController::class);
+        });
+
+        Route::middleware('role_permission:admin.transactions.read')->group(function (): void {
+            Route::get('/transactions', [AdminTransactionController::class, 'index']);
+        });
+
+        Route::middleware('role_permission:admin.withdrawals.read')->group(function (): void {
+            Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
+        });
+
+        Route::middleware('role_permission:admin.read')->group(function (): void {
             Route::get('/structure', AdminStructureController::class);
             Route::get('/users', [AdminUserController::class, 'index']);
             Route::get('/users/{user}', [AdminUserController::class, 'show']);
@@ -121,9 +132,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
             Route::get('/products/{product}', [AdminProductController::class, 'show']);
             Route::get('/packages', [AdminPackageController::class, 'index']);
             Route::get('/orders', [AdminOrderController::class, 'index']);
-            Route::get('/transactions', [AdminTransactionController::class, 'index']);
             Route::get('/bonuses', [AdminBonusController::class, 'index']);
-            Route::get('/withdrawals', [AdminWithdrawalController::class, 'index']);
             Route::get('/news', [AdminNewsController::class, 'index']);
             Route::get('/news/{news}', [AdminNewsController::class, 'show']);
             Route::get('/faqs', [AdminFaqController::class, 'index']);

@@ -171,7 +171,7 @@ function normalizeAdminUser(response: unknown): AdminCurrentUser {
 }
 
 function isBackoffice(user: AdminCurrentUser) {
-  return ['super_admin', 'admin', 'support'].includes(user.role.toLowerCase());
+  return ['super_admin', 'admin', 'accountant', 'support'].includes(user.role.toLowerCase());
 }
 
 function roleLabel(role: string) {
@@ -185,6 +185,10 @@ function roleLabel(role: string) {
 
   if (role === 'admin') {
     return 'Admin';
+  }
+
+  if (role === 'accountant') {
+    return 'Бухгалтер';
   }
 
   return 'Пользователь';

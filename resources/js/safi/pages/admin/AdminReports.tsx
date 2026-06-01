@@ -1,28 +1,59 @@
-import { useEffect, useState } from 'react';
-import { Download, DollarSign, Users, Package } from 'lucide-react';
-import { ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { useEffect, useMemo, useState } from 'react';
+import { Download, FileText, Package, RefreshCw, TrendingUp, Users, Wallet } from 'lucide-react';
+import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminReportsSummary, getApiErrorState } from '../../lib/api';
+import { cn } from '../../lib/utils';
+
+interface ReportSummary {
+  totalUsers: number;
+  totalTurnover: number;
+  totalBonusPaid: number;
+  pendingWithdrawals: number;
+  totalPv: number;
+  packagesSold: number;
+}
+
+interface ChartPoint {
+  period: string;
+  turnover: number;
+  bonuses: number;
+  withdrawals: number;
+  users: number;
+  packageSales: number;
+  pv: number;
+}
+
+interface ReportState {
+  summary: ReportSummary;
+  chart: ChartPoint[];
+}
+
+const emptyReportState: ReportState = {
+  summary: {
+    totalUsers: 0,
+    totalTurnover: 0,
+    totalBonusPaid: 0,
+    pendingWithdrawals: 0,
+    totalPv: 0,
+    packagesSold: 0,
+  },
+  chart: [],
+};
 
 export default function AdminReports() {
-  const [stats, setStats] = useState({
-    totalPartners: 0,
-    newPartners14Days: 0,
-    activePartners: 0,
-    inactivePartners: 0,
-    totalRevenue: 0,
-    totalBonusesPaid: 0,
-    pendingWithdrawals: 0,
-    packagesSold: 0,
-  });
+  const [reports, setReports] = useState<ReportState>(emptyReportState);
+  const [periodFilter, setPeriodFilter] = useState('6');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exportStatus, setExportStatus] = useState('');
 
   const loadReports = async () => {
     setIsLoading(true);
     setError(null);
+    setExportStatus('');
 
     try {
-      setStats(normalizeReports(await getAdminReportsSummary()));
+      setReports(normalizeReports(await getAdminReportsSummary()));
     } catch (caughtError) {
       setError(getApiErrorState(caughtError).error || 'Не удалось загрузить отчеты.');
     } finally {
@@ -34,102 +65,246 @@ export default function AdminReports() {
     void loadReports();
   }, []);
 
+  const visibleChart = useMemo(() => {
+    if (periodFilter === 'all') {
+      return reports.chart;
+    }
+
+    return reports.chart.slice(-Number(periodFilter));
+  }, [reports.chart, periodFilter]);
+
+  const exportCsv = () => {
+    if (visibleChart.length === 0) {
+      return;
+    }
+
+    const rows = [
+      ['period', 'turnover', 'bonuses', 'withdrawals', 'users', 'package_sales', 'pv'],
+      ...visibleChart.map((item) => [
+        item.period,
+        item.turnover,
+        item.bonuses,
+        item.withdrawals,
+        item.users,
+        item.packageSales,
+        item.pv,
+      ]),
+    ];
+    const csv = rows.map((row) => row.join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+
+    link.href = url;
+    link.download = `safi-reports-${new Date().toISOString().slice(0, 10)}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+    setExportStatus('CSV экспортирован');
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">Отчёты</h1>
-          <p className="text-sm text-safi-text/70">Аналитика и статистика платформы</p>
+          <h1 className="mb-1 font-serif text-3xl font-bold text-safi-green">Отчёты</h1>
+          <p className="text-sm text-safi-text/70">Финансовая аналитика, PV, заявки на вывод и рост партнёров</p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <select
+            value={periodFilter}
+            onChange={(event) => setPeriodFilter(event.target.value)}
+            className="cursor-pointer rounded-xl border border-safi-green/10 bg-white px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green outline-none transition-colors hover:border-safi-green/30 focus:border-safi-green"
+          >
+            <option value="3">3 месяца</option>
+            <option value="6">6 месяцев</option>
+            <option value="all">Все периоды</option>
+          </select>
+          <button
+            type="button"
+            onClick={loadReports}
+            disabled={isLoading}
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-safi-border bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <RefreshCw className={cn('h-4 w-4', isLoading && 'animate-spin')} />
+            Обновить
+          </button>
+          <button
+            type="button"
+            onClick={exportCsv}
+            disabled={isLoading || visibleChart.length === 0}
+            title={visibleChart.length === 0 ? 'Нет данных для экспорта' : 'Скачать CSV отчёт'}
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-safi-green px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Download className="h-4 w-4" />
+            Экспорт
+          </button>
         </div>
       </div>
+
+      {exportStatus && <div className="rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm font-bold text-green-700">{exportStatus}</div>}
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadReports} />}
 
       {!isLoading && !error && (
-      <div className="grid md:grid-cols-3 gap-6">
-         <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm space-y-6">
-            <h3 className="text-xl font-serif font-bold text-safi-green flex items-center gap-3">
-              <Users className="w-5 h-5 text-safi-gold" /> Рост партнёров
-            </h3>
-            <div className="space-y-4">
-               <div className="flex justify-between items-center text-sm border-b border-safi-green/5 pb-2">
-                 <span>Всего</span><span className="font-bold">{stats.totalPartners}</span>
-               </div>
-               <div className="flex justify-between items-center text-sm border-b border-safi-green/5 pb-2">
-                 <span>Новых за 14 дн</span><span className="font-bold text-green-600">+{stats.newPartners14Days}</span>
-               </div>
-               <div className="flex justify-between items-center text-sm border-b border-safi-green/5 pb-2">
-                 <span>Активных</span><span className="font-bold">{stats.activePartners}</span>
-               </div>
-               <div className="flex justify-between items-center text-sm">
-                 <span>Неактивных</span><span className="font-bold text-red-500">{stats.inactivePartners}</span>
-               </div>
-            </div>
-            <button className="w-full flex justify-center items-center gap-2 py-3 bg-[#F5F5F0] hover:bg-safi-green hover:text-white rounded-xl text-[10px] uppercase font-bold tracking-widest text-safi-green transition-colors mt-4">
-               <Download className="w-4 h-4" /> Скачать отчёт
-            </button>
-         </div>
+        <>
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <ReportCard title="Оборот" value={`${formatMoney(reports.summary.totalTurnover)} ₸`} icon={TrendingUp} />
+            <ReportCard title="Бонусы выплачены" value={`${formatMoney(reports.summary.totalBonusPaid)} ₸`} icon={Wallet} />
+            <ReportCard title="Заявки на вывод" value={`${formatMoney(reports.summary.pendingWithdrawals)} ₸`} icon={Download} />
+            <ReportCard title="Партнёры" value={formatNumber(reports.summary.totalUsers)} icon={Users} />
+            <ReportCard title="PV / Пакеты" value={`${formatNumber(reports.summary.totalPv)} PV`} subValue={`${formatNumber(reports.summary.packagesSold)} продаж`} icon={Package} />
+          </section>
 
-         <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm space-y-6">
-            <h3 className="text-xl font-serif font-bold text-safi-green flex items-center gap-3">
-              <DollarSign className="w-5 h-5 text-safi-gold" /> Финансы
-            </h3>
-            <div className="space-y-4">
-               <div className="flex justify-between items-center text-sm border-b border-safi-green/5 pb-2">
-                 <span>Оборот</span><span className="font-bold text-safi-green">{stats.totalRevenue.toLocaleString()} ₸</span>
-               </div>
-               <div className="flex justify-between items-center text-sm border-b border-safi-green/5 pb-2">
-                 <span>Выплачено</span><span className="font-bold text-red-500">{stats.totalBonusesPaid.toLocaleString()} ₸</span>
-               </div>
-               <div className="flex justify-between items-center text-sm border-b border-safi-green/5 pb-2">
-                 <span>В ожидании</span><span className="font-bold">{stats.pendingWithdrawals.toLocaleString()} ₸</span>
-               </div>
+          <section className="rounded-[32px] border border-safi-green/5 bg-white p-6 shadow-sm md:p-8">
+            <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="font-serif text-2xl font-bold text-safi-green">Динамика отчётов</h2>
+                <p className="mt-1 text-sm text-safi-text/60">Оборот, бонусы, выводы, партнёры, продажи пакетов и PV по месяцам</p>
+              </div>
+              <div className="flex items-center gap-2 rounded-full bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">
+                <FileText className="h-4 w-4" />
+                /api/admin/reports/summary
+              </div>
             </div>
-            <button className="w-full flex justify-center items-center gap-2 py-3 bg-[#F5F5F0] hover:bg-safi-green hover:text-white rounded-xl text-[10px] uppercase font-bold tracking-widest text-safi-green transition-colors mt-4">
-               <Download className="w-4 h-4" /> Скачать отчёт
-            </button>
-         </div>
-         
-         <div className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm space-y-6">
-            <h3 className="text-xl font-serif font-bold text-safi-green flex items-center gap-3">
-              <Package className="w-5 h-5 text-safi-gold" /> Пакеты
-            </h3>
-            <div className="space-y-4">
-               <div className="flex justify-between items-center text-sm border-b border-safi-green/5 pb-2">
-                 <span>Всего продано</span><span className="font-bold text-safi-green">{stats.packagesSold}</span>
-               </div>
-               <div className="text-center py-8 text-safi-text/40 font-bold uppercase tracking-widest text-[10px]">
-                  Здесь будет круговая<br/>диаграмма
-               </div>
-            </div>
-         </div>
-      </div>
+
+            {visibleChart.length === 0 ? (
+              <EmptyState title="Данных для графика пока нет" description="Диаграмма появится после заказов, бонусов и заявок на вывод." className="min-h-[240px] shadow-none" />
+            ) : (
+              <ReportChart data={visibleChart} />
+            )}
+          </section>
+        </>
       )}
     </div>
   );
 }
 
-function normalizeReports(response: unknown) {
+function ReportCard({ title, value, subValue, icon: Icon }: { title: string; value: string; subValue?: string; icon: any }) {
+  return (
+    <article className="rounded-3xl border border-safi-green/5 bg-white p-5 shadow-sm">
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{title}</div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#F5F5F0] text-safi-gold">
+          <Icon className="h-5 w-5" />
+        </div>
+      </div>
+      <div className="font-serif text-2xl font-bold text-safi-green">{value}</div>
+      {subValue && <div className="mt-2 text-xs font-bold text-safi-text/50">{subValue}</div>}
+    </article>
+  );
+}
+
+function ReportChart({ data }: { data: ChartPoint[] }) {
+  const maxMoney = Math.max(...data.map((item) => Math.max(item.turnover, item.bonuses, item.withdrawals)), 1);
+  const maxPv = Math.max(...data.map((item) => item.pv), 1);
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap gap-3 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">
+        <Legend color="bg-safi-green" label="Оборот" />
+        <Legend color="bg-safi-gold" label="Бонусы" />
+        <Legend color="bg-red-400" label="Выводы" />
+        <Legend color="bg-blue-400" label="PV" />
+      </div>
+      <div className="overflow-x-auto">
+        <div className="min-w-[860px] space-y-5">
+          {data.map((item) => (
+            <div key={item.period} className="grid grid-cols-[90px_1fr_150px] items-center gap-4 rounded-2xl border border-safi-green/5 bg-[#F5F5F0]/60 p-4">
+              <div className="font-mono text-xs font-bold text-safi-green">{item.period}</div>
+              <div className="space-y-2">
+                <Bar color="bg-safi-green" value={item.turnover} max={maxMoney} label={`${formatMoney(item.turnover)} ₸`} />
+                <Bar color="bg-safi-gold" value={item.bonuses} max={maxMoney} label={`${formatMoney(item.bonuses)} ₸`} />
+                <Bar color="bg-red-400" value={item.withdrawals} max={maxMoney} label={`${formatMoney(item.withdrawals)} ₸`} />
+                <Bar color="bg-blue-400" value={item.pv} max={maxPv} label={`${formatNumber(item.pv)} PV`} />
+              </div>
+              <div className="space-y-1 text-right text-[10px] font-bold uppercase tracking-widest text-safi-text/50">
+                <div>Партнёры: <span className="text-safi-green">{item.users}</span></div>
+                <div>Пакеты: <span className="text-safi-green">{item.packageSales}</span></div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Legend({ color, label }: { color: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={cn('h-2.5 w-2.5 rounded-full', color)} />
+      {label}
+    </span>
+  );
+}
+
+function Bar({ color, value, max, label }: { color: string; value: number; max: number; label: string }) {
+  return (
+    <div className="grid grid-cols-[1fr_110px] items-center gap-3">
+      <div className="h-3 overflow-hidden rounded-full bg-white">
+        <div className={cn('h-full min-w-[3px] rounded-full', color)} style={{ width: `${Math.max((value / max) * 100, value > 0 ? 3 : 0)}%` }} />
+      </div>
+      <div className="text-right text-[10px] font-bold text-safi-green">{label}</div>
+    </div>
+  );
+}
+
+function normalizeReports(response: unknown): ReportState {
   const record = isRecord(response) ? response : {};
+  const summary = getRecord(record, 'summary');
   const partners = getRecord(record, 'partners');
   const finance = getRecord(record, 'finance');
   const packages = getRecord(record, 'packages');
 
   return {
-    totalPartners: getNumber(partners.total),
-    newPartners14Days: getNumber(partners.new_14_days),
-    activePartners: getNumber(partners.active),
-    inactivePartners: getNumber(partners.inactive),
-    totalRevenue: getNumber(finance.revenue),
-    totalBonusesPaid: getNumber(finance.bonuses_paid),
-    pendingWithdrawals: getNumber(finance.pending_withdrawals),
-    packagesSold: getNumber(packages.sold),
+    summary: {
+      totalUsers: getNumber(summary.total_users) || getNumber(partners.total),
+      totalTurnover: getNumber(summary.total_turnover) || getNumber(finance.revenue),
+      totalBonusPaid: getNumber(summary.total_bonus_paid) || getNumber(finance.bonuses_paid),
+      pendingWithdrawals: getNumber(summary.pending_withdrawals) || getNumber(finance.pending_withdrawals),
+      totalPv: getNumber(summary.total_pv) || getNumber(packages.pv),
+      packagesSold: getNumber(packages.sold),
+    },
+    chart: getArray(record, 'chart').map((item) => {
+      const row = isRecord(item) ? item : {};
+
+      return {
+        period: getString(row.period) || '-',
+        turnover: getNumber(row.turnover),
+        bonuses: getNumber(row.bonuses),
+        withdrawals: getNumber(row.withdrawals),
+        users: getNumber(row.users),
+        packageSales: getNumber(row.package_sales ?? row.packageSales),
+        pv: getNumber(row.pv),
+      };
+    }),
   };
+}
+
+function formatMoney(value: number) {
+  return Math.round(value).toLocaleString('ru-RU');
+}
+
+function formatNumber(value: number) {
+  return Math.round(value).toLocaleString('ru-RU');
 }
 
 function getRecord(record: Record<string, unknown>, key: string) {
   return isRecord(record[key]) ? record[key] as Record<string, unknown> : {};
+}
+
+function getArray(record: Record<string, unknown>, key: string) {
+  return Array.isArray(record[key]) ? record[key] as unknown[] : [];
+}
+
+function getString(value: unknown) {
+  if (typeof value === 'string' && value.trim() !== '') {
+    return value;
+  }
+
+  return undefined;
 }
 
 function getNumber(value: unknown) {
