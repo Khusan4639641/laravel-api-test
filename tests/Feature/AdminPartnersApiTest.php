@@ -87,6 +87,21 @@ class AdminPartnersApiTest extends TestCase
         $this->assertSame('START', $payload['package']['name']);
     }
 
+    public function test_admin_partners_list_returns_account_status_and_mlm_status_separately(): void
+    {
+        $partner = User::factory()->create([
+            'role' => 'user',
+            'status' => 'leader',
+            'account_status' => 'blocked',
+        ]);
+
+        $payload = $this->adminPayloadFor($partner);
+
+        $this->assertSame('leader', $payload['status']);
+        $this->assertSame('blocked', $payload['account_status']);
+        $this->assertArrayNotHasKey('activity', $payload);
+    }
+
     public function test_admin_partners_list_handles_missing_sponsor_wallet_and_package(): void
     {
         $partner = User::factory()->create([

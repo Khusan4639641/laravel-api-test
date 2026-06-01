@@ -139,7 +139,7 @@ export default function AdminPartnerDetail() {
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
-  const isBlocked = ['blocked', 'inactive'].includes(partner.accountStatus);
+  const isBlocked = partner.accountStatus === 'blocked';
 
   const weakBranch = useMemo(() => (partner.leftPV < partner.rightPV ? 'Левая' : 'Правая'), [partner.leftPV, partner.rightPV]);
 
@@ -385,7 +385,7 @@ export default function AdminPartnerDetail() {
                   </button>
                 </div>
                 <div>
-                  <div className="text-[10px] uppercase font-bold tracking-widest text-safi-text/50 mb-2">Статус</div>
+                  <div className="text-[10px] uppercase font-bold tracking-widest text-safi-text/50 mb-2">MLM статус</div>
                   <AdminBadge variant="default">{partner.status}</AdminBadge>
                   <button
                     type="button"
@@ -692,7 +692,7 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
   const sponsor = isRecord(user.sponsor) ? user.sponsor : {};
   const pkg = isRecord(user.current_package) ? user.current_package : isRecord(user.package) ? user.package : {};
   const wallets = Array.isArray(user.wallets) ? user.wallets.filter(isRecord) : [];
-  const accountStatus = getString(user, ['account_status']) || 'active';
+  const accountStatus = normalizeAccountStatus(getString(user, ['account_status']));
   const mainBalance = getNumber(user, ['balance', 'main_balance', 'available_balance'])
     ?? getWalletBalance(wallets, 'main');
   const totalBalance = getNumber(user, ['total_balance', 'totalBalance', 'total_income'])
@@ -719,7 +719,7 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     availableBalance: mainBalance,
     registrationDate: getString(user, ['created_at']) || '-',
     accountStatus,
-    accountStatusLabel: ['blocked', 'inactive'].includes(accountStatus) ? 'Заблокирован' : 'Активен',
+    accountStatusLabel: accountStatus === 'blocked' ? 'Заблокирован' : 'Активен',
     adminNote: getString(user, ['admin_note']) || '',
   };
 }
@@ -770,6 +770,10 @@ function getWalletBalance(wallets: Record<string, unknown>[], type: string) {
   return wallets
     .filter((wallet) => getString(wallet, ['type']) === type)
     .reduce((sum, wallet) => sum + (getNumber(wallet, ['balance']) ?? 0), 0);
+}
+
+function normalizeAccountStatus(status?: string) {
+  return status === 'blocked' ? 'blocked' : 'active';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

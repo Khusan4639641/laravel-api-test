@@ -59,21 +59,40 @@ class AdminPartnerManagementTest extends TestCase
 
     public function test_super_admin_can_block_and_unblock_partner(): void
     {
-        $partner = User::factory()->create(['password' => Hash::make('password')]);
+        $partner = User::factory()->create([
+            'password' => Hash::make('password'),
+            'status' => 'leader',
+            'account_status' => 'active',
+        ]);
         Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
 
         $this->patchJson("/api/admin/partners/{$partner->id}/block")
             ->assertOk()
-            ->assertJsonPath('user.account_status', 'blocked');
+            ->assertJsonPath('user.account_status', 'blocked')
+            ->assertJsonPath('user.status', 'leader');
+
+        $partner->refresh();
+
+        $this->assertSame('blocked', $partner->account_status);
+        $this->assertSame('leader', $partner->status);
 
         $this->postJson('/api/login', [
             'login' => $partner->login,
             'password' => 'password',
-        ])->assertUnprocessable();
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['login'])
+            ->assertJsonPath('errors.login.0', 'Аккаунт заблокирован');
 
         $this->patchJson("/api/admin/partners/{$partner->id}/unblock")
             ->assertOk()
-            ->assertJsonPath('user.account_status', 'active');
+            ->assertJsonPath('user.account_status', 'active')
+            ->assertJsonPath('user.status', 'leader');
+
+        $partner->refresh();
+
+        $this->assertSame('active', $partner->account_status);
+        $this->assertSame('leader', $partner->status);
 
         $this->postJson('/api/login', [
             'login' => $partner->login,

@@ -22,7 +22,6 @@ interface AdminPartnerRow {
   totalIncome: number;
   availableBalance: number;
   registrationDate: string;
-  activity: string;
   accountStatus: string;
 }
 
@@ -208,7 +207,7 @@ export default function AdminPartners() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <SummaryCard label="Всего партнеров" value={partners.length.toLocaleString('ru-RU')} />
-        <SummaryCard label="Активные" value={partners.filter((partner) => partner.activity === 'Активен').length.toLocaleString('ru-RU')} />
+        <SummaryCard label="Активные" value={partners.filter((partner) => partner.accountStatus === 'Активен').length.toLocaleString('ru-RU')} />
         <SummaryCard label="VIP / ELITE" value={partners.filter((partner) => ['VIP', 'ELITE'].includes(partner.package)).length.toLocaleString('ru-RU')} />
         <SummaryCard label="Баланс" value={`${partners.reduce((sum, partner) => sum + partner.availableBalance, 0).toLocaleString('ru-RU')} ₸`} />
       </section>
@@ -276,10 +275,7 @@ export default function AdminPartners() {
                 <div className="mt-1 text-[10px] text-safi-muted">Всего: {partner.totalIncome.toLocaleString('ru-RU')}</div>
               </td>
               <td className="px-6 py-4">
-                <div className="mb-2">
-                  <AdminBadge variant={partner.accountStatus === 'Активен' ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
-                </div>
-                <AdminBadge variant={partner.activity === 'Активен' ? 'success' : 'warning'}>{partner.activity}</AdminBadge>
+                <AdminBadge variant={partner.accountStatus === 'Активен' ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex items-center justify-end gap-2">
@@ -579,8 +575,7 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       totalIncome: totalBalance,
       availableBalance: mainBalance,
       registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || '-',
-      activity: getString(record, ['activity', 'activity_status', 'activityStatus']) || 'Активен',
-      accountStatus: ['blocked', 'inactive'].includes(getString(record, ['account_status', 'accountStatus', 'state']) || '') ? 'Заблокирован' : 'Активен',
+      accountStatus: getAccountStatusLabel(getString(record, ['account_status', 'accountStatus', 'state'])),
     };
   });
 }
@@ -651,6 +646,10 @@ function getWalletBalance(wallets: Record<string, unknown>[], type: string) {
   return wallets
     .filter((wallet) => getString(wallet, ['type']) === type)
     .reduce((sum, wallet) => sum + (getNumber(wallet, ['balance']) ?? 0), 0);
+}
+
+function getAccountStatusLabel(status?: string) {
+  return status === 'blocked' ? 'Заблокирован' : 'Активен';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

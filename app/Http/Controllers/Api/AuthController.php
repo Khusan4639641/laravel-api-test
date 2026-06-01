@@ -95,7 +95,7 @@ class AuthController extends Controller
 
         if (in_array($user->account_status, ['blocked', 'inactive'], true)) {
             throw ValidationException::withMessages([
-                $field => ['Аккаунт заблокирован. Обратитесь в поддержку.'],
+                $field => ['Аккаунт заблокирован'],
             ]);
         }
 
