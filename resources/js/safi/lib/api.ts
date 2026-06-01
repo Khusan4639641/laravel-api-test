@@ -497,8 +497,16 @@ export async function getAdminOverview<T = unknown>() {
   });
 }
 
-export async function getAdminStructure<T = unknown>() {
-  return apiRequest<T>(endpoints.admin.structure, {
+export async function getAdminStructure<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') {
+      query.set(key, String(value));
+    }
+  });
+
+  return apiRequest<T>(`${endpoints.admin.structure}${query.toString() ? `?${query.toString()}` : ''}`, {
     method: 'GET',
     auth: true,
   });
