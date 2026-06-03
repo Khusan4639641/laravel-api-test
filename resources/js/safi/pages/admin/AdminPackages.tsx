@@ -12,6 +12,8 @@ interface PackageFormState {
   name: string;
   price: string;
   pv: string;
+  activityPv: string;
+  turnoverPv: string;
   referralPercent: string;
   binaryPercent: string;
   sortOrder: string;
@@ -25,6 +27,8 @@ const emptyForm: PackageFormState = {
   name: '',
   price: '',
   pv: '',
+  activityPv: '',
+  turnoverPv: '',
   referralPercent: '0',
   binaryPercent: '0',
   sortOrder: '0',
@@ -72,6 +76,8 @@ export default function AdminPackages() {
       name: pkg.name,
       price: String(pkg.price || ''),
       pv: String(pkg.pv || ''),
+      activityPv: String(pkg.activityPv || pkg.pv || ''),
+      turnoverPv: String(pkg.turnoverPv || pkg.pv || ''),
       referralPercent: String(pkg.referralBonus || 0),
       binaryPercent: String(pkg.binaryBonus || 0),
       sortOrder: String(pkg.sortOrder || 0),
@@ -96,6 +102,8 @@ export default function AdminPackages() {
       name: form.name,
       price: Number(form.price),
       pv: Number(form.pv || 0),
+      activity_pv: Number(form.activityPv || form.pv || 0),
+      turnover_pv: Number(form.turnoverPv || form.activityPv || form.pv || 0),
       referral_percent: Number(form.referralPercent || 0),
       binary_percent: Number(form.binaryPercent || 0),
       sort_order: Number(form.sortOrder || 0),
@@ -158,6 +166,8 @@ export default function AdminPackages() {
             <Field label={adminText('a_0J3QsNC30LLQ')} value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
             <Field label={adminText('a_0KbQtdC90LA')} type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} required />
             <Field label="PV" type="number" value={form.pv} onChange={(value) => setForm({ ...form, pv: value })} />
+            <Field label="Activity PV" type="number" value={form.activityPv} onChange={(value) => setForm({ ...form, activityPv: value })} />
+            <Field label="Turnover PV" type="number" value={form.turnoverPv} onChange={(value) => setForm({ ...form, turnoverPv: value })} />
             <Field label={adminText('a_0KDQtdGE0LXR')} type="number" value={form.referralPercent} onChange={(value) => setForm({ ...form, referralPercent: value })} />
             <Field label={adminText('a_0JHQuNC90LDR')} type="number" value={form.binaryPercent} onChange={(value) => setForm({ ...form, binaryPercent: value })} />
             <Field label={adminText('a_0KHQvtGA0YLQ')} type="number" value={form.sortOrder} onChange={(value) => setForm({ ...form, sortOrder: value })} />

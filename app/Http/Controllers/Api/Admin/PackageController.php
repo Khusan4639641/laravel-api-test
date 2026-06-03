@@ -53,6 +53,8 @@ class PackageController extends Controller
             'description' => ['nullable', 'string'],
             'price' => [$package ? 'sometimes' : 'required', 'numeric', 'min:0'],
             'pv' => ['nullable', 'numeric', 'min:0'],
+            'activity_pv' => ['nullable', 'numeric', 'min:0'],
+            'turnover_pv' => ['nullable', 'numeric', 'min:0'],
             'referral_percent' => ['nullable', 'numeric', 'min:0'],
             'binary_percent' => ['nullable', 'numeric', 'min:0'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
@@ -62,6 +64,13 @@ class PackageController extends Controller
         ]);
 
         $code = strtoupper((string) ($validated['code'] ?? $package?->code ?? ''));
+        $activityPv = $validated['activity_pv'] ?? $validated['pv'] ?? null;
+
+        if ($activityPv !== null) {
+            $validated['activity_pv'] ??= $activityPv;
+            $validated['pv'] ??= $activityPv;
+            $validated['turnover_pv'] ??= $activityPv;
+        }
 
         if ($code === 'BUSINESS') {
             $validated['status'] = 'inactive';

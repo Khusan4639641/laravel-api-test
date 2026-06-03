@@ -34,7 +34,7 @@ class PackageUpgradeTest extends TestCase
             ->assertOk()
             ->assertJsonPath('user.current_package.id', $vip->id)
             ->assertJsonPath('payment_amount', '120000.00')
-            ->assertJsonPath('additional_pv', '120000.00')
+            ->assertJsonPath('additional_pv', '200.00')
             ->assertJsonPath('cashback_amount', '0.00');
 
         $user->refresh();
@@ -42,8 +42,8 @@ class PackageUpgradeTest extends TestCase
         $referralBonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
 
         $this->assertSame($vip->id, $user->current_package_id);
-        $this->assertSame('180000.00', $user->total_pv);
-        $this->assertSame('platinum_director', $user->status);
+        $this->assertSame('300.00', $user->total_pv);
+        $this->assertSame('user', $user->status);
         $this->assertSame('12000.00', $referralBonus->amount);
         $this->assertSame('12000.00', $sponsorMainWallet->balance);
         $this->assertDatabaseMissing('wallet_transactions', [
@@ -80,14 +80,14 @@ class PackageUpgradeTest extends TestCase
         $this->postJson("/api/packages/{$elite->id}/upgrade")
             ->assertOk()
             ->assertJsonPath('payment_amount', '120000.00')
-            ->assertJsonPath('additional_pv', '120000.00')
+            ->assertJsonPath('additional_pv', '200.00')
             ->assertJsonPath('cashback_amount', '0.00');
 
         $user->refresh();
 
         $this->assertSame($elite->id, $user->current_package_id);
-        $this->assertSame('300000.00', $user->total_pv);
-        $this->assertSame('emerald_director', $user->status);
+        $this->assertSame('500.00', $user->total_pv);
+        $this->assertSame('user', $user->status);
     }
 
     public function test_elite_package_cannot_upgrade_further(): void
@@ -142,7 +142,7 @@ class PackageUpgradeTest extends TestCase
         [$start, $vip] = $this->createPackages(['START', 'VIP']);
         $user = User::factory()->create([
             'current_package_id' => $start->id,
-            'total_pv' => 75000,
+            'total_pv' => 350,
         ]);
 
         Sanctum::actingAs($user);
@@ -150,7 +150,7 @@ class PackageUpgradeTest extends TestCase
         $this->postJson("/api/packages/{$vip->id}/upgrade")
             ->assertOk();
 
-        $this->assertSame('195000.00', $user->refresh()->total_pv);
+        $this->assertSame('550.00', $user->refresh()->total_pv);
     }
 
     /**
@@ -163,6 +163,16 @@ class PackageUpgradeTest extends TestCase
             'START' => 60000,
             'VIP' => 180000,
             'ELITE' => 300000,
+        ];
+        $activityPv = [
+            'START' => 100,
+            'VIP' => 300,
+            'ELITE' => 500,
+        ];
+        $turnoverPv = [
+            'START' => 100,
+            'VIP' => 300,
+            'ELITE' => 200,
         ];
         $sortOrders = [
             'START' => 1,
@@ -181,7 +191,9 @@ class PackageUpgradeTest extends TestCase
                 'name' => $code,
                 'slug' => strtolower($code),
                 'price' => $prices[$code],
-                'pv' => $prices[$code],
+                'pv' => $activityPv[$code],
+                'activity_pv' => $activityPv[$code],
+                'turnover_pv' => $turnoverPv[$code],
                 'referral_percent' => 10,
                 'binary_percent' => $binaryPercents[$code],
                 'sort_order' => $sortOrders[$code],

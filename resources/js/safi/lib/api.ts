@@ -100,6 +100,8 @@ export interface Package {
   name: string;
   price: number;
   pv: number;
+  activityPv: number;
+  turnoverPv: number;
   referralBonus: number;
   binaryBonus: number | null;
   features: string[];
@@ -296,6 +298,11 @@ export async function getPublicProducts() {
 
 export async function getPublicPackages() {
   const response = await apiRequest(endpoints.public.packages, { method: 'GET', auth: false });
+  return normalizePackages(response);
+}
+
+export async function getRegistrationPackages() {
+  const response = await apiRequest(endpoints.public.registrationPackages, { method: 'GET', auth: false });
   return normalizePackages(response);
 }
 
@@ -1080,6 +1087,8 @@ export function normalizePackages(response: unknown): Package[] {
       name,
       price: getNumber(record, ['price']) ?? 0,
       pv: getNumber(record, ['pv']) ?? 0,
+      activityPv: getNumber(record, ['activityPv', 'activity_pv', 'pv']) ?? 0,
+      turnoverPv: getNumber(record, ['turnoverPv', 'turnover_pv', 'pv']) ?? 0,
       referralBonus: getNumber(record, ['referralBonus', 'referral_percent']) ?? 0,
       binaryBonus: getNumber(record, ['binaryBonus', 'binary_percent']) ?? null,
       features: getStringArray(record, ['features']) || [

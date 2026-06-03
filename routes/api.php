@@ -47,6 +47,7 @@ Route::prefix('public')->group(function (): void {
     Route::get('/products', [PublicProductController::class, 'index']);
     Route::get('/products/{product}', [PublicProductController::class, 'show']);
     Route::get('/packages', [PublicPackageController::class, 'index']);
+    Route::get('/registration-packages', [PublicPackageController::class, 'registration']);
     Route::get('/news', [PublicNewsController::class, 'index']);
     Route::get('/news/{news}', [PublicNewsController::class, 'show']);
     Route::get('/faqs', [PublicFaqController::class, 'index']);

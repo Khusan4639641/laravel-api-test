@@ -28,8 +28,10 @@ class PackageService
                 'current_package_id' => $package->id,
             ])->save();
 
-            $this->pvService->addUserPv($user, $package->pv);
-            $this->pvService->accruePvUpTree($user, $package->pv);
+            $turnoverPv = $package->turnoverPv();
+
+            $this->pvService->addUserPv($user, $turnoverPv);
+            $this->pvService->accruePvUpTree($user, $turnoverPv);
 
             if ($user->sponsor_id) {
                 $sponsor = User::query()->find($user->sponsor_id);
@@ -89,7 +91,7 @@ class PackageService
             }
 
             $paymentAmount = bcsub((string) $targetPackage->price, (string) $currentPackage->price, 2);
-            $additionalPv = bcsub((string) $targetPackage->pv, (string) $currentPackage->pv, 2);
+            $additionalPv = bcsub($targetPackage->activityPv(), $currentPackage->activityPv(), 2);
 
             if (bccomp($paymentAmount, '0', 2) <= 0) {
                 throw ValidationException::withMessages([

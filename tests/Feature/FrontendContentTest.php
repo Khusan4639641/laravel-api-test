@@ -42,12 +42,13 @@ class FrontendContentTest extends TestCase
     {
         $this->seed(PackageSeeder::class);
 
-        $packages = collect($this->getJson('/api/public/packages')->assertOk()->json('packages'))->pluck('code')->all();
+        $packages = collect($this->getJson('/api/public/registration-packages')->assertOk()->json('packages'))->pluck('code')->all();
         $registerPage = file_get_contents(resource_path('js/safi/pages/RegisterPage.tsx'));
 
-        $this->assertSame(['START', 'VIP', 'ELITE'], $packages);
+        $this->assertSame(['START', 'VIP'], $packages);
         $this->assertNotContains('BUSINESS', $packages);
-        $this->assertStringContainsString('getPublicPackages', $registerPage);
+        $this->assertNotContains('ELITE', $packages);
+        $this->assertStringContainsString('getRegistrationPackages', $registerPage);
     }
 
     public function test_dashboard_package_endpoint_displays_start_vip_elite_only(): void

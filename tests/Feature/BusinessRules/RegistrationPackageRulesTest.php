@@ -72,6 +72,25 @@ class RegistrationPackageRulesTest extends TestCase
         $this->assertPackageValues('ELITE', '300000.00', '500.00');
     }
 
+    public function test_registration_package_list_excludes_elite(): void
+    {
+        $this->seed(PackageSeeder::class);
+
+        $packages = collect($this->getJson('/api/public/registration-packages')->assertOk()->json('packages'))->pluck('code')->all();
+
+        $this->assertSame(['START', 'VIP'], $packages);
+        $this->assertNotContains('ELITE', $packages);
+    }
+
+    public function test_public_packages_still_include_elite_for_marketing_and_upgrade(): void
+    {
+        $this->seed(PackageSeeder::class);
+
+        $packages = collect($this->getJson('/api/public/packages')->assertOk()->json('packages'))->pluck('code')->all();
+
+        $this->assertSame(['START', 'VIP', 'ELITE'], $packages);
+    }
+
     /**
      * @param  array<string, mixed>  $overrides
      * @return array<string, mixed>

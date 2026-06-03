@@ -18,6 +18,7 @@ export const endpoints = {
     products: '/public/products',
     product: (product: EndpointId) => `/public/products/${encodeEndpointId(product)}`,
     packages: '/public/packages',
+    registrationPackages: '/public/registration-packages',
     news: '/public/news',
     newsItem: (news: EndpointId) => `/public/news/${encodeEndpointId(news)}`,
     faqs: '/public/faqs',

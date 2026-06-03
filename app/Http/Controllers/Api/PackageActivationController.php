@@ -27,7 +27,7 @@ class PackageActivationController extends Controller
             ]);
         }
 
-        if (! in_array($package->code, Package::PUBLIC_CODES, true)) {
+        if (! in_array($package->code, Package::STARTER_CODES, true)) {
             throw ValidationException::withMessages([
                 'package' => 'Package is not available for activation.',
             ]);

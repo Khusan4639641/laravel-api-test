@@ -19,7 +19,7 @@ class PvAccrualTest extends TestCase
         $root = User::factory()->create();
         $leftChild = User::factory()->create();
         $rightGrandchild = User::factory()->create();
-        $package = $this->createPackage('VIP', 180000, 180000, 1);
+        $package = $this->createPackage('VIP', 180000, 300, 1);
 
         $treeService->placeUser($leftChild, $root, 'L');
         $treeService->placeUser($rightGrandchild, $leftChild, 'R');
@@ -33,25 +33,25 @@ class PvAccrualTest extends TestCase
         $leftChild->refresh();
         $rightGrandchild->refresh();
 
-        $this->assertSame('180000.00', $root->left_pv);
+        $this->assertSame('300.00', $root->left_pv);
         $this->assertSame('0.00', $root->right_pv);
-        $this->assertSame('180000.00', $root->remaining_left_pv);
-        $this->assertSame('180000.00', $root->total_pv);
+        $this->assertSame('300.00', $root->remaining_left_pv);
+        $this->assertSame('300.00', $root->total_pv);
 
         $this->assertSame('0.00', $leftChild->left_pv);
-        $this->assertSame('180000.00', $leftChild->right_pv);
-        $this->assertSame('180000.00', $leftChild->remaining_right_pv);
-        $this->assertSame('180000.00', $leftChild->total_pv);
+        $this->assertSame('300.00', $leftChild->right_pv);
+        $this->assertSame('300.00', $leftChild->remaining_right_pv);
+        $this->assertSame('300.00', $leftChild->total_pv);
 
         $this->assertSame('0.00', $rightGrandchild->left_pv);
         $this->assertSame('0.00', $rightGrandchild->right_pv);
-        $this->assertSame('180000.00', $rightGrandchild->total_pv);
+        $this->assertSame('300.00', $rightGrandchild->total_pv);
     }
 
     public function test_package_activation_without_binary_node_updates_only_user_total_pv(): void
     {
         $user = User::factory()->create();
-        $package = $this->createPackage('START', 60000, 60000, 1);
+        $package = $this->createPackage('START', 60000, 100, 1);
 
         Sanctum::actingAs($user);
 
@@ -62,7 +62,7 @@ class PvAccrualTest extends TestCase
 
         $this->assertSame('0.00', $user->left_pv);
         $this->assertSame('0.00', $user->right_pv);
-        $this->assertSame('60000.00', $user->total_pv);
+        $this->assertSame('100.00', $user->total_pv);
     }
 
     private function createPackage(string $code, int $price, int $pv, int $sortOrder): Package
@@ -73,6 +73,8 @@ class PvAccrualTest extends TestCase
             'slug' => strtolower($code),
             'price' => $price,
             'pv' => $pv,
+            'activity_pv' => $pv,
+            'turnover_pv' => $pv,
             'referral_percent' => 0,
             'binary_percent' => 0,
             'sort_order' => $sortOrder,

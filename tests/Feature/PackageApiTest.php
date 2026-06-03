@@ -18,7 +18,9 @@ class PackageApiTest extends TestCase
             'name' => 'BUSINESS',
             'slug' => 'business',
             'price' => 60000,
-            'pv' => 60000,
+            'pv' => 100,
+            'activity_pv' => 100,
+            'turnover_pv' => 100,
             'referral_percent' => 10,
             'binary_percent' => 7,
             'sort_order' => 2,
@@ -34,20 +36,23 @@ class PackageApiTest extends TestCase
 
         $this->assertSame(['START', 'VIP', 'ELITE'], $packages->keys()->all());
         $this->assertFalse($packages->has('BUSINESS'));
-        $this->assertPackagePayload($packages['START'], '60000.00', '60000.00', 10, 7);
-        $this->assertPackagePayload($packages['VIP'], '180000.00', '180000.00', 10, 8);
-        $this->assertPackagePayload($packages['ELITE'], '300000.00', '300000.00', 10, 10);
+        $this->assertPackagePayload($packages['START'], '60000.00', '100.00', '100.00', 10, 7);
+        $this->assertPackagePayload($packages['VIP'], '180000.00', '300.00', '300.00', 10, 8);
+        $this->assertPackagePayload($packages['ELITE'], '300000.00', '500.00', '200.00', 10, 10);
     }
 
     private function assertPackagePayload(
         array $package,
         string $price,
-        string $pv,
+        string $activityPv,
+        string $turnoverPv,
         int $referralPercent,
         int $binaryPercent,
     ): void {
         $this->assertSame($price, $package['price']);
-        $this->assertSame($pv, $package['pv']);
+        $this->assertSame($activityPv, $package['pv']);
+        $this->assertSame($activityPv, $package['activity_pv']);
+        $this->assertSame($turnoverPv, $package['turnover_pv']);
         $this->assertSame($referralPercent, $package['referralBonus']);
         $this->assertSame($binaryPercent, $package['binaryBonus']);
         $this->assertTrue($package['is_active']);

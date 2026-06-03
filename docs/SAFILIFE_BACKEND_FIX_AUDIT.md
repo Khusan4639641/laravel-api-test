@@ -84,7 +84,7 @@
 - `test_manual_package_assignment_accrues_referral_bonus_to_sponsor`
 - `test_manual_package_assignment_updates_binary_volume`
 
-## Текущий результат целевого запуска новых тестов
+## Исходный результат целевого запуска новых тестов на этапе аудита
 
 Команда:
 
@@ -107,6 +107,25 @@ php artisan test tests/Feature/BusinessRules tests/Feature/Admin/AdminManualPack
 - исключению первых 200 PV ELITE из referral/binary bonus;
 - bronze/silver status bonus default amounts;
 - ручному назначению пакета супер-админом.
+
+## Обновление после этапа 2
+
+На этапе 2 исправлены правила регистрации и матрица START/VIP/ELITE:
+
+- `PackageSeeder` приведен к `price` 60 000 / 180 000 / 300 000 и `activity_pv` 100 / 300 / 500.
+- Добавлено отдельное `turnover_pv`: START 100, VIP 300, ELITE 200.
+- `/api/public/packages` продолжает возвращать START/VIP/ELITE.
+- Добавлен `/api/public/registration-packages`, который возвращает только START/VIP.
+- `/api/register` валидирует только START/VIP как стартовый выбор и не активирует пакет/не начисляет PV/бонусы при регистрации.
+- `/api/packages/{package}/activate` не разрешает ELITE как первый пакет.
+- VIP -> ELITE upgrade теперь дает `additional_pv = 200`.
+
+После этапа 2 целевые тесты по регистрации и пакетам проходят. Полный `php artisan test` всё еще падает на 10 тестах, относящихся к следующим этапам:
+
+- referral bonus base для VIP;
+- исключение первых 200 PV ELITE из referral/binary bonus;
+- bronze/silver status bonus compensation logic;
+- manual package assignment by super admin.
 
 ## Следующий этап исправлений
 

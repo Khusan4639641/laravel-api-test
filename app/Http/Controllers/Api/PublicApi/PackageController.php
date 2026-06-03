@@ -23,4 +23,15 @@ class PackageController extends Controller
 
         return $this->paginated($packages, PackageResource::class, 'packages', $request);
     }
+
+    public function registration(Request $request): JsonResponse
+    {
+        $packages = Package::query()
+            ->activeRegistrationStarter()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->paginate($this->perPage($request));
+
+        return $this->paginated($packages, PackageResource::class, 'packages', $request);
+    }
 }

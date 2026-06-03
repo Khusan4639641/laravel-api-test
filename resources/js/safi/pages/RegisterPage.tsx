@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { ApiError, getPublicPackages, Package, register } from '../lib/api';
+import { ApiError, getRegistrationPackages, Package, register } from '../lib/api';
 
 type FieldErrors = Record<string, string[]>;
 type ReferralBranch = 'left' | 'right';
@@ -58,7 +58,7 @@ export default function RegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   useEffect(() => {
-    void getPublicPackages()
+    void getRegistrationPackages()
       .then(setPackages)
       .catch(() => setPackages([]))
       .finally(() => setPackagesLoading(false));

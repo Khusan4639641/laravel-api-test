@@ -10,7 +10,6 @@ use App\Models\Package;
 use App\Models\User;
 use App\Notifications\UserRegisteredNotification;
 use App\Services\BinaryTreeService;
-use App\Services\PackageService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,7 +23,6 @@ class AuthController extends Controller
     public function __construct(
         private readonly WalletService $walletService,
         private readonly BinaryTreeService $binaryTreeService,
-        private readonly PackageService $packageService,
     ) {
     }
 
@@ -32,7 +30,7 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
         $sponsor = $this->resolveSponsor($validated);
-        $package = $this->resolvePackage($validated);
+        $this->validateStarterPackageChoice($validated);
 
         if (! empty($validated['referral_code']) && ! $sponsor) {
             throw ValidationException::withMessages([
@@ -46,7 +44,7 @@ class AuthController extends Controller
             ]);
         }
 
-        $user = DB::transaction(function () use ($validated, $sponsor, $package): User {
+        $user = DB::transaction(function () use ($validated, $sponsor): User {
             $user = User::query()->create([
                 'name' => $validated['name'],
                 'login' => $validated['login'],
@@ -62,10 +60,6 @@ class AuthController extends Controller
 
             if ($sponsor && isset($validated['branch'])) {
                 $this->binaryTreeService->placeUser($user, $sponsor, $validated['branch']);
-            }
-
-            if ($package) {
-                $user = $this->packageService->upgradePackage($user->refresh(), $package);
             }
 
             $user->notify(new UserRegisteredNotification());
@@ -160,20 +154,18 @@ class AuthController extends Controller
     /**
      * @param  array<string, mixed>  $validated
      */
-    private function resolvePackage(array $validated): ?Package
+    private function validateStarterPackageChoice(array $validated): void
     {
         if (empty($validated['package_id'])) {
-            return null;
+            return;
         }
 
         $package = Package::query()->find((int) $validated['package_id']);
 
-        if (! $package || ! $package->is_active || $package->status !== 'active' || ! in_array($package->code, Package::PUBLIC_CODES, true)) {
+        if (! $package || ! $package->is_active || $package->status !== 'active' || ! in_array($package->code, Package::STARTER_CODES, true)) {
             throw ValidationException::withMessages([
-                'package_id' => ['Selected package is inactive.'],
+                'package_id' => ['Selected package is not available for first registration.'],
             ]);
         }
-
-        return $package;
     }
 }
