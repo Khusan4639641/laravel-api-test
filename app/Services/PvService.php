@@ -14,7 +14,7 @@ class PvService
     ) {
     }
 
-    public function accruePvUpTree(User $sourceUser, float|string $pv, ?Order $sourceOrder = null): void
+    public function accruePvUpTree(User $sourceUser, float|string $pv, ?Order $sourceOrder = null, bool $isBonusable = true): void
     {
         $pv = (string) $pv;
 
@@ -36,7 +36,7 @@ class PvService
             $parentUser = $parentNode->user()->lockForUpdate()->first();
 
             if ($parentUser) {
-                $this->addBranchPv($parentUser, $currentNode->position, $pv);
+                $this->addBranchPv($parentUser, $currentNode->position, $pv, $isBonusable);
                 $this->statusService->recalculate($parentUser);
             }
 
@@ -63,17 +63,21 @@ class PvService
         $this->statusService->recalculate($freshUser);
     }
 
-    private function addBranchPv(User $user, ?string $branch, string $pv): void
+    private function addBranchPv(User $user, ?string $branch, string $pv, bool $isBonusable): void
     {
         match ($branch) {
             'L' => $user->forceFill([
                 'left_pv' => bcadd((string) $user->left_pv, $pv, 2),
-                'remaining_left_pv' => bcadd((string) $user->remaining_left_pv, $pv, 2),
+                'remaining_left_pv' => $isBonusable
+                    ? bcadd((string) $user->remaining_left_pv, $pv, 2)
+                    : (string) $user->remaining_left_pv,
                 'total_pv' => bcadd((string) $user->total_pv, $pv, 2),
             ])->save(),
             'R' => $user->forceFill([
                 'right_pv' => bcadd((string) $user->right_pv, $pv, 2),
-                'remaining_right_pv' => bcadd((string) $user->remaining_right_pv, $pv, 2),
+                'remaining_right_pv' => $isBonusable
+                    ? bcadd((string) $user->remaining_right_pv, $pv, 2)
+                    : (string) $user->remaining_right_pv,
                 'total_pv' => bcadd((string) $user->total_pv, $pv, 2),
             ])->save(),
             default => null,

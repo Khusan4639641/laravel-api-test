@@ -10,6 +10,10 @@ use Illuminate\Validation\ValidationException;
 
 class PackageService
 {
+    private const PV_MONEY_RATE = '500';
+
+    private const VIP_ACTIVATION_REFERRAL_EXCLUDED_AMOUNT = '45000';
+
     private const UPGRADE_CHAIN = [
         'START' => 'VIP',
         'VIP' => 'ELITE',
@@ -37,7 +41,11 @@ class PackageService
                 $sponsor = User::query()->find($user->sponsor_id);
 
                 if ($sponsor) {
-                    $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $package->price);
+                    $eligibleReferralAmount = $this->eligibleReferralAmountForActivation($package);
+
+                    if (bccomp($eligibleReferralAmount, '0', 2) > 0) {
+                        $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $eligibleReferralAmount);
+                    }
                 }
             }
 
@@ -105,7 +113,12 @@ class PackageService
 
             if (bccomp($additionalPv, '0', 2) > 0) {
                 $this->pvService->addUserPv($user, $additionalPv);
-                $this->pvService->accruePvUpTree($user, $additionalPv);
+                $this->pvService->accruePvUpTree(
+                    $user,
+                    $additionalPv,
+                    null,
+                    $this->isUpgradePvBonusable($targetPackage),
+                );
             }
 
             $cashbackAmount = '0.00';
@@ -114,7 +127,11 @@ class PackageService
                 $sponsor = User::query()->find($user->sponsor_id);
 
                 if ($sponsor) {
-                    $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $paymentAmount);
+                    $eligibleReferralAmount = $this->eligibleReferralAmountForUpgrade($targetPackage, $paymentAmount);
+
+                    if (bccomp($eligibleReferralAmount, '0', 2) > 0) {
+                        $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $eligibleReferralAmount);
+                    }
                 }
             }
 
@@ -125,5 +142,42 @@ class PackageService
                 'cashback_amount' => $cashbackAmount,
             ];
         });
+    }
+
+    private function eligibleReferralAmountForActivation(Package $package): string
+    {
+        if ($package->code === 'VIP') {
+            // Business regression case: VIP 180000 must pay referral from 135000, not from the full price.
+            return $this->positiveOrZero(bcsub((string) $package->price, self::VIP_ACTIVATION_REFERRAL_EXCLUDED_AMOUNT, 2));
+        }
+
+        if ($package->code === 'ELITE') {
+            // The first 200 ELITE PV are turnover-only: 200 PV * 500 KZT does not create referral bonus.
+            $excludedAmount = bcmul($package->turnoverPv(), self::PV_MONEY_RATE, 2);
+
+            return $this->positiveOrZero(bcsub((string) $package->price, $excludedAmount, 2));
+        }
+
+        return (string) $package->price;
+    }
+
+    private function eligibleReferralAmountForUpgrade(Package $targetPackage, string $paymentAmount): string
+    {
+        if ($targetPackage->code === 'ELITE') {
+            // VIP -> ELITE adds exactly the first 200 ELITE PV, which are excluded from referral and binary bonuses.
+            return '0.00';
+        }
+
+        return $this->positiveOrZero($paymentAmount);
+    }
+
+    private function isUpgradePvBonusable(Package $targetPackage): bool
+    {
+        return $targetPackage->code !== 'ELITE';
+    }
+
+    private function positiveOrZero(string $amount): string
+    {
+        return bccomp($amount, '0', 2) > 0 ? $amount : '0.00';
     }
 }

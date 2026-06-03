@@ -127,22 +127,31 @@ php artisan test tests/Feature/BusinessRules tests/Feature/Admin/AdminManualPack
 - bronze/silver status bonus compensation logic;
 - manual package assignment by super admin.
 
+## Обновление после этапа 3
+
+На этапе 3 исправлены referral bonus base и исключение первых 200 PV ELITE из бонусируемого объема:
+
+- START activation платит referral bonus от полной цены пакета.
+- VIP activation платит referral bonus от базы 135 000 ₸, поэтому сумма бонуса 13 500 ₸ вместо 18 000 ₸.
+- VIP -> ELITE upgrade добавляет 200 PV в товарооборот партнера и upstream branch PV, но не добавляет эти PV в `remaining_left_pv`/`remaining_right_pv`.
+- VIP -> ELITE upgrade не создает referral bonus и не создает `referral_bonus` wallet transaction.
+- Binary bonus calculation больше не использует первые 200 ELITE PV как bonusable volume.
+
+После этапа 3 целевые тесты по referral/ELITE проходят. Полный `php artisan test` всё еще падает на 7 тестах, относящихся к следующим этапам:
+
+- manual package assignment by super admin;
+- bronze/silver status bonus compensation logic.
+
 ## Следующий этап исправлений
 
-1. Обновить модель данных пакетов или соглашение:
-   - `price_amount`
-   - `activity_pv`
-   - `turnover_pv`
-   - `bonusable_amount`
-   - `non_bonusable_pv`
-2. Исправить `PackageSeeder` и существующие package tests на PV 100/300/500.
-3. Разделить registration package choice и paid package activation.
-4. Запретить ELITE как starter package на backend и frontend.
-5. Переписать `PackageService` на явные сценарии:
-   - initial activation START/VIP after payment
-   - VIP -> ELITE upgrade
-   - admin manual assignment with source/audit
-6. Ввести корректную bonusable base для referral bonus.
-7. Ввести учет non-bonusable ELITE PV для binary bonus.
-8. Разделить status reward amount и cash compensation amount для trip refusal.
-9. После исправлений обновить/переписать старые тесты, которые сейчас закрепляют прежнее неверное поведение.
+1. Переписать admin manual package assignment на явный service action:
+   - присвоение пакета с source/audit reason;
+   - начисление PV/товарооборота;
+   - referral bonus;
+   - binary volume update.
+2. Разделить status reward amount и cash compensation amount для trip refusal:
+   - bronze default: trip + 100 000 ₸;
+   - bronze refusal compensation: 400 000 ₸ only after refusal;
+   - silver default: foreign trip + 250 000 ₸;
+   - silver refusal compensation: 750 000 ₸ only after refusal.
+3. После исправлений обновить/переписать старые тесты, которые всё еще закрепляют прежнее неверное поведение.

@@ -72,6 +72,12 @@ class ElitePackageRulesTest extends TestCase
         Sanctum::actingAs($user);
         $this->postJson("/api/packages/{$elite->id}/upgrade")->assertOk();
 
+        $sponsor->refresh();
+
+        $this->assertSame('200.00', $sponsor->left_pv);
+        $this->assertSame('0.00', $sponsor->remaining_left_pv);
+        $this->assertSame('200.00', $sponsor->remaining_right_pv);
+
         Sanctum::actingAs($sponsor->refresh());
         $this->postJson('/api/bonuses/binary/calculate')
             ->assertOk()
@@ -99,6 +105,8 @@ class ElitePackageRulesTest extends TestCase
             'slug' => strtolower($code),
             'price' => $price,
             'pv' => $pv,
+            'activity_pv' => $pv,
+            'turnover_pv' => $code === 'ELITE' ? 200 : $pv,
             'referral_percent' => 10,
             'binary_percent' => $binaryPercent,
             'sort_order' => $sortOrder,

@@ -87,16 +87,17 @@ class PackageActivationTest extends TestCase
         $bonus = BonusTransaction::query()->firstOrFail();
         $walletTransaction = WalletTransaction::query()->firstOrFail();
 
-        $this->assertSame('18000.00', $wallet->balance);
+        $this->assertSame('13500.00', $wallet->balance);
         $this->assertSame($sponsor->id, $bonus->user_id);
         $this->assertSame($user->id, $bonus->source_user_id);
         $this->assertSame('referral', $bonus->bonus_type);
-        $this->assertSame('18000.00', $bonus->amount);
+        $this->assertSame('13500.00', $bonus->amount);
+        $this->assertSame('135000.00', $bonus->metadata['base_amount']);
         $this->assertSame('business_tz', $bonus->metadata['percent_source']);
         $this->assertSame($wallet->id, $walletTransaction->wallet_id);
         $this->assertSame('credit', $walletTransaction->direction);
         $this->assertSame('referral_bonus', $walletTransaction->type);
-        $this->assertSame('18000.00', $walletTransaction->amount);
+        $this->assertSame('13500.00', $walletTransaction->amount);
     }
 
     public function test_referral_bonus_is_always_ten_percent(): void
@@ -118,11 +119,11 @@ class PackageActivationTest extends TestCase
         $bonus = BonusTransaction::query()->firstOrFail();
         $wallet = $sponsor->wallets()->where('type', 'main')->firstOrFail();
 
-        $this->assertSame('18000.00', $bonus->amount);
+        $this->assertSame('13500.00', $bonus->amount);
         $this->assertSame('10', $bonus->metadata['referral_percent']);
         $this->assertSame($sponsorPackage->id, $bonus->metadata['sponsor_package_id']);
         $this->assertSame($activatedPackage->id, $bonus->metadata['referral_package_id']);
-        $this->assertSame('18000.00', $wallet->balance);
+        $this->assertSame('13500.00', $wallet->balance);
     }
 
     public function test_user_with_current_package_cannot_activate_again(): void
