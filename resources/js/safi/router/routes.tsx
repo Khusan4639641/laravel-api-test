@@ -29,6 +29,8 @@ const PackageStatus = React.lazy(() => import('../pages/dashboard/PackageStatus'
 const Profile = React.lazy(() => import('../pages/dashboard/Profile'));
 const Support = React.lazy(() => import('../pages/dashboard/Support'));
 const Products = React.lazy(() => import('../pages/dashboard/Products'));
+const Orders = React.lazy(() => import('../pages/dashboard/Orders'));
+const OrderDetail = React.lazy(() => import('../pages/dashboard/OrderDetail'));
 const News = React.lazy(() => import('../pages/dashboard/News'));
 
 // Admin Pages
@@ -43,6 +45,7 @@ const AdminBonuses = React.lazy(() => import('../pages/admin/AdminBonuses'));
 const AdminPackages = React.lazy(() => import('../pages/admin/AdminPackages'));
 const AdminStatuses = React.lazy(() => import('../pages/admin/AdminStatuses'));
 const AdminProducts = React.lazy(() => import('../pages/admin/AdminProducts'));
+const AdminOrders = React.lazy(() => import('../pages/admin/AdminOrders'));
 const AdminSupport = React.lazy(() => import('../pages/admin/AdminSupport'));
 const AdminProfile = React.lazy(() => import('../pages/admin/AdminProfile'));
 const AdminReports = React.lazy(() => import('../pages/admin/AdminReports'));
@@ -81,6 +84,8 @@ export function AppRouter() {
             <Route path="package" element={<PackageStatus />} />
             <Route path="package-status" element={<PackageStatus />} />
             <Route path="products" element={<Products />} />
+            <Route path="orders" element={<Orders />} />
+            <Route path="orders/:id" element={<OrderDetail />} />
             <Route path="news" element={<News />} />
             <Route path="profile" element={<Profile />} />
             <Route path="support" element={features.support ? <Support /> : <Navigate to="/dashboard" replace />} />
@@ -99,6 +104,7 @@ export function AppRouter() {
             <Route path="packages" element={<AdminPackages />} />
             <Route path="statuses" element={<AdminStatuses />} />
             <Route path="products" element={<AdminProducts />} />
+            <Route path="orders" element={<AdminOrders />} />
             <Route path="news" element={<AdminNews />} />
             <Route path="support" element={features.support ? <AdminSupport /> : <Navigate to="/admin" replace />} />
             <Route path="reports" element={<AdminReports />} />

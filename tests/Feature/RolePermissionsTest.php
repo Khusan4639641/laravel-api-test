@@ -53,6 +53,7 @@ class RolePermissionsTest extends TestCase
             '/admin',
             '/admin/transactions',
             '/admin/withdrawals',
+            '/admin/orders',
             '/admin/reports',
         ];
 

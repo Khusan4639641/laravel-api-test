@@ -105,9 +105,9 @@ export default function CartPage() {
       });
 
       clearCart();
-      setCheckoutMessage(t('cart.orderCreated', 'Заказ создан'));
-      showToast(t('cart.orderCreated', 'Заказ создан'));
-      window.setTimeout(() => navigate('/dashboard/products'), 1200);
+      setCheckoutMessage(t('orders.orderCreated'));
+      showToast(t('orders.orderCreated'));
+      navigate('/dashboard/orders', { state: { orderCreated: true } });
     } catch (caughtError) {
       const message = caughtError instanceof ApiError
         ? caughtError.message

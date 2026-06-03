@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   ArrowUpCircle,
   BarChart,
@@ -55,6 +56,8 @@ export function AdminSidebar({
   permissions: RolePermissions;
 }) {
   const location = useLocation();
+  const { i18n } = useTranslation();
+  const language = i18n.resolvedLanguage || i18n.language;
   const homePath = permissions.redirect_after_login;
 
   return (
@@ -118,7 +121,7 @@ export function AdminSidebar({
                 )}
               >
                 <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-safi-gold' : 'text-current')} />
-                {menuLabel(item)}
+                {menuLabel(item, language)}
               </Link>
             );
           })}

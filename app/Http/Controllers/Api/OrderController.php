@@ -17,12 +17,16 @@ class OrderController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $orders = OrderResource::collection($request->user()
+            ->orders()
+            ->with(['items.product', 'items.package'])
+            ->withSum('items as items_count', 'quantity')
+            ->latest()
+            ->get());
+
         return response()->json([
-            'orders' => OrderResource::collection($request->user()
-                ->orders()
-                ->with('items.product')
-                ->latest()
-                ->get()),
+            'data' => $orders,
+            'orders' => $orders,
         ]);
     }
 
@@ -33,7 +37,7 @@ class OrderController extends Controller
         }
 
         return response()->json([
-            'order' => OrderResource::make($order->load('items.product')),
+            'order' => OrderResource::make($order->load(['items.product', 'items.package'])),
         ]);
     }
 

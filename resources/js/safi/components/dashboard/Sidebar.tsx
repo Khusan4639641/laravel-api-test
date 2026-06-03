@@ -1,4 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { cn } from '../../lib/utils';
 import { LayoutDashboard, Users, CreditCard, Gift, Star, UserCircle, HelpCircle, LogOut, ShoppingBag, Newspaper } from 'lucide-react';
 import { logout } from '../../lib/api';
@@ -36,6 +37,8 @@ export function Sidebar({
   permissions: RolePermissions;
 }) {
   const location = useLocation();
+  const { i18n } = useTranslation();
+  const language = i18n.resolvedLanguage || i18n.language;
 
   return (
     <>
@@ -105,7 +108,7 @@ export function Sidebar({
                 )}
               >
                 <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-safi-gold' : 'text-current')} />
-                {menuLabel(item)}
+                {menuLabel(item, language)}
               </Link>
             );
           })}

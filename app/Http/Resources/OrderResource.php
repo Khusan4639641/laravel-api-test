@@ -15,6 +15,7 @@ class OrderResource extends JsonResource
             'order_number' => $this->order_number,
             'status' => $this->status,
             'payment_status' => $this->payment_status,
+            'items_count' => $this->items_count ?? ($this->relationLoaded('items') ? $this->items->sum('quantity') : null),
             'subtotal_amount' => $this->subtotal_amount,
             'discount_amount' => $this->discount_amount,
             'total_amount' => $this->total_amount,

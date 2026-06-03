@@ -1,4 +1,5 @@
 import { features, isSupportFrontendPath } from '../config/features';
+import i18n from '../i18n';
 
 export interface PermissionMenuItem {
   path: string;
@@ -55,9 +56,41 @@ export function canAccessPath(pathname: string, permissions: RolePermissions) {
   });
 }
 
-export function menuLabel(item: PermissionMenuItem) {
-  return item.label || item.name || item.path;
+export function menuLabel(item: PermissionMenuItem, language?: string) {
+  const fallback = item.label || item.name || item.path;
+  const key = menuTranslationKeys[item.path];
+
+  return key ? i18n.t(key, { lng: language, defaultValue: fallback }) : fallback;
 }
+
+const menuTranslationKeys: Record<string, string> = {
+  '/dashboard': 'menu.dashboardOverview',
+  '/dashboard/structure': 'menu.dashboardStructure',
+  '/dashboard/transactions': 'menu.transactions',
+  '/dashboard/bonuses': 'menu.bonusesWithdrawals',
+  '/dashboard/package': 'menu.packageStatus',
+  '/dashboard/products': 'menu.products',
+  '/dashboard/orders': 'orders.myOrders',
+  '/dashboard/news': 'menu.news',
+  '/dashboard/profile': 'menu.profile',
+  '/dashboard/support': 'menu.support',
+  '/admin': 'menu.adminOverview',
+  '/admin/partners': 'menu.partners',
+  '/admin/structure': 'menu.structure',
+  '/admin/transactions': 'menu.transactions',
+  '/admin/withdrawals': 'menu.withdrawals',
+  '/admin/orders': 'orders.orders',
+  '/admin/bonuses': 'menu.bonuses',
+  '/admin/packages': 'menu.packages',
+  '/admin/statuses': 'menu.statuses',
+  '/admin/products': 'menu.products',
+  '/admin/news': 'menu.news',
+  '/admin/support': 'menu.support',
+  '/admin/reports': 'menu.reports',
+  '/admin/settings': 'menu.settings',
+  '/support': 'menu.support',
+  '/support/profile': 'menu.profile',
+};
 
 function normalizeMenu(value: unknown): PermissionMenuItem[] {
   if (!Array.isArray(value)) {

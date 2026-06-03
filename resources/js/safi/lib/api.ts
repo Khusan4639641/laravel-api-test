@@ -59,8 +59,9 @@ export interface AdminPartnerBulkPayload {
 }
 
 export interface OrderPayload {
-  product_id: string | number;
+  product_id?: string | number;
   quantity?: number;
+  items?: Array<{ product_id: string | number; quantity: number }>;
   [key: string]: unknown;
 }
 
@@ -95,6 +96,42 @@ export interface Product {
   inStock?: boolean;
   status?: string;
   createdAt?: string;
+}
+
+export interface OrderItem {
+  id: string;
+  productId?: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  unitPv: number;
+  totalPrice: number;
+  totalPv: number;
+  image?: string;
+  category?: string;
+}
+
+export interface OrderUser {
+  id: string;
+  name: string;
+  login?: string;
+  email?: string;
+  phone?: string;
+}
+
+export interface Order {
+  id: string;
+  orderNumber?: string;
+  userId?: string;
+  user?: OrderUser | null;
+  status: string;
+  paymentStatus?: string;
+  totalAmount: number;
+  totalPv: number;
+  itemsCount: number;
+  items: OrderItem[];
+  createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Package {
@@ -438,11 +475,13 @@ export async function closeDashboardSupportTicket<T = unknown>(ticketId: string 
   });
 }
 
-export async function getOrders<T = unknown>() {
-  return apiRequest<T>(endpoints.dashboard.orderCheckout, {
+export async function getOrders(params: Record<string, string | number | undefined> = {}) {
+  const response = await apiRequest(buildEndpointWithParams(endpoints.dashboard.orderCheckout, params), {
     method: 'GET',
     auth: true,
   });
+
+  return normalizeOrders(response);
 }
 
 export async function createOrder<T = unknown>(payload: OrderPayload) {
@@ -453,11 +492,22 @@ export async function createOrder<T = unknown>(payload: OrderPayload) {
   });
 }
 
-export async function getDashboardOrders<T = unknown>() {
-  return apiRequest<T>(endpoints.dashboard.orders, {
+export async function getOrder(orderId: string | number) {
+  const response = await apiRequest(endpoints.dashboard.order(orderId), {
     method: 'GET',
     auth: true,
   });
+
+  return normalizeOrder(unwrapRecord(response, ['order']));
+}
+
+export async function getDashboardOrders(params: Record<string, string | number | undefined> = {}) {
+  const response = await apiRequest(buildEndpointWithParams(endpoints.dashboard.orders, params), {
+    method: 'GET',
+    auth: true,
+  });
+
+  return normalizeOrders(response);
 }
 
 export async function getWithdrawals<T = unknown>() {
@@ -675,11 +725,35 @@ export async function updateAdminPackage<T = unknown>(packageId: string | number
   });
 }
 
-export async function getAdminOrders<T = unknown>() {
-  return apiRequest<T>(endpoints.admin.orders, {
+export async function getAdminOrders(params: Record<string, string | number | undefined> = {}) {
+  const response = await apiRequest(buildEndpointWithParams(endpoints.admin.orders, params), {
     method: 'GET',
     auth: true,
   });
+
+  return {
+    orders: normalizeOrders(response),
+    meta: isRecord(response) ? response.meta : undefined,
+  };
+}
+
+export async function getAdminOrder(orderId: string | number) {
+  const response = await apiRequest(endpoints.admin.order(orderId), {
+    method: 'GET',
+    auth: true,
+  });
+
+  return normalizeOrder(unwrapRecord(response, ['order']));
+}
+
+export async function updateAdminOrderStatus(orderId: string | number, status: string) {
+  const response = await apiRequest(endpoints.admin.orderStatus(orderId), {
+    method: 'PATCH',
+    body: { status },
+    auth: true,
+  });
+
+  return normalizeOrder(unwrapRecord(response, ['order']));
 }
 
 export async function getAdminTransactions<T = unknown>(params: Record<string, string | number | undefined> = {}) {
@@ -1020,6 +1094,18 @@ function compactPayload<T extends Record<string, unknown>>(payload: T) {
   );
 }
 
+function buildEndpointWithParams(endpoint: string, params: Record<string, string | number | undefined> = {}) {
+  const query = new URLSearchParams();
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined && value !== '') {
+      query.set(key, String(value));
+    }
+  });
+
+  return `${endpoint}${query.toString() ? `?${query.toString()}` : ''}`;
+}
+
 export function getArray(response: unknown, keys: string[] = []) {
   if (Array.isArray(response)) {
     return response;
@@ -1042,6 +1128,59 @@ export function getArray(response: unknown, keys: string[] = []) {
   }
 
   return [];
+}
+
+export function normalizeOrders(response: unknown): Order[] {
+  return getArray(response, ['orders']).map((item, index) => normalizeOrder(item, index));
+}
+
+export function normalizeOrder(item: unknown, index = 0): Order {
+  const record = isRecord(item) ? item : {};
+  const user = isRecord(record.user) ? record.user : undefined;
+  const items = getArray(record.items).map((orderItem, itemIndex) => normalizeOrderItem(orderItem, itemIndex));
+
+  return {
+    id: getString(record, ['id']) || String(index + 1),
+    orderNumber: getString(record, ['order_number', 'orderNumber']),
+    userId: getString(record, ['user_id', 'userId']),
+    user: user ? normalizeOrderUser(user) : null,
+    status: getString(record, ['status']) || 'pending',
+    paymentStatus: getString(record, ['payment_status', 'paymentStatus']),
+    totalAmount: getNumber(record, ['total_amount', 'totalAmount']) ?? 0,
+    totalPv: getNumber(record, ['total_pv', 'totalPv']) ?? 0,
+    itemsCount: getNumber(record, ['items_count', 'itemsCount']) ?? items.reduce((sum, orderItem) => sum + orderItem.quantity, 0),
+    items,
+    createdAt: getString(record, ['created_at', 'createdAt']) || '',
+    updatedAt: getString(record, ['updated_at', 'updatedAt']),
+  };
+}
+
+function normalizeOrderItem(item: unknown, index: number): OrderItem {
+  const record = isRecord(item) ? item : {};
+  const product = isRecord(record.product) ? record.product : undefined;
+
+  return {
+    id: getString(record, ['id']) || String(index + 1),
+    productId: getString(record, ['product_id', 'productId']),
+    productName: getString(record, ['product_name', 'productName']) || getString(product, ['name', 'title']) || '-',
+    quantity: getNumber(record, ['quantity']) ?? 0,
+    unitPrice: getNumber(record, ['unit_price', 'unitPrice']) ?? 0,
+    unitPv: getNumber(record, ['unit_pv', 'unitPv']) ?? 0,
+    totalPrice: getNumber(record, ['total_price', 'totalPrice']) ?? 0,
+    totalPv: getNumber(record, ['total_pv', 'totalPv']) ?? 0,
+    image: getString(product, ['image', 'image_url', 'imageUrl']),
+    category: getString(product, ['category']),
+  };
+}
+
+function normalizeOrderUser(user: Record<string, unknown>): OrderUser {
+  return {
+    id: getString(user, ['id']) || '-',
+    name: getString(user, ['name', 'full_name', 'fullName']) || '-',
+    login: getString(user, ['login', 'username']),
+    email: getString(user, ['email']),
+    phone: getString(user, ['phone']),
+  };
 }
 
 export function unwrapRecord(response: unknown, keys: string[] = []) {

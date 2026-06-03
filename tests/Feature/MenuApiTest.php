@@ -46,7 +46,7 @@ class MenuApiTest extends TestCase
         $this->assertNotContains('/admin/settings', array_column($supportMenu, 'path'));
         $this->assertContains('/admin/products', array_column($adminMenu, 'path'));
         $this->assertNotContains('/admin/settings', array_column($adminMenu, 'path'));
-        $this->assertSame(['/admin', '/admin/transactions', '/admin/withdrawals', '/admin/reports'], array_column($accountantMenu, 'path'));
+        $this->assertSame(['/admin', '/admin/transactions', '/admin/withdrawals', '/admin/orders', '/admin/reports'], array_column($accountantMenu, 'path'));
         $this->assertContains('/admin/settings', array_column($superAdminMenu, 'path'));
     }
 
