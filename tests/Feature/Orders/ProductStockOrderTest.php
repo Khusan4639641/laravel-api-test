@@ -6,12 +6,25 @@ use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class ProductStockOrderTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_order_items_table_has_product_snapshot_columns(): void
+    {
+        $this->assertTrue(Schema::hasColumns('order_items', [
+            'product_name',
+            'unit_price',
+            'unit_pv',
+            'total_price',
+            'total_pv',
+            'item_snapshot',
+        ]));
+    }
 
     public function test_user_can_create_order_with_available_stock(): void
     {
@@ -115,6 +128,9 @@ class ProductStockOrderTest extends TestCase
         $this->assertSame('30.00', $item->unit_pv);
         $this->assertSame('60.00', $item->total_pv);
         $this->assertSame('Safi Serum', $item->item_snapshot['name']);
+        $this->assertSame($product->sku, $item->item_snapshot['sku']);
+        $this->assertSame('18000.00', $item->item_snapshot['price']);
+        $this->assertSame('30.00', $item->item_snapshot['pv']);
     }
 
     public function test_unauthenticated_user_cannot_create_order(): void
@@ -174,4 +190,3 @@ class ProductStockOrderTest extends TestCase
         ]);
     }
 }
-
