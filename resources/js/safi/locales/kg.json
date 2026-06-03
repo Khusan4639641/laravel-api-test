@@ -300,6 +300,9 @@
     "adminSubtitle": "Өнөктөштөрдүн буйрутмаларын, суммаларды, PV жана статустарды көзөмөлдөө.",
     "detailSubtitle": "Буйрутма курамы, суммалар жана иштетүү статусу.",
     "tableProduct": "Товар",
+    "productImage": "Товардын сүрөтү",
+    "noImage": "Сүрөт жок",
+    "imagePlaceholder": "Img",
     "totalAmount": "Жалпы сумма",
     "totalPv": "Жалпы PV",
     "statusLabels": {

@@ -1158,6 +1158,7 @@ export function normalizeOrder(item: unknown, index = 0): Order {
 function normalizeOrderItem(item: unknown, index: number): OrderItem {
   const record = isRecord(item) ? item : {};
   const product = isRecord(record.product) ? record.product : undefined;
+  const snapshot = isRecord(record.item_snapshot) ? record.item_snapshot : undefined;
 
   return {
     id: getString(record, ['id']) || String(index + 1),
@@ -1168,7 +1169,9 @@ function normalizeOrderItem(item: unknown, index: number): OrderItem {
     unitPv: getNumber(record, ['unit_pv', 'unitPv']) ?? 0,
     totalPrice: getNumber(record, ['total_price', 'totalPrice']) ?? 0,
     totalPv: getNumber(record, ['total_pv', 'totalPv']) ?? 0,
-    image: getString(product, ['image', 'image_url', 'imageUrl']),
+    image: getString(record, ['image_url', 'imageUrl'])
+      || getString(snapshot, ['image_url', 'imageUrl', 'image_path', 'imagePath'])
+      || getString(product, ['image', 'image_url', 'imageUrl', 'image_path', 'imagePath']),
     category: getString(product, ['category']),
   };
 }

@@ -5,13 +5,16 @@ namespace App\Http\Resources;
 use App\Support\LocalizedValue;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class ProductResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
         $metadata = $this->metadata ?? [];
-        $image = $this->image_path ?: ($metadata['image'] ?? $metadata['image_url'] ?? null);
+        $imagePath = $this->image_path ?: ($metadata['image'] ?? $metadata['image_url'] ?? null);
+        $image = $this->imageUrl($imagePath);
         $name = LocalizedValue::get($this->name_translations, $this->name);
         $description = LocalizedValue::get($this->description_translations, $this->description);
         $category = LocalizedValue::get($this->category_translations, $metadata['category'] ?? null);
@@ -59,5 +62,18 @@ class ProductResource extends JsonResource
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
+    }
+
+    private function imageUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://', '/'])) {
+            return $path;
+        }
+
+        return asset(Storage::url($path));
     }
 }

@@ -300,6 +300,9 @@
     "adminSubtitle": "Түншүүдийн захиалга, дүн, PV болон төлөвийг хянах.",
     "detailSubtitle": "Захиалгын бүтэц, дүн болон боловсруулах төлөв.",
     "tableProduct": "Бараа",
+    "productImage": "Барааны зураг",
+    "noImage": "Зураг алга",
+    "imagePlaceholder": "Img",
     "totalAmount": "Нийт дүн",
     "totalPv": "Нийт PV",
     "statusLabels": {

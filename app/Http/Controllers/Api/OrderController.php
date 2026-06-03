@@ -10,6 +10,7 @@ use App\Models\Product;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -123,10 +124,13 @@ class OrderController extends Controller
                     'unit_pv' => $preparedItem['unit_pv'],
                     'total_pv' => $preparedItem['total_pv'],
                     'item_snapshot' => [
+                        'product_id' => $product->id,
                         'name' => $product->name,
                         'sku' => $product->sku,
                         'price' => (string) $product->price,
                         'pv' => (string) $product->pv,
+                        'image_path' => $product->image_path,
+                        'image_url' => $this->productImageUrl($product),
                     ],
                 ]);
             }
@@ -152,5 +156,21 @@ class OrderController extends Controller
         } while (Order::query()->where('order_number', $number)->exists());
 
         return $number;
+    }
+
+    private function productImageUrl(Product $product): ?string
+    {
+        $metadata = is_array($product->metadata) ? $product->metadata : [];
+        $path = $product->image_path ?: ($metadata['image_url'] ?? $metadata['image'] ?? null);
+
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://', '/'])) {
+            return $path;
+        }
+
+        return asset(Storage::url($path));
     }
 }

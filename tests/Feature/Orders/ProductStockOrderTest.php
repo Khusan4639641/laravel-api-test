@@ -133,6 +133,86 @@ class ProductStockOrderTest extends TestCase
         $this->assertSame('30.00', $item->item_snapshot['pv']);
     }
 
+    public function test_order_item_snapshot_stores_product_image_path_and_url(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $product = $this->product(name: 'Safi Image Product', imagePath: 'https://cdn.test/safi-image.jpg');
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('order.items.0.image_url', 'https://cdn.test/safi-image.jpg');
+
+        $item = OrderItem::query()->firstOrFail();
+
+        $this->assertSame($product->id, $item->item_snapshot['product_id']);
+        $this->assertSame('https://cdn.test/safi-image.jpg', $item->item_snapshot['image_path']);
+        $this->assertSame('https://cdn.test/safi-image.jpg', $item->item_snapshot['image_url']);
+    }
+
+    public function test_user_order_list_and_detail_return_item_image_url(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $product = $this->product(imagePath: 'https://cdn.test/user-order.jpg');
+
+        Sanctum::actingAs($user);
+
+        $orderId = $this->postJson('/api/orders', [
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+        ])->assertCreated()->json('order.id');
+
+        $this->getJson('/api/orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.items.0.image_url', 'https://cdn.test/user-order.jpg');
+
+        $this->getJson("/api/orders/{$orderId}")
+            ->assertOk()
+            ->assertJsonPath('order.items.0.image_url', 'https://cdn.test/user-order.jpg');
+    }
+
+    public function test_admin_order_list_returns_item_image_url(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $product = $this->product(imagePath: 'https://cdn.test/admin-order.jpg');
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+        ])->assertCreated();
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $this->getJson('/api/admin/orders')
+            ->assertOk()
+            ->assertJsonPath('data.0.items.0.image_url', 'https://cdn.test/admin-order.jpg');
+    }
+
+    public function test_order_item_returns_null_image_url_when_product_has_no_image(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $product = $this->product(imagePath: null);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('order.items.0.image_url', null);
+    }
+
     public function test_unauthenticated_user_cannot_create_order(): void
     {
         $product = $this->product(stock: 10);
@@ -177,6 +257,7 @@ class ProductStockOrderTest extends TestCase
         int $pv = 30,
         int $stock = 10,
         string $status = 'active',
+        ?string $imagePath = null,
     ): Product {
         return Product::query()->create([
             'name' => $name,
@@ -187,6 +268,7 @@ class ProductStockOrderTest extends TestCase
             'stock_quantity' => $stock,
             'reserved_quantity' => 0,
             'status' => $status,
+            'image_path' => $imagePath,
         ]);
     }
 }

@@ -300,6 +300,9 @@
     "adminSubtitle": "Control partner orders, amounts, PV and statuses.",
     "detailSubtitle": "Order items, totals and processing status.",
     "tableProduct": "Product",
+    "productImage": "Product image",
+    "noImage": "No image",
+    "imagePlaceholder": "Img",
     "totalAmount": "Total amount",
     "totalPv": "Total PV",
     "statusLabels": {

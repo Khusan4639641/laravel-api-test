@@ -300,6 +300,9 @@
     "adminSubtitle": "Серіктестер тапсырыстарын, сомаларды, PV және мәртебелерді бақылау.",
     "detailSubtitle": "Тапсырыс құрамы, сомалар және өңдеу мәртебесі.",
     "tableProduct": "Тауар",
+    "productImage": "Тауар суреті",
+    "noImage": "Сурет жоқ",
+    "imagePlaceholder": "Img",
     "totalAmount": "Жалпы сома",
     "totalPv": "Жалпы PV",
     "statusLabels": {

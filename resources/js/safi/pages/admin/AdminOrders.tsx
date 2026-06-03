@@ -205,7 +205,10 @@ export default function AdminOrders() {
                     <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                       {order.items.map((item) => (
                         <div key={item.id} className="rounded-2xl border border-safi-border bg-white p-4">
-                          <div className="font-serif text-lg font-semibold text-safi-green">{item.productName}</div>
+                          <div className="flex items-center gap-4">
+                            <ProductImage image={item.image} alt={`${t('orders.productImage')}: ${item.productName}`} />
+                            <div className="font-serif text-lg font-semibold text-safi-green">{item.productName}</div>
+                          </div>
                           <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                             <Metric label={t('orders.quantity')} value={item.quantity.toLocaleString('ru-RU')} />
                             <Metric label={t('orders.amount')} value={formatCurrency(item.totalPrice)} />
@@ -230,6 +233,24 @@ function OrderStatusBadge({ status }: { status: string }) {
   const variant = status === 'cancelled' ? 'danger' : status === 'pending' ? 'warning' : 'success';
 
   return <AdminBadge variant={variant}>{t(`orders.statusLabels.${status}`, { defaultValue: status })}</AdminBadge>;
+}
+
+function ProductImage({ image, alt }: { image?: string; alt: string }) {
+  const { t } = useTranslation();
+
+  if (!image) {
+    return (
+      <div
+        className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#F5F5F0] text-[9px] font-extrabold uppercase tracking-widest text-safi-muted"
+        title={t('orders.noImage')}
+        aria-label={t('orders.noImage')}
+      >
+        {t('orders.imagePlaceholder')}
+      </div>
+    );
+  }
+
+  return <img src={image} alt={alt} className="h-14 w-14 shrink-0 rounded-xl object-cover" />;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

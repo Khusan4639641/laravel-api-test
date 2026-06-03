@@ -98,7 +98,12 @@ export default function OrderDetail() {
             <tbody className="divide-y divide-safi-border text-sm">
               {order.items.map((item) => (
                 <tr key={item.id} className="transition-colors hover:bg-safi-cream/70">
-                  <td className="px-7 py-5 font-extrabold text-safi-green">{item.productName}</td>
+                  <td className="px-7 py-5">
+                    <div className="flex items-center gap-4">
+                      <ProductImage image={item.image} alt={`${t('orders.productImage')}: ${item.productName}`} />
+                      <span className="font-extrabold text-safi-green">{item.productName}</span>
+                    </div>
+                  </td>
                   <td className="px-7 py-5 font-bold text-safi-green">{item.quantity.toLocaleString('ru-RU')}</td>
                   <td className="px-7 py-5 text-safi-muted">{formatCurrency(item.unitPrice)}</td>
                   <td className="px-7 py-5 font-extrabold text-safi-green">{formatCurrency(item.totalPrice)}</td>
@@ -112,7 +117,10 @@ export default function OrderDetail() {
         <div className="divide-y divide-safi-border md:hidden">
           {order.items.map((item) => (
             <article key={item.id} className="p-5">
-              <h3 className="font-serif text-xl font-semibold text-safi-green">{item.productName}</h3>
+              <div className="flex items-center gap-4">
+                <ProductImage image={item.image} alt={`${t('orders.productImage')}: ${item.productName}`} />
+                <h3 className="font-serif text-xl font-semibold text-safi-green">{item.productName}</h3>
+              </div>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <InfoCard compact label={t('orders.quantity')} value={item.quantity.toLocaleString('ru-RU')} />
                 <InfoCard compact label={t('cart.price')} value={formatCurrency(item.unitPrice)} />
@@ -132,6 +140,24 @@ function OrderStatusBadge({ status }: { status: string }) {
   const variant = status === 'cancelled' ? 'danger' : status === 'pending' ? 'warning' : 'success';
 
   return <Badge variant={variant}>{t(`orders.statusLabels.${status}`, { defaultValue: status })}</Badge>;
+}
+
+function ProductImage({ image, alt }: { image?: string; alt: string }) {
+  const { t } = useTranslation();
+
+  if (!image) {
+    return (
+      <div
+        className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl bg-[#F5F5F0] text-[9px] font-extrabold uppercase tracking-widest text-safi-muted"
+        title={t('orders.noImage')}
+        aria-label={t('orders.noImage')}
+      >
+        {t('orders.imagePlaceholder')}
+      </div>
+    );
+  }
+
+  return <img src={image} alt={alt} className="h-16 w-16 shrink-0 rounded-xl object-cover" />;
 }
 
 function InfoCard({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {

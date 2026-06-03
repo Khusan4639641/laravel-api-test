@@ -107,7 +107,12 @@ export default function Orders() {
                       <tr key={order.id} className="transition-colors hover:bg-safi-cream/70">
                         <td className="px-7 py-5 font-extrabold text-safi-green">#{order.id}</td>
                         <td className="px-7 py-5 text-safi-muted">{formatDate(order.createdAt, language)}</td>
-                        <td className="px-7 py-5 font-bold text-safi-green">{order.itemsCount.toLocaleString('ru-RU')}</td>
+                        <td className="px-7 py-5">
+                          <div className="flex items-center gap-3">
+                            <OrderItemThumbs order={order} />
+                            <span className="font-bold text-safi-green">{order.itemsCount.toLocaleString('ru-RU')}</span>
+                          </div>
+                        </td>
                         <td className="px-7 py-5 font-extrabold text-safi-green">{formatCurrency(order.totalAmount)}</td>
                         <td className="px-7 py-5 font-extrabold text-safi-gold">{order.totalPv.toLocaleString('ru-RU')} PV</td>
                         <td className="px-7 py-5"><OrderStatusBadge status={order.status} /></td>
@@ -134,6 +139,9 @@ export default function Orders() {
                       <OrderStatusBadge status={order.status} />
                     </div>
                     <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
+                      <div className="col-span-3 mb-1">
+                        <OrderItemThumbs order={order} />
+                      </div>
                       <Metric label={t('orders.items')} value={order.itemsCount.toLocaleString('ru-RU')} />
                       <Metric label={t('orders.amount')} value={formatCurrency(order.totalAmount)} />
                       <Metric label={t('orders.pv')} value={`${order.totalPv.toLocaleString('ru-RU')} PV`} />
@@ -151,6 +159,44 @@ export default function Orders() {
       )}
     </div>
   );
+}
+
+function OrderItemThumbs({ order }: { order: Order }) {
+  const { t } = useTranslation();
+  const thumbs = order.items.slice(0, 3);
+
+  return (
+    <div className="flex -space-x-2">
+      {thumbs.length === 0 && <ProductImage image={undefined} alt={t('orders.noImage')} small />}
+      {thumbs.map((item) => (
+        <ProductImage key={item.id} image={item.image} alt={`${t('orders.productImage')}: ${item.productName}`} small />
+      ))}
+      {order.items.length > 3 && (
+        <div className="safi-numeric flex h-10 w-10 items-center justify-center rounded-xl border-2 border-white bg-safi-cream text-[10px] font-extrabold text-safi-green">
+          +{order.items.length - 3}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ProductImage({ image, alt, small = false }: { image?: string; alt: string; small?: boolean }) {
+  const { t } = useTranslation();
+  const size = small ? 'h-10 w-10' : 'h-14 w-14';
+
+  if (!image) {
+    return (
+      <div
+        className={`${size} flex shrink-0 items-center justify-center rounded-xl border-2 border-white bg-[#F5F5F0] text-[9px] font-extrabold uppercase tracking-widest text-safi-muted`}
+        title={t('orders.noImage')}
+        aria-label={t('orders.noImage')}
+      >
+        {t('orders.imagePlaceholder')}
+      </div>
+    );
+  }
+
+  return <img src={image} alt={alt} className={`${size} shrink-0 rounded-xl border-2 border-white object-cover`} />;
 }
 
 function OrderStatusBadge({ status }: { status: string }) {

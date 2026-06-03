@@ -300,6 +300,9 @@
     "adminSubtitle": "Контроль заказов партнёров, сумм, PV и статусов.",
     "detailSubtitle": "Состав заказа, суммы и статус обработки.",
     "tableProduct": "Товар",
+    "productImage": "Изображение товара",
+    "noImage": "Нет изображения",
+    "imagePlaceholder": "Img",
     "totalAmount": "Итоговая сумма",
     "totalPv": "Итоговый PV",
     "statusLabels": {
