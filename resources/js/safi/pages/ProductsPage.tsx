@@ -181,17 +181,24 @@ function ProductCard({
                 <div className="text-[10px] font-bold text-safi-gold mb-3 uppercase tracking-widest">{product.category}</div>
                 <h3 className="text-xl font-serif font-bold text-safi-green mb-3">{product.name}</h3>
                 <p className="text-safi-text opacity-70 text-sm mb-6 flex-1 leading-relaxed">{product.shortDescription}</p>
-                <div className="text-3xl font-serif font-bold text-safi-green mb-6">{product.price.toLocaleString('ru-RU')} ₸</div>
+                <div className="mb-6 flex items-end justify-between gap-4">
+                  <div className="text-3xl font-serif font-bold text-safi-green">{product.price.toLocaleString('ru-RU')} ₸</div>
+                  <button
+                    type="button"
+                    disabled={!orderable}
+                    aria-label={orderable ? t('productsPage.addCartBtn', 'Добавить в корзину') : t('cart.outOfStock', 'Нет в наличии')}
+                    title={orderable ? t('productsPage.addCartBtn', 'Добавить в корзину') : t('cart.outOfStock', 'Нет в наличии')}
+                    onClick={() => onAddToCart(product)}
+                    className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-white shadow-lg shadow-safi-green/20 transition-all ${
+                      orderable
+                        ? 'cursor-pointer bg-safi-green hover:bg-safi-green-hover hover:-translate-y-0.5'
+                        : 'cursor-not-allowed bg-safi-green/30 opacity-60'
+                    }`}
+                  >
+                    {addedProductId === product.id ? <Check className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
+                  </button>
+                </div>
                 <div className="flex flex-col gap-3">
-          <button
-            type="button"
-            disabled={!orderable}
-            onClick={() => onAddToCart(product)}
-            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-safi-green px-6 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-safi-green/20 transition-all hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {addedProductId === product.id ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
-            {orderable ? (addedProductId === product.id ? t('cart.addedShort', 'Добавлено') : t('productsPage.addCartBtn', 'Добавить в корзину')) : t('cart.outOfStock', 'Нет в наличии')}
-          </button>
                   <Button variant="outline" className="w-full" onClick={() => onOpen(product)}>
                     {t('productsPage.moreBtn', 'Подробнее')}
                   </Button>

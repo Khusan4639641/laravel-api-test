@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowRight, Layers, Leaf, RefreshCw, ShieldCheck, TrendingUp, Wallet } from 'lucide-react';
+import { ArrowRight, Check, Layers, Leaf, RefreshCw, ShieldCheck, ShoppingCart, TrendingUp, Wallet } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
+import { ToastItem, ToastStack } from '../components/ui/Toast';
+import { isProductOrderable, useCart } from '../context/CartContext';
 import { cn } from '../lib/utils';
 import { getApiErrorState, getPublicNews, getPublicPackages, getPublicProducts, NewsArticle, Package, Product } from '../lib/api';
 
 export default function HomePage() {
   const { t } = useTranslation();
+  const { addProduct } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
@@ -19,6 +22,8 @@ export default function HomePage() {
   const [productsError, setProductsError] = useState<string | null>(null);
   const [packagesError, setPackagesError] = useState<string | null>(null);
   const [newsError, setNewsError] = useState<string | null>(null);
+  const [addedProductId, setAddedProductId] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const heroProduct = useMemo(
     () => products.find((product) => product.name === 'Safi Face Serum') || products[0],
@@ -75,6 +80,32 @@ export default function HomePage() {
     void loadNews();
   }, [loadProducts, loadPackages, loadNews]);
 
+  const showToast = React.useCallback((message: string, type: ToastItem['type'] = 'success') => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((current) => [...current, { id, message, type }]);
+    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 3000);
+  }, []);
+
+  const handleAddToCart = (product: Product) => {
+    const result = addProduct(product);
+
+    if (!result.ok) {
+      showToast(
+        result.reason === 'stock_limit'
+          ? t('cart.stockLimitReached', 'Недостаточно товара на складе')
+          : t('cart.outOfStock', 'Нет в наличии'),
+        'error'
+      );
+      return;
+    }
+
+    setAddedProductId(product.id);
+    showToast(t('cart.added', 'Товар добавлен в корзину'));
+    window.setTimeout(() => {
+      setAddedProductId((currentId) => currentId === product.id ? null : currentId);
+    }, 1200);
+  };
+
   const benefits = [
     {
       title: t('benefits.domestic', 'Отечественная продукция'),
@@ -110,6 +141,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col bg-safi-bg text-safi-green">
+      <ToastStack toasts={toasts} onDismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
       <section className="relative flex min-h-[700px] items-center overflow-hidden py-24">
         <Container>
           <div className="relative z-10 grid grid-cols-1 items-center gap-12 lg:grid-cols-2 lg:gap-8">
@@ -179,7 +211,9 @@ export default function HomePage() {
                 />
               )}
 
-              {!productsLoading && !productsError && heroProduct && <HeroProductCard product={heroProduct} />}
+              {!productsLoading && !productsError && heroProduct && (
+                <HeroProductCard product={heroProduct} addedProductId={addedProductId} onAddToCart={handleAddToCart} />
+              )}
 
               {!productsLoading && !productsError && !heroProduct && (
                 <EmptyState
@@ -294,7 +328,12 @@ export default function HomePage() {
           {!productsLoading && !productsError && popularProducts.length > 0 && (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
               {popularProducts.map((product) => (
-                <PopularProductCard key={product.id} product={product} />
+                <PopularProductCard
+                  key={product.id}
+                  product={product}
+                  addedProductId={addedProductId}
+                  onAddToCart={handleAddToCart}
+                />
               ))}
             </div>
           )}
@@ -386,8 +425,18 @@ function TrustBadge({ value, label }: { value: string; label: string }) {
   );
 }
 
-function HeroProductCard({ product }: { product: Product }) {
+function HeroProductCard({
+  product,
+  addedProductId,
+  onAddToCart,
+}: {
+  product: Product;
+  addedProductId: string | null;
+  onAddToCart: (product: Product) => void;
+}) {
   const { t } = useTranslation();
+  const orderable = isProductOrderable(product);
+  const isAdded = addedProductId === product.id;
 
   return (
     <article className="group relative flex aspect-[3/4] w-full max-w-[340px] flex-col overflow-visible rounded-[40px] border border-white bg-white/60 p-4 shadow-2xl backdrop-blur-2xl sm:max-w-sm">
@@ -412,13 +461,19 @@ function HeroProductCard({ product }: { product: Product }) {
           <span className="rounded-full border border-safi-green/5 bg-white/90 px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest text-safi-green shadow-sm backdrop-blur sm:text-[10px]">
             {t('productCard.hit', 'Хит продаж')}
           </span>
-          <Link
-            to="/products"
-            aria-label="Открыть каталог"
-            className="flex h-7 w-7 items-center justify-center rounded-full bg-white/90 text-xs font-bold text-safi-green shadow-sm backdrop-blur transition-colors hover:bg-safi-green hover:text-white sm:h-8 sm:w-8"
+          <button
+            type="button"
+            disabled={!orderable}
+            aria-label={orderable ? t('productsPage.addCartBtn', 'Добавить в корзину') : t('cart.outOfStock', 'Нет в наличии')}
+            title={orderable ? t('productsPage.addCartBtn', 'Добавить в корзину') : t('cart.outOfStock', 'Нет в наличии')}
+            onClick={() => onAddToCart(product)}
+            className={cn(
+              'flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-white/90 text-safi-green shadow-sm backdrop-blur transition-colors hover:bg-safi-green hover:text-white sm:h-8 sm:w-8',
+              !orderable && 'cursor-not-allowed opacity-60 hover:bg-white/90 hover:text-safi-green'
+            )}
           >
-            +
-          </Link>
+            {isAdded ? <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <ShoppingCart className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+          </button>
         </div>
       </div>
 
@@ -510,7 +565,19 @@ function NewsStrip({
   );
 }
 
-function PopularProductCard({ product }: { product: Product }) {
+function PopularProductCard({
+  product,
+  addedProductId,
+  onAddToCart,
+}: {
+  product: Product;
+  addedProductId: string | null;
+  onAddToCart: (product: Product) => void;
+}) {
+  const { t } = useTranslation();
+  const orderable = isProductOrderable(product);
+  const isAdded = addedProductId === product.id;
+
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-[32px] bg-[#F5F5F0] transition-transform duration-500 hover:-translate-y-2">
       <div className="relative aspect-[4/5] overflow-hidden bg-safi-bg p-6">
@@ -529,11 +596,28 @@ function PopularProductCard({ product }: { product: Product }) {
         <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold">{product.category}</div>
         <h3 className="mb-2 line-clamp-1 font-serif text-xl text-safi-green">{product.name}</h3>
         <p className="mb-6 line-clamp-2 text-sm text-safi-text opacity-60">{product.shortDescription}</p>
-        <div className="mt-auto flex items-center justify-between border-t border-safi-green/5 pt-4">
-          <span className="text-xl font-bold text-safi-green">{formatPrice(product.price)}</span>
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-safi-green/5 text-safi-green transition-colors group-hover:bg-safi-green group-hover:text-white">
-            <ArrowRight className="h-4 w-4" />
+        <div className="mt-auto flex items-end justify-between gap-3 border-t border-safi-green/5 pt-4">
+          <div className="min-w-0">
+            <span className="block text-xl font-bold text-safi-green">{formatPrice(product.price)}</span>
+            {!orderable && (
+              <span className="mt-1 block text-[9px] font-bold uppercase tracking-widest text-red-500">
+                {t('cart.outOfStock', 'Нет в наличии')}
+              </span>
+            )}
           </div>
+          <button
+            type="button"
+            disabled={!orderable}
+            aria-label={orderable ? t('productsPage.addCartBtn', 'Добавить в корзину') : t('cart.outOfStock', 'Нет в наличии')}
+            title={orderable ? t('productsPage.addCartBtn', 'Добавить в корзину') : t('cart.outOfStock', 'Нет в наличии')}
+            onClick={() => onAddToCart(product)}
+            className={cn(
+              'flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-full bg-safi-green/5 text-safi-green transition-colors hover:bg-safi-green hover:text-white group-hover:bg-safi-green group-hover:text-white',
+              !orderable && 'cursor-not-allowed bg-safi-green/5 text-safi-green/40 opacity-60 hover:bg-safi-green/5 hover:text-safi-green/40 group-hover:bg-safi-green/5 group-hover:text-safi-green/40'
+            )}
+          >
+            {isAdded ? <Check className="h-4 w-4" /> : <ShoppingCart className="h-4 w-4" />}
+          </button>
         </div>
       </div>
     </article>

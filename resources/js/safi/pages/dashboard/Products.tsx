@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ShoppingBag, Star } from 'lucide-react';
+import { CheckCircle2, ShoppingCart, Star } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ToastItem, ToastStack } from '../../components/ui/Toast';
 import { getAvailableStock, isProductOrderable, useCart } from '../../context/CartContext';
@@ -86,7 +86,7 @@ export default function Products() {
             to="/cart"
             className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green-hover"
           >
-            <ShoppingBag className="h-4 w-4" />
+            <ShoppingCart className="h-4 w-4" />
             {t('cart.title', 'Корзина')}
           </Link>
         </div>
@@ -210,15 +210,22 @@ function ProductCard({
                 </div>
               </div>
 
-              <button
-                type="button"
-                disabled={!orderable}
-                onClick={() => onAddToCart(product)}
-                className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {addedProductId === product.id ? <CheckCircle2 className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
-                {orderable ? (addedProductId === product.id ? labels.added : labels.addToCart) : labels.outOfStock}
-              </button>
+              <div className="mt-6 flex items-center justify-end">
+                <button
+                  type="button"
+                  disabled={!orderable}
+                  aria-label={orderable ? labels.addToCart : labels.outOfStock}
+                  title={orderable ? labels.addToCart : labels.outOfStock}
+                  onClick={() => onAddToCart(product)}
+                  className={`inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                    orderable
+                      ? 'cursor-pointer border-safi-border bg-safi-cream text-safi-green hover:border-safi-green hover:bg-safi-green hover:text-white'
+                      : 'cursor-not-allowed border-safi-border bg-safi-cream text-safi-muted opacity-60'
+                  }`}
+                >
+                  {addedProductId === product.id ? <CheckCircle2 className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
+                </button>
+              </div>
             </div>
           </article>
   );
