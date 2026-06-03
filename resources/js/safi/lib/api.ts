@@ -576,10 +576,14 @@ export async function unblockAdminPartner<T = unknown>(userId: string | number) 
   });
 }
 
-export async function changeAdminPartnerPackage<T = unknown>(userId: string | number, packageId: string | number) {
+export async function changeAdminPartnerPackage<T = unknown>(
+  userId: string | number,
+  packageId: string | number,
+  applyBusinessEffects = true,
+) {
   return apiRequest<T>(endpoints.admin.partnerPackage(userId), {
     method: 'PATCH',
-    body: { package_id: packageId },
+    body: { package_id: packageId, apply_business_effects: applyBusinessEffects },
     auth: true,
   });
 }

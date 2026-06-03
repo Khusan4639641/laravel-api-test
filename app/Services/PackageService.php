@@ -66,6 +66,60 @@ class PackageService
             && $package->code === (self::UPGRADE_CHAIN[$user->currentPackage->code] ?? null);
     }
 
+    public function assignPackageManually(User $user, Package $package, bool $applyBusinessEffects = true): User
+    {
+        return DB::transaction(function () use ($user, $package, $applyBusinessEffects): User {
+            $user = User::query()
+                ->with('currentPackage')
+                ->lockForUpdate()
+                ->findOrFail($user->id);
+
+            $currentPackage = $user->currentPackage;
+            $alreadyAssigned = $currentPackage?->id === $package->id;
+
+            $user->forceFill([
+                'current_package_id' => $package->id,
+            ])->save();
+
+            if (! $applyBusinessEffects || $alreadyAssigned) {
+                return $user->refresh()->load(['currentPackage', 'sponsor', 'wallets']);
+            }
+
+            $pvEffects = $this->manualAssignmentPvEffects($currentPackage, $package);
+            $totalPv = bcadd($pvEffects['bonusable_pv'], $pvEffects['non_bonusable_pv'], 2);
+
+            if (bccomp($totalPv, '0', 2) > 0) {
+                $this->pvService->addUserPv($user, $totalPv);
+            }
+
+            if (bccomp($pvEffects['bonusable_pv'], '0', 2) > 0) {
+                $this->pvService->accruePvUpTree($user, $pvEffects['bonusable_pv']);
+            }
+
+            if (bccomp($pvEffects['non_bonusable_pv'], '0', 2) > 0) {
+                $this->pvService->accruePvUpTree($user, $pvEffects['non_bonusable_pv'], null, false);
+            }
+
+            if ($user->sponsor_id) {
+                $sponsor = User::query()->find($user->sponsor_id);
+
+                if ($sponsor) {
+                    $eligibleReferralAmount = $this->eligibleReferralAmountForManualAssignment(
+                        $currentPackage,
+                        $package,
+                        $pvEffects,
+                    );
+
+                    if (bccomp($eligibleReferralAmount, '0', 2) > 0) {
+                        $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $eligibleReferralAmount);
+                    }
+                }
+            }
+
+            return $user->refresh()->load(['currentPackage', 'sponsor', 'wallets']);
+        });
+    }
+
     /**
      * @return array{user: User, payment_amount: string, additional_pv: string, cashback_amount: string}
      */
@@ -174,6 +228,57 @@ class PackageService
     private function isUpgradePvBonusable(Package $targetPackage): bool
     {
         return $targetPackage->code !== 'ELITE';
+    }
+
+    /**
+     * @return array{bonusable_pv: string, non_bonusable_pv: string}
+     */
+    private function manualAssignmentPvEffects(?Package $currentPackage, Package $targetPackage): array
+    {
+        $pvToAdd = $currentPackage
+            ? $this->positiveOrZero(bcsub($targetPackage->activityPv(), $currentPackage->activityPv(), 2))
+            : $targetPackage->turnoverPv();
+
+        if ($targetPackage->code !== 'ELITE') {
+            return [
+                'bonusable_pv' => $pvToAdd,
+                'non_bonusable_pv' => '0.00',
+            ];
+        }
+
+        $nonBonusablePv = $this->minDecimal($pvToAdd, $targetPackage->turnoverPv());
+
+        return [
+            'bonusable_pv' => $this->positiveOrZero(bcsub($pvToAdd, $nonBonusablePv, 2)),
+            'non_bonusable_pv' => $nonBonusablePv,
+        ];
+    }
+
+    private function manualAssignmentPaymentAmount(Package $currentPackage, Package $targetPackage): string
+    {
+        return $this->positiveOrZero(bcsub((string) $targetPackage->price, (string) $currentPackage->price, 2));
+    }
+
+    /**
+     * @param  array{bonusable_pv: string, non_bonusable_pv: string}  $pvEffects
+     */
+    private function eligibleReferralAmountForManualAssignment(
+        ?Package $currentPackage,
+        Package $targetPackage,
+        array $pvEffects,
+    ): string {
+        if ($targetPackage->code === 'ELITE') {
+            return bcmul($pvEffects['bonusable_pv'], self::PV_MONEY_RATE, 2);
+        }
+
+        return $currentPackage
+            ? $this->eligibleReferralAmountForUpgrade($targetPackage, $this->manualAssignmentPaymentAmount($currentPackage, $targetPackage))
+            : $this->eligibleReferralAmountForActivation($targetPackage);
+    }
+
+    private function minDecimal(string $left, string $right): string
+    {
+        return bccomp($left, $right, 2) <= 0 ? $left : $right;
     }
 
     private function positiveOrZero(string $amount): string

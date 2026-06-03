@@ -139,6 +139,7 @@ export default function AdminPartnerDetail() {
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string[]>>({});
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const [selectedPackageId, setSelectedPackageId] = useState('');
+  const [applyPackageBusinessEffects, setApplyPackageBusinessEffects] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState('');
   const isBlocked = partner.accountStatus === 'blocked';
 
@@ -171,6 +172,7 @@ export default function AdminPartnerDetail() {
       setPartner(normalizedPartner);
       setNote(normalizedPartner.adminNote);
       setSelectedPackageId(normalizedPartner.packageId);
+      setApplyPackageBusinessEffects(true);
       setSelectedStatus(normalizedPartner.status);
       setTransactions(normalizeTransactions(transactionsResponse));
       setPackages(packagesResponse);
@@ -241,7 +243,7 @@ export default function AdminPartnerDetail() {
     setActionLoading('package');
 
     try {
-      await changeAdminPartnerPackage(partner.id, selectedPackageId);
+      await changeAdminPartnerPackage(partner.id, selectedPackageId, applyPackageBusinessEffects);
       setPackageModalOpen(false);
       showToast(adminText('a_0J_QsNC60LXR_3'));
       await refreshPartnerAfterAction();
@@ -376,6 +378,7 @@ export default function AdminPartnerDetail() {
                     type="button"
                     onClick={() => {
                       setSelectedPackageId(partner.packageId);
+                      setApplyPackageBusinessEffects(true);
                       setPackageModalOpen(true);
                     }}
                     className="mt-2 flex cursor-pointer items-center gap-1 text-[10px] text-safi-gold hover:underline"
@@ -558,6 +561,18 @@ export default function AdminPartnerDetail() {
                 ))}
               </select>
             </FormField>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-safi-green/10 bg-[#F5F5F0] p-4 text-sm text-safi-green">
+              <input
+                type="checkbox"
+                checked={applyPackageBusinessEffects}
+                onChange={(event) => setApplyPackageBusinessEffects(event.target.checked)}
+                className="mt-1 h-4 w-4 cursor-pointer rounded border-safi-green/30 text-safi-green focus:ring-safi-green"
+              />
+              <span>
+                <span className="block font-bold">{adminText('manual_package_apply_business_effects')}</span>
+                <span className="mt-1 block text-xs leading-5 text-safi-muted">{adminText('manual_package_apply_business_effects_hint')}</span>
+              </span>
+            </label>
             <button
               type="submit"
               disabled={actionLoading === 'package'}

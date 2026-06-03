@@ -156,11 +156,20 @@ php artisan test tests/Feature/BusinessRules tests/Feature/Admin/AdminManualPack
 
 - manual package assignment by super admin.
 
+## Обновление после этапа 5
+
+На этапе 5 исправлено ручное назначение пакета супер-админом:
+
+- `PATCH /api/admin/partners/{user}/package` принимает `apply_business_effects`.
+- По умолчанию `apply_business_effects = true`, поэтому ручное назначение пакета применяет PV/товарооборот и referral начисления.
+- Если `apply_business_effects = false`, endpoint меняет только `current_package_id` без PV и бонусов.
+- Manual START/VIP assignment обновляет `total_pv` партнера и upstream binary volume через `PvService`.
+- Manual VIP assignment использует исправленную referral base `135000.00`, поэтому referral bonus равен `13500.00`.
+- Manual ELITE assignment применяет правило первых 200 PV: эти PV идут в товарооборот и upstream branch PV, но не попадают в `remaining_left_pv`/`remaining_right_pv` и не создают referral bonus.
+- В modal изменения пакета добавлен checkbox “Применить начисления и товарооборот”.
+
+После этапа 5 полный `php artisan test` проходит.
+
 ## Следующий этап исправлений
 
-1. Переписать admin manual package assignment на явный service action:
-   - присвоение пакета с source/audit reason;
-   - начисление PV/товарооборота;
-   - referral bonus;
-   - binary volume update.
-2. После исправлений обновить/переписать старые тесты, которые всё еще закрепляют прежнее неверное поведение.
+Открытые audit gaps из этапов 1-5 закрыты. Следующий этап стоит начинать с нового аудита ТЗ или с проверки production сценариев оплаты/активации пакетов.

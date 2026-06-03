@@ -12,6 +12,7 @@ use App\Models\Package;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Services\BinaryTreeService;
+use App\Services\PackageService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -37,6 +38,7 @@ class PartnerController extends Controller
 
     public function __construct(
         private readonly BinaryTreeService $binaryTreeService,
+        private readonly PackageService $packageService,
         private readonly WalletService $walletService,
     ) {
     }
@@ -149,12 +151,15 @@ class PartnerController extends Controller
     {
         $validated = $request->validate([
             'package_id' => ['required', 'integer', Rule::exists('packages', 'id')],
+            'apply_business_effects' => ['sometimes', 'boolean'],
         ]);
 
-        $user->forceFill(['current_package_id' => $validated['package_id']])->save();
+        $package = Package::query()->findOrFail($validated['package_id']);
+        $applyBusinessEffects = $request->boolean('apply_business_effects', true);
+        $user = $this->packageService->assignPackageManually($user, $package, $applyBusinessEffects);
 
         return response()->json([
-            'user' => UserResource::make($this->loadPartner($user->refresh())),
+            'user' => UserResource::make($this->loadPartner($user)),
         ]);
     }
 
