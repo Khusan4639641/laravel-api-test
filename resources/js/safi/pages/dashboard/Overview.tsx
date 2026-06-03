@@ -152,7 +152,7 @@ export default function Overview() {
           variant="primary"
         />
         <StatCard
-          title="Total PV"
+          title="Общий PV"
           value={`${totalPV.toLocaleString('ru-RU')} PV`}
           icon={<Activity className="h-5 w-5" />}
         />

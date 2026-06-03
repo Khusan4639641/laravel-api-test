@@ -49,4 +49,29 @@ class MenuApiTest extends TestCase
         $this->assertSame(['/admin', '/admin/transactions', '/admin/withdrawals', '/admin/reports'], array_column($accountantMenu, 'path'));
         $this->assertContains('/admin/settings', array_column($superAdminMenu, 'path'));
     }
+
+    public function test_me_permissions_menu_is_localized_by_accept_language(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $this->getJson('/api/me/permissions', ['Accept-Language' => 'kz'])
+            ->assertOk()
+            ->assertJsonPath('menu.0.label', 'Шолу')
+            ->assertJsonPath('menu.1.label', 'Серіктестер');
+
+        $this->getJson('/api/me/permissions', ['Accept-Language' => 'kg'])
+            ->assertOk()
+            ->assertJsonPath('menu.0.label', 'Кыскача маалымат')
+            ->assertJsonPath('menu.1.label', 'Өнөктөштөр');
+
+        $this->getJson('/api/me/permissions', ['Accept-Language' => 'en'])
+            ->assertOk()
+            ->assertJsonPath('menu.0.label', 'Overview')
+            ->assertJsonPath('menu.1.label', 'Partners');
+
+        $this->getJson('/api/me/permissions', ['Accept-Language' => 'mn'])
+            ->assertOk()
+            ->assertJsonPath('menu.0.label', 'Тойм')
+            ->assertJsonPath('menu.1.label', 'Түншүүд');
+    }
 }

@@ -1,14 +1,14 @@
 export const LANGUAGE_STORAGE_KEY = 'safi_language';
 
-export const supportedLanguages = ['ru', 'kk', 'en', 'mn'] as const;
+export const supportedLanguages = ['ru', 'kz', 'kg', 'en', 'mn'] as const;
 
 export type SupportedLanguage = typeof supportedLanguages[number];
 
 export function normalizeLanguage(language?: string | null): SupportedLanguage {
   const normalized = String(language || '').toLowerCase().split(/[-_,;]/)[0];
 
-  if (normalized === 'kg' || normalized === 'kz') {
-    return 'kk';
+  if (normalized === 'kk') {
+    return 'kz';
   }
 
   return supportedLanguages.includes(normalized as SupportedLanguage) ? normalized as SupportedLanguage : 'ru';

@@ -5,7 +5,8 @@ import { normalizeLanguage, setCurrentLanguage } from '../../lib/language';
 
 const languages = [
   { code: 'ru', label: 'RU' },
-  { code: 'kk', label: 'KZ' },
+  { code: 'kz', label: 'KZ' },
+  { code: 'kg', label: 'KG' },
   { code: 'en', label: 'EN' },
   { code: 'mn', label: 'MN' },
 ] as const;

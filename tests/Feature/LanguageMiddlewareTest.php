@@ -22,6 +22,8 @@ class LanguageMiddlewareTest extends TestCase
             'name_translations' => [
                 'ru' => 'Русский продукт',
                 'kk' => 'Қазақша өнім',
+                'kz' => 'KZ қазақша өнім',
+                'kg' => 'Кыргызча өнүм',
                 'en' => 'English product',
                 'mn' => 'Монгол бүтээгдэхүүн',
             ],
@@ -33,7 +35,15 @@ class LanguageMiddlewareTest extends TestCase
 
         $this->getJson('/api/public/products', ['Accept-Language' => 'kk'])
             ->assertOk()
-            ->assertJsonPath('products.0.name', 'Қазақша өнім');
+            ->assertJsonPath('products.0.name', 'KZ қазақша өнім');
+
+        $this->getJson('/api/public/products', ['Accept-Language' => 'kz'])
+            ->assertOk()
+            ->assertJsonPath('products.0.name', 'KZ қазақша өнім');
+
+        $this->getJson('/api/public/products', ['Accept-Language' => 'kg'])
+            ->assertOk()
+            ->assertJsonPath('products.0.name', 'Кыргызча өнүм');
 
         $this->getJson('/api/public/products', ['Accept-Language' => 'en'])
             ->assertOk()
@@ -42,6 +52,27 @@ class LanguageMiddlewareTest extends TestCase
         $this->getJson('/api/public/products', ['Accept-Language' => 'mn'])
             ->assertOk()
             ->assertJsonPath('products.0.name', 'Монгол бүтээгдэхүүн');
+    }
+
+    public function test_legacy_kk_translation_is_used_for_kz_when_explicit_kz_is_missing(): void
+    {
+        Product::query()->create([
+            'name' => 'Русский продукт',
+            'sku' => 'LANG-LEGACY-KK',
+            'description' => 'Описание',
+            'price' => 1000,
+            'pv' => 10,
+            'status' => 'active',
+            'name_translations' => [
+                'ru' => 'Русский продукт',
+                'kk' => 'Legacy қазақша өнім',
+                'en' => 'English product',
+            ],
+        ]);
+
+        $this->getJson('/api/public/products', ['Accept-Language' => 'kz'])
+            ->assertOk()
+            ->assertJsonPath('products.0.name', 'Legacy қазақша өнім');
     }
 
     public function test_invalid_language_falls_back_to_russian(): void

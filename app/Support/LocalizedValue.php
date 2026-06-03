@@ -4,7 +4,7 @@ namespace App\Support;
 
 final class LocalizedValue
 {
-    public const LANGUAGES = ['ru', 'kk', 'en', 'mn'];
+    public const LANGUAGES = ['ru', 'kz', 'kg', 'en', 'mn'];
 
     public static function normalize(?string $language): string
     {
@@ -12,8 +12,8 @@ final class LocalizedValue
         $language = preg_split('/[-_,;]/', $language)[0] ?? '';
 
         return match ($language) {
-            'kg', 'kz' => 'kk',
-            'kk', 'en', 'mn', 'ru' => $language,
+            'kk' => 'kz',
+            'kz', 'kg', 'en', 'mn', 'ru' => $language,
             default => 'ru',
         };
     }
@@ -34,7 +34,12 @@ final class LocalizedValue
 
         $language = self::normalize($language ?: app()->getLocale());
 
-        $localized = $translations[$language] ?? $translations['ru'] ?? null;
+        $localized = $translations[$language]
+            ?? ($language === 'kz' ? ($translations['kk'] ?? null) : null)
+            ?? ($language === 'kg' ? ($translations['en'] ?? null) : null)
+            ?? ($language !== 'ru' ? ($translations['en'] ?? null) : null)
+            ?? $translations['ru']
+            ?? null;
 
         if ($localized === null || $localized === '') {
             return $fallback;
