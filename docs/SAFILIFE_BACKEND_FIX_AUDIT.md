@@ -142,6 +142,20 @@ php artisan test tests/Feature/BusinessRules tests/Feature/Admin/AdminManualPack
 - manual package assignment by super admin;
 - bronze/silver status bonus compensation logic.
 
+## Обновление после этапа 4
+
+На этапе 4 исправлены статусные бонусы Bronze/Silver:
+
+- `status_bonus_definitions` получил отдельные поля `cash_amount`, `compensation_amount`, `compensation_available`.
+- Bronze Director теперь автоматически начисляет `100000.00` и хранит доступную компенсацию `400000.00` только как опцию отказа.
+- Silver Director теперь автоматически начисляет `250000.00` и хранит доступную компенсацию `750000.00` только как опцию отказа.
+- `StatusBonusService` больше не создает automatic status bonus transactions на суммы compensation.
+- Public/admin status payload содержит новые поля для корректного отображения rewards во frontend.
+
+После этапа 4 целевые тесты по статусным бонусам проходят. Полный `php artisan test` всё еще падает на 3 тестах, относящихся к следующему этапу:
+
+- manual package assignment by super admin.
+
 ## Следующий этап исправлений
 
 1. Переписать admin manual package assignment на явный service action:
@@ -149,9 +163,4 @@ php artisan test tests/Feature/BusinessRules tests/Feature/Admin/AdminManualPack
    - начисление PV/товарооборота;
    - referral bonus;
    - binary volume update.
-2. Разделить status reward amount и cash compensation amount для trip refusal:
-   - bronze default: trip + 100 000 ₸;
-   - bronze refusal compensation: 400 000 ₸ only after refusal;
-   - silver default: foreign trip + 250 000 ₸;
-   - silver refusal compensation: 750 000 ₸ only after refusal.
-3. После исправлений обновить/переписать старые тесты, которые всё еще закрепляют прежнее неверное поведение.
+2. После исправлений обновить/переписать старые тесты, которые всё еще закрепляют прежнее неверное поведение.

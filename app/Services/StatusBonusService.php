@@ -41,14 +41,15 @@ class StatusBonusService
                     continue;
                 }
 
-                $bonusTransaction = $this->createCashBonusTransaction($user, $definition);
+                $cashAmount = $this->cashAmount($definition);
+                $bonusTransaction = $this->createCashBonusTransaction($user, $definition, $cashAmount);
 
                 $created->push(UserStatusBonus::query()->create([
                     'user_id' => $user->id,
                     'status_bonus_definition_id' => $definition->id,
                     'bonus_transaction_id' => $bonusTransaction?->id,
                     'status_code' => $definition->status_code,
-                    'amount' => $definition->amount,
+                    'amount' => $cashAmount,
                     'currency' => $definition->currency,
                     'reward_text' => $definition->reward_text,
                     'awarded_at' => now(),
@@ -56,6 +57,10 @@ class StatusBonusService
                         'threshold_pv' => (string) $definition->threshold_pv,
                         'user_total_pv' => (string) $user->total_pv,
                         'reward_type' => $definition->reward_type,
+                        'cash_amount' => $cashAmount,
+                        'compensation_amount' => (string) ($definition->compensation_amount ?? '0.00'),
+                        'compensation_available' => (bool) ($definition->compensation_available ?? false),
+                        'compensation_paid' => false,
                     ],
                 ]));
             }
@@ -64,9 +69,9 @@ class StatusBonusService
         });
     }
 
-    private function createCashBonusTransaction(User $user, StatusBonusDefinition $definition): ?BonusTransaction
+    private function createCashBonusTransaction(User $user, StatusBonusDefinition $definition, string $cashAmount): ?BonusTransaction
     {
-        if (! $definition->is_cash_bonus || bccomp((string) $definition->amount, '0', 2) <= 0) {
+        if (! $definition->is_cash_bonus || bccomp($cashAmount, '0', 2) <= 0) {
             return null;
         }
 
@@ -80,20 +85,25 @@ class StatusBonusService
         $bonusTransaction = BonusTransaction::query()->create([
             'user_id' => $user->id,
             'bonus_type' => 'status',
-            'amount' => $definition->amount,
+            'amount' => $cashAmount,
             'status' => 'completed',
             'metadata' => [
                 'status_code' => $definition->status_code,
                 'status_bonus_definition_id' => $definition->id,
                 'threshold_pv' => (string) $definition->threshold_pv,
                 'reward_text' => $definition->reward_text,
+                'reward_type' => $definition->reward_type,
+                'cash_amount' => $cashAmount,
+                'compensation_amount' => (string) ($definition->compensation_amount ?? '0.00'),
+                'compensation_available' => (bool) ($definition->compensation_available ?? false),
+                'compensation_paid' => false,
             ],
             'calculated_at' => now(),
         ]);
 
         $walletTransaction = $this->walletService->credit(
             $wallet,
-            $definition->amount,
+            $cashAmount,
             'status_bonus',
             $bonusTransaction
         );
@@ -103,5 +113,12 @@ class StatusBonusService
         ])->save();
 
         return $bonusTransaction->refresh();
+    }
+
+    private function cashAmount(StatusBonusDefinition $definition): string
+    {
+        $cashAmount = (string) ($definition->cash_amount ?? '0.00');
+
+        return bccomp($cashAmount, '0', 2) > 0 ? $cashAmount : (string) $definition->amount;
     }
 }

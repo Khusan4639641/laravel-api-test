@@ -31,6 +31,16 @@ class StatusBonusRulesTest extends TestCase
 
         $this->assertSame('100000.00', $bonus->amount);
         $this->assertStringContainsString('Путевка', $bonus->reward_text);
+        $this->assertSame('100000.00', $bonus->metadata['cash_amount']);
+        $this->assertSame('400000.00', $bonus->metadata['compensation_amount']);
+        $this->assertTrue($bonus->metadata['compensation_available']);
+        $this->assertFalse($bonus->metadata['compensation_paid']);
+
+        $this->assertDatabaseHas('bonus_transactions', [
+            'user_id' => $user->id,
+            'bonus_type' => 'status',
+            'amount' => '100000.00',
+        ]);
     }
 
     public function test_bronze_director_cash_compensation_is_only_paid_after_trip_refusal(): void
@@ -66,7 +76,17 @@ class StatusBonusRulesTest extends TestCase
             ->firstOrFail();
 
         $this->assertSame('250000.00', $bonus->amount);
-        $this->assertStringContainsString('Путевка', $bonus->reward_text);
+        $this->assertStringContainsString('Зарубежная поездка', $bonus->reward_text);
+        $this->assertSame('250000.00', $bonus->metadata['cash_amount']);
+        $this->assertSame('750000.00', $bonus->metadata['compensation_amount']);
+        $this->assertTrue($bonus->metadata['compensation_available']);
+        $this->assertFalse($bonus->metadata['compensation_paid']);
+
+        $this->assertDatabaseHas('bonus_transactions', [
+            'user_id' => $user->id,
+            'bonus_type' => 'status',
+            'amount' => '250000.00',
+        ]);
     }
 
     public function test_silver_director_cash_compensation_is_only_paid_after_trip_refusal(): void
@@ -83,6 +103,28 @@ class StatusBonusRulesTest extends TestCase
             ->where('user_id', $user->id)
             ->where('bonus_type', 'status')
             ->where('amount', '750000.00')
+            ->count());
+    }
+
+    public function test_status_bonus_is_not_duplicated(): void
+    {
+        $this->seed(StatusBonusDefinitionSeeder::class);
+        $user = User::factory()->create([
+            'total_pv' => 10000,
+            'status' => 'bronze_director',
+        ]);
+
+        app(StatusBonusService::class)->awardEligible($user);
+        app(StatusBonusService::class)->awardEligible($user->refresh());
+
+        $this->assertSame(1, UserStatusBonus::query()
+            ->where('user_id', $user->id)
+            ->where('status_code', 'bronze_director')
+            ->count());
+        $this->assertSame(1, BonusTransaction::query()
+            ->where('user_id', $user->id)
+            ->where('bonus_type', 'status')
+            ->where('amount', '100000.00')
             ->count());
     }
 }

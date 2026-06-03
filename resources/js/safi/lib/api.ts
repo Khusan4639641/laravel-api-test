@@ -118,6 +118,10 @@ export interface Status {
   incomePotential: number;
   reward: string;
   isCashBonus: boolean;
+  rewardType?: string;
+  cashAmount?: number;
+  compensationAmount?: number;
+  compensationAvailable?: boolean;
   partnersCount?: number;
 }
 
@@ -1155,6 +1159,10 @@ export function normalizeStatuses(response: unknown): Status[] {
       incomePotential: getNumber(record, ['incomePotential', 'income_potential']) ?? 0,
       reward: getString(record, ['reward']) || '',
       isCashBonus: Boolean(record.isCashBonus ?? record.is_cash_bonus),
+      rewardType: getString(record, ['rewardType', 'reward_type']) ?? undefined,
+      cashAmount: getNumber(record, ['cashAmount', 'cash_amount']) ?? undefined,
+      compensationAmount: getNumber(record, ['compensationAmount', 'compensation_amount']) ?? undefined,
+      compensationAvailable: Boolean(record.compensationAvailable ?? record.compensation_available),
       partnersCount: getNumber(record, ['partnersCount', 'partners_count']) ?? undefined,
     };
   });

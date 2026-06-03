@@ -64,8 +64,14 @@ class StatusBonusTest extends TestCase
         $this->assertSame('2 продукта в подарок', $statuses['manager']['reward']);
         $this->assertSame('Набор косметики', $statuses['leader']['reward']);
         $this->assertSame('250 000 ₸ cash bonus', $statuses['director']['reward']);
-        $this->assertSame('Путевка в санаторий + 100 000 ₸ или компенсация 400 000 ₸', $statuses['bronze_director']['reward']);
-        $this->assertSame('Путевка в теплые страны + 250 000 ₸ или компенсация 750 000 ₸', $statuses['silver_director']['reward']);
+        $this->assertSame('Путевка в санаторий + 100 000 ₸, при отказе 400 000 ₸', $statuses['bronze_director']['reward']);
+        $this->assertSame('Зарубежная поездка + 250 000 ₸, при отказе 750 000 ₸', $statuses['silver_director']['reward']);
+        $this->assertSame('100000.00', $statuses['bronze_director']['cash_amount']);
+        $this->assertSame('400000.00', $statuses['bronze_director']['compensation_amount']);
+        $this->assertTrue($statuses['bronze_director']['compensation_available']);
+        $this->assertSame('250000.00', $statuses['silver_director']['cash_amount']);
+        $this->assertSame('750000.00', $statuses['silver_director']['compensation_amount']);
+        $this->assertTrue($statuses['silver_director']['compensation_available']);
         $this->assertSame('5 000 000 ₸ cash bonus', $statuses['gold_director']['reward']);
         $this->assertSame('6 000 000 ₸ cash bonus', $statuses['platinum_director']['reward']);
         $this->assertSame('10 000 000 ₸ auto bonus', $statuses['emerald_director']['reward']);
