@@ -133,6 +133,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
             Route::get('/products/{product}', [AdminProductController::class, 'show']);
             Route::get('/packages', [AdminPackageController::class, 'index']);
             Route::get('/orders', [AdminOrderController::class, 'index']);
+            Route::get('/orders/{order}', [AdminOrderController::class, 'show']);
             Route::get('/bonuses', [AdminBonusController::class, 'index']);
             Route::get('/news', [AdminNewsController::class, 'index']);
             Route::get('/news/{news}', [AdminNewsController::class, 'show']);
@@ -152,6 +153,10 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
             Route::post('/faqs', [AdminFaqController::class, 'store']);
             Route::put('/faqs/{faq}', [AdminFaqController::class, 'update']);
             Route::delete('/faqs/{faq}', [AdminFaqController::class, 'destroy']);
+        });
+
+        Route::middleware('role_permission:admin.catalog.write')->group(function (): void {
+            Route::patch('/orders/{order}/status', [AdminOrderController::class, 'status']);
         });
 
         Route::middleware('role_permission:admin.withdrawals.manage')->group(function (): void {

@@ -217,5 +217,32 @@
     "regAction": "Register",
     "loginInstead": "Already have an account? Log in",
     "regInstead": "No account? Register"
+  },
+  "cart": {
+    "title": "Cart",
+    "emptyTitle": "Cart is empty",
+    "emptyText": "Add products from the catalog and they will appear here.",
+    "continueShopping": "Continue shopping",
+    "subtitle": "Review products before placing the order.",
+    "clear": "Clear cart",
+    "remove": "Remove",
+    "price": "Price",
+    "quantity": "Quantity",
+    "subtotal": "Amount",
+    "summary": "Total",
+    "items": "Products",
+    "totalPv": "PV",
+    "checkout": "Place order",
+    "checkoutLoading": "Placing order...",
+    "checkoutNote": "A manager will confirm product availability and delivery terms after the request.",
+    "stock": "Stock",
+    "outOfStock": "Out of stock",
+    "stockLimitReached": "Not enough stock available",
+    "added": "Product added to cart",
+    "addedShort": "Added",
+    "orderCreated": "Order created",
+    "invalidStockWarning": "The cart contains products that are not available in the requested quantity.",
+    "checkoutFailed": "Could not place the order.",
+    "stockSyncFailed": "Could not update product stock."
   }
 }

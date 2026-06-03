@@ -90,6 +90,9 @@ export interface Product {
   pv: number;
   image: string;
   stock?: number;
+  stockQuantity?: number;
+  reservedQuantity?: number;
+  inStock?: boolean;
   status?: string;
   createdAt?: string;
 }
@@ -1077,6 +1080,9 @@ export function normalizeProducts(response: unknown): Product[] {
       pv: getNumber(record, ['pv', 'points']) ?? 0,
       image: getString(record, ['image', 'image_url', 'imageUrl']) || getString(metadata, ['image', 'image_url', 'imageUrl']) || 'https://images.unsplash.com/photo-1584362917165-526a968579e8?auto=format&fit=crop&q=80&w=400&h=400',
       stock: getNumber(record, ['stock', 'stock_quantity']) ?? undefined,
+      stockQuantity: getNumber(record, ['stock_quantity', 'stock']) ?? undefined,
+      reservedQuantity: getNumber(record, ['reserved_quantity']) ?? 0,
+      inStock: Boolean(record.in_stock ?? record.is_in_stock ?? ((getNumber(record, ['stock', 'stock_quantity']) ?? 0) > 0 && getString(record, ['status']) !== 'inactive')),
       status: getString(record, ['status']),
       createdAt: getString(record, ['created_at', 'createdAt']),
     };

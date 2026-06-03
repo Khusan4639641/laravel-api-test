@@ -11,7 +11,7 @@ class ProductResource extends JsonResource
     public function toArray(Request $request): array
     {
         $metadata = $this->metadata ?? [];
-        $image = $metadata['image'] ?? $metadata['image_url'] ?? null;
+        $image = $this->image_path ?: ($metadata['image'] ?? $metadata['image_url'] ?? null);
         $name = LocalizedValue::get($this->name_translations, $this->name);
         $description = LocalizedValue::get($this->description_translations, $this->description);
         $category = LocalizedValue::get($this->category_translations, $metadata['category'] ?? null);
@@ -37,8 +37,12 @@ class ProductResource extends JsonResource
             'price' => $this->price,
             'pv' => $this->pv,
             'stock_quantity' => $this->stock_quantity,
+            'reserved_quantity' => $this->reserved_quantity ?? 0,
             'stock' => $this->stock_quantity,
+            'in_stock' => (int) $this->stock_quantity > 0 && $this->status === 'active',
+            'is_in_stock' => (int) $this->stock_quantity > 0 && $this->status === 'active',
             'status' => $this->status,
+            'image_path' => $this->image_path,
             'image_url' => $image,
             'imageUrl' => $image,
             'image' => $image,

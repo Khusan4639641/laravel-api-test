@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import { CheckCircle2, ShoppingBag, Star } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ApiError, createOrder, getApiErrorState, getDashboardProducts, Product } from '../../lib/api';
+import { ToastItem, ToastStack } from '../../components/ui/Toast';
+import { getAvailableStock, isProductOrderable, useCart } from '../../context/CartContext';
+import { getApiErrorState, getDashboardProducts, Product } from '../../lib/api';
 
 export default function Products() {
+  const { t } = useTranslation();
+  const { addProduct } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [orderingProductId, setOrderingProductId] = useState('');
+  const [addedProductId, setAddedProductId] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const loadProducts = useCallback(async () => {
     setIsLoading(true);
@@ -36,39 +43,52 @@ export default function Products() {
     ? products
     : products.filter((product) => product.category === selectedCategory);
 
-  const handleCreateOrder = async (product: Product) => {
-    setOrderingProductId(product.id);
+  const showToast = useCallback((toastMessage: string, type: ToastItem['type'] = 'success') => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((current) => [...current, { id, message: toastMessage, type }]);
+    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 3000);
+  }, []);
+
+  const handleAddToCart = (product: Product) => {
     setMessage('');
     setError('');
 
-    try {
-      await createOrder({
-        product_id: product.id,
-        quantity: 1,
-      });
-      setMessage(`Заказ на ${product.name} создан.`);
-    } catch (caughtError) {
-      if (caughtError instanceof ApiError) {
-        setError(caughtError.message);
-      } else {
-        setError('Не удалось создать заказ. Попробуйте позже.');
-      }
-    } finally {
-      setOrderingProductId('');
+    const result = addProduct(product);
+
+    if (!result.ok) {
+      const nextError = result.reason === 'stock_limit'
+        ? t('cart.stockLimitReached', 'Недостаточно товара на складе')
+        : t('cart.outOfStock', 'Нет в наличии');
+      setError(nextError);
+      showToast(nextError, 'error');
+      return;
     }
+
+    setAddedProductId(product.id);
+    setMessage(`${t('cart.added', 'Товар добавлен в корзину')}: ${product.name}`);
+    showToast(t('cart.added', 'Товар добавлен в корзину'));
+    window.setTimeout(() => setAddedProductId((current) => current === product.id ? '' : current), 1200);
   };
 
   return (
     <div className="space-y-8">
+      <ToastStack toasts={toasts} onDismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
       <section className="rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <span className="safi-kicker">Products</span>
+            <span className="safi-kicker">{t('nav.products', 'Products')}</span>
             <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Магазин продуктов</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
               Каталог для личных покупок и создания заказов из кабинета.
             </p>
           </div>
+          <Link
+            to="/cart"
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green-hover"
+          >
+            <ShoppingBag className="h-4 w-4" />
+            {t('cart.title', 'Корзина')}
+          </Link>
         </div>
 
         {(message || error) && (
@@ -117,7 +137,47 @@ export default function Products() {
         )}
 
         {!isLoading && !loadError && visibleProducts.map((product) => (
-          <article key={product.id} className="group flex flex-col overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+          <ProductCard
+            key={product.id}
+            product={product}
+            addedProductId={addedProductId}
+            onAddToCart={handleAddToCart}
+            labels={{
+              added: t('cart.addedShort', 'Добавлено'),
+              addToCart: t('productsPage.addCartBtn', 'Добавить в корзину'),
+              outOfStock: t('cart.outOfStock', 'Нет в наличии'),
+              stock: t('cart.stock', 'Остаток'),
+              price: t('cart.price', 'Цена'),
+            }}
+          />
+        ))}
+      </section>
+    </div>
+  );
+}
+
+function ProductCard({
+  product,
+  addedProductId,
+  onAddToCart,
+  labels,
+}: {
+  product: Product;
+  addedProductId: string;
+  onAddToCart: (product: Product) => void;
+  labels: {
+    added: string;
+    addToCart: string;
+    outOfStock: string;
+    stock: string;
+    price: string;
+  };
+}) {
+  const stock = getAvailableStock(product);
+  const orderable = isProductOrderable(product);
+
+  return (
+    <article className="group flex flex-col overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             <div className="relative aspect-[4/3] overflow-hidden bg-safi-cream">
               <img
                 src={product.image}
@@ -127,6 +187,9 @@ export default function Products() {
               <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green">
                 {product.category}
               </span>
+              <span className={`absolute right-4 top-4 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${orderable ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
+                {orderable ? `${labels.stock}: ${stock}` : labels.outOfStock}
+              </span>
             </div>
 
             <div className="flex flex-1 flex-col p-6">
@@ -135,7 +198,7 @@ export default function Products() {
 
               <div className="mt-6 space-y-3 border-t border-safi-border pt-5">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-safi-muted">Цена</span>
+                  <span className="font-bold text-safi-muted">{labels.price}</span>
                   <span className="font-extrabold text-safi-green">{product.price.toLocaleString('ru-RU')} ₸</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
@@ -149,17 +212,14 @@ export default function Products() {
 
               <button
                 type="button"
-                disabled={orderingProductId === product.id}
-                onClick={() => handleCreateOrder(product)}
+                disabled={!orderable}
+                onClick={() => onAddToCart(product)}
                 className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {orderingProductId === product.id ? <CheckCircle2 className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
-                {orderingProductId === product.id ? 'Создаем...' : 'Создать заказ'}
+                {addedProductId === product.id ? <CheckCircle2 className="h-4 w-4" /> : <ShoppingBag className="h-4 w-4" />}
+                {orderable ? (addedProductId === product.id ? labels.added : labels.addToCart) : labels.outOfStock}
               </button>
             </div>
           </article>
-        ))}
-      </section>
-    </div>
   );
 }

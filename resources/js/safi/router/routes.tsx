@@ -8,6 +8,7 @@ import { features } from '../config/features';
 const HomePage = React.lazy(() => import('../pages/HomePage'));
 const AboutPage = React.lazy(() => import('../pages/AboutPage'));
 const ProductsPage = React.lazy(() => import('../pages/ProductsPage'));
+const CartPage = React.lazy(() => import('../pages/CartPage'));
 const BusinessPage = React.lazy(() => import('../pages/BusinessPage'));
 const MarketingPlanPage = React.lazy(() => import('../pages/MarketingPlanPage'));
 const HowToStartPage = React.lazy(() => import('../pages/HowToStartPage'));
@@ -58,6 +59,7 @@ export function AppRouter() {
             <Route index element={<HomePage />} />
             <Route path="about" element={<AboutPage />} />
             <Route path="products" element={<ProductsPage />} />
+            <Route path="cart" element={<CartPage />} />
             <Route path="business" element={<BusinessPage />} />
             <Route path="marketing" element={<MarketingPlanPage />} />
             <Route path="how-to-start" element={<HowToStartPage />} />

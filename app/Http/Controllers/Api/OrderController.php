@@ -43,11 +43,32 @@ class OrderController extends Controller
         $user = $request->user();
 
         $order = DB::transaction(function () use ($validated, $user): Order {
+            $requestedQuantities = collect($validated['items'])
+                ->groupBy('product_id')
+                ->map(fn ($items): int => $items->sum(fn (array $item): int => (int) $item['quantity']));
+
             $products = Product::query()
-                ->whereIn('id', collect($validated['items'])->pluck('product_id'))
+                ->whereIn('id', $requestedQuantities->keys())
                 ->lockForUpdate()
                 ->get()
                 ->keyBy('id');
+
+            foreach ($requestedQuantities as $productId => $quantity) {
+                /** @var Product|null $product */
+                $product = $products->get($productId);
+
+                if (! $product || $product->status !== 'active') {
+                    throw ValidationException::withMessages([
+                        'items' => 'Товар недоступен для заказа',
+                    ]);
+                }
+
+                if ((int) $product->stock_quantity <= 0 || $quantity > (int) $product->stock_quantity) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Недостаточно товара на складе',
+                    ]);
+                }
+            }
 
             $subtotal = '0';
             $totalPv = '0';
@@ -56,12 +77,6 @@ class OrderController extends Controller
             foreach ($validated['items'] as $item) {
                 /** @var Product|null $product */
                 $product = $products->get($item['product_id']);
-
-                if (! $product || $product->status !== 'active') {
-                    throw ValidationException::withMessages([
-                        'items' => 'Order contains inactive or unavailable product.',
-                    ]);
-                }
 
                 $quantity = (int) $item['quantity'];
                 $totalPrice = bcmul((string) $product->price, (string) $quantity, 2);
@@ -97,6 +112,7 @@ class OrderController extends Controller
 
                 $order->items()->create([
                     'product_id' => $product->id,
+                    'product_name' => $product->name,
                     'quantity' => $preparedItem['quantity'],
                     'unit_price' => $preparedItem['unit_price'],
                     'total_price' => $preparedItem['total_price'],
@@ -109,6 +125,12 @@ class OrderController extends Controller
                         'pv' => (string) $product->pv,
                     ],
                 ]);
+            }
+
+            foreach ($requestedQuantities as $productId => $quantity) {
+                /** @var Product $product */
+                $product = $products->get($productId);
+                $product->decrement('stock_quantity', $quantity);
             }
 
             return $order->load('items.product');

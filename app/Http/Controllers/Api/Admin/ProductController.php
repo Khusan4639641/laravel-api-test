@@ -68,7 +68,9 @@ class ProductController extends Controller
             'price' => [$product ? 'sometimes' : 'required', 'numeric', 'min:0'],
             'pv' => [$product ? 'sometimes' : 'required', 'numeric', 'min:0'],
             'stock_quantity' => ['nullable', 'integer', 'min:0'],
+            'reserved_quantity' => ['nullable', 'integer', 'min:0'],
             'status' => ['nullable', 'string', 'max:255'],
+            'image_path' => ['nullable', 'string', 'max:2048'],
             'metadata' => ['nullable', 'array'],
         ]);
 

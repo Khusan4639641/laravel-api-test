@@ -3,15 +3,17 @@ import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Container } from '../ui/Container';
 import { Button } from '../ui/Button';
-import { Menu, X } from 'lucide-react';
+import { Menu, ShoppingCart, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
+import { useCart } from '../../context/CartContext';
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const location = useLocation();
   const { t, i18n } = useTranslation();
+  const { totalItems } = useCart();
 
   const navLinks = useMemo(() => [
     { name: t('nav.home', 'Главная'), path: '/' },
@@ -174,6 +176,19 @@ export function Header() {
 
           <div className="hidden lg:flex items-center gap-3 shrink-0">
             <LanguageSwitcher />
+            <Link
+              to="/cart"
+              onClick={closeMenu}
+              className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl bg-[#F5F5F0] text-safi-green transition-colors hover:bg-safi-green hover:text-safi-gold"
+              aria-label={t('cart.title', 'Корзина')}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {totalItems > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-safi-gold px-1 text-[10px] font-bold leading-none text-safi-green shadow-sm">
+                  {totalItems}
+                </span>
+              )}
+            </Link>
             <Button variant="outline" size="sm" to="/login" className="px-5">{t('nav.login', 'Вход')}</Button>
             <Button size="sm" to="/register" className="px-5">{t('nav.register', 'Регистрация')}</Button>
           </div>
@@ -181,6 +196,19 @@ export function Header() {
           {/* Mobile menu button */}
           <div className="lg:hidden flex items-center gap-4 shrink-0">
             <LanguageSwitcher />
+            <Link
+              to="/cart"
+              onClick={closeMenu}
+              className="relative flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl bg-[#F5F5F0] text-safi-green transition-colors hover:bg-safi-green hover:text-safi-gold"
+              aria-label={t('cart.title', 'Корзина')}
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {totalItems > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-safi-gold px-1 text-[10px] font-bold leading-none text-safi-green shadow-sm">
+                  {totalItems}
+                </span>
+              )}
+            </Link>
             <button
               className="p-2 text-safi-green"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}

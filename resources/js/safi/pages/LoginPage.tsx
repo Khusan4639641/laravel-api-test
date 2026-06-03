@@ -1,6 +1,6 @@
 import React, { FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
 import { ApiError, getMyPermissions, login } from '../lib/api';
@@ -13,6 +13,8 @@ const inputClass = 'w-full px-5 py-4 rounded-xl border border-safi-green/20 bg-[
 export default function LoginPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const redirectPath = new URLSearchParams(location.search).get('redirect');
   const [form, setForm] = useState({
     login: '',
     password: '',
@@ -29,6 +31,11 @@ export default function LoginPage() {
 
     try {
       const response = await login(form);
+      if (redirectPath && redirectPath.startsWith('/')) {
+        navigate(redirectPath, { replace: true });
+        return;
+      }
+
       try {
         const permissions = normalizePermissions(await getMyPermissions());
         navigate(permissions.redirect_after_login, { replace: true });

@@ -1,18 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, X } from 'lucide-react';
+import { Check, ShoppingCart, X } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
+import { ToastItem, ToastStack } from '../components/ui/Toast';
+import { getAvailableStock, isProductOrderable, useCart } from '../context/CartContext';
 import { getApiErrorState, getPublicProducts, Product } from '../lib/api';
 
 export default function ProductsPage() {
   const { t } = useTranslation();
+  const { addProduct } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [addedProductId, setAddedProductId] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   const loadProducts = React.useCallback(async () => {
     setIsLoading(true);
@@ -37,8 +42,32 @@ export default function ProductsPage() {
     ? products
     : products.filter((product) => product.category === selectedCategory);
 
+  const showToast = React.useCallback((message: string, type: ToastItem['type'] = 'success') => {
+    const id = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((current) => [...current, { id, message, type }]);
+    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 3000);
+  }, []);
+
+  const handleAddToCart = (product: Product) => {
+    const result = addProduct(product);
+
+    if (!result.ok) {
+      showToast(result.reason === 'stock_limit'
+        ? t('cart.stockLimitReached', 'Недостаточно товара на складе')
+        : t('cart.outOfStock', 'Нет в наличии'), 'error');
+      return;
+    }
+
+    setAddedProductId(product.id);
+    showToast(t('cart.added', 'Товар добавлен в корзину'));
+    window.setTimeout(() => {
+      setAddedProductId((currentId) => currentId === product.id ? null : currentId);
+    }, 1200);
+  };
+
   return (
     <div className="py-20 bg-safi-bg min-h-screen relative overflow-hidden">
+      <ToastStack toasts={toasts} onDismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-safi-green/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/4 pointer-events-none z-0"></div>
 
       <Container className="relative z-10">
@@ -95,16 +124,58 @@ export default function ProductsPage() {
           )}
 
           {!isLoading && !error && filteredProducts.map((product) => (
-            <div key={product.id} className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-safi-green/5 flex flex-col group hover:-translate-y-2 transition-all duration-300">
+            <ProductCard
+              key={product.id}
+              product={product}
+              addedProductId={addedProductId}
+              onAddToCart={handleAddToCart}
+              onOpen={setSelectedProduct}
+            />
+          ))}
+        </div>
+      </Container>
+
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          addedProductId={addedProductId}
+          onAddToCart={handleAddToCart}
+          onClose={() => setSelectedProduct(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ProductCard({
+  product,
+  addedProductId,
+  onAddToCart,
+  onOpen,
+}: {
+  product: Product;
+  addedProductId: string | null;
+  onAddToCart: (product: Product) => void;
+  onOpen: (product: Product) => void;
+}) {
+  const { t } = useTranslation();
+  const stock = getAvailableStock(product);
+  const orderable = isProductOrderable(product);
+
+  return (
+    <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-safi-green/5 flex flex-col group hover:-translate-y-2 transition-all duration-300">
               <button
                 type="button"
-                onClick={() => setSelectedProduct(product)}
-                className="aspect-[4/3] bg-[#F5F5F0] relative overflow-hidden text-left"
+        onClick={() => onOpen(product)}
+        className="aspect-[4/3] bg-[#F5F5F0] relative overflow-hidden text-left cursor-pointer"
               >
                 <img src={product.image} alt={product.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest text-safi-green shadow-sm">
                   {product.pv} PV
                 </div>
+        <div className={`absolute left-4 top-4 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest shadow-sm ${orderable ? 'bg-green-50/95 text-green-700' : 'bg-red-50/95 text-red-600'}`}>
+          {orderable ? `${t('cart.stock', 'Остаток')}: ${stock}` : t('cart.outOfStock', 'Нет в наличии')}
+        </div>
               </button>
               <div className="p-8 flex flex-col flex-1">
                 <div className="text-[10px] font-bold text-safi-gold mb-3 uppercase tracking-widest">{product.category}</div>
@@ -112,26 +183,38 @@ export default function ProductsPage() {
                 <p className="text-safi-text opacity-70 text-sm mb-6 flex-1 leading-relaxed">{product.shortDescription}</p>
                 <div className="text-3xl font-serif font-bold text-safi-green mb-6">{product.price.toLocaleString('ru-RU')} ₸</div>
                 <div className="flex flex-col gap-3">
-                  <Button className="w-full" to="/contacts">{t('productsPage.orderBtn', 'Заказать')}</Button>
-                  <Button variant="outline" className="w-full" onClick={() => setSelectedProduct(product)}>
+          <button
+            type="button"
+            disabled={!orderable}
+            onClick={() => onAddToCart(product)}
+            className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-safi-green px-6 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-lg shadow-safi-green/20 transition-all hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {addedProductId === product.id ? <Check className="w-4 h-4" /> : <ShoppingCart className="w-4 h-4" />}
+            {orderable ? (addedProductId === product.id ? t('cart.addedShort', 'Добавлено') : t('productsPage.addCartBtn', 'Добавить в корзину')) : t('cart.outOfStock', 'Нет в наличии')}
+          </button>
+                  <Button variant="outline" className="w-full" onClick={() => onOpen(product)}>
                     {t('productsPage.moreBtn', 'Подробнее')}
                   </Button>
                 </div>
               </div>
             </div>
-          ))}
-        </div>
-      </Container>
-
-      {selectedProduct && (
-        <ProductModal product={selectedProduct} onClose={() => setSelectedProduct(null)} />
-      )}
-    </div>
   );
 }
 
-function ProductModal({ product, onClose }: { product: Product; onClose: () => void }) {
+function ProductModal({
+  product,
+  addedProductId,
+  onAddToCart,
+  onClose,
+}: {
+  product: Product;
+  addedProductId: string | null;
+  onAddToCart: (product: Product) => void;
+  onClose: () => void;
+}) {
   const { t } = useTranslation();
+  const stock = getAvailableStock(product);
+  const orderable = isProductOrderable(product);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -155,6 +238,9 @@ function ProductModal({ product, onClose }: { product: Product; onClose: () => v
             <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
             <div className="absolute top-6 left-6 bg-white/90 backdrop-blur-md px-4 py-2 rounded-xl text-[10px] uppercase font-bold tracking-widest text-safi-green shadow-sm">
               {product.pv} PV
+            </div>
+            <div className={`absolute right-6 top-6 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest shadow-sm ${orderable ? 'bg-green-50/95 text-green-700' : 'bg-red-50/95 text-red-600'}`}>
+              {orderable ? `${t('cart.stock', 'Остаток')}: ${stock}` : t('cart.outOfStock', 'Нет в наличии')}
             </div>
           </div>
           <div className="p-8 md:p-12 flex flex-col h-full bg-white">
@@ -188,7 +274,15 @@ function ProductModal({ product, onClose }: { product: Product; onClose: () => v
             </div>
 
             <div className="pt-8 mt-8 border-t border-safi-green/5">
-              <Button size="lg" className="w-full" to="/contacts">{t('productsPage.addCartBtn', 'Добавить в корзину')}</Button>
+              <button
+                type="button"
+                disabled={!orderable}
+                onClick={() => onAddToCart(product)}
+                className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-safi-green px-8 py-4 text-sm font-bold uppercase tracking-widest text-white shadow-lg shadow-safi-green/20 transition-all hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {addedProductId === product.id ? <Check className="w-5 h-5" /> : <ShoppingCart className="w-5 h-5" />}
+                {orderable ? (addedProductId === product.id ? t('cart.addedShort', 'Добавлено') : t('productsPage.addCartBtn', 'Добавить в корзину')) : t('cart.outOfStock', 'Нет в наличии')}
+              </button>
             </div>
           </div>
         </div>
