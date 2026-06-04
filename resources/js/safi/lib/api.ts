@@ -71,13 +71,6 @@ export interface WithdrawalPayload {
   [key: string]: unknown;
 }
 
-export interface BinaryCalculationPayload {
-  left_volume?: number;
-  right_volume?: number;
-  package_id?: string | number;
-  [key: string]: unknown;
-}
-
 export interface Product {
   id: string;
   name: string;
@@ -554,14 +547,6 @@ export async function activatePackage<T = unknown>(packageId: string | number) {
 export async function upgradePackage<T = unknown>(packageId: string | number) {
   return apiRequest<T>(endpoints.dashboard.upgradePackage(packageId), {
     method: 'POST',
-    auth: true,
-  });
-}
-
-export async function calculateBinaryBonus<T = unknown>(payload: BinaryCalculationPayload) {
-  return apiRequest<T>(endpoints.dashboard.calculateBinaryBonus, {
-    method: 'POST',
-    body: compactPayload(payload),
     auth: true,
   });
 }

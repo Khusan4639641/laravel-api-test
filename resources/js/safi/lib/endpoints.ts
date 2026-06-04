@@ -45,7 +45,6 @@ export const endpoints = {
     withdrawalRequests: '/withdrawals',
     activatePackage: (pkg: EndpointId) => `/packages/${encodeEndpointId(pkg)}/activate`,
     upgradePackage: (pkg: EndpointId) => `/packages/${encodeEndpointId(pkg)}/upgrade`,
-    calculateBinaryBonus: '/bonuses/binary/calculate',
     depositPurchase: '/deposits/purchase',
   },
   admin: {

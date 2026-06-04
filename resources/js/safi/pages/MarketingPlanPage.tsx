@@ -60,8 +60,11 @@ export default function MarketingPlanPage() {
     [packages, selectedPackage]
   );
 
-  const estimatedReferral = activePackage ? (personalSales * activePackage.referralBonus) / 100 : 0;
-  const lesserBranch = Math.min(leftVol, rightVol);
+  const safePersonalSales = clampMoney(personalSales, 1000000);
+  const safeLeftVol = clampMoney(leftVol, 5000000);
+  const safeRightVol = clampMoney(rightVol, 5000000);
+  const estimatedReferral = activePackage ? (safePersonalSales * activePackage.referralBonus) / 100 : 0;
+  const lesserBranch = Math.min(safeLeftVol, safeRightVol);
   const estimatedBinary = activePackage?.binaryBonus ? (lesserBranch * activePackage.binaryBonus) / 100 : 0;
   const totalEstimated = estimatedReferral + estimatedBinary;
 
@@ -266,10 +269,18 @@ function RangeField({
         max={max}
         step={step}
         value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+        onChange={(event) => onChange(clampMoney(Number(event.target.value), max))}
         className="w-full accent-safi-gold cursor-pointer"
       />
       <div className="text-right text-sm font-bold text-safi-green mt-2">{value.toLocaleString('ru-RU')} ₸</div>
     </div>
   );
+}
+
+function clampMoney(value: number, max: number) {
+  if (!Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.min(Math.max(0, value), max);
 }
