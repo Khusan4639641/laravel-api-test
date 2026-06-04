@@ -579,7 +579,7 @@ export async function getAdminStructure<T = unknown>(params: Record<string, stri
 }
 
 export async function getAdminUsers<T = unknown>() {
-  return apiRequest<T>(endpoints.admin.users, {
+  return apiRequest<T>(endpoints.admin.partners, {
     method: 'GET',
     auth: true,
   });

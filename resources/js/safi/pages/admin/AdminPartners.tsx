@@ -11,6 +11,7 @@ import { features } from '../../config/features';
 
 interface AdminPartnerRow {
   id: string;
+  role: string;
   login: string;
   fullName: string;
   phone: string;
@@ -26,6 +27,13 @@ interface AdminPartnerRow {
   availableBalance: number;
   registrationDate: string;
   accountStatus: string;
+}
+
+interface AdminPartnersSummary {
+  totalPartners: number;
+  activePartners: number;
+  vipElitePartners: number;
+  totalBalance: number;
 }
 
 interface CreatedCredentials {
@@ -51,9 +59,17 @@ const initialCreateForm = {
 
 const modalInputClass = 'w-full rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-sm font-bold text-safi-green outline-none transition-colors focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60';
 
+const emptySummary: AdminPartnersSummary = {
+  totalPartners: 0,
+  activePartners: 0,
+  vipElitePartners: 0,
+  totalBalance: 0,
+};
+
 export default function AdminPartners() {
   const { currentUser } = useAdminContext();
   const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
+  const [summary, setSummary] = useState<AdminPartnersSummary>(emptySummary);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -71,9 +87,13 @@ export default function AdminPartners() {
 
     try {
       const response = await getAdminUsers();
-      setPartners(normalizePartners(response));
+      const normalizedPartners = normalizePartners(response);
+
+      setPartners(normalizedPartners);
+      setSummary(normalizeSummary(response, normalizedPartners));
     } catch (caughtError) {
       setPartners([]);
+      setSummary(emptySummary);
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_15'));
     } finally {
       setIsLoading(false);
@@ -201,10 +221,10 @@ export default function AdminPartners() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={partners.length.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={partners.filter((partner) => partner.accountStatus === adminText('a_0JDQutGC0LjQ_2')).length.toLocaleString('ru-RU')} />
-        <SummaryCard label="VIP / ELITE" value={partners.filter((partner) => ['VIP', 'ELITE'].includes(partner.package)).length.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={`${partners.reduce((sum, partner) => sum + partner.availableBalance, 0).toLocaleString('ru-RU')} ₸`} />
+        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={summary.totalPartners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={summary.activePartners.toLocaleString('ru-RU')} />
+        <SummaryCard label="VIP / ELITE" value={summary.vipElitePartners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(summary.totalBalance)} />
       </section>
 
       <section className="rounded-[28px] border border-safi-border bg-white p-4 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -550,6 +570,7 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
 
     return {
       id: getString(record, ['partner_id', 'partnerId', 'code', 'id']) || `USER-${index + 1}`,
+      role: getString(record, ['role']) || 'user',
       login: getString(record, ['login', 'username']) || '',
       fullName: getString(record, ['full_name', 'fullName', 'name']) || `Partner ${index + 1}`,
       phone: getString(record, ['phone', 'phone_number', 'phoneNumber']) || getString(profileRecord, ['phone']) || '-',
@@ -567,6 +588,35 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       accountStatus: getAccountStatusLabel(getString(record, ['account_status', 'accountStatus', 'state'])),
     };
   });
+}
+
+function normalizeSummary(response: unknown, partners: AdminPartnerRow[]): AdminPartnersSummary {
+  const record = isRecord(response) ? response : {};
+  const summary = isRecord(record.summary)
+    ? record.summary
+    : isRecord(record.meta) && isRecord(record.meta.summary)
+      ? record.meta.summary
+      : isRecord(record.stats)
+        ? record.stats
+        : undefined;
+
+  if (summary) {
+    return {
+      totalPartners: getNumber(summary, ['total_partners', 'totalPartners']) ?? 0,
+      activePartners: getNumber(summary, ['active_partners', 'activePartners']) ?? 0,
+      vipElitePartners: getNumber(summary, ['vip_elite_partners', 'vipElitePartners']) ?? 0,
+      totalBalance: getNumber(summary, ['total_balance', 'totalBalance']) ?? 0,
+    };
+  }
+
+  const partnerRows = partners.filter((partner) => isPartnerRole(partner.role));
+
+  return {
+    totalPartners: partnerRows.length,
+    activePartners: partnerRows.filter((partner) => partner.accountStatus === adminText('a_0JDQutGC0LjQ_2')).length,
+    vipElitePartners: partnerRows.filter((partner) => ['VIP', 'ELITE'].includes(partner.package)).length,
+    totalBalance: partnerRows.reduce((sum, partner) => sum + partner.totalIncome, 0),
+  };
 }
 
 function getArray(response: unknown) {
@@ -589,6 +639,14 @@ function getArray(response: unknown) {
   }
 
   return [];
+}
+
+function isPartnerRole(role: string) {
+  return role === 'user' || role === 'partner';
+}
+
+function formatMoney(value: number) {
+  return `${value.toLocaleString('ru-RU')} ₸`;
 }
 
 function getString(record: Record<string, unknown> | undefined, keys: string[]) {

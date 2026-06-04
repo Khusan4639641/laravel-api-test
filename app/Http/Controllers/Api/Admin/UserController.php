@@ -6,12 +6,15 @@ use App\Http\Controllers\Api\Concerns\RespondsWithPagination;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\UserResource;
 use App\Models\User;
+use App\Models\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
     use RespondsWithPagination;
+
+    private const PARTNER_ROLES = [User::ROLE_USER, 'partner'];
 
     public function index(Request $request): JsonResponse
     {
@@ -21,7 +24,9 @@ class UserController extends Controller
             ->latest()
             ->paginate($this->perPage($request));
 
-        return $this->paginated($users, UserResource::class, 'users', $request);
+        return $this->paginated($users, UserResource::class, 'users', $request, [
+            'summary' => $this->partnersSummary(),
+        ]);
     }
 
     public function show(User $user): JsonResponse
@@ -32,5 +37,33 @@ class UserController extends Controller
                     ->loadCount(['referrals', 'invitedUsers as invited_count'])
             ),
         ]);
+    }
+
+    /**
+     * @return array{total_partners: int, active_partners: int, vip_elite_partners: int, total_balance: float}
+     */
+    private function partnersSummary(): array
+    {
+        $partnerUserIds = User::query()
+            ->select('id')
+            ->whereIn('role', self::PARTNER_ROLES);
+
+        return [
+            'total_partners' => User::query()
+                ->whereIn('role', self::PARTNER_ROLES)
+                ->count(),
+            'active_partners' => User::query()
+                ->whereIn('role', self::PARTNER_ROLES)
+                ->where('account_status', 'active')
+                ->count(),
+            'vip_elite_partners' => User::query()
+                ->whereIn('role', self::PARTNER_ROLES)
+                ->whereHas('currentPackage', fn ($query) => $query->whereIn('code', ['VIP', 'ELITE']))
+                ->count(),
+            'total_balance' => (float) Wallet::query()
+                ->whereIn('user_id', $partnerUserIds)
+                ->whereIn('type', ['main', 'bonus', 'deposit'])
+                ->sum('balance'),
+        ];
     }
 }

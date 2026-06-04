@@ -173,6 +173,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         });
 
         Route::middleware('role_permission:admin.read')->group(function (): void {
+            Route::get('/partners', [AdminUserController::class, 'index']);
             Route::get('/partners/{user}', [AdminPartnerController::class, 'show']);
             Route::get('/partners/{user}/transactions', [AdminPartnerController::class, 'transactions']);
             Route::get('/partners/{user}/tree', [AdminPartnerController::class, 'tree']);

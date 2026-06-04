@@ -13,6 +13,86 @@ class AdminPartnersApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_admin_partners_summary_counts_real_partners(): void
+    {
+        User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        User::factory()->count(3)->create(['role' => User::ROLE_USER]);
+
+        $summary = $this->adminSummaryPayload();
+
+        $this->assertSame(3, $summary['total_partners']);
+    }
+
+    public function test_admin_partners_summary_counts_active_partners(): void
+    {
+        User::factory()->count(2)->create([
+            'role' => User::ROLE_USER,
+            'account_status' => 'active',
+        ]);
+        User::factory()->create([
+            'role' => User::ROLE_USER,
+            'account_status' => 'blocked',
+        ]);
+
+        $summary = $this->adminSummaryPayload();
+
+        $this->assertSame(2, $summary['active_partners']);
+    }
+
+    public function test_admin_partners_summary_counts_vip_and_elite_only(): void
+    {
+        $start = $this->createPackage('START');
+        $vip = $this->createPackage('VIP');
+        $elite = $this->createPackage('ELITE');
+
+        User::factory()->create(['role' => User::ROLE_USER, 'current_package_id' => $start->id]);
+        User::factory()->create(['role' => User::ROLE_USER, 'current_package_id' => $vip->id]);
+        User::factory()->create(['role' => User::ROLE_USER, 'current_package_id' => $elite->id]);
+
+        $summary = $this->adminSummaryPayload();
+
+        $this->assertSame(2, $summary['vip_elite_partners']);
+    }
+
+    public function test_admin_partners_summary_sums_partner_wallet_balances(): void
+    {
+        $first = User::factory()->create(['role' => User::ROLE_USER]);
+        $second = User::factory()->create(['role' => User::ROLE_USER]);
+        $admin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+
+        $this->createWallet($first, 'main', 30000);
+        $this->createWallet($first, 'bonus', 20000);
+        $this->createWallet($second, 'main', 100000);
+        $this->createWallet($second, 'deposit', 50000);
+        $this->createWallet($admin, 'main', 999999);
+
+        $summary = $this->adminSummaryPayload();
+
+        $this->assertEquals(200000, $summary['total_balance']);
+    }
+
+    public function test_admin_partners_summary_is_not_affected_by_pagination(): void
+    {
+        User::factory()->count(20)->create(['role' => User::ROLE_USER]);
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
+
+        $response = $this->getJson('/api/admin/partners?per_page=10')
+            ->assertOk();
+
+        $this->assertCount(10, $response->json('data'));
+        $this->assertSame(20, $response->json('summary.total_partners'));
+    }
+
+    public function test_user_and_support_cannot_access_admin_partners_summary(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_USER]));
+        $this->getJson('/api/admin/partners')->assertForbidden();
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPPORT]));
+        $this->getJson('/api/admin/partners')->assertForbidden();
+    }
+
     public function test_admin_partners_list_returns_invited_count(): void
     {
         $partner = User::factory()->create(['role' => 'user']);
@@ -161,6 +241,64 @@ class AdminPartnersApiTest extends TestCase
             'balance' => $balance,
             'hold_balance' => 0,
             'status' => 'active',
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function adminSummaryPayload(): array
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
+
+        $summary = $this->getJson('/api/admin/partners')
+            ->assertOk()
+            ->json('summary');
+
+        $this->assertIsArray($summary);
+
+        return $summary;
+    }
+
+    private function createPackage(string $code): Package
+    {
+        return Package::query()->create([
+            'code' => $code,
+            'name' => $code,
+            'slug' => strtolower($code),
+            'price' => match ($code) {
+                'VIP' => 180000,
+                'ELITE' => 300000,
+                default => 60000,
+            },
+            'pv' => match ($code) {
+                'VIP' => 300,
+                'ELITE' => 500,
+                default => 100,
+            },
+            'activity_pv' => match ($code) {
+                'VIP' => 300,
+                'ELITE' => 500,
+                default => 100,
+            },
+            'turnover_pv' => $code === 'ELITE' ? 200 : match ($code) {
+                'VIP' => 300,
+                default => 100,
+            },
+            'referral_percent' => 10,
+            'binary_percent' => match ($code) {
+                'VIP' => 8,
+                'ELITE' => 10,
+                default => 7,
+            },
+            'sort_order' => match ($code) {
+                'VIP' => 2,
+                'ELITE' => 3,
+                default => 1,
+            },
+            'status' => 'active',
+            'is_active' => true,
+            'is_upgradeable' => true,
         ]);
     }
 }
