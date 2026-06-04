@@ -32,9 +32,10 @@ class PackageService
                 'current_package_id' => $package->id,
             ])->save();
 
+            $activityPv = $package->activityPv();
             $turnoverPv = $package->turnoverPv();
 
-            $this->pvService->addUserPv($user, $turnoverPv);
+            $this->pvService->addUserPv($user, $activityPv);
             $this->pvService->accruePvUpTree($user, $turnoverPv);
 
             if ($user->sponsor_id) {

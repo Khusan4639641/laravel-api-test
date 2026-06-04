@@ -7,6 +7,7 @@ use App\Models\Package;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Services\BinaryTreeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -32,7 +33,68 @@ class PackageActivationTest extends TestCase
         $this->assertSame('100.00', $user->total_pv);
     }
 
-    public function test_start_activation_adds_sixty_thousand_pv_and_pays_sponsor_ten_percent(): void
+    public function test_start_activation_sets_personal_pv_and_upline_turnover_without_buyer_branch_pv(): void
+    {
+        $package = $this->createPackage('START', 60000, 100, 10, 1);
+        $sponsor = User::factory()->create([
+            'current_package_id' => $package->id,
+        ]);
+        $user = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
+        ]);
+        $tree = app(BinaryTreeService::class);
+        $tree->placeUser($sponsor);
+        $tree->placeUser($user, $sponsor, 'L');
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/packages/{$package->id}/activate")
+            ->assertOk()
+            ->assertJsonPath('user.total_pv', '100.00');
+
+        $user->refresh();
+        $sponsor->refresh();
+
+        $this->assertSame('100.00', $user->total_pv);
+        $this->assertSame('0.00', $user->left_pv);
+        $this->assertSame('0.00', $user->right_pv);
+        $this->assertSame('100.00', $sponsor->left_pv);
+        $this->assertSame('100.00', $sponsor->remaining_left_pv);
+        $this->assertSame('0.00', $sponsor->right_pv);
+    }
+
+    public function test_vip_activation_sets_personal_pv_and_upline_turnover_without_buyer_branch_pv(): void
+    {
+        $sponsorPackage = $this->createPackage('START', 60000, 100, 10, 1);
+        $vip = $this->createPackage('VIP', 180000, 300, 10, 2);
+        $sponsor = User::factory()->create([
+            'current_package_id' => $sponsorPackage->id,
+        ]);
+        $user = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
+        ]);
+        $tree = app(BinaryTreeService::class);
+        $tree->placeUser($sponsor);
+        $tree->placeUser($user, $sponsor, 'R');
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/packages/{$vip->id}/activate")
+            ->assertOk()
+            ->assertJsonPath('user.total_pv', '300.00');
+
+        $user->refresh();
+        $sponsor->refresh();
+
+        $this->assertSame('300.00', $user->total_pv);
+        $this->assertSame('0.00', $user->left_pv);
+        $this->assertSame('0.00', $user->right_pv);
+        $this->assertSame('0.00', $sponsor->left_pv);
+        $this->assertSame('300.00', $sponsor->right_pv);
+        $this->assertSame('300.00', $sponsor->remaining_right_pv);
+    }
+
+    public function test_start_activation_pays_sponsor_ten_percent(): void
     {
         $package = $this->createPackage('START', 60000, 100, 10, 1);
         $sponsor = User::factory()->create([

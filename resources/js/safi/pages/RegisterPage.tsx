@@ -59,7 +59,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     void getRegistrationPackages()
-      .then(setPackages)
+      .then((items) => setPackages(items.filter((pkg) => isStarterPackage(pkg))))
       .catch(() => setPackages([]))
       .finally(() => setPackagesLoading(false));
   }, []);
@@ -277,6 +277,12 @@ export default function RegisterPage() {
 
 function isReferralBranch(value: string): value is ReferralBranch {
   return value === 'left' || value === 'right';
+}
+
+function isStarterPackage(pkg: Package) {
+  const code = String(pkg.code || pkg.name || '').trim().toUpperCase();
+
+  return code === 'START' || code === 'VIP';
 }
 
 function FormField({

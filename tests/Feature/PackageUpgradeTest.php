@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\BonusTransaction;
 use App\Models\Package;
 use App\Models\User;
+use App\Services\BinaryTreeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -25,6 +26,9 @@ class PackageUpgradeTest extends TestCase
             'total_pv' => $start->pv,
             'status' => 'gold_director',
         ]);
+        $tree = app(BinaryTreeService::class);
+        $tree->placeUser($sponsor);
+        $tree->placeUser($user, $sponsor, 'L');
 
         Sanctum::actingAs($user);
 
@@ -44,6 +48,10 @@ class PackageUpgradeTest extends TestCase
         $this->assertSame($vip->id, $user->current_package_id);
         $this->assertSame('300.00', $user->total_pv);
         $this->assertSame('user', $user->status);
+        $this->assertSame('200.00', $sponsor->refresh()->left_pv);
+        $this->assertSame('200.00', $sponsor->remaining_left_pv);
+        $this->assertSame('0.00', $user->left_pv);
+        $this->assertSame('0.00', $user->right_pv);
         $this->assertSame('12000.00', $referralBonus->amount);
         $this->assertSame('12000.00', $sponsorMainWallet->balance);
         $this->assertDatabaseMissing('wallet_transactions', [
@@ -70,10 +78,17 @@ class PackageUpgradeTest extends TestCase
     public function test_user_can_upgrade_vip_to_elite(): void
     {
         [$vip, $elite] = $this->createPackages(['VIP', 'ELITE']);
+        $sponsor = User::factory()->create([
+            'current_package_id' => $vip->id,
+        ]);
         $user = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
             'current_package_id' => $vip->id,
             'total_pv' => $vip->pv,
         ]);
+        $tree = app(BinaryTreeService::class);
+        $tree->placeUser($sponsor);
+        $tree->placeUser($user, $sponsor, 'R');
 
         Sanctum::actingAs($user);
 
@@ -88,6 +103,10 @@ class PackageUpgradeTest extends TestCase
         $this->assertSame($elite->id, $user->current_package_id);
         $this->assertSame('500.00', $user->total_pv);
         $this->assertSame('user', $user->status);
+        $this->assertSame('200.00', $sponsor->refresh()->right_pv);
+        $this->assertSame('0.00', $sponsor->remaining_right_pv);
+        $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'referral')->count());
+        $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'binary')->count());
     }
 
     public function test_elite_package_cannot_upgrade_further(): void

@@ -15,7 +15,13 @@ export default function PackageStatus() {
   const [pendingPackage, setPendingPackage] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const currentPackageIndex = packages.findIndex((pkg) => pkg.name.toLowerCase() === currentUser.packageName.toLowerCase());
+  const currentPackageCode = normalizePackageCode(currentUser.packageName);
+  const displayPackages = packages.filter((pkg) => {
+    const packageCode = normalizePackageCode(pkg.code || pkg.name);
+
+    return packageCode !== 'ELITE' || currentPackageCode === 'VIP' || currentPackageCode === 'ELITE';
+  });
+  const currentPackageIndex = displayPackages.findIndex((pkg) => normalizePackageCode(pkg.code || pkg.name) === currentPackageCode);
   const nextStatus = statuses.find((status) => status.pv > currentUser.personalPV) || statuses[statuses.length - 1];
 
   const loadPackageData = useCallback(async () => {
@@ -103,7 +109,7 @@ export default function PackageStatus() {
       {!isLoading && !loadError && (
         <>
       <section className="grid gap-5 md:grid-cols-3">
-        {packages.length === 0 && (
+        {displayPackages.length === 0 && (
           <EmptyState
             title="Пакеты пока не опубликованы"
             description="Список пакетов появится после настройки в backend."
@@ -111,7 +117,7 @@ export default function PackageStatus() {
           />
         )}
 
-        {packages.map((pkg, index) => {
+        {displayPackages.map((pkg, index) => {
           const isCurrent = index === currentPackageIndex;
           const isLower = currentPackageIndex >= 0 && index < currentPackageIndex;
           const isLockedUpgrade = currentPackageIndex >= 0 && index > currentPackageIndex + 1;
@@ -218,4 +224,8 @@ function PackageMetric({ label, value, dark }: { label: string; value: string; d
       <div className={`mt-1 text-lg font-extrabold ${dark ? 'text-safi-gold' : 'text-safi-green'}`}>{value}</div>
     </div>
   );
+}
+
+function normalizePackageCode(value?: string | null) {
+  return String(value || '').trim().toUpperCase();
 }
