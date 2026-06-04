@@ -69,7 +69,7 @@ const emptySummary: AdminPartnersSummary = {
 export default function AdminPartners() {
   const { currentUser } = useAdminContext();
   const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
-  const [summary, setSummary] = useState<AdminPartnersSummary>(emptySummary);
+  const [summary, setSummary] = useState<AdminPartnersSummary>(() => ({ ...emptySummary }));
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -87,14 +87,22 @@ export default function AdminPartners() {
 
     try {
       const response = await getAdminUsers();
-      const payload = unwrapAdminPartnersPayload(response);
-      const normalizedPartners = normalizePartners(payload);
+      const body = unwrapAdminPartnersPayload(response);
+      const bodyRecord = isRecord(body) ? body : {};
+      const bodySummary = isRecord(bodyRecord.summary) ? bodyRecord.summary : {};
+      const normalizedPartners = normalizePartners(body);
+      const nextSummary: AdminPartnersSummary = {
+        total_partners: Number(bodySummary.total_partners ?? 0),
+        active_partners: Number(bodySummary.active_partners ?? 0),
+        vip_elite_partners: Number(bodySummary.vip_elite_partners ?? 0),
+        total_balance: Number(bodySummary.total_balance ?? 0),
+      };
 
       setPartners(normalizedPartners);
-      setSummary(normalizeSummary(payload));
+      setSummary({ ...nextSummary });
     } catch (caughtError) {
       setPartners([]);
-      setSummary(emptySummary);
+      setSummary({ ...emptySummary });
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_15'));
     } finally {
       setIsLoading(false);
@@ -614,30 +622,6 @@ function unwrapAdminPartnersPayload(response: unknown) {
   }
 
   return response;
-}
-
-function normalizeSummary(response: unknown): AdminPartnersSummary {
-  const record = isRecord(response) ? response : {};
-  const data = isRecord(record.data) ? record.data : {};
-  const meta = isRecord(record.meta) ? record.meta : {};
-  const responseSummary = isRecord(record.summary)
-    ? record.summary
-    : isRecord(data.summary)
-      ? data.summary
-      : isRecord(meta.summary)
-        ? meta.summary
-        : undefined;
-
-  if (!responseSummary) {
-    return emptySummary;
-  }
-
-  return {
-    total_partners: getNumber(responseSummary, ['total_partners']) ?? 0,
-    active_partners: getNumber(responseSummary, ['active_partners']) ?? 0,
-    vip_elite_partners: getNumber(responseSummary, ['vip_elite_partners']) ?? 0,
-    total_balance: getNumber(responseSummary, ['total_balance']) ?? 0,
-  };
 }
 
 function getArray(response: unknown) {
