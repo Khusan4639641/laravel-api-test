@@ -15,12 +15,12 @@ class UserResource extends JsonResource
         $mainBalance = (float) $wallets->where('type', 'main')->sum('balance');
         $bonusBalance = (float) $wallets->where('type', 'bonus')->sum('balance');
         $depositBalance = (float) $wallets->where('type', 'deposit')->sum('balance');
-        $totalBalance = $mainBalance + $bonusBalance + $depositBalance;
+        $totalWalletBalance = $mainBalance + $bonusBalance + $depositBalance;
         $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
         $packageActivityAmount = $packageActivityPv * self::PV_MONEY_RATE;
-        $availableBalance = $mainBalance + $packageActivityAmount;
-        $totalEarned = $totalBalance + $packageActivityAmount;
+        $balance = $mainBalance + $packageActivityAmount;
+        $totalBalance = $totalWalletBalance + $packageActivityAmount;
         $attributes = $this->resource->getAttributes();
         $invitedCount = (int) ($attributes['invited_count']
             ?? $attributes['invited_users_count']
@@ -47,13 +47,14 @@ class UserResource extends JsonResource
             'remaining_right_pv' => $this->remaining_right_pv,
             'total_pv' => $this->total_pv,
             'invited_count' => $invitedCount,
-            'balance' => $mainBalance,
+            'balance' => $balance,
             'wallet_balance' => $mainBalance,
-            'available_balance' => $availableBalance,
+            'available_balance' => $balance,
             'bonus_balance' => $bonusBalance,
             'deposit_balance' => $depositBalance,
+            'total_wallet_balance' => $totalWalletBalance,
             'total_balance' => $totalBalance,
-            'total_earned' => $totalEarned,
+            'total_earned' => $totalBalance,
             'package_activity_pv' => $packageActivityPv,
             'package_activity_amount' => $packageActivityAmount,
             'pv_money_rate' => self::PV_MONEY_RATE,

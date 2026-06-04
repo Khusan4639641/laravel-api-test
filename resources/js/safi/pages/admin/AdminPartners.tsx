@@ -284,8 +284,8 @@ export default function AdminPartners() {
                 <div className="mt-1 text-xs text-safi-muted">{adminText('a_0Jo6')}{formatPv(partner.teamPV)}</div>
               </td>
               <td className="px-6 py-4">
-                <div className="text-sm font-bold text-safi-green">{adminText('a_0JHQsNC70LDQ_2')}{partner.availableBalance.toLocaleString('ru-RU')}</div>
-                <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0JLRgdC10LPQ_3')}{partner.totalIncome.toLocaleString('ru-RU')}</div>
+                <div className="text-sm font-bold text-safi-green">{adminText('a_0JHQsNC70LDQ_2')}{formatMoney(partner.availableBalance)}</div>
+                <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0JLRgdC10LPQ_3')}{formatMoney(partner.totalIncome)}</div>
               </td>
               <td className="px-6 py-4">
                 <AdminBadge variant={partner.accountStatus === adminText('a_0JDQutGC0LjQ_2') ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
@@ -563,10 +563,25 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
     const personalPV = getNumber(record, ['total_pv', 'totalPv', 'personal_pv', 'personalPV', 'pv']) ?? 0;
     const leftPV = getNumber(record, ['left_pv', 'leftPV']) ?? 0;
     const rightPV = getNumber(record, ['right_pv', 'rightPV']) ?? 0;
-    const mainBalance = getNumber(record, ['balance', 'main_balance', 'mainBalance', 'available_balance', 'availableBalance'])
+    const packageActivityPV = getNumber(record, ['package_activity_pv', 'packageActivityPv'])
+      ?? getNumber(packageRecord, ['activity_pv', 'activityPv', 'pv'])
+      ?? 0;
+    const packageActivityAmount = getNumber(record, ['package_activity_amount', 'packageActivityAmount'])
+      ?? packageActivityPV * 500;
+    const walletBalance = getNumber(record, ['wallet_balance', 'walletBalance', 'main_balance', 'mainBalance'])
       ?? getWalletBalance(wallets, 'main');
-    const totalBalance = getNumber(record, ['total_balance', 'totalBalance', 'total_income', 'totalIncome', 'total_earned'])
-      ?? mainBalance + getWalletBalance(wallets, 'bonus') + getWalletBalance(wallets, 'deposit');
+    const bonusBalance = getNumber(record, ['bonus_balance', 'bonusBalance'])
+      ?? getWalletBalance(wallets, 'bonus');
+    const depositBalance = getNumber(record, ['deposit_balance', 'depositBalance'])
+      ?? getWalletBalance(wallets, 'deposit');
+    const totalWalletBalance = getNumber(record, ['total_wallet_balance', 'totalWalletBalance', 'wallet_total_balance', 'walletTotalBalance'])
+      ?? walletBalance + bonusBalance + depositBalance;
+    const computedBalance = walletBalance + packageActivityAmount;
+    const computedTotalBalance = totalWalletBalance + packageActivityAmount;
+    const apiBalance = getNumber(record, ['available_balance', 'availableBalance', 'balance']);
+    const apiTotalBalance = getNumber(record, ['total_balance', 'totalBalance', 'total_earned', 'totalEarned']);
+    const displayBalance = Math.max(apiBalance ?? computedBalance, computedBalance);
+    const displayTotalBalance = Math.max(apiTotalBalance ?? computedTotalBalance, computedTotalBalance);
 
     return {
       id: getString(record, ['partner_id', 'partnerId', 'code', 'id']) || `USER-${index + 1}`,
@@ -582,8 +597,8 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       status: getString(record, ['status_name', 'statusName', 'status']) || adminText('a_0KPRh9Cw0YHR'),
       personalPV,
       teamPV: leftPV + rightPV,
-      totalIncome: totalBalance,
-      availableBalance: mainBalance,
+      totalIncome: displayTotalBalance,
+      availableBalance: displayBalance,
       registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || '-',
       accountStatus: getAccountStatusLabel(getString(record, ['account_status', 'accountStatus', 'state'])),
     };
@@ -660,7 +675,11 @@ function getString(record: Record<string, unknown> | undefined, keys: string[]) 
   return undefined;
 }
 
-function getNumber(record: Record<string, unknown>, keys: string[]) {
+function getNumber(record: Record<string, unknown> | undefined, keys: string[]) {
+  if (!record) {
+    return undefined;
+  }
+
   for (const key of keys) {
     const value = record[key];
 

@@ -185,6 +185,78 @@ class AdminPartnersApiTest extends TestCase
         $this->assertEquals(13800, $payload['total_balance']);
     }
 
+    public function test_admin_partners_list_includes_start_package_activity_amount_in_balance(): void
+    {
+        $payload = $this->assignPackageAndGetAdminPayload('START');
+
+        $this->assertEquals(0, $payload['wallet_balance']);
+        $this->assertEquals(100, $payload['package_activity_pv']);
+        $this->assertEquals(50000, $payload['package_activity_amount']);
+        $this->assertEquals(50000, $payload['balance']);
+        $this->assertEquals(50000, $payload['available_balance']);
+        $this->assertEquals(50000, $payload['total_balance']);
+        $this->assertEquals(50000, $payload['total_earned']);
+    }
+
+    public function test_admin_partners_list_vip_package_balance_uses_activity_pv_amount(): void
+    {
+        $payload = $this->assignPackageAndGetAdminPayload('VIP');
+
+        $this->assertEquals(300, $payload['package_activity_pv']);
+        $this->assertEquals(150000, $payload['package_activity_amount']);
+        $this->assertEquals(150000, $payload['balance']);
+        $this->assertEquals(150000, $payload['total_balance']);
+        $this->assertNotEquals(180000, $payload['balance']);
+    }
+
+    public function test_admin_partners_list_elite_package_balance_uses_activity_pv_amount(): void
+    {
+        $payload = $this->assignPackageAndGetAdminPayload('ELITE');
+
+        $this->assertEquals(500, $payload['package_activity_pv']);
+        $this->assertEquals(250000, $payload['package_activity_amount']);
+        $this->assertEquals(250000, $payload['balance']);
+        $this->assertEquals(250000, $payload['total_balance']);
+        $this->assertNotEquals(300000, $payload['balance']);
+    }
+
+    public function test_admin_partners_list_package_price_is_not_used_for_balance(): void
+    {
+        $payload = $this->assignPackageAndGetAdminPayload('START');
+
+        $this->assertEquals(60000, $payload['current_package']['price']);
+        $this->assertEquals(50000, $payload['balance']);
+        $this->assertEquals(50000, $payload['total_balance']);
+        $this->assertNotEquals(60000, $payload['balance']);
+        $this->assertNotEquals(60000, $payload['total_balance']);
+    }
+
+    public function test_admin_partners_list_adds_wallet_balance_to_package_activity_amount(): void
+    {
+        $payload = $this->assignPackageAndGetAdminPayload('START', walletBalance: 10000);
+
+        $this->assertEquals(10000, $payload['wallet_balance']);
+        $this->assertEquals(50000, $payload['package_activity_amount']);
+        $this->assertEquals(60000, $payload['balance']);
+        $this->assertEquals(60000, $payload['available_balance']);
+        $this->assertEquals(60000, $payload['total_balance']);
+        $this->assertEquals(60000, $payload['total_earned']);
+    }
+
+    public function test_admin_partners_summary_total_balance_includes_package_activity_amount(): void
+    {
+        $start = $this->createPackage('START');
+        $vip = $this->createPackage('VIP');
+
+        User::factory()->create(['role' => User::ROLE_USER, 'current_package_id' => $start->id]);
+        User::factory()->create(['role' => User::ROLE_USER, 'current_package_id' => $vip->id]);
+        User::factory()->create(['role' => User::ROLE_SUPER_ADMIN, 'current_package_id' => $vip->id]);
+
+        $summary = $this->adminSummaryPayload();
+
+        $this->assertEquals(200000, $summary['total_balance']);
+    }
+
     public function test_admin_partners_list_includes_sponsor_and_package_data(): void
     {
         $sponsor = User::factory()->create([
@@ -243,6 +315,8 @@ class AdminPartnersApiTest extends TestCase
 
         $this->assertNull($payload['sponsor']);
         $this->assertNull($payload['package']);
+        $this->assertEquals(0, $payload['package_activity_pv']);
+        $this->assertEquals(0, $payload['package_activity_amount']);
         $this->assertEquals(0, $payload['balance']);
         $this->assertEquals(0, $payload['bonus_balance']);
         $this->assertEquals(0, $payload['deposit_balance']);
@@ -291,6 +365,39 @@ class AdminPartnersApiTest extends TestCase
             'hold_balance' => 0,
             'status' => 'active',
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function assignPackageAndGetAdminPayload(string $code, int $walletBalance = 0): array
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        $partner = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'total_pv' => 0,
+        ]);
+        $package = $this->createPackage($code);
+
+        if ($walletBalance > 0) {
+            $this->createWallet($partner, 'main', $walletBalance);
+        }
+
+        Sanctum::actingAs($admin);
+
+        $this->patchJson("/api/admin/partners/{$partner->id}/package", [
+            'package_id' => $package->id,
+            'apply_business_effects' => true,
+        ])->assertOk();
+
+        $payload = collect($this->getJson('/api/admin/partners?per_page=100')
+            ->assertOk()
+            ->json('data'))
+            ->firstWhere('id', $partner->id);
+
+        $this->assertIsArray($payload);
+
+        return $payload;
     }
 
     /**

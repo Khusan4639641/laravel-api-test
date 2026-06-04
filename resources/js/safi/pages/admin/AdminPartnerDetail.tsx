@@ -709,14 +709,18 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     ?? 0;
   const packageActivityAmount = getNumber(user, ['package_activity_amount', 'packageActivityAmount'])
     ?? packageActivityPV * pvMoneyRate;
-  const totalWalletBalance = getNumber(user, ['total_balance', 'totalBalance', 'total_income'])
-    ?? walletBalance + getWalletBalance(wallets, 'bonus') + getWalletBalance(wallets, 'deposit');
+  const bonusBalance = getNumber(user, ['bonus_balance', 'bonusBalance'])
+    ?? getWalletBalance(wallets, 'bonus');
+  const depositBalance = getNumber(user, ['deposit_balance', 'depositBalance'])
+    ?? getWalletBalance(wallets, 'deposit');
+  const totalWalletBalance = getNumber(user, ['total_wallet_balance', 'totalWalletBalance', 'wallet_total_balance', 'walletTotalBalance'])
+    ?? walletBalance + bonusBalance + depositBalance;
   const totalWalletEarned = getNumber(user, ['total_wallet_earned', 'totalWalletEarned', 'wallet_total_earned', 'walletTotalEarned'])
     ?? totalWalletBalance;
   const computedAvailableBalance = walletBalance + packageActivityAmount;
   const computedTotalEarned = totalWalletEarned + packageActivityAmount;
   const apiAvailableBalance = getNumber(user, ['available_balance', 'availableBalance']);
-  const apiTotalEarned = getNumber(user, ['total_earned', 'totalEarned']);
+  const apiTotalEarned = getNumber(user, ['total_earned', 'totalEarned', 'total_balance', 'totalBalance']);
   const availableBalance = Math.max(apiAvailableBalance ?? computedAvailableBalance, computedAvailableBalance);
   const totalEarned = Math.max(apiTotalEarned ?? computedTotalEarned, computedTotalEarned);
 
