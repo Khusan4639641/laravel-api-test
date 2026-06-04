@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\BonusTransaction;
+use App\Models\BinaryBonusCalculation;
+use App\Models\BinaryBonusRun;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Notifications\BonusAccruedNotification;
@@ -13,6 +15,10 @@ class BonusService
     private const REFERRAL_PERCENT = '10';
 
     private const DEPOSIT_CASHBACK_PERCENT = '20';
+
+    private const PV_MONEY_RATE = '500';
+
+    private const BINARY_PERIOD_DAYS = 15;
 
     public function __construct(
         private readonly WalletService $walletService,
@@ -116,6 +122,10 @@ class BonusService
                 ->lockForUpdate()
                 ->findOrFail($user->id);
 
+            if ($this->hasActiveBinaryRun($user)) {
+                return null;
+            }
+
             $basePv = $this->minDecimal((string) $user->remaining_left_pv, (string) $user->remaining_right_pv);
             $percent = (string) ($user->currentPackage?->binary_percent ?? 0);
 
@@ -123,7 +133,8 @@ class BonusService
                 return null;
             }
 
-            $amount = bcdiv(bcmul($basePv, $percent, 2), '100', 2);
+            $moneyBaseAmount = bcmul($basePv, self::PV_MONEY_RATE, 2);
+            $amount = bcdiv(bcmul($moneyBaseAmount, $percent, 2), '100', 2);
 
             if (bccomp($amount, '0', 2) <= 0) {
                 return null;
@@ -131,11 +142,33 @@ class BonusService
 
             $mainAmount = bcdiv(bcmul($amount, '90', 2), '100', 2);
             $bonusAmount = bcsub($amount, $mainAmount, 2);
+            $periodStart = now();
+            $periodEnd = $periodStart->copy()->addDays(self::BINARY_PERIOD_DAYS);
+            $carryLeftPv = bcsub((string) $user->remaining_left_pv, $basePv, 2);
+            $carryRightPv = bcsub((string) $user->remaining_right_pv, $basePv, 2);
 
             $user->forceFill([
-                'remaining_left_pv' => bcsub((string) $user->remaining_left_pv, $basePv, 2),
-                'remaining_right_pv' => bcsub((string) $user->remaining_right_pv, $basePv, 2),
+                'remaining_left_pv' => $carryLeftPv,
+                'remaining_right_pv' => $carryRightPv,
             ])->save();
+
+            $run = BinaryBonusRun::query()->create([
+                'user_id' => $user->id,
+                'status' => 'completed',
+                'period_start' => $periodStart,
+                'period_end' => $periodEnd,
+                'weak_leg_pv' => $basePv,
+                'used_left_pv' => $basePv,
+                'used_right_pv' => $basePv,
+                'carry_left_pv' => $carryLeftPv,
+                'carry_right_pv' => $carryRightPv,
+                'amount' => $amount,
+                'metadata' => [
+                    'pv_money_rate' => self::PV_MONEY_RATE,
+                    'binary_percent' => $percent,
+                    'package_id' => $user->current_package_id,
+                ],
+            ]);
 
             $this->walletService->createUserWallets($user);
 
@@ -158,14 +191,22 @@ class BonusService
                 'status' => 'completed',
                 'metadata' => [
                     'base_pv' => $basePv,
+                    'money_base_amount' => $moneyBaseAmount,
+                    'pv_money_rate' => self::PV_MONEY_RATE,
                     'binary_percent' => $percent,
                     'main_percent' => '90.00',
                     'deposit_percent' => '10.00',
                     'main_amount' => $mainAmount,
                     'deposit_amount' => $bonusAmount,
                     'package_id' => $user->current_package_id,
-                    'remaining_left_pv_after' => (string) $user->remaining_left_pv,
-                    'remaining_right_pv_after' => (string) $user->remaining_right_pv,
+                    'period_start' => $periodStart->toISOString(),
+                    'period_end' => $periodEnd->toISOString(),
+                    'used_left_pv' => $basePv,
+                    'used_right_pv' => $basePv,
+                    'carry_left_pv' => $carryLeftPv,
+                    'carry_right_pv' => $carryRightPv,
+                    'remaining_left_pv_after' => $carryLeftPv,
+                    'remaining_right_pv_after' => $carryRightPv,
                 ],
                 'calculated_at' => now(),
             ]);
@@ -192,10 +233,45 @@ class BonusService
                 'metadata' => $metadata,
             ])->save();
 
+            $run->forceFill([
+                'bonus_transaction_id' => $bonusTransaction->id,
+            ])->save();
+
+            BinaryBonusCalculation::query()->create([
+                'binary_bonus_run_id' => $run->id,
+                'user_id' => $user->id,
+                'bonus_transaction_id' => $bonusTransaction->id,
+                'left_pv' => $user->left_pv,
+                'right_pv' => $user->right_pv,
+                'weak_leg_pv' => $basePv,
+                'used_left_pv' => $basePv,
+                'used_right_pv' => $basePv,
+                'carry_left_pv' => $carryLeftPv,
+                'carry_right_pv' => $carryRightPv,
+                'money_base_amount' => $moneyBaseAmount,
+                'binary_percent' => $percent,
+                'bonus_amount' => $amount,
+                'main_amount' => $mainAmount,
+                'deposit_amount' => $bonusAmount,
+                'metadata' => [
+                    'pv_money_rate' => self::PV_MONEY_RATE,
+                    'period_start' => $periodStart->toISOString(),
+                    'period_end' => $periodEnd->toISOString(),
+                ],
+            ]);
+
             $user->notify(new BonusAccruedNotification($bonusTransaction->refresh()));
 
             return $bonusTransaction->refresh();
         });
+    }
+
+    private function hasActiveBinaryRun(User $user): bool
+    {
+        return BinaryBonusRun::query()
+            ->where('user_id', $user->id)
+            ->where('period_end', '>', now())
+            ->exists();
     }
 
     public function accrueDepositPurchaseCashback(

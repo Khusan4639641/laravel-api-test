@@ -90,17 +90,19 @@ class PackageSeederBonusPercentTest extends TestCase
             'remaining_right_pv' => 1000,
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
 
-        $this->postJson('/api/bonuses/binary/calculate')
+        $this->postJson('/api/admin/bonuses/binary/calculate', [
+            'user_id' => $user->id,
+        ])
             ->assertOk()
-            ->assertJsonPath('bonus_transaction.amount', '70.00');
+            ->assertJsonPath('bonus_transaction.amount', '35000.00');
 
         $mainWallet = $user->wallets()->where('type', 'main')->firstOrFail();
         $depositWallet = $user->wallets()->where('type', 'deposit')->firstOrFail();
 
-        $this->assertSame('63.00', $mainWallet->balance);
-        $this->assertSame('7.00', $depositWallet->balance);
+        $this->assertSame('31500.00', $mainWallet->balance);
+        $this->assertSame('3500.00', $depositWallet->balance);
     }
 
     private function assertPackage(

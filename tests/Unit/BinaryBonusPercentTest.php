@@ -15,9 +15,9 @@ class BinaryBonusPercentTest extends TestCase
     public function test_binary_bonus_uses_current_package_percent(): void
     {
         $cases = [
-            ['START', 7, '70.00'],
-            ['VIP', 8, '80.00'],
-            ['ELITE', 10, '100.00'],
+            ['START', 7, '35000.00'],
+            ['VIP', 8, '40000.00'],
+            ['ELITE', 10, '50000.00'],
         ];
 
         foreach ($cases as [$code, $percent, $expectedAmount]) {

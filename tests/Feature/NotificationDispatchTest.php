@@ -66,9 +66,11 @@ class NotificationDispatchTest extends TestCase
             'remaining_right_pv' => 1000,
         ]);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
 
-        $this->postJson('/api/bonuses/binary/calculate')
+        $this->postJson('/api/admin/bonuses/binary/calculate', [
+            'user_id' => $user->id,
+        ])
             ->assertOk();
 
         Notification::assertSentTo($user, BonusAccruedNotification::class);

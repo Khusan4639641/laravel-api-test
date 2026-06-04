@@ -61,7 +61,7 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
-    Route::post('/bonuses/binary/calculate', BinaryBonusController::class);
+    Route::middleware('role_permission:admin.bonuses.manage')->post('/bonuses/binary/calculate', BinaryBonusController::class);
     Route::post('/deposits/purchase', DepositPurchaseController::class);
     Route::post('/packages/{package}/activate', PackageActivationController::class);
     Route::post('/packages/{package}/upgrade', PackageUpgradeController::class);
@@ -142,6 +142,10 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
             Route::get('/news/{news}', [AdminNewsController::class, 'show']);
             Route::get('/faqs', [AdminFaqController::class, 'index']);
             Route::get('/statuses', AdminStatusController::class);
+        });
+
+        Route::middleware('role_permission:admin.bonuses.manage')->group(function (): void {
+            Route::post('/bonuses/binary/calculate', [AdminBonusController::class, 'calculateBinary']);
         });
 
         Route::middleware('role_permission:admin.catalog.write')->group(function (): void {

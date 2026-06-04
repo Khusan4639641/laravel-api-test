@@ -1,9 +1,9 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
-import { ArrowUpCircle, Calculator, Info, Wallet } from 'lucide-react';
+import { ArrowUpCircle, Info, Wallet } from 'lucide-react';
 import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ApiError, calculateBinaryBonus, createDashboardWithdrawal, getApiErrorState, getDashboardBonuses, getDashboardOverview, getDashboardWithdrawals, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
+import { ApiError, createDashboardWithdrawal, getApiErrorState, getDashboardBonuses, getDashboardOverview, getDashboardWithdrawals, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
 import { cn } from '../../lib/utils';
 
 interface WithdrawalItem {
@@ -26,9 +26,7 @@ export default function Bonuses() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [withdrawalAmount, setWithdrawalAmount] = useState(50000);
   const [withdrawalMethod, setWithdrawalMethod] = useState('card_account');
-  const [binaryResult, setBinaryResult] = useState<number | null>(null);
   const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
-  const [isCalculating, setIsCalculating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -119,31 +117,6 @@ export default function Bonuses() {
     }
   };
 
-  const calculateBinary = async () => {
-    setIsCalculating(true);
-    setMessage('');
-    setError('');
-
-    try {
-      const response = await calculateBinaryBonus({
-        left_volume: structure.leftPV,
-        right_volume: structure.rightPV,
-        package_id: currentUser.packageName,
-      });
-      setBinaryResult(extractAmount(response) ?? bonuses.binary);
-      setMessage('Бинарный расчет обновлен.');
-    } catch (caughtError) {
-      if (caughtError instanceof ApiError) {
-        setError(caughtError.message);
-      } else {
-        setError('Не удалось пересчитать бинарный бонус.');
-      }
-      setBinaryResult(bonuses.binary);
-    } finally {
-      setIsCalculating(false);
-    }
-  };
-
   return (
     <div className="space-y-8">
       <section className="flex flex-col gap-6 rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:flex-row md:items-end md:justify-between md:p-8">
@@ -185,7 +158,7 @@ export default function Bonuses() {
 
           <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-6">
             <BonusMiniCard title="Реферальные" amount={bonuses.referral} />
-            <BonusMiniCard title="Бинарные" amount={binaryResult ?? bonuses.binary} />
+            <BonusMiniCard title="Бинарные" amount={bonuses.binary} />
             <BonusMiniCard title="Статусные" amount={bonuses.status} />
             <BonusMiniCard title="Кэшбэк" amount={bonuses.cashback} />
             <BonusMiniCard title="Депозит" amount={bonuses.deposit} />
@@ -210,26 +183,15 @@ export default function Bonuses() {
             </article>
 
             <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <h2 className="font-serif text-3xl font-semibold text-safi-green">Бинарный бонус</h2>
-                  <p className="mt-2 text-sm leading-7 text-safi-muted">Расчет по меньшей ветке структуры.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={calculateBinary}
-                  disabled={isCalculating}
-                  className="inline-flex items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white disabled:opacity-60"
-                >
-                  <Calculator className="h-4 w-4" />
-                  {isCalculating ? 'Считаем...' : 'Пересчитать'}
-                </button>
-              </div>
+              <h2 className="font-serif text-3xl font-semibold text-safi-green">Бинарный бонус</h2>
+              <p className="mt-2 text-sm leading-7 text-safi-muted">
+                Расчет по меньшей ветке выполняет администратор раз в 15 дней.
+              </p>
               <div className="mt-6 space-y-4">
                 <DetailRow label="Левая ветка" value={`${structure.leftPV.toLocaleString('ru-RU')} PV`} />
                 <DetailRow label="Правая ветка" value={`${structure.rightPV.toLocaleString('ru-RU')} PV`} />
                 <DetailRow label="Расчетная ветка" value={structure.weakLeg} badge />
-                <DetailRow label="Начислено" value={`${(binaryResult ?? bonuses.binary).toLocaleString('ru-RU')} ₸`} highlight />
+                <DetailRow label="Начислено" value={`${bonuses.binary.toLocaleString('ru-RU')} ₸`} highlight />
               </div>
             </article>
           </section>
@@ -409,26 +371,6 @@ function normalizeWithdrawals(response: unknown): WithdrawalItem[] {
       comment: getString(record, ['comment']),
     };
   });
-}
-
-function extractAmount(response: unknown) {
-  if (!isRecord(response)) {
-    return undefined;
-  }
-
-  const record = isRecord(response.data) ? response.data : response;
-  const value = record.amount ?? record.total ?? record.binary_bonus ?? record.binaryBonus;
-
-  if (typeof value === 'number') {
-    return value;
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number(value.replace(/\s/g, ''));
-    return Number.isFinite(parsed) ? parsed : undefined;
-  }
-
-  return undefined;
 }
 
 function getArray(response: unknown) {

@@ -30,16 +30,16 @@ class DepositBonusTest extends TestCase
         $mainWallet = $user->wallets()->where('type', 'main')->firstOrFail();
         $depositWallet = $user->wallets()->where('type', 'deposit')->firstOrFail();
 
-        $this->assertSame('100.00', $bonus?->amount);
-        $this->assertSame('90.00', $mainWallet->balance);
-        $this->assertSame('10.00', $depositWallet->balance);
+        $this->assertSame('50000.00', $bonus?->amount);
+        $this->assertSame('45000.00', $mainWallet->balance);
+        $this->assertSame('5000.00', $depositWallet->balance);
         $this->assertDatabaseHas('wallet_transactions', [
             'type' => 'binary_bonus_main',
-            'amount' => '90.00',
+            'amount' => '45000.00',
         ]);
         $this->assertDatabaseHas('wallet_transactions', [
             'type' => 'binary_bonus_deposit',
-            'amount' => '10.00',
+            'amount' => '5000.00',
         ]);
     }
 

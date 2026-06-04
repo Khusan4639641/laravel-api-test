@@ -78,8 +78,10 @@ class ElitePackageRulesTest extends TestCase
         $this->assertSame('0.00', $sponsor->remaining_left_pv);
         $this->assertSame('200.00', $sponsor->remaining_right_pv);
 
-        Sanctum::actingAs($sponsor->refresh());
-        $this->postJson('/api/bonuses/binary/calculate')
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+        $this->postJson('/api/admin/bonuses/binary/calculate', [
+            'user_id' => $sponsor->refresh()->id,
+        ])
             ->assertOk()
             ->assertJsonPath('bonus_transaction', null);
 

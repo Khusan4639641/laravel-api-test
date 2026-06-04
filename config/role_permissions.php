@@ -148,6 +148,7 @@ return [
         'admin.withdrawals.read' => ['admin', 'accountant', 'super_admin'],
         'admin.orders.read' => ['admin', 'accountant', 'super_admin'],
         'admin.orders.manage' => ['admin', 'super_admin'],
+        'admin.bonuses.manage' => ['admin', 'super_admin'],
         'admin.read' => ['admin', 'super_admin'],
         'admin.catalog.write' => ['super_admin'],
         'admin.settings' => ['super_admin'],
