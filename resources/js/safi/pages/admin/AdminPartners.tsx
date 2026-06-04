@@ -87,10 +87,11 @@ export default function AdminPartners() {
 
     try {
       const response = await getAdminUsers();
-      const normalizedPartners = normalizePartners(response);
+      const payload = unwrapAdminPartnersPayload(response);
+      const normalizedPartners = normalizePartners(payload);
 
       setPartners(normalizedPartners);
-      setSummary(normalizeSummary(response));
+      setSummary(normalizeSummary(payload));
     } catch (caughtError) {
       setPartners([]);
       setSummary(emptySummary);
@@ -603,6 +604,16 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       accountStatus: getAccountStatusLabel(getString(record, ['account_status', 'accountStatus', 'state'])),
     };
   });
+}
+
+function unwrapAdminPartnersPayload(response: unknown) {
+  const record = isRecord(response) ? response : {};
+
+  if (isRecord(record.data) && isRecord(record.data.summary)) {
+    return record.data;
+  }
+
+  return response;
 }
 
 function normalizeSummary(response: unknown): AdminPartnersSummary {

@@ -9,13 +9,15 @@ class OrderResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $itemsCount = $this->items_count ?? ($this->relationLoaded('items') ? $this->items->sum('quantity') : null);
+
         return [
             'id' => $this->id,
             'user_id' => $this->user_id,
             'order_number' => $this->order_number,
             'status' => $this->status,
             'payment_status' => $this->payment_status,
-            'items_count' => $this->items_count ?? ($this->relationLoaded('items') ? $this->items->sum('quantity') : null),
+            'items_count' => $itemsCount === null ? null : (int) $itemsCount,
             'subtotal_amount' => $this->subtotal_amount,
             'discount_amount' => $this->discount_amount,
             'total_amount' => $this->total_amount,
