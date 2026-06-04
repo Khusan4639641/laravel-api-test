@@ -6,6 +6,7 @@ use App\Models\BonusTransaction;
 use App\Models\StatusBonusDefinition;
 use App\Models\User;
 use App\Models\UserStatusBonus;
+use App\Notifications\BonusAccruedNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -21,13 +22,30 @@ class StatusBonusService
      */
     public function awardEligible(User $user): Collection
     {
+        return $this->checkMissedStatusBonuses($user);
+    }
+
+    /**
+     * @return Collection<int, UserStatusBonus>
+     */
+    public function checkMissedStatusBonuses(User $user): Collection
+    {
         return DB::transaction(function () use ($user): Collection {
-            $user = User::query()->lockForUpdate()->findOrFail($user->id);
+            $user = User::query()
+                ->with('currentPackage')
+                ->lockForUpdate()
+                ->findOrFail($user->id);
             $created = collect();
+
+            if (! $this->hasElitePackage($user)) {
+                return $created;
+            }
+
+            $weakLegPv = $this->weakLegPv($user);
 
             $definitions = StatusBonusDefinition::query()
                 ->where('is_active', true)
-                ->where('threshold_pv', '<=', $user->total_pv)
+                ->where('threshold_pv', '<=', $weakLegPv)
                 ->orderBy('threshold_pv')
                 ->get();
 
@@ -56,6 +74,12 @@ class StatusBonusService
                     'metadata' => [
                         'threshold_pv' => (string) $definition->threshold_pv,
                         'user_total_pv' => (string) $user->total_pv,
+                        'weak_leg_pv' => $weakLegPv,
+                        'left_pv' => (string) $user->left_pv,
+                        'right_pv' => (string) $user->right_pv,
+                        'elite_required' => true,
+                        'package_id' => $user->current_package_id,
+                        'package_code' => $user->currentPackage?->code,
                         'reward_type' => $definition->reward_type,
                         'cash_amount' => $cashAmount,
                         'compensation_amount' => (string) ($definition->compensation_amount ?? '0.00'),
@@ -91,6 +115,12 @@ class StatusBonusService
                 'status_code' => $definition->status_code,
                 'status_bonus_definition_id' => $definition->id,
                 'threshold_pv' => (string) $definition->threshold_pv,
+                'weak_leg_pv' => $this->weakLegPv($user),
+                'left_pv' => (string) $user->left_pv,
+                'right_pv' => (string) $user->right_pv,
+                'elite_required' => true,
+                'package_id' => $user->current_package_id,
+                'package_code' => $user->currentPackage?->code,
                 'reward_text' => $definition->reward_text,
                 'reward_type' => $definition->reward_type,
                 'cash_amount' => $cashAmount,
@@ -112,7 +142,10 @@ class StatusBonusService
             'wallet_transaction_id' => $walletTransaction->id,
         ])->save();
 
-        return $bonusTransaction->refresh();
+        $bonusTransaction = $bonusTransaction->refresh();
+        $user->notify(new BonusAccruedNotification($bonusTransaction));
+
+        return $bonusTransaction;
     }
 
     private function cashAmount(StatusBonusDefinition $definition): string
@@ -120,5 +153,18 @@ class StatusBonusService
         $cashAmount = (string) ($definition->cash_amount ?? '0.00');
 
         return bccomp($cashAmount, '0', 2) > 0 ? $cashAmount : (string) $definition->amount;
+    }
+
+    private function hasElitePackage(User $user): bool
+    {
+        return strtoupper((string) $user->currentPackage?->code) === 'ELITE';
+    }
+
+    private function weakLegPv(User $user): string
+    {
+        $leftPv = (string) ($user->left_pv ?? '0');
+        $rightPv = (string) ($user->right_pv ?? '0');
+
+        return bccomp($leftPv, $rightPv, 2) <= 0 ? $leftPv : $rightPv;
     }
 }

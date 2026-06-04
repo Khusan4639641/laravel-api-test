@@ -6,6 +6,7 @@ use App\Models\Package;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Notifications\BonusAccruedNotification;
+use App\Notifications\StatusAchievedNotification;
 use App\Notifications\UserRegisteredNotification;
 use App\Notifications\WithdrawalRequestedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -74,6 +75,21 @@ class NotificationDispatchTest extends TestCase
             ->assertOk();
 
         Notification::assertSentTo($user, BonusAccruedNotification::class);
+    }
+
+    public function test_status_change_sends_notification_to_user(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create([
+            'status' => 'user',
+            'left_pv' => 5000,
+            'right_pv' => 6000,
+        ]);
+
+        app(\App\Services\StatusService::class)->recalculate($user);
+
+        Notification::assertSentTo($user, StatusAchievedNotification::class);
     }
 
     public function test_withdrawal_request_sends_notification_to_user(): void

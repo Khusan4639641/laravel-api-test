@@ -44,9 +44,12 @@ class UserStatusTest extends TestCase
 
         $this->postJson("/api/packages/{$package->id}/activate")
             ->assertOk()
-            ->assertJsonPath('user.status', 'director');
+            ->assertJsonPath('user.status', 'user');
 
-        $this->assertSame('director', $user->refresh()->status);
+        $this->assertSame('user', $user->refresh()->status);
+        $this->assertSame('5000.00', $user->total_pv);
+        $this->assertSame('0.00', $user->left_pv);
+        $this->assertSame('0.00', $user->right_pv);
     }
 
     public function test_pv_accrual_up_tree_recalculates_parent_status(): void
@@ -55,30 +58,34 @@ class UserStatusTest extends TestCase
         $root = User::factory()->create([
             'status' => 'user',
             'total_pv' => 0,
+            'left_pv' => 5000,
         ]);
-        $leftChild = User::factory()->create();
+        $rightChild = User::factory()->create();
         $package = $this->createPackage('START', 10000);
 
-        $treeService->placeUser($leftChild, $root, 'L');
+        $treeService->placeUser($root);
+        $treeService->placeUser($rightChild, $root, 'R');
 
-        Sanctum::actingAs($leftChild);
+        Sanctum::actingAs($rightChild);
 
         $this->postJson("/api/packages/{$package->id}/activate")
             ->assertOk();
 
-        $this->assertSame('bronze_director', $root->refresh()->status);
-        $this->assertSame('bronze_director', $leftChild->refresh()->status);
+        $this->assertSame('director', $root->refresh()->status);
+        $this->assertSame('user', $rightChild->refresh()->status);
     }
 
     public function test_recalculate_statuses_command_updates_all_users(): void
     {
         User::factory()->create([
             'status' => 'user',
-            'total_pv' => 2500,
+            'left_pv' => 2500,
+            'right_pv' => 3000,
         ]);
         User::factory()->create([
             'status' => 'user',
-            'total_pv' => 500000,
+            'left_pv' => 500000,
+            'right_pv' => 600000,
         ]);
 
         $this->artisan('mlm:recalculate-statuses')
@@ -86,11 +93,11 @@ class UserStatusTest extends TestCase
             ->assertSuccessful();
 
         $this->assertDatabaseHas('users', [
-            'total_pv' => 2500,
+            'left_pv' => 2500,
             'status' => 'leader',
         ]);
         $this->assertDatabaseHas('users', [
-            'total_pv' => 500000,
+            'left_pv' => 500000,
             'status' => 'diamond_director',
         ]);
     }
@@ -112,10 +119,13 @@ class UserStatusTest extends TestCase
     public function test_status_bonus_is_created_once_for_eligible_status(): void
     {
         $this->seed(StatusBonusDefinitionSeeder::class);
+        $elite = $this->createPackage('ELITE', 500);
 
         $user = User::factory()->create([
+            'current_package_id' => $elite->id,
             'status' => 'user',
-            'total_pv' => 5000,
+            'left_pv' => 5000,
+            'right_pv' => 5000,
         ]);
 
         app(StatusService::class)->recalculate($user);
@@ -139,6 +149,8 @@ class UserStatusTest extends TestCase
             'slug' => strtolower($code),
             'price' => $pv,
             'pv' => $pv,
+            'activity_pv' => $pv,
+            'turnover_pv' => $pv,
             'referral_percent' => 0,
             'binary_percent' => 0,
             'sort_order' => 1,

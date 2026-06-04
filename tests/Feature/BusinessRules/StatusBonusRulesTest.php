@@ -3,6 +3,7 @@
 namespace Tests\Feature\BusinessRules;
 
 use App\Models\BonusTransaction;
+use App\Models\Package;
 use App\Models\User;
 use App\Models\UserStatusBonus;
 use App\Services\StatusBonusService;
@@ -17,8 +18,11 @@ class StatusBonusRulesTest extends TestCase
     public function test_bronze_director_default_reward_is_trip_plus_one_hundred_thousand(): void
     {
         $this->seed(StatusBonusDefinitionSeeder::class);
+        $elite = $this->createPackage('ELITE');
         $user = User::factory()->create([
-            'total_pv' => 10000,
+            'current_package_id' => $elite->id,
+            'left_pv' => 10000,
+            'right_pv' => 12000,
             'status' => 'bronze_director',
         ]);
 
@@ -46,8 +50,11 @@ class StatusBonusRulesTest extends TestCase
     public function test_bronze_director_cash_compensation_is_only_paid_after_trip_refusal(): void
     {
         $this->seed(StatusBonusDefinitionSeeder::class);
+        $elite = $this->createPackage('ELITE');
         $user = User::factory()->create([
-            'total_pv' => 10000,
+            'current_package_id' => $elite->id,
+            'left_pv' => 10000,
+            'right_pv' => 10000,
             'status' => 'bronze_director',
         ]);
 
@@ -63,8 +70,11 @@ class StatusBonusRulesTest extends TestCase
     public function test_silver_director_default_reward_is_foreign_trip_plus_two_hundred_fifty_thousand(): void
     {
         $this->seed(StatusBonusDefinitionSeeder::class);
+        $elite = $this->createPackage('ELITE');
         $user = User::factory()->create([
-            'total_pv' => 25000,
+            'current_package_id' => $elite->id,
+            'left_pv' => 25000,
+            'right_pv' => 30000,
             'status' => 'silver_director',
         ]);
 
@@ -92,8 +102,11 @@ class StatusBonusRulesTest extends TestCase
     public function test_silver_director_cash_compensation_is_only_paid_after_trip_refusal(): void
     {
         $this->seed(StatusBonusDefinitionSeeder::class);
+        $elite = $this->createPackage('ELITE');
         $user = User::factory()->create([
-            'total_pv' => 25000,
+            'current_package_id' => $elite->id,
+            'left_pv' => 25000,
+            'right_pv' => 25000,
             'status' => 'silver_director',
         ]);
 
@@ -109,8 +122,11 @@ class StatusBonusRulesTest extends TestCase
     public function test_status_bonus_is_not_duplicated(): void
     {
         $this->seed(StatusBonusDefinitionSeeder::class);
+        $elite = $this->createPackage('ELITE');
         $user = User::factory()->create([
-            'total_pv' => 10000,
+            'current_package_id' => $elite->id,
+            'left_pv' => 10000,
+            'right_pv' => 10000,
             'status' => 'bronze_director',
         ]);
 
@@ -126,5 +142,24 @@ class StatusBonusRulesTest extends TestCase
             ->where('bonus_type', 'status')
             ->where('amount', '100000.00')
             ->count());
+    }
+
+    private function createPackage(string $code): Package
+    {
+        return Package::query()->create([
+            'code' => $code,
+            'name' => $code,
+            'slug' => strtolower($code),
+            'price' => $code === 'ELITE' ? 300000 : 60000,
+            'pv' => $code === 'ELITE' ? 500 : 100,
+            'activity_pv' => $code === 'ELITE' ? 500 : 100,
+            'turnover_pv' => $code === 'ELITE' ? 200 : 100,
+            'referral_percent' => 10,
+            'binary_percent' => $code === 'ELITE' ? 10 : 7,
+            'sort_order' => $code === 'ELITE' ? 3 : 1,
+            'status' => 'active',
+            'is_active' => true,
+            'is_upgradeable' => true,
+        ]);
     }
 }

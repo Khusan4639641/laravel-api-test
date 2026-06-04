@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Package;
 use App\Models\User;
 use App\Models\UserStatusBonus;
 use App\Services\StatusBonusService;
@@ -18,8 +19,11 @@ class StatusBonusTest extends TestCase
     {
         $this->seed(StatusBonusDefinitionSeeder::class);
 
+        $elite = $this->createPackage('ELITE');
         $user = User::factory()->create([
-            'total_pv' => 5000,
+            'current_package_id' => $elite->id,
+            'left_pv' => 5000,
+            'right_pv' => 6000,
             'status' => 'user',
         ]);
 
@@ -42,8 +46,11 @@ class StatusBonusTest extends TestCase
     {
         $this->seed(StatusBonusDefinitionSeeder::class);
 
+        $elite = $this->createPackage('ELITE');
         $user = User::factory()->create([
-            'total_pv' => 5000,
+            'current_package_id' => $elite->id,
+            'left_pv' => 5000,
+            'right_pv' => 5000,
             'status' => 'director',
         ]);
 
@@ -53,6 +60,57 @@ class StatusBonusTest extends TestCase
         $this->assertSame(1, UserStatusBonus::query()->where('status_code', 'director')->count());
         $this->assertSame(3, UserStatusBonus::query()->count());
         $this->assertDatabaseCount('bonus_transactions', 1);
+    }
+
+    public function test_status_bonus_requires_elite_package(): void
+    {
+        $this->seed(StatusBonusDefinitionSeeder::class);
+
+        $start = $this->createPackage('START');
+        $user = User::factory()->create([
+            'current_package_id' => $start->id,
+            'left_pv' => 5000,
+            'right_pv' => 5000,
+            'status' => 'director',
+        ]);
+
+        app(StatusBonusService::class)->awardEligible($user);
+
+        $this->assertDatabaseCount('user_status_bonuses', 0);
+        $this->assertDatabaseCount('bonus_transactions', 0);
+    }
+
+    public function test_missed_status_bonuses_are_awarded_when_user_becomes_elite(): void
+    {
+        $this->seed(StatusBonusDefinitionSeeder::class);
+
+        $start = $this->createPackage('START');
+        $elite = $this->createPackage('ELITE');
+        $user = User::factory()->create([
+            'current_package_id' => $start->id,
+            'left_pv' => 5000,
+            'right_pv' => 7000,
+            'status' => 'director',
+        ]);
+
+        app(StatusBonusService::class)->awardEligible($user);
+        $this->assertDatabaseCount('user_status_bonuses', 0);
+
+        $user->forceFill(['current_package_id' => $elite->id])->save();
+        app(StatusBonusService::class)->checkMissedStatusBonuses($user->refresh());
+
+        $this->assertDatabaseCount('user_status_bonuses', 3);
+        $this->assertDatabaseHas('user_status_bonuses', [
+            'user_id' => $user->id,
+            'status_code' => 'director',
+            'amount' => '250000.00',
+        ]);
+        $this->assertDatabaseHas('bonus_transactions', [
+            'user_id' => $user->id,
+            'bonus_type' => 'status',
+            'amount' => '250000.00',
+            'status' => 'completed',
+        ]);
     }
 
     public function test_reward_text_matches_business_tz(): void
@@ -76,5 +134,24 @@ class StatusBonusTest extends TestCase
         $this->assertSame('6 000 000 ₸ cash bonus', $statuses['platinum_director']['reward']);
         $this->assertSame('10 000 000 ₸ auto bonus', $statuses['emerald_director']['reward']);
         $this->assertSame('20 000 000 ₸ apartment bonus', $statuses['diamond_director']['reward']);
+    }
+
+    private function createPackage(string $code): Package
+    {
+        return Package::query()->create([
+            'code' => $code,
+            'name' => $code,
+            'slug' => strtolower($code),
+            'price' => $code === 'ELITE' ? 300000 : 60000,
+            'pv' => $code === 'ELITE' ? 500 : 100,
+            'activity_pv' => $code === 'ELITE' ? 500 : 100,
+            'turnover_pv' => $code === 'ELITE' ? 200 : 100,
+            'referral_percent' => 10,
+            'binary_percent' => $code === 'ELITE' ? 10 : 7,
+            'sort_order' => $code === 'ELITE' ? 3 : 1,
+            'status' => 'active',
+            'is_active' => true,
+            'is_upgradeable' => true,
+        ]);
     }
 }

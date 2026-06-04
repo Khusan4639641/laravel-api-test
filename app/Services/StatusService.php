@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use App\Notifications\StatusAchievedNotification;
 use App\Support\LocalizedValue;
 
 class StatusService
@@ -93,6 +94,14 @@ class StatusService
         return 'user';
     }
 
+    public function weakLegPv(User $user): string
+    {
+        $leftPv = (string) ($user->left_pv ?? '0');
+        $rightPv = (string) ($user->right_pv ?? '0');
+
+        return bccomp($leftPv, $rightPv, 2) <= 0 ? $leftPv : $rightPv;
+    }
+
     public function rankForStatus(string $status): int
     {
         foreach (self::STATUS_DEFINITIONS as $index => $definition) {
@@ -106,12 +115,19 @@ class StatusService
 
     public function recalculate(User $user): User
     {
-        $status = $this->statusForPv($user->total_pv);
+        $weakLegPv = $this->weakLegPv($user);
+        $status = $this->statusForPv($weakLegPv);
 
         if ($user->status !== $status) {
+            $previousStatus = $user->status;
+
             $user->forceFill([
                 'status' => $status,
             ])->save();
+
+            if ($status !== 'user' && $this->rankForStatus($status) > $this->rankForStatus((string) $previousStatus)) {
+                $user->notify(new StatusAchievedNotification($status, $previousStatus, $weakLegPv));
+            }
         }
 
         $user = $user->refresh();

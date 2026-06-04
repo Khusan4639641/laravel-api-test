@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\BonusTransaction;
 use App\Models\Package;
 use App\Models\User;
+use App\Models\UserStatusBonus;
 use App\Services\BinaryTreeService;
+use Database\Seeders\StatusBonusDefinitionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -107,6 +109,38 @@ class PackageUpgradeTest extends TestCase
         $this->assertSame('0.00', $sponsor->remaining_right_pv);
         $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'referral')->count());
         $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'binary')->count());
+    }
+
+    public function test_vip_to_elite_upgrade_awards_missed_status_bonuses(): void
+    {
+        $this->seed(StatusBonusDefinitionSeeder::class);
+
+        [$vip, $elite] = $this->createPackages(['VIP', 'ELITE']);
+        $user = User::factory()->create([
+            'current_package_id' => $vip->id,
+            'total_pv' => $vip->activityPv(),
+            'left_pv' => 5000,
+            'right_pv' => 7000,
+            'status' => 'director',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/packages/{$elite->id}/upgrade")
+            ->assertOk();
+
+        $this->assertSame($elite->id, $user->refresh()->current_package_id);
+        $this->assertSame(3, UserStatusBonus::query()->where('user_id', $user->id)->count());
+        $this->assertDatabaseHas('user_status_bonuses', [
+            'user_id' => $user->id,
+            'status_code' => 'director',
+            'amount' => '250000.00',
+        ]);
+        $this->assertDatabaseHas('bonus_transactions', [
+            'user_id' => $user->id,
+            'bonus_type' => 'status',
+            'amount' => '250000.00',
+        ]);
     }
 
     public function test_elite_package_cannot_upgrade_further(): void

@@ -21,6 +21,7 @@ class PackageService
         private readonly BonusService $bonusService,
         private readonly PvService $pvService,
         private readonly ReferralBonusBaseResolver $referralBonusBaseResolver,
+        private readonly StatusBonusService $statusBonusService,
     ) {
     }
 
@@ -71,6 +72,8 @@ class PackageService
                     }
                 }
             }
+
+            $this->checkMissedStatusBonusesForElite($user->refresh());
 
             return $user->refresh()->load(['currentPackage', 'sponsor', 'wallets']);
         });
@@ -165,6 +168,8 @@ class PackageService
                     }
                 }
             }
+
+            $this->checkMissedStatusBonusesForElite($user->refresh());
 
             return $user->refresh()->load(['currentPackage', 'sponsor', 'wallets']);
         });
@@ -264,6 +269,8 @@ class PackageService
                 }
             }
 
+            $this->checkMissedStatusBonusesForElite($user->refresh());
+
             return [
                 'user' => $user->refresh()->load(['currentPackage', 'wallets']),
                 'payment_amount' => $paymentAmount,
@@ -334,6 +341,15 @@ class PackageService
     private function eligibleReferralAmountForManualAssignment(array $pvEffects): string
     {
         return $pvEffects['referral_base_amount'];
+    }
+
+    private function checkMissedStatusBonusesForElite(User $user): void
+    {
+        $user->loadMissing('currentPackage');
+
+        if ($user->currentPackage?->code === 'ELITE') {
+            $this->statusBonusService->checkMissedStatusBonuses($user);
+        }
     }
 
     private function minDecimal(string $left, string $right): string
