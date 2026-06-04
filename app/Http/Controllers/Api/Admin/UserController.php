@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class UserController extends Controller
 {
@@ -50,10 +49,6 @@ class UserController extends Controller
             ->whereIn('user_id', $partnerUserIds)
             ->whereIn('type', ['main', 'bonus', 'deposit'])
             ->sum('balance');
-        $packageActivityAmount = (float) User::query()
-            ->leftJoin('packages', 'users.current_package_id', '=', 'packages.id')
-            ->where('users.role', User::ROLE_USER)
-            ->sum(DB::raw('COALESCE(NULLIF(packages.activity_pv, 0), packages.pv, 0) * 500'));
 
         return [
             'total_partners' => User::query()
@@ -67,7 +62,7 @@ class UserController extends Controller
                 ->where('role', User::ROLE_USER)
                 ->whereHas('currentPackage', fn ($query) => $query->whereIn('code', ['VIP', 'ELITE']))
                 ->count(),
-            'total_balance' => $walletBalance + $packageActivityAmount,
+            'total_balance' => $walletBalance,
         ];
     }
 }

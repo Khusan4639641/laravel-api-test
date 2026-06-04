@@ -601,12 +601,10 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       ?? getWalletBalance(wallets, 'deposit');
     const totalWalletBalance = getNumber(record, ['total_wallet_balance', 'totalWalletBalance', 'wallet_total_balance', 'walletTotalBalance'])
       ?? walletBalance + bonusBalance + depositBalance;
-    const computedBalance = walletBalance + packageActivityAmount;
-    const computedTotalBalance = totalWalletBalance + packageActivityAmount;
     const apiBalance = getNumber(record, ['available_balance', 'availableBalance', 'balance']);
     const apiTotalBalance = getNumber(record, ['total_balance', 'totalBalance', 'total_earned', 'totalEarned']);
-    const displayBalance = Math.max(apiBalance ?? computedBalance, computedBalance);
-    const displayTotalBalance = Math.max(apiTotalBalance ?? computedTotalBalance, computedTotalBalance);
+    const displayBalance = apiBalance ?? walletBalance;
+    const displayTotalBalance = apiTotalBalance ?? totalWalletBalance;
     const accountStatusCode = getString(record, ['account_status', 'accountStatus', 'state']) || 'active';
 
     return {

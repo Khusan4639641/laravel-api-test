@@ -19,8 +19,6 @@ class UserResource extends JsonResource
         $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
         $packageActivityAmount = $packageActivityPv * self::PV_MONEY_RATE;
-        $balance = $mainBalance + $packageActivityAmount;
-        $totalBalance = $totalWalletBalance + $packageActivityAmount;
         $attributes = $this->resource->getAttributes();
         $invitedCount = (int) ($attributes['invited_count']
             ?? $attributes['invited_users_count']
@@ -47,16 +45,18 @@ class UserResource extends JsonResource
             'remaining_right_pv' => $this->remaining_right_pv,
             'total_pv' => $this->total_pv,
             'invited_count' => $invitedCount,
-            'balance' => $balance,
+            'balance' => $mainBalance,
             'wallet_balance' => $mainBalance,
-            'available_balance' => $balance,
+            'available_balance' => $mainBalance,
+            'withdrawable_balance' => $mainBalance,
             'bonus_balance' => $bonusBalance,
             'deposit_balance' => $depositBalance,
             'total_wallet_balance' => $totalWalletBalance,
-            'total_balance' => $totalBalance,
-            'total_earned' => $totalBalance,
+            'total_balance' => $totalWalletBalance,
+            'total_earned' => $totalWalletBalance,
             'package_activity_pv' => $packageActivityPv,
             'package_activity_amount' => $packageActivityAmount,
+            'pv_amount' => $packageActivityAmount,
             'pv_money_rate' => self::PV_MONEY_RATE,
             'current_package' => new PackageResource($this->whenLoaded('currentPackage')),
             'package' => new PackageResource($this->whenLoaded('currentPackage')),

@@ -717,12 +717,10 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     ?? walletBalance + bonusBalance + depositBalance;
   const totalWalletEarned = getNumber(user, ['total_wallet_earned', 'totalWalletEarned', 'wallet_total_earned', 'walletTotalEarned'])
     ?? totalWalletBalance;
-  const computedAvailableBalance = walletBalance + packageActivityAmount;
-  const computedTotalEarned = totalWalletEarned + packageActivityAmount;
   const apiAvailableBalance = getNumber(user, ['available_balance', 'availableBalance']);
   const apiTotalEarned = getNumber(user, ['total_earned', 'totalEarned', 'total_balance', 'totalBalance']);
-  const availableBalance = Math.max(apiAvailableBalance ?? computedAvailableBalance, computedAvailableBalance);
-  const totalEarned = Math.max(apiTotalEarned ?? computedTotalEarned, computedTotalEarned);
+  const availableBalance = apiAvailableBalance ?? walletBalance;
+  const totalEarned = apiTotalEarned ?? totalWalletEarned;
 
   return {
     id: getString(user, ['id']) || fallbackId,

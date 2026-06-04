@@ -13,7 +13,7 @@ class AdminPartnerDetailBalanceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_start_package_assignment_adds_activity_amount_to_display_balances(): void
+    public function test_start_package_assignment_keeps_activity_amount_separate_from_wallet_balances(): void
     {
         [$partner, $payload] = $this->assignPackageAndGetPartnerPayload('START');
 
@@ -21,39 +21,45 @@ class AdminPartnerDetailBalanceTest extends TestCase
         $this->assertEquals(100, $payload['total_pv']);
         $this->assertEquals(100, $payload['package_activity_pv']);
         $this->assertEquals(50000, $payload['package_activity_amount']);
+        $this->assertEquals(50000, $payload['pv_amount']);
         $this->assertEquals(500, $payload['pv_money_rate']);
-        $this->assertEquals(50000, $payload['available_balance']);
-        $this->assertEquals(50000, $payload['total_earned']);
+        $this->assertEquals(0, $payload['available_balance']);
+        $this->assertEquals(0, $payload['total_balance']);
+        $this->assertEquals(0, $payload['total_earned']);
         $this->assertSame('100.00', $partner->refresh()->total_pv);
     }
 
-    public function test_vip_package_assignment_adds_activity_amount_to_display_balances(): void
+    public function test_vip_package_assignment_keeps_activity_amount_separate_from_wallet_balances(): void
     {
         [, $payload] = $this->assignPackageAndGetPartnerPayload('VIP');
 
         $this->assertEquals(300, $payload['total_pv']);
         $this->assertEquals(300, $payload['package_activity_pv']);
         $this->assertEquals(150000, $payload['package_activity_amount']);
-        $this->assertEquals(150000, $payload['available_balance']);
-        $this->assertEquals(150000, $payload['total_earned']);
+        $this->assertEquals(150000, $payload['pv_amount']);
+        $this->assertEquals(0, $payload['available_balance']);
+        $this->assertEquals(0, $payload['total_balance']);
+        $this->assertEquals(0, $payload['total_earned']);
         $this->assertNotEquals(180000, $payload['package_activity_amount']);
         $this->assertNotEquals(180000, $payload['available_balance']);
     }
 
-    public function test_elite_package_assignment_adds_activity_amount_to_display_balances(): void
+    public function test_elite_package_assignment_keeps_activity_amount_separate_from_wallet_balances(): void
     {
         [, $payload] = $this->assignPackageAndGetPartnerPayload('ELITE');
 
         $this->assertEquals(500, $payload['total_pv']);
         $this->assertEquals(500, $payload['package_activity_pv']);
         $this->assertEquals(250000, $payload['package_activity_amount']);
-        $this->assertEquals(250000, $payload['available_balance']);
-        $this->assertEquals(250000, $payload['total_earned']);
+        $this->assertEquals(250000, $payload['pv_amount']);
+        $this->assertEquals(0, $payload['available_balance']);
+        $this->assertEquals(0, $payload['total_balance']);
+        $this->assertEquals(0, $payload['total_earned']);
         $this->assertNotEquals(300000, $payload['package_activity_amount']);
         $this->assertNotEquals(300000, $payload['available_balance']);
     }
 
-    public function test_package_price_is_not_used_as_pv_activity_amount_or_display_balance(): void
+    public function test_package_price_is_not_used_as_pv_activity_amount_or_wallet_balance(): void
     {
         [, $payload] = $this->assignPackageAndGetPartnerPayload('START');
 
@@ -61,21 +67,23 @@ class AdminPartnerDetailBalanceTest extends TestCase
         $this->assertEquals(0, $payload['wallet_balance']);
         $this->assertEquals(100, $payload['package_activity_pv']);
         $this->assertEquals(50000, $payload['package_activity_amount']);
-        $this->assertEquals(50000, $payload['available_balance']);
-        $this->assertEquals(50000, $payload['total_earned']);
+        $this->assertEquals(50000, $payload['pv_amount']);
+        $this->assertEquals(0, $payload['available_balance']);
+        $this->assertEquals(0, $payload['total_earned']);
         $this->assertNotEquals(60000, $payload['package_activity_pv']);
         $this->assertNotEquals(60000, $payload['package_activity_amount']);
         $this->assertNotEquals(60000, $payload['available_balance']);
     }
 
-    public function test_wallet_amount_is_added_to_package_activity_amount_for_display_balances(): void
+    public function test_wallet_amount_is_not_increased_by_package_activity_amount(): void
     {
         [, $payload] = $this->assignPackageAndGetPartnerPayload('START', walletBalance: 10000);
 
         $this->assertEquals(10000, $payload['wallet_balance']);
         $this->assertEquals(50000, $payload['package_activity_amount']);
-        $this->assertEquals(60000, $payload['available_balance']);
-        $this->assertEquals(60000, $payload['total_earned']);
+        $this->assertEquals(10000, $payload['available_balance']);
+        $this->assertEquals(10000, $payload['total_balance']);
+        $this->assertEquals(10000, $payload['total_earned']);
     }
 
     /**
