@@ -7,6 +7,7 @@ use App\Http\Requests\Order\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
 use App\Models\Product;
+use App\Services\PvService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,11 @@ use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
+    public function __construct(
+        private readonly PvService $pvService,
+    ) {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $orders = OrderResource::collection($request->user()
@@ -139,6 +145,21 @@ class OrderController extends Controller
                 /** @var Product $product */
                 $product = $products->get($productId);
                 $product->decrement('stock_quantity', $quantity);
+            }
+
+            if (bccomp($totalPv, '0', 2) > 0) {
+                $this->pvService->accrueTurnoverToUplines(
+                    $user,
+                    $totalPv,
+                    'product_order',
+                    [
+                        'order_id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'pv_money_rate' => 500,
+                        'turnover_amount' => bcmul($totalPv, '500', 2),
+                    ],
+                    $order,
+                );
             }
 
             return $order->load('items.product');

@@ -14,7 +14,36 @@ class PvService
     ) {
     }
 
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    public function accrueTurnoverToUplines(
+        User $buyer,
+        float|string $pv,
+        string $source,
+        array $meta = [],
+        ?Order $sourceOrder = null,
+        bool $isBonusable = true,
+    ): void {
+        $this->propagateToUplines($buyer, $pv, $source, $meta, $sourceOrder, $isBonusable);
+    }
+
     public function accruePvUpTree(User $sourceUser, float|string $pv, ?Order $sourceOrder = null, bool $isBonusable = true): void
+    {
+        $this->propagateToUplines($sourceUser, $pv, 'legacy_pv_accrual', [], $sourceOrder, $isBonusable);
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function propagateToUplines(
+        User $buyer,
+        float|string $pv,
+        string $source,
+        array $meta,
+        ?Order $sourceOrder,
+        bool $isBonusable,
+    ): void
     {
         $pv = (string) $pv;
 
@@ -22,7 +51,9 @@ class PvService
             throw new InvalidArgumentException('PV amount must be greater than zero.');
         }
 
-        $node = $sourceUser->binaryNode()->first();
+        $this->recordTurnoverAudit($sourceOrder, $pv, $source, $meta, $isBonusable);
+
+        $node = $buyer->binaryNode()->first();
 
         while ($node?->parent_id) {
             /** @var BinaryNode $currentNode */
@@ -63,7 +94,12 @@ class PvService
         $this->statusService->recalculate($freshUser);
     }
 
-    private function addBranchPv(User $user, ?string $branch, string $pv, bool $isBonusable): void
+    private function addBranchPv(
+        User $user,
+        ?string $branch,
+        string $pv,
+        bool $isBonusable,
+    ): void
     {
         match ($branch) {
             'L' => $user->forceFill([
@@ -82,5 +118,28 @@ class PvService
             ])->save(),
             default => null,
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function recordTurnoverAudit(?Order $sourceOrder, string $pv, string $source, array $meta, bool $isBonusable): void
+    {
+        if (! $sourceOrder) {
+            return;
+        }
+
+        $metadata = is_array($sourceOrder->metadata) ? $sourceOrder->metadata : [];
+        $metadata['pv_turnover'] = [
+            'source' => $source,
+            'pv' => $pv,
+            'is_bonusable' => $isBonusable,
+            'meta' => $meta,
+            'recorded_at' => now()->toISOString(),
+        ];
+
+        $sourceOrder->forceFill([
+            'metadata' => $metadata,
+        ])->save();
     }
 }

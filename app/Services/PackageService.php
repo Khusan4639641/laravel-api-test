@@ -36,7 +36,17 @@ class PackageService
             $turnoverPv = $package->turnoverPv();
 
             $this->pvService->addUserPv($user, $activityPv);
-            $this->pvService->accruePvUpTree($user, $turnoverPv);
+            $this->pvService->accrueTurnoverToUplines(
+                $user,
+                $turnoverPv,
+                $this->packageTurnoverSource($package),
+                [
+                    'package_id' => $package->id,
+                    'package_code' => $package->code,
+                    'activity_pv' => $activityPv,
+                    'turnover_pv' => $turnoverPv,
+                ],
+            );
 
             if ($user->sponsor_id) {
                 $sponsor = User::query()->find($user->sponsor_id);
@@ -93,11 +103,33 @@ class PackageService
             }
 
             if (bccomp($pvEffects['bonusable_turnover_pv'], '0', 2) > 0) {
-                $this->pvService->accruePvUpTree($user, $pvEffects['bonusable_turnover_pv']);
+                $this->pvService->accrueTurnoverToUplines(
+                    $user,
+                    $pvEffects['bonusable_turnover_pv'],
+                    $this->packageTurnoverSource($package),
+                    [
+                        'package_id' => $package->id,
+                        'package_code' => $package->code,
+                        'manual_assignment' => true,
+                        'turnover_pv' => $pvEffects['bonusable_turnover_pv'],
+                    ],
+                );
             }
 
             if (bccomp($pvEffects['non_bonusable_turnover_pv'], '0', 2) > 0) {
-                $this->pvService->accruePvUpTree($user, $pvEffects['non_bonusable_turnover_pv'], null, false);
+                $this->pvService->accrueTurnoverToUplines(
+                    $user,
+                    $pvEffects['non_bonusable_turnover_pv'],
+                    $this->packageTurnoverSource($package),
+                    [
+                        'package_id' => $package->id,
+                        'package_code' => $package->code,
+                        'manual_assignment' => true,
+                        'turnover_pv' => $pvEffects['non_bonusable_turnover_pv'],
+                    ],
+                    null,
+                    false,
+                );
             }
 
             if ($user->sponsor_id) {
@@ -163,9 +195,18 @@ class PackageService
 
             if (bccomp($additionalPv, '0', 2) > 0) {
                 $this->pvService->addUserPv($user, $additionalPv);
-                $this->pvService->accruePvUpTree(
+                $this->pvService->accrueTurnoverToUplines(
                     $user,
                     $additionalPv,
+                    $this->packageTurnoverSource($targetPackage, true),
+                    [
+                        'package_id' => $targetPackage->id,
+                        'package_code' => $targetPackage->code,
+                        'current_package_id' => $currentPackage->id,
+                        'current_package_code' => $currentPackage->code,
+                        'upgrade' => true,
+                        'additional_pv' => $additionalPv,
+                    ],
                     null,
                     $this->isUpgradePvBonusable($targetPackage),
                 );
@@ -209,6 +250,19 @@ class PackageService
         }
 
         return (string) $package->price;
+    }
+
+    private function packageTurnoverSource(Package $package, bool $isUpgrade = false): string
+    {
+        if ($package->code === 'ELITE') {
+            return 'package_elite_upgrade';
+        }
+
+        return match ($package->code) {
+            'START' => 'package_start',
+            'VIP' => 'package_vip',
+            default => $isUpgrade ? 'package_upgrade' : 'package_activation',
+        };
     }
 
     private function eligibleReferralAmountForUpgrade(Package $targetPackage, string $paymentAmount): string
