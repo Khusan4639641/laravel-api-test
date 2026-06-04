@@ -14,8 +14,6 @@ class UserController extends Controller
 {
     use RespondsWithPagination;
 
-    private const PARTNER_ROLES = [User::ROLE_USER, 'partner'];
-
     public function index(Request $request): JsonResponse
     {
         $users = User::query()
@@ -46,18 +44,18 @@ class UserController extends Controller
     {
         $partnerUserIds = User::query()
             ->select('id')
-            ->whereIn('role', self::PARTNER_ROLES);
+            ->where('role', User::ROLE_USER);
 
         return [
             'total_partners' => User::query()
-                ->whereIn('role', self::PARTNER_ROLES)
+                ->where('role', User::ROLE_USER)
                 ->count(),
             'active_partners' => User::query()
-                ->whereIn('role', self::PARTNER_ROLES)
+                ->where('role', User::ROLE_USER)
                 ->where('account_status', 'active')
                 ->count(),
             'vip_elite_partners' => User::query()
-                ->whereIn('role', self::PARTNER_ROLES)
+                ->where('role', User::ROLE_USER)
                 ->whereHas('currentPackage', fn ($query) => $query->whereIn('code', ['VIP', 'ELITE']))
                 ->count(),
             'total_balance' => (float) Wallet::query()

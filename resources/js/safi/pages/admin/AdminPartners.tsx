@@ -69,7 +69,7 @@ const emptySummary: AdminPartnersSummary = {
 export default function AdminPartners() {
   const { currentUser } = useAdminContext();
   const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
-  const [summary, setSummary] = useState<AdminPartnersSummary>(emptySummary);
+  const [summary, setSummary] = useState<AdminPartnersSummary | null>(null);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -90,10 +90,10 @@ export default function AdminPartners() {
       const normalizedPartners = normalizePartners(response);
 
       setPartners(normalizedPartners);
-      setSummary(normalizeSummary(response, normalizedPartners));
+      setSummary(normalizeSummary(response));
     } catch (caughtError) {
       setPartners([]);
-      setSummary(emptySummary);
+      setSummary(null);
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_15'));
     } finally {
       setIsLoading(false);
@@ -181,6 +181,15 @@ export default function AdminPartners() {
       `${partner.id} ${partner.fullName} ${partner.phone} ${partner.email}`.toLowerCase().includes(normalizedQuery)
     );
   }, [partners, query]);
+  const displayedSummary = useMemo(() => {
+    const fallbackSummary = calculateSummaryFromPartners(partners);
+
+    if (!summary) {
+      return fallbackSummary;
+    }
+
+    return summary.totalPartners === 0 && fallbackSummary.totalPartners > 0 ? fallbackSummary : summary;
+  }, [partners, summary]);
   const canCreatePartners = currentUser.role === 'super_admin';
 
   return (
@@ -221,10 +230,10 @@ export default function AdminPartners() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={summary.totalPartners.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={summary.activePartners.toLocaleString('ru-RU')} />
-        <SummaryCard label="VIP / ELITE" value={summary.vipElitePartners.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(summary.totalBalance)} />
+        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={displayedSummary.totalPartners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={displayedSummary.activePartners.toLocaleString('ru-RU')} />
+        <SummaryCard label="VIP / ELITE" value={displayedSummary.vipElitePartners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(displayedSummary.totalBalance)} />
       </section>
 
       <section className="rounded-[28px] border border-safi-border bg-white p-4 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -590,7 +599,7 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
   });
 }
 
-function normalizeSummary(response: unknown, partners: AdminPartnerRow[]): AdminPartnersSummary {
+function normalizeSummary(response: unknown): AdminPartnersSummary | null {
   const record = isRecord(response) ? response : {};
   const summary = isRecord(record.summary)
     ? record.summary
@@ -600,13 +609,30 @@ function normalizeSummary(response: unknown, partners: AdminPartnerRow[]): Admin
         ? record.stats
         : undefined;
 
-  if (summary) {
-    return {
-      totalPartners: getNumber(summary, ['total_partners', 'totalPartners']) ?? 0,
-      activePartners: getNumber(summary, ['active_partners', 'activePartners']) ?? 0,
-      vipElitePartners: getNumber(summary, ['vip_elite_partners', 'vipElitePartners']) ?? 0,
-      totalBalance: getNumber(summary, ['total_balance', 'totalBalance']) ?? 0,
-    };
+  if (!summary || !hasAnyKey(summary, [
+    'total_partners',
+    'totalPartners',
+    'active_partners',
+    'activePartners',
+    'vip_elite_partners',
+    'vipElitePartners',
+    'total_balance',
+    'totalBalance',
+  ])) {
+    return null;
+  }
+
+  return {
+    totalPartners: getNumber(summary, ['total_partners', 'totalPartners']) ?? 0,
+    activePartners: getNumber(summary, ['active_partners', 'activePartners']) ?? 0,
+    vipElitePartners: getNumber(summary, ['vip_elite_partners', 'vipElitePartners']) ?? 0,
+    totalBalance: getNumber(summary, ['total_balance', 'totalBalance']) ?? 0,
+  };
+}
+
+function calculateSummaryFromPartners(partners: AdminPartnerRow[]): AdminPartnersSummary {
+  if (partners.length === 0) {
+    return emptySummary;
   }
 
   const partnerRows = partners.filter((partner) => isPartnerRole(partner.role));
@@ -614,7 +640,7 @@ function normalizeSummary(response: unknown, partners: AdminPartnerRow[]): Admin
   return {
     totalPartners: partnerRows.length,
     activePartners: partnerRows.filter((partner) => partner.accountStatus === adminText('a_0JDQutGC0LjQ_2')).length,
-    vipElitePartners: partnerRows.filter((partner) => ['VIP', 'ELITE'].includes(partner.package)).length,
+    vipElitePartners: partnerRows.filter((partner) => ['VIP', 'ELITE'].includes(partner.package.toUpperCase())).length,
     totalBalance: partnerRows.reduce((sum, partner) => sum + partner.totalIncome, 0),
   };
 }
@@ -642,7 +668,7 @@ function getArray(response: unknown) {
 }
 
 function isPartnerRole(role: string) {
-  return role === 'user' || role === 'partner';
+  return role === 'user';
 }
 
 function formatMoney(value: number) {
@@ -693,6 +719,10 @@ function getWalletBalance(wallets: Record<string, unknown>[], type: string) {
   return wallets
     .filter((wallet) => getString(wallet, ['type']) === type)
     .reduce((sum, wallet) => sum + (getNumber(wallet, ['balance']) ?? 0), 0);
+}
+
+function hasAnyKey(record: Record<string, unknown>, keys: string[]) {
+  return keys.some((key) => Object.prototype.hasOwnProperty.call(record, key));
 }
 
 function getAccountStatusLabel(status?: string) {

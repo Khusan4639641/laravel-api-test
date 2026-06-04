@@ -23,6 +23,55 @@ class AdminPartnersApiTest extends TestCase
         $this->assertSame(3, $summary['total_partners']);
     }
 
+    public function test_admin_partners_summary_excludes_staff_roles_and_counts_user_status_and_packages(): void
+    {
+        $start = $this->createPackage('START');
+        $vip = $this->createPackage('VIP');
+        $elite = $this->createPackage('ELITE');
+
+        User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
+            'account_status' => 'active',
+            'current_package_id' => $elite->id,
+        ]);
+        User::factory()->create([
+            'role' => User::ROLE_ADMIN,
+            'account_status' => 'active',
+            'current_package_id' => $vip->id,
+        ]);
+        User::factory()->create([
+            'role' => User::ROLE_ACCOUNTANT,
+            'account_status' => 'active',
+            'current_package_id' => $elite->id,
+        ]);
+        User::factory()->create([
+            'role' => User::ROLE_SUPPORT,
+            'account_status' => 'active',
+            'current_package_id' => $vip->id,
+        ]);
+        User::factory()->create([
+            'role' => User::ROLE_USER,
+            'account_status' => 'active',
+            'current_package_id' => $start->id,
+        ]);
+        User::factory()->create([
+            'role' => User::ROLE_USER,
+            'account_status' => 'active',
+            'current_package_id' => $vip->id,
+        ]);
+        User::factory()->create([
+            'role' => User::ROLE_USER,
+            'account_status' => 'blocked',
+            'current_package_id' => $elite->id,
+        ]);
+
+        $summary = $this->adminSummaryPayload();
+
+        $this->assertSame(3, $summary['total_partners']);
+        $this->assertSame(2, $summary['active_partners']);
+        $this->assertSame(2, $summary['vip_elite_partners']);
+    }
+
     public function test_admin_partners_summary_counts_active_partners(): void
     {
         User::factory()->count(2)->create([
