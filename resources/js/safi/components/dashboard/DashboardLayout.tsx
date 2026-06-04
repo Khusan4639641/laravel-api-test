@@ -3,7 +3,8 @@ import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router
 import { Bell, Menu } from 'lucide-react';
 import { Sidebar } from './Sidebar';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
-import { ApiError, clearAuthToken, getAuthToken, getMyPermissions, me } from '../../lib/api';
+import { ApiError, clearAuthToken, getAuthToken, getDashboardNotifications, getMyPermissions, me } from '../../lib/api';
+import { getCurrentLanguage } from '../../lib/language';
 import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
 
 export interface DashboardCurrentUser {
@@ -33,6 +34,15 @@ export interface DashboardContextValue {
   refreshCurrentUser: () => Promise<void>;
 }
 
+interface DashboardNotificationRow {
+  id: string;
+  type: string;
+  title: string;
+  message: string;
+  createdAt?: string;
+  readAt?: string;
+}
+
 const userDefaults: DashboardCurrentUser = {
   name: 'Safi Partner',
   role: 'user',
@@ -56,12 +66,28 @@ export function useDashboardContext() {
 
 export function DashboardLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<DashboardNotificationRow[]>([]);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
   const [currentUser, setCurrentUser] = useState<DashboardCurrentUser | null>(null);
   const [permissions, setPermissions] = useState<RolePermissions | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const response = await getDashboardNotifications(6);
+      const normalized = normalizeNotificationsResponse(response);
+
+      setNotifications(normalized.notifications);
+      setUnreadNotificationsCount(normalized.unreadCount);
+    } catch {
+      setNotifications([]);
+      setUnreadNotificationsCount(0);
+    }
+  }, []);
 
   const loadCurrentUser = useCallback(async () => {
     const token = getAuthToken();
@@ -92,6 +118,7 @@ export function DashboardLayout() {
 
       setCurrentUser(user);
       setPermissions(rolePermissions);
+      void loadNotifications();
     } catch (error) {
       if (error instanceof ApiError && error.status === 401) {
         clearAuthToken();
@@ -106,11 +133,15 @@ export function DashboardLayout() {
     } finally {
       setIsLoading(false);
     }
-  }, [location.pathname, navigate]);
+  }, [loadNotifications, location.pathname, navigate]);
 
   useEffect(() => {
     void loadCurrentUser();
   }, [loadCurrentUser]);
+
+  useEffect(() => {
+    setIsNotificationsOpen(false);
+  }, [location.pathname]);
 
   if (isLoading) {
     return (
@@ -172,13 +203,61 @@ export function DashboardLayout() {
             <div className="lg:hidden">
               <LanguageSwitcher />
             </div>
-            <button
-              type="button"
-              className="hidden h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:bg-safi-green hover:text-white sm:flex"
-              aria-label="Уведомления"
-            >
-              <Bell className="h-5 w-5" />
-            </button>
+            <div className="relative hidden sm:block">
+              <button
+                type="button"
+                className="relative flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+                aria-label="Уведомления"
+                aria-expanded={isNotificationsOpen}
+                onClick={() => setIsNotificationsOpen((isOpen) => !isOpen)}
+              >
+                <Bell className="h-5 w-5" />
+                {unreadNotificationsCount > 0 ? (
+                  <span className="absolute -right-1 -top-1 flex min-h-5 min-w-5 items-center justify-center rounded-full bg-safi-gold px-1.5 text-[10px] font-extrabold text-safi-green">
+                    {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                  </span>
+                ) : null}
+              </button>
+
+              {isNotificationsOpen ? (
+                <div className="absolute right-0 mt-3 w-[340px] max-w-[calc(100vw-2rem)] overflow-hidden rounded-3xl border border-safi-border bg-white shadow-[0_24px_70px_rgba(11,23,18,0.12)]">
+                  <div className="flex items-center justify-between border-b border-safi-border/70 px-5 py-4">
+                    <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Уведомления</div>
+                    <div className="rounded-full bg-safi-cream px-3 py-1 text-[10px] font-extrabold text-safi-green">
+                      {unreadNotificationsCount.toLocaleString('ru-RU')} новых
+                    </div>
+                  </div>
+
+                  <div className="max-h-96 overflow-y-auto">
+                    {notifications.length > 0 ? (
+                      notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className="border-b border-safi-border/60 px-5 py-4 last:border-b-0"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="text-sm font-extrabold text-safi-green">{notification.title}</div>
+                            {!notification.readAt ? (
+                              <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-safi-gold" aria-label="Новое уведомление" />
+                            ) : null}
+                          </div>
+                          <div className="mt-1 text-sm leading-6 text-safi-muted">{notification.message}</div>
+                          {notification.createdAt ? (
+                            <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-muted/70">
+                              {formatNotificationDate(notification.createdAt)}
+                            </div>
+                          ) : null}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="px-5 py-8 text-center text-sm text-safi-muted">
+                        Пока нет уведомлений.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
             <div className="hidden items-center gap-3 border-l border-safi-border pl-4 sm:flex">
               <div className="text-right">
                 <div className="text-sm font-extrabold text-safi-green">{currentUser.name}</div>
@@ -199,6 +278,88 @@ export function DashboardLayout() {
       </div>
     </div>
   );
+}
+
+function normalizeNotificationsResponse(response: unknown) {
+  const record = isRecord(response) ? response : {};
+  const rawNotifications = Array.isArray(record.notifications)
+    ? record.notifications
+    : Array.isArray(record.data)
+      ? record.data
+      : [];
+  const notifications = rawNotifications
+    .filter(isRecord)
+    .map(normalizeNotificationRow);
+
+  return {
+    notifications,
+    unreadCount: getNumber(record, ['unread_count', 'unreadCount']) ?? notifications.filter((notification) => !notification.readAt).length,
+  };
+}
+
+function normalizeNotificationRow(record: Record<string, unknown>): DashboardNotificationRow {
+  const data = isRecord(record.data) ? record.data : {};
+  const type = getString(record, ['type']) || getString(data, ['type']) || 'notification';
+
+  return {
+    id: getString(record, ['id']) || `${type}-${getString(record, ['created_at', 'createdAt']) || Math.random()}`,
+    type,
+    title: getLocalizedNotificationText(record.title ?? data.title, defaultNotificationTitle(type)),
+    message: getLocalizedNotificationText(record.message ?? data.message, defaultNotificationMessage(type)),
+    createdAt: getString(record, ['created_at', 'createdAt']),
+    readAt: getString(record, ['read_at', 'readAt']),
+  };
+}
+
+function getLocalizedNotificationText(value: unknown, fallback: string) {
+  if (typeof value === 'string' && value.trim() !== '') {
+    return value;
+  }
+
+  if (isRecord(value)) {
+    const language = getCurrentLanguage();
+
+    return getString(value, [language, 'ru', 'en', 'kz', 'kg', 'mn']) || fallback;
+  }
+
+  return fallback;
+}
+
+function defaultNotificationTitle(type: string) {
+  return {
+    status_achieved: 'Новый статус',
+    referral_bonus: 'Реферальный бонус',
+    binary_bonus: 'Бинарный бонус',
+    status_bonus: 'Статусный бонус',
+    x2_bonus: 'X2 бонус',
+    cashback: 'Кэшбэк',
+  }[type] || 'Уведомление';
+}
+
+function defaultNotificationMessage(type: string) {
+  return {
+    status_achieved: 'Поздравляем! Вы достигли нового статуса.',
+    referral_bonus: 'Начислен реферальный бонус.',
+    binary_bonus: 'Начислен бинарный бонус.',
+    status_bonus: 'Начислен статусный бонус.',
+    x2_bonus: 'Начислен X2 бонус.',
+    cashback: 'Начислен кэшбэк.',
+  }[type] || 'Новое уведомление.';
+}
+
+function formatNotificationDate(value: string) {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
 }
 
 function normalizeCurrentUser(response: unknown): DashboardCurrentUser {

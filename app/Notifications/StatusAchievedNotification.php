@@ -22,16 +22,26 @@ class StatusAchievedNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
     public function toMail(object $notifiable): MailMessage
     {
+        $status = $this->statusLabel();
+
         return (new MailMessage)
             ->subject('New MLM status achieved')
             ->greeting('Hello, '.$notifiable->name)
-            ->line('Your MLM status has been updated to '.$this->status.'.')
+            ->line('Congratulations! You reached '.$status.' status.')
             ->line('Weak leg PV: '.$this->weakLegPv);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toDatabase(object $notifiable): array
+    {
+        return $this->payload();
     }
 
     /**
@@ -39,11 +49,52 @@ class StatusAchievedNotification extends Notification
      */
     public function toArray(object $notifiable): array
     {
+        return $this->payload();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payload(): array
+    {
+        $status = $this->statusLabel();
+
         return [
             'type' => 'status_achieved',
+            'title' => [
+                'ru' => 'Новый статус',
+                'kz' => 'Жаңа мәртебе',
+                'kg' => 'Жаңы статус',
+                'en' => 'New status',
+                'mn' => 'Шинэ статус',
+            ],
+            'message' => [
+                'ru' => "Поздравляем! Вы достигли статуса {$status}.",
+                'kz' => "Құттықтаймыз! Сіз {$status} мәртебесіне жеттіңіз.",
+                'kg' => "Куттуктайбыз! Сиз {$status} статусуна жеттиңиз.",
+                'en' => "Congratulations! You reached {$status} status.",
+                'mn' => "Баяр хүргэе! Та {$status} статуст хүрлээ.",
+            ],
             'status' => $this->status,
+            'status_label' => $status,
             'previous_status' => $this->previousStatus,
             'weak_leg_pv' => $this->weakLegPv,
         ];
+    }
+
+    private function statusLabel(): string
+    {
+        return match ($this->status) {
+            'manager' => 'Manager',
+            'leader' => 'Leader',
+            'director' => 'Director',
+            'bronze_director' => 'Bronze Director',
+            'silver_director' => 'Silver Director',
+            'gold_director' => 'Gold Director',
+            'platinum_director' => 'Platinum Director',
+            'emerald_director' => 'Emerald Director',
+            'diamond_director' => 'Diamond Director',
+            default => str($this->status)->replace('_', ' ')->title()->toString(),
+        };
     }
 }

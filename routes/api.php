@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\BinaryBonusController;
 use App\Http\Controllers\Api\DepositPurchaseController;
 use App\Http\Controllers\Api\Dashboard\BonusController as DashboardBonusController;
 use App\Http\Controllers\Api\Dashboard\DepositProductController as DashboardDepositProductController;
+use App\Http\Controllers\Api\Dashboard\NotificationController as DashboardNotificationController;
 use App\Http\Controllers\Api\Dashboard\OrderController as DashboardOrderController;
 use App\Http\Controllers\Api\Dashboard\OverviewController as DashboardOverviewController;
 use App\Http\Controllers\Api\Dashboard\PackageController as DashboardPackageController;
@@ -81,6 +82,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         Route::get('/structure', DashboardStructureController::class);
         Route::get('/transactions', DashboardTransactionController::class);
         Route::get('/bonuses', DashboardBonusController::class);
+        Route::get('/notifications', [DashboardNotificationController::class, 'index']);
         Route::get('/packages', DashboardPackageController::class);
         Route::get('/products', DashboardProductController::class);
         Route::get('/deposit-products', DashboardDepositProductController::class);

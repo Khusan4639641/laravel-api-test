@@ -411,6 +411,13 @@ export async function getDashboardBonuses<T = unknown>() {
   });
 }
 
+export async function getDashboardNotifications<T = unknown>(limit = 10) {
+  return apiRequest<T>(`${endpoints.dashboard.notifications}?limit=${encodeURIComponent(String(limit))}`, {
+    method: 'GET',
+    auth: true,
+  });
+}
+
 export async function getDashboardPackages() {
   const response = await apiRequest(endpoints.dashboard.packages, {
     method: 'GET',
