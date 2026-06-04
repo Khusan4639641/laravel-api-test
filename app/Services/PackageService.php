@@ -12,8 +12,6 @@ class PackageService
 {
     private const PV_MONEY_RATE = '500';
 
-    private const VIP_ACTIVATION_REFERRAL_EXCLUDED_AMOUNT = '45000';
-
     private const UPGRADE_CHAIN = [
         'START' => 'VIP',
         'VIP' => 'ELITE',
@@ -22,6 +20,7 @@ class PackageService
     public function __construct(
         private readonly BonusService $bonusService,
         private readonly PvService $pvService,
+        private readonly ReferralBonusBaseResolver $referralBonusBaseResolver,
     ) {
     }
 
@@ -52,10 +51,23 @@ class PackageService
                 $sponsor = User::query()->find($user->sponsor_id);
 
                 if ($sponsor) {
-                    $eligibleReferralAmount = $this->eligibleReferralAmountForActivation($package);
+                    $eligibleReferralAmount = $this->referralBonusBaseResolver->resolveForPackageActivation($package, [
+                        'buyer_id' => $user->id,
+                    ]);
 
                     if (bccomp($eligibleReferralAmount, '0', 2) > 0) {
-                        $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $eligibleReferralAmount);
+                        $this->bonusService->accrueReferralBonus(
+                            $sponsor,
+                            $user->refresh(),
+                            $eligibleReferralAmount,
+                            [
+                                'source' => 'package_activation',
+                                'base_resolver' => ReferralBonusBaseResolver::class,
+                                'package_id' => $package->id,
+                                'package_code' => $package->code,
+                            ],
+                            "package_activation:{$user->id}:{$package->id}",
+                        );
                     }
                 }
             }
@@ -139,7 +151,17 @@ class PackageService
                     $eligibleReferralAmount = $this->eligibleReferralAmountForManualAssignment($pvEffects);
 
                     if (bccomp($eligibleReferralAmount, '0', 2) > 0) {
-                        $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $eligibleReferralAmount);
+                        $this->bonusService->accrueReferralBonus(
+                            $sponsor,
+                            $user->refresh(),
+                            $eligibleReferralAmount,
+                            [
+                                'source' => 'manual_package_assignment',
+                                'package_id' => $package->id,
+                                'package_code' => $package->code,
+                            ],
+                            "manual_package_assignment:{$user->id}:{$package->id}",
+                        );
                     }
                 }
             }
@@ -218,10 +240,26 @@ class PackageService
                 $sponsor = User::query()->find($user->sponsor_id);
 
                 if ($sponsor) {
-                    $eligibleReferralAmount = $this->eligibleReferralAmountForUpgrade($targetPackage, $paymentAmount);
+                    $eligibleReferralAmount = $this->referralBonusBaseResolver->resolveForPackageUpgrade($currentPackage, $targetPackage, [
+                        'buyer_id' => $user->id,
+                        'payment_amount' => $paymentAmount,
+                    ]);
 
                     if (bccomp($eligibleReferralAmount, '0', 2) > 0) {
-                        $this->bonusService->accrueReferralBonus($sponsor, $user->refresh(), $eligibleReferralAmount);
+                        $this->bonusService->accrueReferralBonus(
+                            $sponsor,
+                            $user->refresh(),
+                            $eligibleReferralAmount,
+                            [
+                                'source' => 'package_upgrade',
+                                'base_resolver' => ReferralBonusBaseResolver::class,
+                                'from_package_id' => $currentPackage->id,
+                                'from_package_code' => $currentPackage->code,
+                                'to_package_id' => $targetPackage->id,
+                                'to_package_code' => $targetPackage->code,
+                            ],
+                            "package_upgrade:{$user->id}:{$currentPackage->id}:{$targetPackage->id}",
+                        );
                     }
                 }
             }
@@ -235,23 +273,6 @@ class PackageService
         });
     }
 
-    private function eligibleReferralAmountForActivation(Package $package): string
-    {
-        if ($package->code === 'VIP') {
-            // Business regression case: VIP 180000 must pay referral from 135000, not from the full price.
-            return $this->positiveOrZero(bcsub((string) $package->price, self::VIP_ACTIVATION_REFERRAL_EXCLUDED_AMOUNT, 2));
-        }
-
-        if ($package->code === 'ELITE') {
-            // The first 200 ELITE PV are turnover-only: 200 PV * 500 KZT does not create referral bonus.
-            $excludedAmount = bcmul($package->turnoverPv(), self::PV_MONEY_RATE, 2);
-
-            return $this->positiveOrZero(bcsub((string) $package->price, $excludedAmount, 2));
-        }
-
-        return (string) $package->price;
-    }
-
     private function packageTurnoverSource(Package $package, bool $isUpgrade = false): string
     {
         if ($package->code === 'ELITE') {
@@ -263,16 +284,6 @@ class PackageService
             'VIP' => 'package_vip',
             default => $isUpgrade ? 'package_upgrade' : 'package_activation',
         };
-    }
-
-    private function eligibleReferralAmountForUpgrade(Package $targetPackage, string $paymentAmount): string
-    {
-        if ($targetPackage->code === 'ELITE') {
-            // VIP -> ELITE adds exactly the first 200 ELITE PV, which are excluded from referral and binary bonuses.
-            return '0.00';
-        }
-
-        return $this->positiveOrZero($paymentAmount);
     }
 
     private function isUpgradePvBonusable(Package $targetPackage): bool

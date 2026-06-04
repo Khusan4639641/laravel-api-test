@@ -19,9 +19,26 @@ class BonusService
     ) {
     }
 
-    public function accrueReferralBonus(User $sponsor, User $referral, float|string $baseAmount): ?BonusTransaction
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    public function accrueReferralBonus(
+        User $sponsor,
+        User $referral,
+        float|string $baseAmount,
+        array $metadata = [],
+        ?string $idempotencyKey = null,
+    ): ?BonusTransaction
     {
-        return DB::transaction(function () use ($sponsor, $referral, $baseAmount): ?BonusTransaction {
+        return DB::transaction(function () use ($sponsor, $referral, $baseAmount, $metadata, $idempotencyKey): ?BonusTransaction {
+            if ($idempotencyKey !== null) {
+                $existingBonus = $this->findExistingReferralBonus($sponsor, $referral, $idempotencyKey);
+
+                if ($existingBonus) {
+                    return $existingBonus;
+                }
+            }
+
             $sponsor->loadMissing('currentPackage');
             $percent = self::REFERRAL_PERCENT;
 
@@ -42,19 +59,25 @@ class BonusService
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            $bonusMetadata = array_merge($metadata, [
+                'base_amount' => (string) $baseAmount,
+                'percent_source' => 'business_tz',
+                'referral_percent' => $percent,
+                'sponsor_package_id' => $sponsor->current_package_id,
+                'referral_package_id' => $referral->current_package_id,
+            ]);
+
+            if ($idempotencyKey !== null) {
+                $bonusMetadata['referral_bonus_key'] = $idempotencyKey;
+            }
+
             $bonusTransaction = BonusTransaction::query()->create([
                 'user_id' => $sponsor->id,
                 'source_user_id' => $referral->id,
                 'bonus_type' => 'referral',
                 'amount' => $amount,
                 'status' => 'completed',
-                'metadata' => [
-                    'base_amount' => (string) $baseAmount,
-                    'percent_source' => 'business_tz',
-                    'referral_percent' => $percent,
-                    'sponsor_package_id' => $sponsor->current_package_id,
-                    'referral_package_id' => $referral->current_package_id,
-                ],
+                'metadata' => $bonusMetadata,
                 'calculated_at' => now(),
             ]);
 
@@ -73,6 +96,16 @@ class BonusService
 
             return $bonusTransaction->refresh();
         });
+    }
+
+    private function findExistingReferralBonus(User $sponsor, User $referral, string $idempotencyKey): ?BonusTransaction
+    {
+        return BonusTransaction::query()
+            ->where('user_id', $sponsor->id)
+            ->where('source_user_id', $referral->id)
+            ->where('bonus_type', 'referral')
+            ->get()
+            ->first(fn (BonusTransaction $bonus): bool => ($bonus->metadata['referral_bonus_key'] ?? null) === $idempotencyKey);
     }
 
     public function calculateBinaryBonus(User $user): ?BonusTransaction
