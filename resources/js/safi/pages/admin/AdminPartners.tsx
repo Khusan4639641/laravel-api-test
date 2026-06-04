@@ -226,10 +226,39 @@ export default function AdminPartners() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={totalPartnersCount.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={activePartnersCount.toLocaleString('ru-RU')} />
-        <SummaryCard label="VIP / ELITE" value={vipElitePartnersCount.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(partnersTotalBalance)} />
+        <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
+            {adminText('a_0JLRgdC10LPQ')}
+          </div>
+          <div className="mt-3 font-serif text-3xl font-semibold text-safi-green">
+            {totalPartnersCount.toLocaleString('ru-RU')}
+          </div>
+        </article>
+
+        <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
+            {adminText('a_0JDQutGC0LjQ_3')}
+          </div>
+          <div className="mt-3 font-serif text-3xl font-semibold text-safi-green">
+            {activePartnersCount.toLocaleString('ru-RU')}
+          </div>
+        </article>
+
+        <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">VIP / ELITE</div>
+          <div className="mt-3 font-serif text-3xl font-semibold text-safi-green">
+            {vipElitePartnersCount.toLocaleString('ru-RU')}
+          </div>
+        </article>
+
+        <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+          <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
+            {adminText('a_0JHQsNC70LDQ')}
+          </div>
+          <div className="mt-3 font-serif text-3xl font-semibold text-safi-green">
+            {formatMoney(partnersTotalBalance)}
+          </div>
+        </article>
       </section>
 
       <section className="rounded-[28px] border border-safi-border bg-white p-4 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -326,15 +355,6 @@ export default function AdminPartners() {
         />
       )}
     </div>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-      <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>
-      <div className="mt-3 font-serif text-3xl font-semibold text-safi-green">{value}</div>
-    </article>
   );
 }
 
