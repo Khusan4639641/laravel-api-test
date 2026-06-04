@@ -61,6 +61,8 @@ interface PartnerDetail {
   rightPV: number;
   totalIncome: number;
   availableBalance: number;
+  packageActivityPV: number;
+  packageActivityAmount: number;
   registrationDate: string;
   accountStatus: string;
   accountStatusLabel: string;
@@ -102,6 +104,8 @@ const partnerDefaults: PartnerDetail = {
   rightPV: 0,
   totalIncome: 0,
   availableBalance: 0,
+  packageActivityPV: 0,
+  packageActivityAmount: 0,
   registrationDate: '-',
   accountStatus: 'active',
   accountStatusLabel: adminText('a_0JDQutGC0LjQ_2'),
@@ -697,10 +701,20 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
   const pkg = isRecord(user.current_package) ? user.current_package : isRecord(user.package) ? user.package : {};
   const wallets = Array.isArray(user.wallets) ? user.wallets.filter(isRecord) : [];
   const accountStatus = normalizeAccountStatus(getString(user, ['account_status']));
-  const mainBalance = getNumber(user, ['balance', 'main_balance', 'available_balance'])
+  const walletBalance = getNumber(user, ['wallet_balance', 'walletBalance', 'balance', 'main_balance'])
     ?? getWalletBalance(wallets, 'main');
-  const totalBalance = getNumber(user, ['total_balance', 'totalBalance', 'total_income'])
-    ?? mainBalance + getWalletBalance(wallets, 'bonus') + getWalletBalance(wallets, 'deposit');
+  const pvMoneyRate = getNumber(user, ['pv_money_rate', 'pvMoneyRate']) ?? 500;
+  const packageActivityPV = getNumber(user, ['package_activity_pv', 'packageActivityPv'])
+    ?? getNumber(pkg, ['activity_pv', 'activityPv', 'pv'])
+    ?? 0;
+  const packageActivityAmount = getNumber(user, ['package_activity_amount', 'packageActivityAmount'])
+    ?? packageActivityPV * pvMoneyRate;
+  const totalWalletBalance = getNumber(user, ['total_balance', 'totalBalance', 'total_income'])
+    ?? walletBalance + getWalletBalance(wallets, 'bonus') + getWalletBalance(wallets, 'deposit');
+  const availableBalance = getNumber(user, ['available_balance', 'availableBalance'])
+    ?? walletBalance + packageActivityAmount;
+  const totalEarned = getNumber(user, ['total_earned', 'totalEarned'])
+    ?? totalWalletBalance + packageActivityAmount;
 
   return {
     id: getString(user, ['id']) || fallbackId,
@@ -719,8 +733,10 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     teamPV: (getNumber(user, ['left_pv']) ?? 0) + (getNumber(user, ['right_pv']) ?? 0),
     leftPV: getNumber(user, ['left_pv']) ?? 0,
     rightPV: getNumber(user, ['right_pv']) ?? 0,
-    totalIncome: totalBalance,
-    availableBalance: mainBalance,
+    totalIncome: totalEarned,
+    availableBalance,
+    packageActivityPV,
+    packageActivityAmount,
     registrationDate: getString(user, ['created_at']) || '-',
     accountStatus,
     accountStatusLabel: accountStatus === 'blocked' ? adminText('a_0JfQsNCx0LvQ_2') : adminText('a_0JDQutGC0LjQ_2'),

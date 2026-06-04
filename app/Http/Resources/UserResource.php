@@ -7,6 +7,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
 {
+    private const PV_MONEY_RATE = 500;
+
     public function toArray(Request $request): array
     {
         $wallets = $this->resource->relationLoaded('wallets') ? $this->wallets : collect();
@@ -14,6 +16,11 @@ class UserResource extends JsonResource
         $bonusBalance = (float) $wallets->where('type', 'bonus')->sum('balance');
         $depositBalance = (float) $wallets->where('type', 'deposit')->sum('balance');
         $totalBalance = $mainBalance + $bonusBalance + $depositBalance;
+        $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
+        $packageActivityPv = $package ? (float) $package->activityPv() : 0;
+        $packageActivityAmount = $packageActivityPv * self::PV_MONEY_RATE;
+        $availableBalance = $mainBalance + $packageActivityAmount;
+        $totalEarned = $totalBalance + $packageActivityAmount;
         $attributes = $this->resource->getAttributes();
         $invitedCount = (int) ($attributes['invited_count']
             ?? $attributes['invited_users_count']
@@ -41,9 +48,15 @@ class UserResource extends JsonResource
             'total_pv' => $this->total_pv,
             'invited_count' => $invitedCount,
             'balance' => $mainBalance,
+            'wallet_balance' => $mainBalance,
+            'available_balance' => $availableBalance,
             'bonus_balance' => $bonusBalance,
             'deposit_balance' => $depositBalance,
             'total_balance' => $totalBalance,
+            'total_earned' => $totalEarned,
+            'package_activity_pv' => $packageActivityPv,
+            'package_activity_amount' => $packageActivityAmount,
+            'pv_money_rate' => self::PV_MONEY_RATE,
             'current_package' => new PackageResource($this->whenLoaded('currentPackage')),
             'package' => new PackageResource($this->whenLoaded('currentPackage')),
             'profile' => new UserProfileResource($this->whenLoaded('profile')),

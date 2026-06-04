@@ -1,0 +1,129 @@
+<?php
+
+namespace Tests\Feature\Admin;
+
+use App\Models\Package;
+use App\Models\User;
+use App\Services\WalletService;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class AdminPartnerDetailBalanceTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_start_package_assignment_adds_package_activity_amount_to_available_balance(): void
+    {
+        [$partner, $payload] = $this->assignPackageAndGetPartnerPayload('START');
+
+        $this->assertEquals(0, $payload['wallet_balance']);
+        $this->assertEquals(100, $payload['package_activity_pv']);
+        $this->assertEquals(50000, $payload['package_activity_amount']);
+        $this->assertEquals(500, $payload['pv_money_rate']);
+        $this->assertEquals(50000, $payload['available_balance']);
+        $this->assertEquals(50000, $payload['total_earned']);
+        $this->assertSame('100.00', $partner->refresh()->total_pv);
+    }
+
+    public function test_vip_package_assignment_calculates_amount_from_activity_pv(): void
+    {
+        [, $payload] = $this->assignPackageAndGetPartnerPayload('VIP');
+
+        $this->assertEquals(300, $payload['package_activity_pv']);
+        $this->assertEquals(150000, $payload['package_activity_amount']);
+        $this->assertEquals(150000, $payload['available_balance']);
+        $this->assertEquals(150000, $payload['total_earned']);
+        $this->assertNotEquals(180000, $payload['available_balance']);
+    }
+
+    public function test_elite_package_assignment_calculates_amount_from_activity_pv(): void
+    {
+        [, $payload] = $this->assignPackageAndGetPartnerPayload('ELITE');
+
+        $this->assertEquals(500, $payload['package_activity_pv']);
+        $this->assertEquals(250000, $payload['package_activity_amount']);
+        $this->assertEquals(250000, $payload['available_balance']);
+        $this->assertEquals(250000, $payload['total_earned']);
+        $this->assertNotEquals(300000, $payload['available_balance']);
+    }
+
+    public function test_package_price_is_not_used_as_pv_or_activity_amount(): void
+    {
+        [, $payload] = $this->assignPackageAndGetPartnerPayload('START');
+
+        $this->assertEquals(60000, $payload['current_package']['price']);
+        $this->assertEquals(100, $payload['package_activity_pv']);
+        $this->assertEquals(50000, $payload['package_activity_amount']);
+        $this->assertEquals(50000, $payload['available_balance']);
+        $this->assertNotEquals(60000, $payload['package_activity_amount']);
+        $this->assertNotEquals(60000, $payload['available_balance']);
+    }
+
+    public function test_wallet_amount_is_added_to_package_activity_amount(): void
+    {
+        [, $payload] = $this->assignPackageAndGetPartnerPayload('START', walletBalance: 10000);
+
+        $this->assertEquals(10000, $payload['wallet_balance']);
+        $this->assertEquals(50000, $payload['package_activity_amount']);
+        $this->assertEquals(60000, $payload['available_balance']);
+        $this->assertEquals(60000, $payload['total_earned']);
+    }
+
+    /**
+     * @return array{0: User, 1: array<string, mixed>}
+     */
+    private function assignPackageAndGetPartnerPayload(string $code, int $walletBalance = 0): array
+    {
+        $admin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
+        $partner = User::factory()->create(['total_pv' => 0]);
+        $package = $this->createPackage($code);
+
+        if ($walletBalance > 0) {
+            app(WalletService::class)->createUserWallets($partner);
+            $partner->wallets()->where('type', 'main')->firstOrFail()->forceFill([
+                'balance' => $walletBalance,
+            ])->save();
+        }
+
+        Sanctum::actingAs($admin);
+
+        $this->patchJson("/api/admin/partners/{$partner->id}/package", [
+            'package_id' => $package->id,
+            'apply_business_effects' => true,
+        ])->assertOk();
+
+        $payload = $this->getJson("/api/admin/partners/{$partner->id}")
+            ->assertOk()
+            ->json('user');
+
+        return [$partner, $payload];
+    }
+
+    private function createPackage(string $code): Package
+    {
+        $matrix = [
+            'START' => ['price' => 60000, 'activity_pv' => 100, 'turnover_pv' => 100, 'binary_percent' => 7, 'sort_order' => 1],
+            'VIP' => ['price' => 180000, 'activity_pv' => 300, 'turnover_pv' => 300, 'binary_percent' => 8, 'sort_order' => 2],
+            'ELITE' => ['price' => 300000, 'activity_pv' => 500, 'turnover_pv' => 200, 'binary_percent' => 10, 'sort_order' => 3],
+        ];
+
+        $values = $matrix[$code];
+
+        return Package::query()->create([
+            'code' => $code,
+            'name' => $code,
+            'slug' => strtolower($code),
+            'price' => $values['price'],
+            'pv' => $values['activity_pv'],
+            'activity_pv' => $values['activity_pv'],
+            'turnover_pv' => $values['turnover_pv'],
+            'referral_percent' => 10,
+            'binary_percent' => $values['binary_percent'],
+            'sort_order' => $values['sort_order'],
+            'status' => 'active',
+            'is_active' => true,
+            'is_upgradeable' => true,
+        ]);
+    }
+}
