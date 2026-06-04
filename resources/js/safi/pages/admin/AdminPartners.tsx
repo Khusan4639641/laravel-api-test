@@ -30,10 +30,10 @@ interface AdminPartnerRow {
 }
 
 interface AdminPartnersSummary {
-  totalPartners: number;
-  activePartners: number;
-  vipElitePartners: number;
-  totalBalance: number;
+  total_partners: number;
+  active_partners: number;
+  vip_elite_partners: number;
+  total_balance: number;
 }
 
 interface CreatedCredentials {
@@ -60,16 +60,16 @@ const initialCreateForm = {
 const modalInputClass = 'w-full rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-sm font-bold text-safi-green outline-none transition-colors focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60';
 
 const emptySummary: AdminPartnersSummary = {
-  totalPartners: 0,
-  activePartners: 0,
-  vipElitePartners: 0,
-  totalBalance: 0,
+  total_partners: 0,
+  active_partners: 0,
+  vip_elite_partners: 0,
+  total_balance: 0,
 };
 
 export default function AdminPartners() {
   const { currentUser } = useAdminContext();
   const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
-  const [summary, setSummary] = useState<AdminPartnersSummary | null>(null);
+  const [summary, setSummary] = useState<AdminPartnersSummary>(emptySummary);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -93,7 +93,7 @@ export default function AdminPartners() {
       setSummary(normalizeSummary(response));
     } catch (caughtError) {
       setPartners([]);
-      setSummary(null);
+      setSummary(emptySummary);
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_15'));
     } finally {
       setIsLoading(false);
@@ -181,15 +181,6 @@ export default function AdminPartners() {
       `${partner.id} ${partner.fullName} ${partner.phone} ${partner.email}`.toLowerCase().includes(normalizedQuery)
     );
   }, [partners, query]);
-  const displayedSummary = useMemo(() => {
-    const fallbackSummary = calculateSummaryFromPartners(partners);
-
-    if (!summary) {
-      return fallbackSummary;
-    }
-
-    return summary.totalPartners === 0 && fallbackSummary.totalPartners > 0 ? fallbackSummary : summary;
-  }, [partners, summary]);
   const canCreatePartners = currentUser.role === 'super_admin';
 
   return (
@@ -230,10 +221,10 @@ export default function AdminPartners() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={displayedSummary.totalPartners.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={displayedSummary.activePartners.toLocaleString('ru-RU')} />
-        <SummaryCard label="VIP / ELITE" value={displayedSummary.vipElitePartners.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(displayedSummary.totalBalance)} />
+        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={summary.total_partners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={summary.active_partners.toLocaleString('ru-RU')} />
+        <SummaryCard label="VIP / ELITE" value={summary.vip_elite_partners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(summary.total_balance)} />
       </section>
 
       <section className="rounded-[28px] border border-safi-border bg-white p-4 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -599,49 +590,27 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
   });
 }
 
-function normalizeSummary(response: unknown): AdminPartnersSummary | null {
+function normalizeSummary(response: unknown): AdminPartnersSummary {
   const record = isRecord(response) ? response : {};
-  const summary = isRecord(record.summary)
+  const data = isRecord(record.data) ? record.data : {};
+  const meta = isRecord(record.meta) ? record.meta : {};
+  const responseSummary = isRecord(record.summary)
     ? record.summary
-    : isRecord(record.meta) && isRecord(record.meta.summary)
-      ? record.meta.summary
-      : isRecord(record.stats)
-        ? record.stats
+    : isRecord(data.summary)
+      ? data.summary
+      : isRecord(meta.summary)
+        ? meta.summary
         : undefined;
 
-  if (!summary || !hasAnyKey(summary, [
-    'total_partners',
-    'totalPartners',
-    'active_partners',
-    'activePartners',
-    'vip_elite_partners',
-    'vipElitePartners',
-    'total_balance',
-    'totalBalance',
-  ])) {
-    return null;
-  }
-
-  return {
-    totalPartners: getNumber(summary, ['total_partners', 'totalPartners']) ?? 0,
-    activePartners: getNumber(summary, ['active_partners', 'activePartners']) ?? 0,
-    vipElitePartners: getNumber(summary, ['vip_elite_partners', 'vipElitePartners']) ?? 0,
-    totalBalance: getNumber(summary, ['total_balance', 'totalBalance']) ?? 0,
-  };
-}
-
-function calculateSummaryFromPartners(partners: AdminPartnerRow[]): AdminPartnersSummary {
-  if (partners.length === 0) {
+  if (!responseSummary) {
     return emptySummary;
   }
 
-  const partnerRows = partners.filter((partner) => isPartnerRole(partner.role));
-
   return {
-    totalPartners: partnerRows.length,
-    activePartners: partnerRows.filter((partner) => partner.accountStatus === adminText('a_0JDQutGC0LjQ_2')).length,
-    vipElitePartners: partnerRows.filter((partner) => ['VIP', 'ELITE'].includes(partner.package.toUpperCase())).length,
-    totalBalance: partnerRows.reduce((sum, partner) => sum + partner.totalIncome, 0),
+    total_partners: getNumber(responseSummary, ['total_partners']) ?? 0,
+    active_partners: getNumber(responseSummary, ['active_partners']) ?? 0,
+    vip_elite_partners: getNumber(responseSummary, ['vip_elite_partners']) ?? 0,
+    total_balance: getNumber(responseSummary, ['total_balance']) ?? 0,
   };
 }
 
@@ -665,10 +634,6 @@ function getArray(response: unknown) {
   }
 
   return [];
-}
-
-function isPartnerRole(role: string) {
-  return role === 'user';
 }
 
 function formatMoney(value: number) {
@@ -719,10 +684,6 @@ function getWalletBalance(wallets: Record<string, unknown>[], type: string) {
   return wallets
     .filter((wallet) => getString(wallet, ['type']) === type)
     .reduce((sum, wallet) => sum + (getNumber(wallet, ['balance']) ?? 0), 0);
-}
-
-function hasAnyKey(record: Record<string, unknown>, keys: string[]) {
-  return keys.some((key) => Object.prototype.hasOwnProperty.call(record, key));
 }
 
 function getAccountStatusLabel(status?: string) {
