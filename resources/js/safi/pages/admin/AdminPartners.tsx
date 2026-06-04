@@ -29,13 +29,6 @@ interface AdminPartnerRow {
   accountStatus: string;
 }
 
-interface AdminPartnersSummary {
-  total_partners: number;
-  active_partners: number;
-  vip_elite_partners: number;
-  total_balance: number;
-}
-
 interface CreatedCredentials {
   login: string;
   email: string;
@@ -59,17 +52,9 @@ const initialCreateForm = {
 
 const modalInputClass = 'w-full rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-sm font-bold text-safi-green outline-none transition-colors focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60';
 
-const emptySummary: AdminPartnersSummary = {
-  total_partners: 0,
-  active_partners: 0,
-  vip_elite_partners: 0,
-  total_balance: 0,
-};
-
 export default function AdminPartners() {
   const { currentUser } = useAdminContext();
   const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
-  const [summary, setSummary] = useState<AdminPartnersSummary>(() => ({ ...emptySummary }));
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -88,21 +73,11 @@ export default function AdminPartners() {
     try {
       const response = await getAdminUsers();
       const body = unwrapAdminPartnersPayload(response);
-      const bodyRecord = isRecord(body) ? body : {};
-      const bodySummary = isRecord(bodyRecord.summary) ? bodyRecord.summary : {};
       const normalizedPartners = normalizePartners(body);
-      const nextSummary: AdminPartnersSummary = {
-        total_partners: Number(bodySummary.total_partners ?? 0),
-        active_partners: Number(bodySummary.active_partners ?? 0),
-        vip_elite_partners: Number(bodySummary.vip_elite_partners ?? 0),
-        total_balance: Number(bodySummary.total_balance ?? 0),
-      };
 
       setPartners(normalizedPartners);
-      setSummary({ ...nextSummary });
     } catch (caughtError) {
       setPartners([]);
-      setSummary({ ...emptySummary });
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_15'));
     } finally {
       setIsLoading(false);
@@ -190,6 +165,16 @@ export default function AdminPartners() {
       `${partner.id} ${partner.fullName} ${partner.phone} ${partner.email}`.toLowerCase().includes(normalizedQuery)
     );
   }, [partners, query]);
+  const computedSummary = useMemo(() => {
+    const realPartners = partners.filter((partner) => partner.role === 'user');
+
+    return {
+      total_partners: realPartners.length,
+      active_partners: realPartners.filter((partner) => partner.accountStatus === adminText('a_0JDQutGC0LjQ_2') || partner.accountStatus === 'active').length,
+      vip_elite_partners: realPartners.filter((partner) => ['VIP', 'ELITE'].includes(String(partner.package).toUpperCase())).length,
+      total_balance: realPartners.reduce((sum, partner) => sum + Number(partner.totalIncome || partner.availableBalance || 0), 0),
+    };
+  }, [partners]);
   const canCreatePartners = currentUser.role === 'super_admin';
 
   return (
@@ -230,10 +215,10 @@ export default function AdminPartners() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={summary.total_partners.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={summary.active_partners.toLocaleString('ru-RU')} />
-        <SummaryCard label="VIP / ELITE" value={summary.vip_elite_partners.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(summary.total_balance)} />
+        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={computedSummary.total_partners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={computedSummary.active_partners.toLocaleString('ru-RU')} />
+        <SummaryCard label="VIP / ELITE" value={computedSummary.vip_elite_partners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(computedSummary.total_balance)} />
       </section>
 
       <section className="rounded-[28px] border border-safi-border bg-white p-4 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
