@@ -7,8 +7,10 @@ use App\Models\BonusTransaction;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Notifications\BonusAccruedNotification;
 use Database\Seeders\ProductSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -157,6 +159,26 @@ class ProductOrderApiTest extends TestCase
         ]);
     }
 
+    public function test_user_can_list_deposit_products_only(): void
+    {
+        $user = User::factory()->create();
+        $depositProduct = $this->createProduct('Deposit Product', 'DEPOSIT-001', 1000, 'active', 10, true);
+        $normalProduct = $this->createProduct('Normal Product', 'NORMAL-001', 2000);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/dashboard/deposit-products')
+            ->assertOk()
+            ->assertJsonCount(1, 'products')
+            ->assertJsonPath('products.0.id', $depositProduct->id)
+            ->assertJsonPath('products.0.is_deposit_product', true);
+
+        $this->getJson('/api/dashboard/products')
+            ->assertOk()
+            ->assertJsonMissing(['id' => $depositProduct->id])
+            ->assertJsonFragment(['id' => $normalProduct->id]);
+    }
+
     public function test_user_can_create_deposit_purchase_with_twenty_percent_cashback(): void
     {
         $user = User::factory()->create();
@@ -197,12 +219,122 @@ class ProductOrderApiTest extends TestCase
         ]);
     }
 
+    public function test_user_can_buy_deposit_product_with_twenty_percent_cashback(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create();
+        $product = $this->createProduct('Deposit Tea', 'DEPOSIT-TEA', 1000, 'active', 2, true);
+        Wallet::query()->create([
+            'user_id' => $user->id,
+            'type' => 'deposit',
+            'currency' => 'KZT',
+            'balance' => 5000,
+            'hold_balance' => 0,
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/deposits/purchase', [
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ])->assertCreated()
+            ->assertJsonPath('order.total_amount', '1000.00')
+            ->assertJsonPath('order.payment_status', 'paid')
+            ->assertJsonPath('deposit_transaction.type', 'deposit_purchase')
+            ->assertJsonPath('deposit_transaction.amount', '1000.00')
+            ->assertJsonPath('cashback_bonus.bonus_type', 'cashback')
+            ->assertJsonPath('cashback_bonus.amount', '200.00');
+
+        $depositWallet = $user->wallets()->where('type', 'deposit')->firstOrFail();
+        $mainWallet = $user->wallets()->where('type', 'main')->firstOrFail();
+        $cashbackBonus = BonusTransaction::query()->where('bonus_type', 'cashback')->firstOrFail();
+
+        $this->assertSame('4000.00', $depositWallet->balance);
+        $this->assertSame('200.00', $mainWallet->balance);
+        $this->assertSame(9, $product->refresh()->stock_quantity);
+        $this->assertSame('20', $cashbackBonus->metadata['cashback_percent']);
+        $this->assertDatabaseHas('orders', [
+            'user_id' => $user->id,
+            'payment_status' => 'paid',
+            'total_amount' => '1000.00',
+        ]);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'type' => 'deposit_purchase',
+            'direction' => 'debit',
+            'amount' => '1000.00',
+        ]);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'type' => 'deposit_purchase_cashback',
+            'direction' => 'credit',
+            'amount' => '200.00',
+        ]);
+
+        Notification::assertSentTo($user, BonusAccruedNotification::class);
+    }
+
+    public function test_deposit_product_purchase_requires_deposit_balance(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->createProduct('Deposit Product', 'DEPOSIT-LOW-BALANCE', 1000, 'active', 1, true);
+        Wallet::query()->create([
+            'user_id' => $user->id,
+            'type' => 'deposit',
+            'currency' => 'KZT',
+            'balance' => 500,
+            'hold_balance' => 0,
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/deposits/purchase', [
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('amount');
+
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertSame('500.00', $user->wallets()->where('type', 'deposit')->firstOrFail()->balance);
+    }
+
+    public function test_user_cannot_buy_non_deposit_product_from_deposit_catalog(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->createProduct('Normal Product', 'NORMAL-DEPOSIT-BLOCK', 1000);
+        Wallet::query()->create([
+            'user_id' => $user->id,
+            'type' => 'deposit',
+            'currency' => 'KZT',
+            'balance' => 5000,
+            'hold_balance' => 0,
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/deposits/purchase', [
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('product_id');
+
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'type' => 'deposit_purchase',
+        ]);
+    }
+
     private function createProduct(
         string $name,
         string $sku,
         int $price,
         string $status = 'active',
         int $pv = 1000,
+        bool $isDepositProduct = false,
     ): Product {
         return Product::query()->create([
             'name' => $name,
@@ -212,6 +344,7 @@ class ProductOrderApiTest extends TestCase
             'pv' => $pv,
             'stock_quantity' => 10,
             'status' => $status,
+            'is_deposit_product' => $isDepositProduct,
         ]);
     }
 }

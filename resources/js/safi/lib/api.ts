@@ -94,6 +94,7 @@ export interface Product {
   stockQuantity?: number;
   reservedQuantity?: number;
   inStock?: boolean;
+  isDepositProduct?: boolean;
   status?: string;
   createdAt?: string;
 }
@@ -426,6 +427,14 @@ export async function getDashboardProducts() {
   return normalizeProducts(response);
 }
 
+export async function getDashboardDepositProducts() {
+  const response = await apiRequest(endpoints.dashboard.depositProducts, {
+    method: 'GET',
+    auth: true,
+  });
+  return normalizeProducts(response);
+}
+
 export async function getDashboardWithdrawals<T = unknown>() {
   return apiRequest<T>(endpoints.dashboard.withdrawals, {
     method: 'GET',
@@ -550,10 +559,19 @@ export async function calculateBinaryBonus<T = unknown>(payload: BinaryCalculati
   });
 }
 
-export async function createDepositPurchase<T = unknown>(amount: number) {
+export async function createDepositPurchase<T = unknown>(
+  payload: number | { amount?: number; product_id?: string | number; productId?: string | number; quantity?: number },
+) {
+  const body = typeof payload === 'number'
+    ? { amount: payload }
+    : {
+        ...payload,
+        product_id: payload.product_id ?? payload.productId,
+      };
+
   return apiRequest<T>(endpoints.dashboard.depositPurchase, {
     method: 'POST',
-    body: { amount },
+    body: compactPayload(body),
     auth: true,
   });
 }
@@ -1228,6 +1246,7 @@ export function normalizeProducts(response: unknown): Product[] {
       stockQuantity: getNumber(record, ['stock_quantity', 'stock']) ?? undefined,
       reservedQuantity: getNumber(record, ['reserved_quantity']) ?? 0,
       inStock: Boolean(record.in_stock ?? record.is_in_stock ?? ((getNumber(record, ['stock', 'stock_quantity']) ?? 0) > 0 && getString(record, ['status']) !== 'inactive')),
+      isDepositProduct: Boolean(record.is_deposit_product ?? record.isDepositProduct),
       status: getString(record, ['status']),
       createdAt: getString(record, ['created_at', 'createdAt']),
     };

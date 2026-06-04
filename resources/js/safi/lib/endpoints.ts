@@ -32,6 +32,7 @@ export const endpoints = {
     bonuses: '/dashboard/bonuses',
     packages: '/dashboard/packages',
     products: '/dashboard/products',
+    depositProducts: '/dashboard/deposit-products',
     orders: '/dashboard/orders',
     withdrawals: '/dashboard/withdrawals',
     supportTickets: '/dashboard/support-tickets',

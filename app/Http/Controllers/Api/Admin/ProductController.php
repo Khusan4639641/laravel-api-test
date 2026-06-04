@@ -70,6 +70,7 @@ class ProductController extends Controller
             'stock_quantity' => ['nullable', 'integer', 'min:0'],
             'reserved_quantity' => ['nullable', 'integer', 'min:0'],
             'status' => ['nullable', 'string', 'max:255'],
+            'is_deposit_product' => ['nullable', 'boolean'],
             'image_path' => ['nullable', 'string', 'max:2048'],
             'metadata' => ['nullable', 'array'],
         ]);

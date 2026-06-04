@@ -14,6 +14,7 @@ class ProductController extends Controller
         return response()->json([
             'products' => ProductResource::collection(Product::query()
                 ->where('status', 'active')
+                ->where('is_deposit_product', false)
                 ->orderBy('id')
                 ->get()),
         ]);
@@ -21,7 +22,7 @@ class ProductController extends Controller
 
     public function show(Product $product): JsonResponse
     {
-        if ($product->status !== 'active') {
+        if ($product->status !== 'active' || $product->is_deposit_product) {
             abort(404);
         }
 

@@ -45,6 +45,8 @@ class ProductResource extends JsonResource
             'in_stock' => (int) $this->stock_quantity > 0 && $this->status === 'active',
             'is_in_stock' => (int) $this->stock_quantity > 0 && $this->status === 'active',
             'status' => $this->status,
+            'is_deposit_product' => (bool) $this->is_deposit_product,
+            'isDepositProduct' => (bool) $this->is_deposit_product,
             'image_path' => $this->image_path,
             'image_url' => $image,
             'imageUrl' => $image,

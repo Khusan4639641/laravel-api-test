@@ -17,6 +17,7 @@ class ProductController extends Controller
     {
         $products = Product::query()
             ->where('status', 'active')
+            ->where('is_deposit_product', false)
             ->orderBy('id')
             ->paginate($this->perPage($request));
 

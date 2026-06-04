@@ -54,6 +54,7 @@ class ProductSeeder extends Seeder
                 'price' => 21000,
                 'pv' => 35,
                 'stock_quantity' => 75,
+                'is_deposit_product' => false,
                 'metadata' => [
                     'category' => 'Красота',
                     'short_description' => 'Омолаживающая сыворотка с пептидами для ровного тона кожи.',
@@ -107,6 +108,7 @@ class ProductSeeder extends Seeder
                 'price' => 18000,
                 'pv' => 30,
                 'stock_quantity' => 90,
+                'is_deposit_product' => false,
                 'metadata' => [
                     'category' => 'Красота',
                     'short_description' => 'Морской коллаген с витамином C для упругости кожи.',
@@ -155,6 +157,7 @@ class ProductSeeder extends Seeder
                 'price' => 12500,
                 'pv' => 20,
                 'stock_quantity' => 140,
+                'is_deposit_product' => false,
                 'metadata' => [
                     'category' => 'Здоровье',
                     'short_description' => 'Омега 3 для поддержки сердца, сосудов и концентрации.',
@@ -203,6 +206,7 @@ class ProductSeeder extends Seeder
                 'price' => 4500,
                 'pv' => 8,
                 'stock_quantity' => 180,
+                'is_deposit_product' => true,
                 'metadata' => [
                     'category' => 'Здоровье',
                     'short_description' => 'Травяной чай для мягкого очищения и легкости.',

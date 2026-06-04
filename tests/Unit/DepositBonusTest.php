@@ -3,6 +3,7 @@
 namespace Tests\Unit;
 
 use App\Models\Package;
+use App\Models\Product;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Services\BonusService;
@@ -62,6 +63,36 @@ class DepositBonusTest extends TestCase
         $this->assertSame('10000.00', $user->wallets()->where('type', 'main')->firstOrFail()->balance);
         $this->assertSame('10000.00', $cashbackBonus?->amount);
         $this->assertSame('20', $cashbackBonus?->metadata['cashback_percent']);
+    }
+
+    public function test_deposit_product_purchase_debits_deposit_and_cashbacks_to_main(): void
+    {
+        $user = User::factory()->create();
+        $product = Product::query()->create([
+            'name' => 'Deposit Product',
+            'sku' => 'DEP-UNIT',
+            'price' => 1000,
+            'pv' => 2,
+            'stock_quantity' => 5,
+            'status' => 'active',
+            'is_deposit_product' => true,
+        ]);
+        Wallet::query()->create([
+            'user_id' => $user->id,
+            'type' => 'deposit',
+            'currency' => 'KZT',
+            'balance' => 2000,
+            'hold_balance' => 0,
+            'status' => 'active',
+        ]);
+
+        $result = app(DepositPurchaseService::class)->purchaseProduct($user, $product, 1);
+
+        $this->assertSame('1000.00', $result['deposit_transaction']->amount);
+        $this->assertSame('200.00', $result['cashback_bonus']?->amount);
+        $this->assertSame('1000.00', $user->wallets()->where('type', 'deposit')->firstOrFail()->balance);
+        $this->assertSame('200.00', $user->wallets()->where('type', 'main')->firstOrFail()->balance);
+        $this->assertSame(4, $product->refresh()->stock_quantity);
     }
 
     private function createPackage(string $code, int $binaryPercent): Package
