@@ -712,9 +712,9 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
   const totalWalletBalance = getNumber(user, ['total_balance', 'totalBalance', 'total_income'])
     ?? walletBalance + getWalletBalance(wallets, 'bonus') + getWalletBalance(wallets, 'deposit');
   const availableBalance = getNumber(user, ['available_balance', 'availableBalance'])
-    ?? walletBalance + packageActivityAmount;
+    ?? walletBalance;
   const totalEarned = getNumber(user, ['total_earned', 'totalEarned'])
-    ?? totalWalletBalance + packageActivityAmount;
+    ?? totalWalletBalance;
 
   return {
     id: getString(user, ['id']) || fallbackId,

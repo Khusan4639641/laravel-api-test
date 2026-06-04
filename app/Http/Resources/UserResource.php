@@ -19,8 +19,6 @@ class UserResource extends JsonResource
         $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
         $packageActivityAmount = $packageActivityPv * self::PV_MONEY_RATE;
-        $availableBalance = $mainBalance + $packageActivityAmount;
-        $totalEarned = $totalBalance + $packageActivityAmount;
         $attributes = $this->resource->getAttributes();
         $invitedCount = (int) ($attributes['invited_count']
             ?? $attributes['invited_users_count']
@@ -49,11 +47,11 @@ class UserResource extends JsonResource
             'invited_count' => $invitedCount,
             'balance' => $mainBalance,
             'wallet_balance' => $mainBalance,
-            'available_balance' => $availableBalance,
+            'available_balance' => $mainBalance,
             'bonus_balance' => $bonusBalance,
             'deposit_balance' => $depositBalance,
             'total_balance' => $totalBalance,
-            'total_earned' => $totalEarned,
+            'total_earned' => $totalBalance,
             'package_activity_pv' => $packageActivityPv,
             'package_activity_amount' => $packageActivityAmount,
             'pv_money_rate' => self::PV_MONEY_RATE,
