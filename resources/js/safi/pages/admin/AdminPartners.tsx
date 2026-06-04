@@ -26,6 +26,7 @@ interface AdminPartnerRow {
   totalIncome: number;
   availableBalance: number;
   registrationDate: string;
+  accountStatusCode: string;
   accountStatus: string;
 }
 
@@ -166,11 +167,12 @@ export default function AdminPartners() {
     );
   }, [partners, query]);
   const computedSummary = useMemo(() => {
-    const realPartners = partners.filter((partner) => partner.role === 'user');
+    const staffRoles = ['super_admin', 'admin', 'accountant', 'support'];
+    const realPartners = partners.filter((partner) => !staffRoles.includes(String(partner.role)));
 
     return {
       total_partners: realPartners.length,
-      active_partners: realPartners.filter((partner) => partner.accountStatus === adminText('a_0JDQutGC0LjQ_2') || partner.accountStatus === 'active').length,
+      active_partners: realPartners.filter((partner) => partner.accountStatusCode === 'active').length,
       vip_elite_partners: realPartners.filter((partner) => ['VIP', 'ELITE'].includes(String(partner.package).toUpperCase())).length,
       total_balance: realPartners.reduce((sum, partner) => sum + Number(partner.totalIncome || partner.availableBalance || 0), 0),
     };
@@ -576,6 +578,7 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
     const apiTotalBalance = getNumber(record, ['total_balance', 'totalBalance', 'total_earned', 'totalEarned']);
     const displayBalance = Math.max(apiBalance ?? computedBalance, computedBalance);
     const displayTotalBalance = Math.max(apiTotalBalance ?? computedTotalBalance, computedTotalBalance);
+    const accountStatusCode = getString(record, ['account_status', 'accountStatus', 'state']) || 'active';
 
     return {
       id: getString(record, ['partner_id', 'partnerId', 'code', 'id']) || `USER-${index + 1}`,
@@ -594,7 +597,8 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       totalIncome: displayTotalBalance,
       availableBalance: displayBalance,
       registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || '-',
-      accountStatus: getAccountStatusLabel(getString(record, ['account_status', 'accountStatus', 'state'])),
+      accountStatusCode,
+      accountStatus: getAccountStatusLabel(accountStatusCode),
     };
   });
 }
