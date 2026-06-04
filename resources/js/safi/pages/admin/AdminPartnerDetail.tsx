@@ -717,8 +717,8 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     ?? walletBalance + bonusBalance + depositBalance;
   const totalWalletEarned = getNumber(user, ['total_wallet_earned', 'totalWalletEarned', 'wallet_total_earned', 'walletTotalEarned'])
     ?? totalWalletBalance;
-  const apiAvailableBalance = getNumber(user, ['available_balance', 'availableBalance']);
-  const apiTotalEarned = getNumber(user, ['total_earned', 'totalEarned', 'total_balance', 'totalBalance']);
+  const apiAvailableBalance = getNumber(user, ['available_balance', 'availableBalance', 'wallet_balance', 'walletBalance']);
+  const apiTotalEarned = getNumber(user, ['total_earned', 'totalEarned', 'total_balance', 'totalBalance', 'total_wallet_balance', 'totalWalletBalance']);
   const availableBalance = apiAvailableBalance ?? walletBalance;
   const totalEarned = apiTotalEarned ?? totalWalletEarned;
 

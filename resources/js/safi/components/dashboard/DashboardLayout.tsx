@@ -205,7 +205,9 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
   const record = unwrapRecord(response);
   const packageRecord = isRecord(record.package) ? record.package : undefined;
   const statusRecord = isRecord(record.status) ? record.status : undefined;
-  const walletRecord = isRecord(record.wallet) ? record.wallet : undefined;
+  const wallets = Array.isArray(record.wallets) ? record.wallets.filter(isRecord) : [];
+  const mainWalletRecord = wallets.find((wallet) => getString(wallet, ['type']) === 'main');
+  const walletRecord = mainWalletRecord || (isRecord(record.wallet) ? record.wallet : undefined);
   const sponsorRecord = isRecord(record.sponsor) ? record.sponsor : undefined;
 
   const packageName = getString(packageRecord, ['name', 'title'])
@@ -230,7 +232,9 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
     status: statusName,
     sponsor: sponsorName,
     registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || userDefaults.registrationDate,
-    walletAvailable: getNumber(walletRecord, ['available', 'balance', 'amount']) ?? getNumber(record, ['wallet_available', 'available_balance', 'balance']) ?? userDefaults.walletAvailable,
+    walletAvailable: getNumber(record, ['wallet_balance', 'walletBalance', 'available_balance', 'availableBalance', 'withdrawable_balance', 'withdrawableBalance'])
+      ?? getNumber(walletRecord, ['available', 'balance', 'amount'])
+      ?? userDefaults.walletAvailable,
     totalEarned: getNumber(walletRecord, ['total_earned', 'totalEarned', 'earned']) ?? getNumber(record, ['total_earned', 'totalEarned']) ?? userDefaults.totalEarned,
     personalPV: getNumber(record, ['total_pv', 'totalPV', 'personal_pv', 'personalPV', 'pv']) ?? userDefaults.personalPV,
     teamPV: getNumber(record, ['team_pv', 'teamPV', 'structure_pv']) ?? userDefaults.teamPV,

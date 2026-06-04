@@ -20,7 +20,12 @@ export default function Bonuses() {
   const { currentUser } = useDashboardContext();
   const [activeTab, setActiveTab] = useState<'bonuses' | 'withdrawal'>('bonuses');
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
-  const [balance, setBalance] = useState({ pending: 0, withdrawn: 0 });
+  const [balance, setBalance] = useState({
+    available: currentUser.walletAvailable,
+    totalEarned: currentUser.totalEarned,
+    pending: 0,
+    withdrawn: 0,
+  });
   const [bonuses, setBonuses] = useState({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
   const [structure, setStructure] = useState({ leftPV: 0, rightPV: 0, weakLeg: 'left' });
   const [statuses, setStatuses] = useState<Status[]>([]);
@@ -68,6 +73,8 @@ export default function Bonuses() {
       const balances = overviewRecord.balances && typeof overviewRecord.balances === 'object' ? overviewRecord.balances as Record<string, unknown> : {};
       const structureRecord = overviewRecord.structure && typeof overviewRecord.structure === 'object' ? overviewRecord.structure as Record<string, unknown> : {};
       setBalance({
+        available: getNumber(balances, ['available']) ?? currentUser.walletAvailable,
+        totalEarned: getNumber(balances, ['total_earned']) ?? currentUser.totalEarned,
         pending: getNumber(balances, ['pending_withdrawals']) ?? 0,
         withdrawn: getNumber(balances, ['withdrawn']) ?? 0,
       });
@@ -150,8 +157,8 @@ export default function Bonuses() {
       {!isLoading && !loadError && activeTab === 'bonuses' && (
         <div className="space-y-8">
           <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <StatCard title="Доступно" value={`${currentUser.walletAvailable.toLocaleString('ru-RU')} ₸`} icon={<Wallet className="h-5 w-5" />} variant="primary" />
-            <StatCard title="Всего заработано" value={`${currentUser.totalEarned.toLocaleString('ru-RU')} ₸`} />
+            <StatCard title="Доступно" value={`${balance.available.toLocaleString('ru-RU')} ₸`} icon={<Wallet className="h-5 w-5" />} variant="primary" />
+            <StatCard title="Всего заработано" value={`${balance.totalEarned.toLocaleString('ru-RU')} ₸`} />
             <StatCard title="Ожидает" value={`${balance.pending.toLocaleString('ru-RU')} ₸`} />
             <StatCard title="Выведено" value={`${balance.withdrawn.toLocaleString('ru-RU')} ₸`} />
           </section>

@@ -30,12 +30,18 @@ class OverviewController extends Controller
             ->where('user_id', $user->id)
             ->groupBy('bonus_type')
             ->pluck('total', 'bonus_type');
+        $mainWalletBalance = (string) $user->wallets
+            ->where('type', 'main')
+            ->sum('balance');
+        $totalWalletBalance = (string) $user->wallets->sum('balance');
 
         return response()->json([
             'user' => UserResource::make($user),
             'wallets' => WalletResource::collection($user->wallets),
             'balances' => [
-                'available' => (string) $user->wallets->sum('balance'),
+                'available' => $mainWalletBalance,
+                'withdrawable' => $mainWalletBalance,
+                'total_wallet_balance' => $totalWalletBalance,
                 'hold' => (string) $user->wallets->sum('hold_balance'),
                 'total_earned' => (string) WalletTransaction::query()
                     ->where('user_id', $user->id)

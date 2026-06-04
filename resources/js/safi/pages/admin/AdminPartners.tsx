@@ -588,11 +588,6 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
     const personalPV = getNumber(record, ['total_pv', 'totalPv', 'personal_pv', 'personalPV', 'pv']) ?? 0;
     const leftPV = getNumber(record, ['left_pv', 'leftPV']) ?? 0;
     const rightPV = getNumber(record, ['right_pv', 'rightPV']) ?? 0;
-    const packageActivityPV = getNumber(record, ['package_activity_pv', 'packageActivityPv'])
-      ?? getNumber(packageRecord, ['activity_pv', 'activityPv', 'pv'])
-      ?? 0;
-    const packageActivityAmount = getNumber(record, ['package_activity_amount', 'packageActivityAmount'])
-      ?? packageActivityPV * 500;
     const walletBalance = getNumber(record, ['wallet_balance', 'walletBalance', 'main_balance', 'mainBalance'])
       ?? getWalletBalance(wallets, 'main');
     const bonusBalance = getNumber(record, ['bonus_balance', 'bonusBalance'])
@@ -601,8 +596,8 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       ?? getWalletBalance(wallets, 'deposit');
     const totalWalletBalance = getNumber(record, ['total_wallet_balance', 'totalWalletBalance', 'wallet_total_balance', 'walletTotalBalance'])
       ?? walletBalance + bonusBalance + depositBalance;
-    const apiBalance = getNumber(record, ['available_balance', 'availableBalance', 'balance']);
-    const apiTotalBalance = getNumber(record, ['total_balance', 'totalBalance', 'total_earned', 'totalEarned']);
+    const apiBalance = getNumber(record, ['available_balance', 'availableBalance', 'wallet_balance', 'walletBalance', 'balance']);
+    const apiTotalBalance = getNumber(record, ['total_balance', 'totalBalance', 'total_earned', 'totalEarned', 'total_wallet_balance', 'totalWalletBalance']);
     const displayBalance = apiBalance ?? walletBalance;
     const displayTotalBalance = apiTotalBalance ?? totalWalletBalance;
     const accountStatusCode = getString(record, ['account_status', 'accountStatus', 'state']) || 'active';
