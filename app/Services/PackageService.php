@@ -246,13 +246,11 @@ class PackageService
             ];
         }
 
-        $referralPv = $this->positiveOrZero(bcsub($userPv, $turnoverPv, 2));
-
         return [
             'user_pv' => $userPv,
             'bonusable_turnover_pv' => '0.00',
             'non_bonusable_turnover_pv' => $turnoverPv,
-            'referral_base_amount' => bcmul($referralPv, self::PV_MONEY_RATE, 2),
+            'referral_base_amount' => '0.00',
         ];
     }
 

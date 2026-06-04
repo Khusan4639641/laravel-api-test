@@ -37,8 +37,15 @@ class AdminManualPackageAssignmentTest extends TestCase
     public function test_manual_start_package_assignment_uses_package_pv_not_price(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
-        $partner = User::factory()->create(['total_pv' => 0]);
+        $sponsor = User::factory()->create();
+        $partner = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
+            'total_pv' => 0,
+        ]);
         $start = $this->createPackage('START');
+        $tree = app(BinaryTreeService::class);
+        $tree->placeUser($sponsor);
+        $tree->placeUser($partner, $sponsor, 'L');
 
         Sanctum::actingAs($admin);
 
@@ -52,13 +59,24 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame($start->id, $partner->current_package_id);
         $this->assertSame('100.00', $partner->total_pv);
         $this->assertNotSame('60000.00', $partner->total_pv);
+        $this->assertSame('0.00', $partner->left_pv);
+        $this->assertSame('0.00', $partner->right_pv);
+        $this->assertSame('100.00', $sponsor->refresh()->left_pv);
+        $this->assertSame('100.00', $sponsor->remaining_left_pv);
     }
 
     public function test_manual_vip_package_assignment_uses_package_pv_not_price(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
-        $partner = User::factory()->create(['total_pv' => 0]);
+        $sponsor = User::factory()->create();
+        $partner = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
+            'total_pv' => 0,
+        ]);
         $vip = $this->createPackage('VIP');
+        $tree = app(BinaryTreeService::class);
+        $tree->placeUser($sponsor);
+        $tree->placeUser($partner, $sponsor, 'R');
 
         Sanctum::actingAs($admin);
 
@@ -72,6 +90,10 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame($vip->id, $partner->current_package_id);
         $this->assertSame('300.00', $partner->total_pv);
         $this->assertNotSame('180000.00', $partner->total_pv);
+        $this->assertSame('0.00', $partner->left_pv);
+        $this->assertSame('0.00', $partner->right_pv);
+        $this->assertSame('300.00', $sponsor->refresh()->right_pv);
+        $this->assertSame('300.00', $sponsor->remaining_right_pv);
     }
 
     public function test_manual_elite_package_assignment_uses_activity_pv_and_turnover_pv_correctly(): void
@@ -102,8 +124,12 @@ class AdminManualPackageAssignmentTest extends TestCase
 
         $this->assertSame('500.00', $partner->total_pv);
         $this->assertNotSame('300000.00', $partner->total_pv);
+        $this->assertSame('0.00', $partner->left_pv);
+        $this->assertSame('0.00', $partner->right_pv);
         $this->assertSame('200.00', $sponsor->left_pv);
         $this->assertSame('0.00', $sponsor->remaining_left_pv);
+        $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'referral')->count());
+        $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'binary')->count());
     }
 
     public function test_manual_package_assignment_accrues_referral_bonus_from_pv_volume_not_price(): void
@@ -162,8 +188,15 @@ class AdminManualPackageAssignmentTest extends TestCase
     public function test_manual_package_assignment_without_business_effects_does_not_change_pv(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
-        $partner = User::factory()->create(['total_pv' => 42]);
+        $sponsor = User::factory()->create();
+        $partner = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
+            'total_pv' => 42,
+        ]);
         $start = $this->createPackage('START');
+        $tree = app(BinaryTreeService::class);
+        $tree->placeUser($sponsor);
+        $tree->placeUser($partner, $sponsor, 'L');
 
         Sanctum::actingAs($admin);
 
@@ -176,6 +209,10 @@ class AdminManualPackageAssignmentTest extends TestCase
 
         $this->assertSame($start->id, $partner->refresh()->current_package_id);
         $this->assertSame('42.00', $partner->total_pv);
+        $this->assertSame('0.00', $partner->left_pv);
+        $this->assertSame('0.00', $partner->right_pv);
+        $this->assertSame('0.00', $sponsor->refresh()->left_pv);
+        $this->assertSame('0.00', $sponsor->remaining_left_pv);
         $this->assertSame(0, BonusTransaction::query()->count());
     }
 
@@ -192,7 +229,12 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->patchJson("/api/admin/partners/{$partner->id}/package", [
             'package_id' => $start->id,
             'apply_business_effects' => true,
-        ])->assertOk();
+        ])
+            ->assertOk()
+            ->assertJsonPath('user.balance', 0)
+            ->assertJsonPath('user.available_balance', 0)
+            ->assertJsonPath('user.total_earned', 0)
+            ->assertJsonPath('user.package_activity_amount', 50000);
 
         $mainWallet = $partner->wallets()->where('type', 'main')->firstOrFail();
 
@@ -200,6 +242,10 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertDatabaseMissing('wallet_transactions', [
             'user_id' => $partner->id,
             'amount' => '60000.00',
+        ]);
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'user_id' => $partner->id,
+            'amount' => '50000.00',
         ]);
         $this->assertSame(0, WalletTransaction::query()->where('user_id', $partner->id)->count());
     }
