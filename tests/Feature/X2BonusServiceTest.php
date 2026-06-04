@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\UserX2Bonus;
+use App\Services\BinaryTreeService;
 use App\Services\X2BonusService;
 use Database\Seeders\X2BonusDefinitionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -19,12 +20,7 @@ class X2BonusServiceTest extends TestCase
 
         $user = User::factory()->create();
 
-        User::factory()
-            ->count(5)
-            ->create([
-                'sponsor_id' => $user->id,
-                'status' => 'gold_director',
-            ]);
+        $this->createFirstLinePartners($user, 'gold_director', 2, 3);
 
         app(X2BonusService::class)->awardEligible($user);
         app(X2BonusService::class)->awardEligible($user->refresh());
@@ -47,12 +43,7 @@ class X2BonusServiceTest extends TestCase
 
         $user = User::factory()->create();
 
-        User::factory()
-            ->count(4)
-            ->create([
-                'sponsor_id' => $user->id,
-                'status' => 'diamond_director',
-            ]);
+        $this->createFirstLinePartners($user, 'diamond_director', 2, 2);
 
         app(X2BonusService::class)->awardEligible($user);
 
@@ -60,10 +51,7 @@ class X2BonusServiceTest extends TestCase
             'code' => 'five_diamond_directors',
         ]);
 
-        User::factory()->create([
-            'sponsor_id' => $user->id,
-            'status' => 'diamond_director',
-        ]);
+        $this->placePersonalPartner($user, 'diamond_director', 'R');
 
         app(X2BonusService::class)->awardEligible($user->refresh());
 
@@ -71,5 +59,56 @@ class X2BonusServiceTest extends TestCase
             'code' => 'five_diamond_directors',
             'amount' => '20000000.00',
         ]);
+    }
+
+    public function test_three_left_and_two_right_qualifies(): void
+    {
+        $this->seed(X2BonusDefinitionSeeder::class);
+
+        $user = User::factory()->create();
+
+        $this->createFirstLinePartners($user, 'director', 3, 2);
+
+        app(X2BonusService::class)->awardEligible($user);
+
+        $bonus = UserX2Bonus::query()->where('code', 'five_directors')->firstOrFail();
+
+        $this->assertSame(5, $bonus->qualified_count);
+        $this->assertSame(3, $bonus->metadata['left_count']);
+        $this->assertSame(2, $bonus->metadata['right_count']);
+    }
+
+    /**
+     * @param string|array<int, string> $status
+     */
+    private function createFirstLinePartners(User $sponsor, string|array $status, int $leftCount, int $rightCount): void
+    {
+        foreach (['L' => $leftCount, 'R' => $rightCount] as $side => $count) {
+            for ($index = 0; $index < $count; $index++) {
+                $statuses = is_array($status) ? array_values($status) : [$status];
+                $this->placePersonalPartner($sponsor, $statuses[$index % count($statuses)], $side);
+            }
+        }
+    }
+
+    private function placePersonalPartner(User $sponsor, string $status, string $side): User
+    {
+        $this->ensureBinaryRoot($sponsor);
+
+        $partner = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
+            'status' => $status,
+        ]);
+
+        app(BinaryTreeService::class)->placeUser($partner, $sponsor, $side);
+
+        return $partner;
+    }
+
+    private function ensureBinaryRoot(User $user): void
+    {
+        if (! $user->binaryNode()->exists()) {
+            app(BinaryTreeService::class)->placeUser($user);
+        }
     }
 }

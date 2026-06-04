@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Models\UserX2Bonus;
+use App\Notifications\X2BonusAwardedNotification;
+use App\Services\BinaryTreeService;
 use App\Services\X2BonusService;
 use Database\Seeders\X2BonusDefinitionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class X2BonusTest extends TestCase
@@ -17,7 +20,7 @@ class X2BonusTest extends TestCase
     {
         $this->seed(X2BonusDefinitionSeeder::class);
         $user = User::factory()->create();
-        $this->createFirstLinePartners($user, 'director', 5);
+        $this->createFirstLinePartners($user, 'director', 2, 3);
 
         app(X2BonusService::class)->awardEligible($user);
 
@@ -33,7 +36,7 @@ class X2BonusTest extends TestCase
     {
         $this->seed(X2BonusDefinitionSeeder::class);
         $user = User::factory()->create();
-        $this->createFirstLinePartners($user, 'gold_director', 5);
+        $this->createFirstLinePartners($user, 'gold_director', 2, 3);
 
         app(X2BonusService::class)->awardEligible($user);
 
@@ -53,7 +56,7 @@ class X2BonusTest extends TestCase
     {
         $this->seed(X2BonusDefinitionSeeder::class);
         $user = User::factory()->create();
-        $this->createFirstLinePartners($user, 'diamond_director', 5);
+        $this->createFirstLinePartners($user, 'diamond_director', 3, 2);
 
         app(X2BonusService::class)->awardEligible($user);
 
@@ -73,7 +76,7 @@ class X2BonusTest extends TestCase
     {
         $this->seed(X2BonusDefinitionSeeder::class);
         $user = User::factory()->create();
-        $this->createFirstLinePartners($user, 'director', 5);
+        $this->createFirstLinePartners($user, 'director', 2, 3);
 
         app(X2BonusService::class)->awardEligible($user);
         app(X2BonusService::class)->awardEligible($user->refresh());
@@ -82,13 +85,129 @@ class X2BonusTest extends TestCase
         $this->assertDatabaseCount('user_x2_bonuses', 1);
     }
 
-    private function createFirstLinePartners(User $sponsor, string $status, int $count): void
+    public function test_downline_but_not_personally_invited_does_not_count(): void
     {
-        User::factory()
-            ->count($count)
-            ->create([
-                'sponsor_id' => $sponsor->id,
-                'status' => $status,
-            ]);
+        $this->seed(X2BonusDefinitionSeeder::class);
+        $user = User::factory()->create();
+        $otherSponsor = User::factory()->create();
+
+        $this->createFirstLinePartners($user, 'director', 2, 2);
+        $this->placeNonPersonalDownline($user, $otherSponsor, 'director', 'R');
+
+        app(X2BonusService::class)->awardEligible($user);
+
+        $this->assertDatabaseMissing('user_x2_bonuses', [
+            'user_id' => $user->id,
+            'code' => 'five_directors',
+        ]);
+    }
+
+    public function test_four_left_and_one_right_does_not_qualify(): void
+    {
+        $this->seed(X2BonusDefinitionSeeder::class);
+        $user = User::factory()->create();
+
+        $this->createFirstLinePartners($user, 'director', 4, 1);
+
+        app(X2BonusService::class)->awardEligible($user);
+
+        $this->assertDatabaseMissing('user_x2_bonuses', [
+            'user_id' => $user->id,
+            'code' => 'five_directors',
+        ]);
+    }
+
+    public function test_status_or_higher_qualifies(): void
+    {
+        $this->seed(X2BonusDefinitionSeeder::class);
+        $user = User::factory()->create();
+
+        $this->createFirstLinePartners($user, ['director', 'gold_director'], 2, 0);
+        $this->createFirstLinePartners($user, ['director', 'gold_director', 'diamond_director'], 0, 3);
+
+        app(X2BonusService::class)->awardEligible($user);
+
+        $bonus = UserX2Bonus::query()->where('code', 'five_directors')->firstOrFail();
+
+        $this->assertSame(5, $bonus->qualified_count);
+        $this->assertSame(2, $bonus->metadata['left_count']);
+        $this->assertSame(3, $bonus->metadata['right_count']);
+    }
+
+    public function test_no_limit_on_invite_count(): void
+    {
+        $this->seed(X2BonusDefinitionSeeder::class);
+        $user = User::factory()->create();
+
+        $this->createFirstLinePartners($user, 'director', 10, 10);
+
+        app(X2BonusService::class)->awardEligible($user);
+
+        $bonus = UserX2Bonus::query()->where('code', 'five_directors')->firstOrFail();
+
+        $this->assertSame(20, $bonus->qualified_count);
+        $this->assertSame(10, $bonus->metadata['left_count']);
+        $this->assertSame(10, $bonus->metadata['right_count']);
+    }
+
+    public function test_x2_bonus_sends_notification(): void
+    {
+        Notification::fake();
+
+        $this->seed(X2BonusDefinitionSeeder::class);
+        $user = User::factory()->create();
+        $this->createFirstLinePartners($user, 'director', 2, 3);
+
+        app(X2BonusService::class)->awardEligible($user);
+
+        Notification::assertSentTo($user, X2BonusAwardedNotification::class);
+    }
+
+    /**
+     * @param string|array<int, string> $status
+     */
+    private function createFirstLinePartners(User $sponsor, string|array $status, int $leftCount, int $rightCount): void
+    {
+        foreach (['L' => $leftCount, 'R' => $rightCount] as $side => $count) {
+            for ($index = 0; $index < $count; $index++) {
+                $statuses = is_array($status) ? array_values($status) : [$status];
+                $this->placePersonalPartner($sponsor, $statuses[$index % count($statuses)], $side);
+            }
+        }
+    }
+
+    private function placePersonalPartner(User $sponsor, string $status, string $side): User
+    {
+        $this->ensureBinaryRoot($sponsor);
+
+        $partner = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
+            'status' => $status,
+        ]);
+
+        app(BinaryTreeService::class)->placeUser($partner, $sponsor, $side);
+
+        return $partner;
+    }
+
+    private function placeNonPersonalDownline(User $root, User $actualSponsor, string $status, string $side): User
+    {
+        $this->ensureBinaryRoot($root);
+
+        $partner = User::factory()->create([
+            'sponsor_id' => $actualSponsor->id,
+            'status' => $status,
+        ]);
+
+        app(BinaryTreeService::class)->placeUser($partner, $root, $side);
+
+        return $partner;
+    }
+
+    private function ensureBinaryRoot(User $user): void
+    {
+        if (! $user->binaryNode()->exists()) {
+            app(BinaryTreeService::class)->placeUser($user);
+        }
     }
 }
