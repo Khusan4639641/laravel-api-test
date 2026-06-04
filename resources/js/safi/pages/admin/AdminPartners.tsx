@@ -58,6 +58,7 @@ export default function AdminPartners() {
   const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [hasLoadedPartners, setHasLoadedPartners] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createForm, setCreateForm] = useState(initialCreateForm);
@@ -69,6 +70,7 @@ export default function AdminPartners() {
 
   const loadUsers = async () => {
     setIsLoading(true);
+    setHasLoadedPartners(false);
     setError(null);
 
     try {
@@ -77,9 +79,11 @@ export default function AdminPartners() {
       const normalizedPartners = normalizePartners(body);
 
       setPartners(normalizedPartners);
+      setHasLoadedPartners(true);
     } catch (caughtError) {
       setPartners([]);
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_15'));
+      setHasLoadedPartners(true);
     } finally {
       setIsLoading(false);
     }
@@ -169,7 +173,6 @@ export default function AdminPartners() {
   const computedSummary = useMemo(() => {
     const staffRoles = ['super_admin', 'admin', 'accountant', 'support'];
     const realPartners = partners.filter((partner) => !staffRoles.includes(String(partner.role)));
-
     return {
       total_partners: realPartners.length,
       active_partners: realPartners.filter((partner) => partner.accountStatusCode === 'active').length,
@@ -177,6 +180,14 @@ export default function AdminPartners() {
       total_balance: realPartners.reduce((sum, partner) => sum + Number(partner.totalIncome || partner.availableBalance || 0), 0),
     };
   }, [partners]);
+  const summaryToRender = hasLoadedPartners
+    ? computedSummary
+    : {
+        total_partners: 0,
+        active_partners: 0,
+        vip_elite_partners: 0,
+        total_balance: 0,
+      };
   const canCreatePartners = currentUser.role === 'super_admin';
 
   return (
@@ -217,10 +228,10 @@ export default function AdminPartners() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={computedSummary.total_partners.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={computedSummary.active_partners.toLocaleString('ru-RU')} />
-        <SummaryCard label="VIP / ELITE" value={computedSummary.vip_elite_partners.toLocaleString('ru-RU')} />
-        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(computedSummary.total_balance)} />
+        <SummaryCard label={adminText('a_0JLRgdC10LPQ')} value={summaryToRender.total_partners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JDQutGC0LjQ_3')} value={summaryToRender.active_partners.toLocaleString('ru-RU')} />
+        <SummaryCard label="VIP / ELITE" value={summaryToRender.vip_elite_partners.toLocaleString('ru-RU')} />
+        <SummaryCard label={adminText('a_0JHQsNC70LDQ')} value={formatMoney(summaryToRender.total_balance)} />
       </section>
 
       <section className="rounded-[28px] border border-safi-border bg-white p-4 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
