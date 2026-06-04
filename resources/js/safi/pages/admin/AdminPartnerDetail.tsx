@@ -40,6 +40,7 @@ import {
   unblockAdminPartner,
   unwrapRecord,
 } from '../../lib/api';
+import { formatPv } from '../../lib/format';
 
 interface PartnerDetail {
   id: string;
@@ -425,8 +426,8 @@ export default function AdminPartnerDetail() {
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <MiniStat title={adminText('a_0JTQvtGB0YLR_2')} value={`${partner.availableBalance.toLocaleString('ru-RU')} ₸`} />
               <MiniStat title={adminText('a_0JLRgdC10LPQ_2')} value={`${partner.totalIncome.toLocaleString('ru-RU')} ₸`} />
-              <MiniStat title={adminText('a_0JvQuNGH0L3R')} value={partner.personalPV} />
-              <MiniStat title={adminText('a_0JrQvtC80LDQ')} value={partner.teamPV} />
+              <MiniStat title={adminText('a_0JvQuNGH0L3R')} value={formatPv(partner.personalPV)} />
+              <MiniStat title={adminText('a_0JrQvtC80LDQ')} value={formatPv(partner.teamPV)} />
             </div>
 
             <div className="bg-white p-6 md:p-8 rounded-[32px] shadow-sm border border-safi-green/5">
@@ -439,14 +440,14 @@ export default function AdminPartnerDetail() {
               <div className="flex flex-col md:flex-row gap-6 items-center">
                 <div className="w-full flex-1 p-6 bg-[#F5F5F0] rounded-2xl flex flex-col items-center justify-center text-center">
                   <div className="text-[10px] uppercase font-bold tracking-widest text-safi-text/50 mb-2">{adminText('a_0JvQtdCy0LDR_2')}</div>
-                  <div className="text-2xl font-bold text-safi-green">{partner.leftPV.toLocaleString('ru-RU')} PV</div>
+                  <div className="text-2xl font-bold text-safi-green">{formatPv(partner.leftPV)}</div>
                 </div>
 
                 <div className="w-12 h-12 rounded-full border border-safi-green/10 flex items-center justify-center shrink-0">VS</div>
 
                 <div className="w-full flex-1 p-6 bg-[#F5F5F0] rounded-2xl flex flex-col items-center justify-center text-center">
                   <div className="text-[10px] uppercase font-bold tracking-widest text-safi-text/50 mb-2">{adminText('a_0J_RgNCw0LLQ_2')}</div>
-                  <div className="text-2xl font-bold text-safi-green">{partner.rightPV.toLocaleString('ru-RU')} PV</div>
+                  <div className="text-2xl font-bold text-safi-green">{formatPv(partner.rightPV)}</div>
                 </div>
               </div>
 

@@ -5,6 +5,7 @@ import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState } from '../../lib/api';
+import { formatPv } from '../../lib/format';
 import { adminText } from '../../i18n/adminText';
 import { features } from '../../config/features';
 
@@ -259,8 +260,8 @@ export default function AdminPartners() {
                 <AdminBadge variant="default">{partner.status}</AdminBadge>
               </td>
               <td className="px-6 py-4">
-                <div className="text-sm">{adminText('a_0Js6')}<span className="font-bold text-safi-green">{partner.personalPV}</span></div>
-                <div className="mt-1 text-xs text-safi-muted">{adminText('a_0Jo6')}{partner.teamPV}</div>
+                <div className="text-sm">{adminText('a_0Js6')}<span className="font-bold text-safi-green">{formatPv(partner.personalPV)}</span></div>
+                <div className="mt-1 text-xs text-safi-muted">{adminText('a_0Jo6')}{formatPv(partner.teamPV)}</div>
               </td>
               <td className="px-6 py-4">
                 <div className="text-sm font-bold text-safi-green">{adminText('a_0JHQsNC70LDQ_2')}{partner.availableBalance.toLocaleString('ru-RU')}</div>
@@ -539,8 +540,9 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
     const sponsorRecord = isRecord(record.sponsor) ? record.sponsor : undefined;
     const profileRecord = isRecord(record.profile) ? record.profile : undefined;
     const wallets = Array.isArray(record.wallets) ? record.wallets.filter(isRecord) : [];
-    const leftPV = getNumber(record, ['left_pv', 'leftPV', 'personal_pv', 'personalPV', 'pv']) ?? 0;
-    const rightPV = getNumber(record, ['right_pv', 'rightPV', 'team_pv', 'teamPV']) ?? 0;
+    const personalPV = getNumber(record, ['total_pv', 'totalPv', 'personal_pv', 'personalPV', 'pv']) ?? 0;
+    const leftPV = getNumber(record, ['left_pv', 'leftPV']) ?? 0;
+    const rightPV = getNumber(record, ['right_pv', 'rightPV']) ?? 0;
     const mainBalance = getNumber(record, ['balance', 'main_balance', 'mainBalance', 'available_balance', 'availableBalance'])
       ?? getWalletBalance(wallets, 'main');
     const totalBalance = getNumber(record, ['total_balance', 'totalBalance', 'total_income', 'totalIncome', 'total_earned'])
@@ -557,8 +559,8 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       invitedCount: getNumber(record, ['invited_count', 'invitedCount', 'invited_users_count', 'referrals_count', 'children_count']) ?? 0,
       package: getString(packageRecord, ['name', 'title', 'code']) || getString(record, ['package_name', 'packageName', 'package']) || '-',
       status: getString(record, ['status_name', 'statusName', 'status']) || adminText('a_0KPRh9Cw0YHR'),
-      personalPV: leftPV,
-      teamPV: rightPV,
+      personalPV,
+      teamPV: leftPV + rightPV,
       totalIncome: totalBalance,
       availableBalance: mainBalance,
       registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || '-',

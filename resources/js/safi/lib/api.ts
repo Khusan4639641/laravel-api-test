@@ -142,6 +142,7 @@ export interface Package {
   pv: number;
   activityPv: number;
   turnoverPv: number;
+  volumeAmount?: number;
   referralBonus: number;
   binaryBonus: number | null;
   features: string[];
@@ -1245,6 +1246,7 @@ export function normalizePackages(response: unknown): Package[] {
       pv: getNumber(record, ['pv']) ?? 0,
       activityPv: getNumber(record, ['activityPv', 'activity_pv', 'pv']) ?? 0,
       turnoverPv: getNumber(record, ['turnoverPv', 'turnover_pv', 'pv']) ?? 0,
+      volumeAmount: getNumber(record, ['volumeAmount', 'volume_amount']) ?? 0,
       referralBonus: getNumber(record, ['referralBonus', 'referral_percent']) ?? 0,
       binaryBonus: getNumber(record, ['binaryBonus', 'binary_percent']) ?? null,
       features: getStringArray(record, ['features']) || [

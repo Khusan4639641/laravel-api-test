@@ -22,6 +22,8 @@ class PackageResource extends JsonResource
             'activityPv' => (float) $this->activityPv(),
             'turnover_pv' => $this->turnoverPv(),
             'turnoverPv' => (float) $this->turnoverPv(),
+            'volume_amount' => $this->volumeAmount(),
+            'volumeAmount' => (float) $this->volumeAmount(),
             'referral_percent' => $this->referral_percent,
             'referralBonus' => (float) $this->referral_percent,
             'binary_percent' => $this->binary_percent,

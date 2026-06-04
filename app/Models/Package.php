@@ -86,6 +86,11 @@ class Package extends Model
         return bccomp($turnoverPv, '0', 2) > 0 ? $turnoverPv : $this->activityPv();
     }
 
+    public function volumeAmount(): string
+    {
+        return bcmul($this->activityPv(), '500', 2);
+    }
+
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
