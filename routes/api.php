@@ -150,6 +150,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
 
         Route::middleware('role_permission:admin.bonuses.manage')->group(function (): void {
             Route::post('/bonuses/binary/calculate', [AdminBonusController::class, 'calculateBinary']);
+            Route::post('/partners/{user}/binary-bonus/calculate', [AdminPartnerController::class, 'calculateBinaryBonus']);
         });
 
         Route::middleware('role_permission:admin.catalog.write')->group(function (): void {

@@ -213,7 +213,13 @@ class X2BonusService
             $wallet,
             $definition->amount,
             'x2_bonus',
-            $bonusTransaction
+            $bonusTransaction,
+            [
+                'source' => 'x2_bonus',
+                'x2_bonus_definition_id' => $definition->id,
+                'code' => $definition->code,
+            ],
+            "X2 bonus: {$definition->code}",
         );
 
         $bonusTransaction->forceFill([

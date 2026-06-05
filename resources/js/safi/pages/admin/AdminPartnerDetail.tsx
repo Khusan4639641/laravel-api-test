@@ -7,6 +7,7 @@ import { adminText } from '../../i18n/adminText';
 import {
   ArrowLeft,
   Calendar,
+  Calculator,
   Copy,
   CreditCard,
   Edit,
@@ -25,6 +26,7 @@ import {
 import {
   ApiError,
   blockAdminPartner,
+  calculateAdminPartnerBinaryBonus,
   changeAdminPartnerPackage,
   changeAdminPartnerPassword,
   changeAdminPartnerStatus,
@@ -146,6 +148,7 @@ export default function AdminPartnerDetail() {
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const [applyPackageBusinessEffects, setApplyPackageBusinessEffects] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState('');
+  const [applyStatusBonusEffects, setApplyStatusBonusEffects] = useState(false);
   const isBlocked = partner.accountStatus === 'blocked';
 
   const weakBranch = useMemo(() => (partner.leftPV < partner.rightPV ? adminText('a_0JvQtdCy0LDR') : adminText('a_0J_RgNCw0LLQ')), [partner.leftPV, partner.rightPV]);
@@ -179,6 +182,7 @@ export default function AdminPartnerDetail() {
       setSelectedPackageId(normalizedPartner.packageId);
       setApplyPackageBusinessEffects(true);
       setSelectedStatus(normalizedPartner.status);
+      setApplyStatusBonusEffects(false);
       setTransactions(normalizeTransactions(transactionsResponse));
       setPackages(packagesResponse);
     } catch (caughtError) {
@@ -264,12 +268,38 @@ export default function AdminPartnerDetail() {
     setActionLoading('status');
 
     try {
-      await changeAdminPartnerStatus(partner.id, selectedStatus);
+      await changeAdminPartnerStatus(partner.id, selectedStatus, applyStatusBonusEffects);
       setStatusModalOpen(false);
+      setApplyStatusBonusEffects(false);
       showToast(adminText('a_0KHRgtCw0YLR_2'));
       await refreshPartnerAfterAction();
     } catch (caughtError) {
       showToast(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_12'), 'error');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const calculateBinaryBonus = async () => {
+    if (!partner.id) {
+      return;
+    }
+
+    setActionLoading('binary');
+
+    try {
+      const response = await calculateAdminPartnerBinaryBonus(partner.id);
+      const record = isRecord(response) ? response : {};
+
+      if (record.bonus_transaction) {
+        showToast('Бинарный бонус рассчитан');
+      } else {
+        showToast('Нет доступного PV для расчёта', 'error');
+      }
+
+      await refreshPartnerAfterAction();
+    } catch (caughtError) {
+      showToast(getApiErrorState(caughtError).error || 'Не удалось рассчитать бинарный бонус', 'error');
     } finally {
       setActionLoading('');
     }
@@ -344,6 +374,15 @@ export default function AdminPartnerDetail() {
             {isBlocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
             {actionLoading === 'block' ? adminText('a_0KHQvtGF0YDQ_2') : isBlocked ? adminText('a_0KDQsNC30LHQ') : adminText('a_0JfQsNCx0LvQ')}
           </button>
+          <button
+            type="button"
+            onClick={calculateBinaryBonus}
+            disabled={!partner.id || actionLoading === 'binary'}
+            className="flex cursor-pointer items-center gap-2 rounded-xl bg-safi-green px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Calculator className="w-4 h-4" />
+            {actionLoading === 'binary' ? adminText('a_0KHQvtGF0YDQ_2') : 'Рассчитать бинар'}
+          </button>
         </div>
       </div>
 
@@ -397,6 +436,7 @@ export default function AdminPartnerDetail() {
                     type="button"
                     onClick={() => {
                       setSelectedStatus(partner.status);
+                      setApplyStatusBonusEffects(false);
                       setStatusModalOpen(true);
                     }}
                     className="mt-2 flex cursor-pointer items-center gap-1 text-[10px] text-safi-gold hover:underline"
@@ -599,6 +639,18 @@ export default function AdminPartnerDetail() {
                 ))}
               </select>
             </FormField>
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-safi-green/10 bg-[#F5F5F0] p-4 text-sm text-safi-green">
+              <input
+                type="checkbox"
+                checked={applyStatusBonusEffects}
+                onChange={(event) => setApplyStatusBonusEffects(event.target.checked)}
+                className="mt-1 h-4 w-4 cursor-pointer rounded border-safi-green/30 text-safi-green focus:ring-safi-green"
+              />
+              <span>
+                <span className="block font-bold">Применить бонусные начисления</span>
+                <span className="mt-1 block text-xs leading-5 text-safi-muted">Если выбранный статус имеет денежный бонус, будет создана транзакция status_bonus.</span>
+              </span>
+            </label>
             <button
               type="submit"
               disabled={actionLoading === 'status'}

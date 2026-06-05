@@ -33,6 +33,7 @@ class WalletService
         string $type,
         mixed $source = null,
         array $metadata = [],
+        ?string $description = null,
     ): WalletTransaction {
         $amount = (string) $amount;
 
@@ -55,6 +56,7 @@ class WalletService
             'balance_before' => $balanceBefore,
             'balance_after' => $balanceAfter,
             'status' => 'completed',
+            'description' => $description,
             'metadata' => $metadata ?: null,
         ]);
 
@@ -73,6 +75,7 @@ class WalletService
         string $type,
         mixed $source = null,
         array $metadata = [],
+        ?string $description = null,
     ): WalletTransaction
     {
         $amount = (string) $amount;
@@ -100,6 +103,7 @@ class WalletService
             'balance_before' => $balanceBefore,
             'balance_after' => $balanceAfter,
             'status' => 'completed',
+            'description' => $description,
             'metadata' => $metadata ?: null,
         ]);
 

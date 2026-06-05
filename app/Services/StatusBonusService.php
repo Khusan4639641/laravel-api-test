@@ -93,7 +93,69 @@ class StatusBonusService
         });
     }
 
-    private function createCashBonusTransaction(User $user, StatusBonusDefinition $definition, string $cashAmount): ?BonusTransaction
+    public function awardManualStatusBonus(User $user, string $statusCode): ?UserStatusBonus
+    {
+        return DB::transaction(function () use ($user, $statusCode): ?UserStatusBonus {
+            $user = User::query()
+                ->with('currentPackage')
+                ->lockForUpdate()
+                ->findOrFail($user->id);
+
+            $definition = StatusBonusDefinition::query()
+                ->where('status_code', $statusCode)
+                ->where('is_active', true)
+                ->first();
+
+            if (! $definition) {
+                return null;
+            }
+
+            $existing = UserStatusBonus::query()
+                ->where('user_id', $user->id)
+                ->where('status_bonus_definition_id', $definition->id)
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            $cashAmount = $this->cashAmount($definition);
+            $bonusTransaction = $this->createCashBonusTransaction($user, $definition, $cashAmount, true);
+
+            return UserStatusBonus::query()->create([
+                'user_id' => $user->id,
+                'status_bonus_definition_id' => $definition->id,
+                'bonus_transaction_id' => $bonusTransaction?->id,
+                'status_code' => $definition->status_code,
+                'amount' => $cashAmount,
+                'currency' => $definition->currency,
+                'reward_text' => $definition->reward_text,
+                'awarded_at' => now(),
+                'metadata' => [
+                    'manual_status_assignment' => true,
+                    'threshold_pv' => (string) $definition->threshold_pv,
+                    'user_total_pv' => (string) $user->total_pv,
+                    'weak_leg_pv' => $this->weakLegPv($user),
+                    'left_pv' => (string) $user->left_pv,
+                    'right_pv' => (string) $user->right_pv,
+                    'package_id' => $user->current_package_id,
+                    'package_code' => $user->currentPackage?->code,
+                    'reward_type' => $definition->reward_type,
+                    'cash_amount' => $cashAmount,
+                    'compensation_amount' => (string) ($definition->compensation_amount ?? '0.00'),
+                    'compensation_available' => (bool) ($definition->compensation_available ?? false),
+                    'compensation_paid' => false,
+                ],
+            ]);
+        });
+    }
+
+    private function createCashBonusTransaction(
+        User $user,
+        StatusBonusDefinition $definition,
+        string $cashAmount,
+        bool $manualStatusAssignment = false,
+    ): ?BonusTransaction
     {
         if (! $definition->is_cash_bonus || bccomp($cashAmount, '0', 2) <= 0) {
             return null;
@@ -127,6 +189,7 @@ class StatusBonusService
                 'compensation_amount' => (string) ($definition->compensation_amount ?? '0.00'),
                 'compensation_available' => (bool) ($definition->compensation_available ?? false),
                 'compensation_paid' => false,
+                'manual_status_assignment' => $manualStatusAssignment,
             ],
             'calculated_at' => now(),
         ]);
@@ -135,7 +198,14 @@ class StatusBonusService
             $wallet,
             $cashAmount,
             'status_bonus',
-            $bonusTransaction
+            $bonusTransaction,
+            [
+                'status_code' => $definition->status_code,
+                'manual_status_assignment' => $manualStatusAssignment,
+            ],
+            $manualStatusAssignment
+                ? "Manual status assignment: {$definition->status_code}"
+                : "Status bonus: {$definition->status_code}",
         );
 
         $bonusTransaction->forceFill([

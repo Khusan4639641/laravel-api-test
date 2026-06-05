@@ -22,6 +22,7 @@ class PackageService
         private readonly PvService $pvService,
         private readonly ReferralBonusBaseResolver $referralBonusBaseResolver,
         private readonly StatusBonusService $statusBonusService,
+        private readonly WalletService $walletService,
     ) {
     }
 
@@ -146,6 +147,8 @@ class PackageService
                     false,
                 );
             }
+
+            $this->creditManualPackageActivityAmount($user, $package, $pvEffects['user_pv']);
 
             if ($user->sponsor_id) {
                 $sponsor = User::query()->find($user->sponsor_id);
@@ -341,6 +344,43 @@ class PackageService
     private function eligibleReferralAmountForManualAssignment(array $pvEffects): string
     {
         return $pvEffects['referral_base_amount'];
+    }
+
+    private function creditManualPackageActivityAmount(User $user, Package $package, string $activityPv): void
+    {
+        if (bccomp($activityPv, '0', 2) <= 0) {
+            return;
+        }
+
+        $amount = bcmul($activityPv, self::PV_MONEY_RATE, 2);
+
+        if (bccomp($amount, '0', 2) <= 0) {
+            return;
+        }
+
+        $this->walletService->createUserWallets($user);
+
+        $wallet = $user->wallets()
+            ->where('type', 'main')
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $this->walletService->credit(
+            $wallet,
+            $amount,
+            'package_activity_credit',
+            $package,
+            [
+                'source' => 'manual_package_assignment',
+                'package_id' => $package->id,
+                'package_code' => $package->code,
+                'activity_pv' => $activityPv,
+                'pv_money_rate' => self::PV_MONEY_RATE,
+                'package_price' => (string) $package->price,
+                'price_used_as_pv' => false,
+            ],
+            "Manual package assignment: {$package->code}",
+        );
     }
 
     private function checkMissedStatusBonusesForElite(User $user): void

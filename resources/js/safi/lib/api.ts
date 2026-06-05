@@ -654,10 +654,10 @@ export async function changeAdminPartnerPackage<T = unknown>(
   });
 }
 
-export async function changeAdminPartnerStatus<T = unknown>(userId: string | number, status: string) {
+export async function changeAdminPartnerStatus<T = unknown>(userId: string | number, status: string, applyBonusEffects = false) {
   return apiRequest<T>(endpoints.admin.partnerStatus(userId), {
     method: 'PATCH',
-    body: { status },
+    body: { status, apply_bonus_effects: applyBonusEffects },
     auth: true,
   });
 }
@@ -673,6 +673,20 @@ export async function saveAdminPartnerNote<T = unknown>(userId: string | number,
 export async function getAdminPartnerTransactions<T = unknown>(userId: string | number, limit = 10) {
   return apiRequest<T>(`${endpoints.admin.partnerTransactions(userId)}?limit=${encodeURIComponent(String(limit))}`, {
     method: 'GET',
+    auth: true,
+  });
+}
+
+export async function calculateAdminPartnerBinaryBonus<T = unknown>(userId: string | number) {
+  return apiRequest<T>(endpoints.admin.partnerBinaryBonusCalculate(userId), {
+    method: 'POST',
+    auth: true,
+  });
+}
+
+export async function calculateAdminBinaryBonuses<T = unknown>() {
+  return apiRequest<T>(`${endpoints.admin.bonuses}/binary/calculate`, {
+    method: 'POST',
     auth: true,
   });
 }

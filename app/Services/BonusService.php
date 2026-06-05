@@ -91,7 +91,12 @@ class BonusService
                 $wallet,
                 $amount,
                 'referral_bonus',
-                $bonusTransaction
+                $bonusTransaction,
+                [
+                    'source' => 'referral_bonus',
+                    'referral_user_id' => $referral->id,
+                ],
+                "Referral bonus: {$referral->login}",
             );
 
             $bonusTransaction->forceFill([
@@ -215,13 +220,27 @@ class BonusService
                 $mainWallet,
                 $mainAmount,
                 'binary_bonus_main',
-                $bonusTransaction
+                $bonusTransaction,
+                [
+                    'source' => 'binary_bonus',
+                    'wallet_part' => 'main',
+                    'base_pv' => $basePv,
+                    'binary_percent' => $percent,
+                ],
+                'Binary bonus: main wallet 90%',
             );
             $depositWalletTransaction = $this->walletService->credit(
                 $depositWallet,
                 $bonusAmount,
                 'binary_bonus_deposit',
-                $bonusTransaction
+                $bonusTransaction,
+                [
+                    'source' => 'binary_bonus',
+                    'wallet_part' => 'deposit',
+                    'base_pv' => $basePv,
+                    'binary_percent' => $percent,
+                ],
+                'Binary bonus: deposit wallet 10%',
             );
 
             $metadata = $bonusTransaction->metadata;
@@ -312,7 +331,12 @@ class BonusService
                 $wallet,
                 $amount,
                 'deposit_purchase_cashback',
-                $bonusTransaction
+                $bonusTransaction,
+                [
+                    'source' => 'deposit_purchase_cashback',
+                    'purchase_amount' => $purchaseAmount,
+                ],
+                'Deposit purchase cashback',
             );
 
             $bonusTransaction->forceFill([

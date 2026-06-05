@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StorePartnerRequest;
 use App\Http\Resources\BinaryNodeResource;
+use App\Http\Resources\BonusTransactionResource;
 use App\Http\Resources\UserResource;
 use App\Http\Resources\WalletTransactionResource;
 use App\Models\BinaryNode;
@@ -12,7 +13,9 @@ use App\Models\Package;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Services\BinaryTreeService;
+use App\Services\BonusService;
 use App\Services\PackageService;
+use App\Services\StatusBonusService;
 use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -40,6 +43,8 @@ class PartnerController extends Controller
         private readonly BinaryTreeService $binaryTreeService,
         private readonly PackageService $packageService,
         private readonly WalletService $walletService,
+        private readonly BonusService $bonusService,
+        private readonly StatusBonusService $statusBonusService,
     ) {
     }
 
@@ -106,8 +111,11 @@ class PartnerController extends Controller
 
     public function show(User $user): JsonResponse
     {
+        $partner = $this->loadPartner($user);
+
         return response()->json([
-            'user' => UserResource::make($this->loadPartner($user)),
+            'user' => UserResource::make($partner),
+            'recent_transactions' => WalletTransactionResource::collection($this->recentTransactions($partner)),
         ]);
     }
 
@@ -138,12 +146,18 @@ class PartnerController extends Controller
     {
         $validated = $request->validate([
             'status' => ['required', 'string', Rule::in(self::PARTNER_STATUSES)],
+            'apply_bonus_effects' => ['sometimes', 'boolean'],
         ]);
 
         $user->forceFill(['status' => $validated['status']])->save();
 
+        if ($request->boolean('apply_bonus_effects', false)) {
+            $this->statusBonusService->awardManualStatusBonus($user, $validated['status']);
+        }
+
         return response()->json([
             'user' => UserResource::make($this->loadPartner($user->refresh())),
+            'recent_transactions' => WalletTransactionResource::collection($this->recentTransactions($user)),
         ]);
     }
 
@@ -217,15 +231,30 @@ class PartnerController extends Controller
     {
         $limit = min(max((int) $request->integer('limit', 10), 1), 50);
 
-        $transactions = WalletTransaction::query()
-            ->with(['user.profile', 'wallet'])
-            ->where('user_id', $user->id)
-            ->latest()
-            ->limit($limit)
-            ->get();
+        return response()->json([
+            'transactions' => WalletTransactionResource::collection($this->recentTransactions($user, $limit)),
+        ]);
+    }
+
+    public function calculateBinaryBonus(User $user): JsonResponse
+    {
+        $bonusTransaction = $this->bonusService->calculateBinaryBonus($user);
+        $partner = $this->loadPartner($user->refresh());
+
+        if (! $bonusTransaction) {
+            return response()->json([
+                'message' => 'No binary bonus available.',
+                'bonus_transaction' => null,
+                'user' => UserResource::make($partner),
+                'recent_transactions' => WalletTransactionResource::collection($this->recentTransactions($partner)),
+            ]);
+        }
 
         return response()->json([
-            'transactions' => WalletTransactionResource::collection($transactions),
+            'message' => 'Binary bonus calculated.',
+            'bonus_transaction' => BonusTransactionResource::make($bonusTransaction->load('walletTransaction')),
+            'user' => UserResource::make($partner),
+            'recent_transactions' => WalletTransactionResource::collection($this->recentTransactions($partner)),
         ]);
     }
 
@@ -291,6 +320,16 @@ class PartnerController extends Controller
     {
         return $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
             ->loadCount(['referrals', 'invitedUsers as invited_count']);
+    }
+
+    private function recentTransactions(User $user, int $limit = 10)
+    {
+        return WalletTransaction::query()
+            ->with(['user.profile', 'wallet'])
+            ->where('user_id', $user->id)
+            ->latest()
+            ->limit($limit)
+            ->get();
     }
 
     /**
