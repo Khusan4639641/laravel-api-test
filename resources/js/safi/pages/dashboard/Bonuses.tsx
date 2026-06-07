@@ -27,7 +27,7 @@ export default function Bonuses() {
     withdrawn: 0,
   });
   const [bonuses, setBonuses] = useState({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
-  const [structure, setStructure] = useState({ leftPV: 0, rightPV: 0, weakLeg: 'left' });
+  const [structure, setStructure] = useState({ leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [withdrawalAmount, setWithdrawalAmount] = useState(50000);
   const [withdrawalMethod, setWithdrawalMethod] = useState('card_account');
@@ -81,12 +81,15 @@ export default function Bonuses() {
       setStructure({
         leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
         rightPV: getNumber(structureRecord, ['right_pv']) ?? 0,
+        weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv'])
+          ?? Math.min(getNumber(structureRecord, ['left_pv']) ?? 0, getNumber(structureRecord, ['right_pv']) ?? 0),
         weakLeg: getString(structureRecord, ['weak_leg']) || 'left',
       });
     } catch (caughtError) {
       setWithdrawals([]);
       setStatuses([]);
       setBonuses({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
+      setStructure({ leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
       setLoadError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
@@ -97,8 +100,10 @@ export default function Bonuses() {
     void loadBonusData();
   }, [loadBonusData]);
 
-  const nextStatus = statuses.find((status) => status.pv > currentUser.personalPV);
-  const statusProgressTotal = nextStatus?.pv || Math.max(currentUser.personalPV, 1);
+  const weakLegPV = structure.weakLegPV || Math.min(structure.leftPV, structure.rightPV);
+  const nextStatus = statuses.find((status) => status.pv > weakLegPV);
+  const statusProgressTotal = nextStatus?.pv || statuses[statuses.length - 1]?.pv || Math.max(weakLegPV, 1);
+  const statusProgressPercent = statusProgressTotal > 0 ? Math.min(100, Math.max(0, (weakLegPV / statusProgressTotal) * 100)) : 0;
 
   const submitWithdrawal = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -197,6 +202,7 @@ export default function Bonuses() {
               <div className="mt-6 space-y-4">
                 <DetailRow label="Левая ветка" value={`${structure.leftPV.toLocaleString('ru-RU')} PV`} />
                 <DetailRow label="Правая ветка" value={`${structure.rightPV.toLocaleString('ru-RU')} PV`} />
+                <DetailRow label="Малая ветка PV" value={`${weakLegPV.toLocaleString('ru-RU')} PV`} />
                 <DetailRow label="Расчетная ветка" value={structure.weakLeg} badge />
                 <DetailRow label="Начислено" value={`${bonuses.binary.toLocaleString('ru-RU')} ₸`} highlight />
               </div>
@@ -209,10 +215,16 @@ export default function Bonuses() {
               <div className="space-y-4">
                 <DetailRow label="Текущий статус" value={currentUser.status} badge />
                 <DetailRow label="Следующий статус" value={nextStatus?.name || currentUser.status} />
-                <DetailRow label="Ваш PV" value={`${currentUser.personalPV.toLocaleString('ru-RU')} PV`} highlight />
+                <DetailRow label="Малая ветка PV" value={`${weakLegPV.toLocaleString('ru-RU')} PV`} highlight />
+                <DetailRow label="Личный PV" value={`${currentUser.personalPV.toLocaleString('ru-RU')} PV`} />
               </div>
               <div className="rounded-3xl border border-safi-border bg-safi-cream p-6">
-                <ProgressBar label={`${currentUser.status} -> ${nextStatus?.name || currentUser.status}`} current={currentUser.personalPV} total={statusProgressTotal} />
+                <ProgressBar
+                  label={`${currentUser.status} -> ${nextStatus?.name || currentUser.status}`}
+                  current={weakLegPV}
+                  total={statusProgressTotal}
+                  percentageOverride={statusProgressPercent}
+                />
               </div>
             </div>
           </article>

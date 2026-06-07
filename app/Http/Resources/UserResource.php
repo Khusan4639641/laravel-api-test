@@ -16,6 +16,9 @@ class UserResource extends JsonResource
         $totalWalletBalance = $mainBalance + $bonusBalance + $depositBalance;
         $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
+        $leftPv = (float) ($this->left_pv ?? 0);
+        $rightPv = (float) ($this->right_pv ?? 0);
+        $weakLegPv = min($leftPv, $rightPv);
         $attributes = $this->resource->getAttributes();
         $invitedCount = (int) ($attributes['invited_count']
             ?? $attributes['invited_users_count']
@@ -38,6 +41,7 @@ class UserResource extends JsonResource
             'admin_note' => $this->admin_note,
             'left_pv' => $this->left_pv,
             'right_pv' => $this->right_pv,
+            'weak_leg_pv' => $weakLegPv,
             'remaining_left_pv' => $this->remaining_left_pv,
             'remaining_right_pv' => $this->remaining_right_pv,
             'total_pv' => $this->total_pv,

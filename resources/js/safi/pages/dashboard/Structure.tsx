@@ -10,7 +10,7 @@ export default function Structure() {
   const [query, setQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [structure, setStructure] = useState({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLeg: 'left' });
+  const [structure, setStructure] = useState({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
   const [partners, setPartners] = useState<Array<{ name: string; id: string; line: number; branch: string; package: string; status: string; personalPV: number; teamPV: number; activity: string }>>([]);
 
   const loadStructure = useCallback(async () => {
@@ -26,6 +26,11 @@ export default function Structure() {
         const user = node.user && typeof node.user === 'object' ? node.user as Record<string, unknown> : {};
         const pkg = user.current_package && typeof user.current_package === 'object' ? user.current_package as Record<string, unknown> : {};
         const branch = getString(node, ['branch', 'position']) === 'R' ? 'Правая' : 'Левая';
+        const personalPV = getNumber(user, ['package_activity_pv', 'packageActivityPv'])
+          ?? getNumber(pkg, ['activity_pv', 'activityPv', 'pv'])
+          ?? 0;
+        const leftPV = getNumber(user, ['left_pv']) ?? 0;
+        const rightPV = getNumber(user, ['right_pv']) ?? 0;
 
         return {
           name: getString(user, ['name']) || `Partner ${index + 1}`,
@@ -34,8 +39,8 @@ export default function Structure() {
           branch,
           package: getString(pkg, ['name']) || '-',
           status: getString(user, ['status']) || '-',
-          personalPV: getNumber(user, ['total_pv']) ?? 0,
-          teamPV: (getNumber(user, ['left_pv']) ?? 0) + (getNumber(user, ['right_pv']) ?? 0),
+          personalPV,
+          teamPV: leftPV + rightPV,
           activity: getString(user, ['status']) === 'inactive' ? 'Неактивен' : 'Активен',
         };
       });
@@ -46,11 +51,13 @@ export default function Structure() {
         rightPartners: getNumber(structureRecord, ['right_partners']) ?? list.filter((partner) => partner.branch === 'Правая').length,
         leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
         rightPV: getNumber(structureRecord, ['right_pv']) ?? 0,
+        weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv'])
+          ?? Math.min(getNumber(structureRecord, ['left_pv']) ?? 0, getNumber(structureRecord, ['right_pv']) ?? 0),
         weakLeg: getString(structureRecord, ['weak_leg']) || 'left',
       });
     } catch (caughtError) {
       setPartners([]);
-      setStructure({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLeg: 'left' });
+      setStructure({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
       setError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
@@ -99,8 +106,9 @@ export default function Structure() {
 
       {!isLoading && !error && (
         <>
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Всего партнеров" value={structure.totalPartners} icon={<Users className="h-5 w-5" />} />
+        <StatCard title="Малая ветка PV" value={`${structure.weakLegPV.toLocaleString('ru-RU')} PV`} />
         <BranchCard title="Левая ветка" partners={structure.leftPartners} pv={structure.leftPV} weak={structure.weakLeg === 'left'} />
         <BranchCard title="Правая ветка" partners={structure.rightPartners} pv={structure.rightPV} weak={structure.weakLeg === 'right'} />
       </section>
@@ -189,8 +197,8 @@ export default function Structure() {
                     <div className="mt-1 text-xs text-safi-muted">{partner.status !== '-' ? partner.status : 'Участник'}</div>
                   </td>
                   <td className="px-7 py-5 text-right">
-                    <div className="font-extrabold text-safi-gold">{partner.personalPV} л.PV</div>
-                    <div className="mt-1 text-xs text-safi-muted">{partner.teamPV} к.PV</div>
+                    <div className="font-extrabold text-safi-gold">Личный PV: {partner.personalPV.toLocaleString('ru-RU')}</div>
+                    <div className="mt-1 text-xs text-safi-muted">Командный PV: {partner.teamPV.toLocaleString('ru-RU')}</div>
                   </td>
                   <td className="px-7 py-5 text-center">
                     <Badge variant={partner.activity === 'Активен' ? 'success' : 'default'}>{partner.activity}</Badge>

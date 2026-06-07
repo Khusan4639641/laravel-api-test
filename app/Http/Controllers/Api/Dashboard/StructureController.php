@@ -40,6 +40,8 @@ class StructureController extends Controller
         });
 
         $branchCounts = ['L' => 0, 'R' => 0];
+        $leftPv = (float) ($user->left_pv ?? 0);
+        $rightPv = (float) ($user->right_pv ?? 0);
 
         $this->descendantsQuery($rootPath)
             ->select(['id', 'user_id', 'depth', 'path'])
@@ -59,9 +61,10 @@ class StructureController extends Controller
                 'referral_code' => $user->login ?: (string) $user->id,
                 'left_pv' => $user->left_pv,
                 'right_pv' => $user->right_pv,
+                'weak_leg_pv' => min($leftPv, $rightPv),
                 'remaining_left_pv' => $user->remaining_left_pv,
                 'remaining_right_pv' => $user->remaining_right_pv,
-                'weak_leg' => ((float) $user->left_pv <= (float) $user->right_pv) ? 'left' : 'right',
+                'weak_leg' => $leftPv <= $rightPv ? 'left' : 'right',
                 'total_partners' => $partners->total(),
                 'left_partners' => $branchCounts['L'],
                 'right_partners' => $branchCounts['R'],

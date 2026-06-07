@@ -18,7 +18,9 @@ interface StructureNode {
   sponsor: string;
   packageName: string;
   status: string;
-  pv: number;
+  personalPV: number;
+  teamPV: number;
+  weakLegPV: number;
   leftPV: number;
   rightPV: number;
   balance: number;
@@ -223,7 +225,11 @@ export default function AdminStructure() {
               <td className="px-6 py-4">{node.depth}</td>
               <td className="px-6 py-4"><AdminBadge variant="gold">{node.packageName}</AdminBadge></td>
               <td className="px-6 py-4"><AdminBadge variant="default">{node.status}</AdminBadge></td>
-              <td className="px-6 py-4 font-bold text-safi-green">{node.pv.toLocaleString('ru-RU')} PV</td>
+              <td className="px-6 py-4">
+                <div className="font-bold text-safi-green">Личный PV: {node.personalPV.toLocaleString('ru-RU')}</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">Командный PV: {node.teamPV.toLocaleString('ru-RU')}</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-gold">Малая ветка PV: {node.weakLegPV.toLocaleString('ru-RU')}</div>
+              </td>
               <td className="px-6 py-4">{node.balance.toLocaleString('ru-RU')}</td>
               <td className="px-6 py-4">
                 <div className="flex flex-wrap gap-2">
@@ -280,7 +286,7 @@ function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: bool
         <div className="mb-2 rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-[10px] text-safi-text/50">{node.login || node.userId}</div>
         <div className="mt-1 flex w-full items-center justify-between border-t border-safi-green/5 pt-2 text-[10px]">
           <AdminBadge variant={node.packageName === 'ELITE' || node.packageName === 'VIP' ? 'gold' : 'default'} className="px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
-          <span className="font-bold text-safi-green">{node.pv.toLocaleString('ru-RU')} PV</span>
+          <span className="font-bold text-safi-green">Личный PV: {node.personalPV.toLocaleString('ru-RU')}</span>
         </div>
       </button>
 
@@ -364,7 +370,11 @@ function normalizeNodeRecord(record: Record<string, unknown>, index = 0): Struct
     sponsor: normalizeSponsor(record),
     packageName: normalizePackage(record),
     status: getString(record, ['status']) || '-',
-    pv: getNumber(record, ['total_pv']) ?? 0,
+    personalPV: getNumber(record, ['package_activity_pv', 'packageActivityPv']) ?? 0,
+    teamPV: getNumber(record, ['team_pv', 'teamPv'])
+      ?? ((getNumber(record, ['left_pv']) ?? 0) + (getNumber(record, ['right_pv']) ?? 0)),
+    weakLegPV: getNumber(record, ['weak_leg_pv', 'weakLegPv'])
+      ?? Math.min(getNumber(record, ['left_pv']) ?? 0, getNumber(record, ['right_pv']) ?? 0),
     leftPV: getNumber(record, ['left_pv']) ?? 0,
     rightPV: getNumber(record, ['right_pv']) ?? 0,
     balance: getNumber(record, ['balance']) ?? 0,

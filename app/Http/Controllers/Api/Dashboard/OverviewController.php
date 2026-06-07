@@ -34,6 +34,9 @@ class OverviewController extends Controller
             ->where('type', 'main')
             ->sum('balance');
         $totalWalletBalance = (string) $user->wallets->sum('balance');
+        $leftPv = (float) ($user->left_pv ?? 0);
+        $rightPv = (float) ($user->right_pv ?? 0);
+        $weakLegPv = min($leftPv, $rightPv);
 
         return response()->json([
             'user' => UserResource::make($user),
@@ -61,9 +64,10 @@ class OverviewController extends Controller
                 'left_pv' => $user->left_pv,
                 'right_pv' => $user->right_pv,
                 'total_pv' => $user->total_pv,
+                'weak_leg_pv' => $weakLegPv,
                 'remaining_left_pv' => $user->remaining_left_pv,
                 'remaining_right_pv' => $user->remaining_right_pv,
-                'weak_leg' => ((float) $user->left_pv <= (float) $user->right_pv) ? 'left' : 'right',
+                'weak_leg' => $leftPv <= $rightPv ? 'left' : 'right',
             ],
             'bonuses' => $bonusTotals,
             'bonuses_summary' => [

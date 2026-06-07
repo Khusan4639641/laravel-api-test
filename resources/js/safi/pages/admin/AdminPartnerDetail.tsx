@@ -61,6 +61,7 @@ interface PartnerDetail {
   teamPV: number;
   leftPV: number;
   rightPV: number;
+  weakLegPV: number;
   totalIncome: number;
   availableBalance: number;
   packageActivityPV: number;
@@ -104,6 +105,7 @@ const partnerDefaults: PartnerDetail = {
   teamPV: 0,
   leftPV: 0,
   rightPV: 0,
+  weakLegPV: 0,
   totalIncome: 0,
   availableBalance: 0,
   packageActivityPV: 0,
@@ -467,11 +469,12 @@ export default function AdminPartnerDetail() {
           </div>
 
           <div className="lg:col-span-2 space-y-8">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               <MiniStat title={adminText('a_0JTQvtGB0YLR_2')} value={`${partner.availableBalance.toLocaleString('ru-RU')} ₸`} />
               <MiniStat title={adminText('a_0JLRgdC10LPQ_2')} value={`${partner.totalIncome.toLocaleString('ru-RU')} ₸`} />
-              <MiniStat title={adminText('a_0JvQuNGH0L3R')} value={formatPv(partner.personalPV)} />
-              <MiniStat title={adminText('a_0JrQvtC80LDQ')} value={formatPv(partner.teamPV)} />
+              <MiniStat title="Личный PV" value={formatPv(partner.personalPV)} />
+              <MiniStat title="Командный PV" value={formatPv(partner.teamPV)} />
+              <MiniStat title="Малая ветка PV" value={formatPv(partner.weakLegPV)} />
             </div>
 
             <div className="bg-white p-6 md:p-8 rounded-[32px] shadow-sm border border-safi-green/5">
@@ -498,6 +501,7 @@ export default function AdminPartnerDetail() {
               <div className="mt-6 flex justify-between items-center px-4">
                 <div className="text-sm"><span className="text-safi-text/60">{adminText('a_0JvQuNGH0L3Q')}</span> <span className="font-bold">{partner.invitedCount}</span></div>
                 <div className="text-sm"><span className="text-safi-text/60">{adminText('a_0KHQu9Cw0LHQ')}</span> <span className="font-bold text-safi-gold">{weakBranch}</span></div>
+                <div className="text-sm"><span className="text-safi-text/60">Малая ветка PV:</span> <span className="font-bold text-safi-gold">{formatPv(partner.weakLegPV)}</span></div>
               </div>
             </div>
 
@@ -786,10 +790,12 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     packageId: getString(user, ['current_package_id']) || '',
     package: getString(pkg, ['name', 'code']) || '-',
     status: getString(user, ['status']) || 'user',
-    personalPV: getNumber(user, ['total_pv']) ?? 0,
+    personalPV: packageActivityPV,
     teamPV: (getNumber(user, ['left_pv']) ?? 0) + (getNumber(user, ['right_pv']) ?? 0),
     leftPV: getNumber(user, ['left_pv']) ?? 0,
     rightPV: getNumber(user, ['right_pv']) ?? 0,
+    weakLegPV: getNumber(user, ['weak_leg_pv', 'weakLegPv'])
+      ?? Math.min(getNumber(user, ['left_pv']) ?? 0, getNumber(user, ['right_pv']) ?? 0),
     totalIncome: totalEarned,
     availableBalance,
     packageActivityPV,

@@ -3,13 +3,14 @@ import { ArrowUpRight, CheckCircle2, Lock, Trophy } from 'lucide-react';
 import { Badge, ProgressBar } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { activatePackage, ApiError, getApiErrorState, getDashboardPackages, getPublicStatuses, Package, Status, upgradePackage } from '../../lib/api';
+import { activatePackage, ApiError, getApiErrorState, getDashboardOverview, getDashboardPackages, getNumber, getPublicStatuses, Package, Status, upgradePackage } from '../../lib/api';
 import { cn } from '../../lib/utils';
 
 export default function PackageStatus() {
   const { currentUser, refreshCurrentUser } = useDashboardContext();
   const [packages, setPackages] = useState<Package[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
+  const [statusProgress, setStatusProgress] = useState({ leftPV: 0, rightPV: 0, weakLegPV: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingPackage, setPendingPackage] = useState('');
@@ -22,23 +23,36 @@ export default function PackageStatus() {
     return packageCode !== 'ELITE' || currentPackageCode === 'VIP' || currentPackageCode === 'ELITE';
   });
   const currentPackageIndex = displayPackages.findIndex((pkg) => normalizePackageCode(pkg.code || pkg.name) === currentPackageCode);
-  const nextStatus = statuses.find((status) => status.pv > currentUser.personalPV) || statuses[statuses.length - 1];
+  const weakLegPV = statusProgress.weakLegPV || Math.min(statusProgress.leftPV, statusProgress.rightPV);
+  const nextStatus = statuses.find((status) => status.pv > weakLegPV);
+  const statusTargetPV = nextStatus?.pv || statuses[statuses.length - 1]?.pv || Math.max(weakLegPV, 1);
+  const statusProgressPercent = statusTargetPV > 0 ? Math.min(100, Math.max(0, (weakLegPV / statusTargetPV) * 100)) : 0;
 
   const loadPackageData = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
 
     try {
-      const [packageItems, statusItems] = await Promise.all([
+      const [packageItems, statusItems, overviewResponse] = await Promise.all([
         getDashboardPackages(),
         getPublicStatuses(),
+        getDashboardOverview(),
       ]);
+      const overview = overviewResponse && typeof overviewResponse === 'object' ? overviewResponse as Record<string, unknown> : {};
+      const structure = overview.structure && typeof overview.structure === 'object' ? overview.structure as Record<string, unknown> : {};
 
       setPackages(packageItems);
       setStatuses(statusItems);
+      setStatusProgress({
+        leftPV: getNumber(structure, ['left_pv']) ?? 0,
+        rightPV: getNumber(structure, ['right_pv']) ?? 0,
+        weakLegPV: getNumber(structure, ['weak_leg_pv', 'weakLegPv'])
+          ?? Math.min(getNumber(structure, ['left_pv']) ?? 0, getNumber(structure, ['right_pv']) ?? 0),
+      });
     } catch (caughtError) {
       setPackages([]);
       setStatuses([]);
+      setStatusProgress({ leftPV: 0, rightPV: 0, weakLegPV: 0 });
       setLoadError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
@@ -173,10 +187,15 @@ export default function PackageStatus() {
           <span className="safi-kicker">PV progress</span>
           <h2 className="mt-3 font-serif text-3xl font-semibold text-safi-green">Следующий статус: {nextStatus?.name || currentUser.status}</h2>
           <p className="mt-3 text-sm leading-7 text-safi-muted">
-            Ваш текущий PV: {currentUser.personalPV.toLocaleString('ru-RU')} PV.
+            Малая ветка PV: {weakLegPV.toLocaleString('ru-RU')} PV. Личный PV: {currentUser.personalPV.toLocaleString('ru-RU')} PV.
           </p>
           <div className="mt-8">
-            <ProgressBar label={`${currentUser.status} -> ${nextStatus?.name || currentUser.status}`} current={currentUser.personalPV} total={nextStatus?.pv || Math.max(currentUser.personalPV, 1)} />
+            <ProgressBar
+              label={`${currentUser.status} -> ${nextStatus?.name || currentUser.status}`}
+              current={weakLegPV}
+              total={statusTargetPV}
+              percentageOverride={statusProgressPercent}
+            />
           </div>
         </article>
 
@@ -191,7 +210,7 @@ export default function PackageStatus() {
           )}
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {statuses.slice(0, 6).map((status) => {
-              const achieved = currentUser.personalPV >= status.pv;
+              const achieved = weakLegPV >= status.pv;
               const current = currentUser.status.toLowerCase() === status.name.toLowerCase();
 
               return (

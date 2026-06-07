@@ -5,7 +5,7 @@ import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { cn } from '../../lib/utils';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { getApiErrorState, getArray, getDashboardOverview, getNumber, getString } from '../../lib/api';
+import { getApiErrorState, getArray, getDashboardOverview, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
 import { features } from '../../config/features';
 
 interface TransactionItem {
@@ -23,21 +23,27 @@ export default function Overview() {
   const [copiedLink, setCopiedLink] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [structure, setStructure] = useState({ totalPartners: 0, leftPV: 0, rightPV: 0, totalPV: 0, weakLeg: 'left' });
+  const [structure, setStructure] = useState({ totalPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
   const [balances, setBalances] = useState({ available: currentUser.walletAvailable, totalEarned: currentUser.totalEarned });
   const [bonusesSummary, setBonusesSummary] = useState({ total: currentUser.bonusesTotal, referral: 0, binary: 0, cashback: 0 });
   const [ordersSummary, setOrdersSummary] = useState({ total: 0, pending: 0, totalAmount: 0, totalPV: 0 });
   const [withdrawalsSummary, setWithdrawalsSummary] = useState({ total: 0, pending: 0, approved: 0, pendingAmount: 0 });
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
-  const totalPV = structure.totalPV || currentUser.teamPV || structure.leftPV + structure.rightPV || currentUser.personalPV;
-  const nextStatusPV = Math.max(5000, totalPV + 1);
+  const [statuses, setStatuses] = useState<Status[]>([]);
+  const weakLegPV = structure.weakLegPV || Math.min(structure.leftPV, structure.rightPV);
+  const nextStatus = statuses.find((status) => status.pv > weakLegPV);
+  const statusTargetPV = nextStatus?.pv || statuses[statuses.length - 1]?.pv || Math.max(weakLegPV, 1);
+  const statusProgressPercent = statusTargetPV > 0 ? Math.min(100, Math.max(0, (weakLegPV / statusTargetPV) * 100)) : 0;
 
   const loadOverview = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await getDashboardOverview();
+      const [response, statusItems] = await Promise.all([
+        getDashboardOverview(),
+        getPublicStatuses(),
+      ]);
       const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
       const structureRecord = record.structure && typeof record.structure === 'object' ? record.structure as Record<string, unknown> : {};
       const balancesRecord = record.balances && typeof record.balances === 'object' ? record.balances as Record<string, unknown> : {};
@@ -46,11 +52,12 @@ export default function Overview() {
       const ordersRecord = record.orders_summary && typeof record.orders_summary === 'object' ? record.orders_summary as Record<string, unknown> : {};
       const withdrawalsRecord = record.withdrawals_summary && typeof record.withdrawals_summary === 'object' ? record.withdrawals_summary as Record<string, unknown> : {};
 
+      setStatuses(statusItems);
       setStructure({
         totalPartners: getNumber(structureRecord, ['total_partners']) ?? 0,
         leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
         rightPV: getNumber(structureRecord, ['right_pv']) ?? 0,
-        totalPV: getNumber(structureRecord, ['total_pv']) ?? 0,
+        weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv']) ?? Math.min(getNumber(structureRecord, ['left_pv']) ?? 0, getNumber(structureRecord, ['right_pv']) ?? 0),
         weakLeg: getString(structureRecord, ['weak_leg']) || 'left',
       });
       setBalances({
@@ -90,7 +97,8 @@ export default function Overview() {
         };
       }));
     } catch (caughtError) {
-      setStructure({ totalPartners: 0, leftPV: 0, rightPV: 0, totalPV: 0, weakLeg: 'left' });
+      setStructure({ totalPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
+      setStatuses([]);
       setTransactions([]);
       setError(getApiErrorState(caughtError).error);
     } finally {
@@ -152,8 +160,8 @@ export default function Overview() {
           variant="primary"
         />
         <StatCard
-          title="Общий PV"
-          value={`${totalPV.toLocaleString('ru-RU')} PV`}
+          title="Малая ветка PV"
+          value={`${weakLegPV.toLocaleString('ru-RU')} PV`}
           icon={<Activity className="h-5 w-5" />}
         />
         <StatCard
@@ -181,7 +189,7 @@ export default function Overview() {
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h2 className="font-serif text-3xl font-semibold text-safi-green">Прогресс статуса</h2>
-                <p className="mt-2 text-sm leading-7 text-safi-muted">PV и ближайший ориентир роста.</p>
+                <p className="mt-2 text-sm leading-7 text-safi-muted">Статус считается по малой ветке: min(левая, правая).</p>
               </div>
               <Link to="/dashboard/package-status" className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold hover:text-safi-green">
                 Подробнее
@@ -189,12 +197,17 @@ export default function Overview() {
             </div>
 
             <div className="mb-7 grid gap-4 md:grid-cols-3">
-              <MiniMetric label="Бонусы" value={`${bonusesSummary.total.toLocaleString('ru-RU')} ₸`} />
-              <MiniMetric label="Заказы" value={`${ordersSummary.totalAmount.toLocaleString('ru-RU')} ₸`} />
-              <MiniMetric label="Выводы в ожидании" value={`${withdrawalsSummary.pendingAmount.toLocaleString('ru-RU')} ₸`} />
+              <MiniMetric label="Малая ветка PV" value={`${weakLegPV.toLocaleString('ru-RU')} PV`} />
+              <MiniMetric label="Следующий порог" value={`${statusTargetPV.toLocaleString('ru-RU')} PV`} />
+              <MiniMetric label="Прогресс" value={`${statusProgressPercent.toFixed(0)}%`} />
             </div>
 
-            <ProgressBar label={`${currentUser.status} -> следующий статус`} current={totalPV} total={nextStatusPV} />
+            <ProgressBar
+              label={`${currentUser.status} -> ${nextStatus?.name || currentUser.status}`}
+              current={weakLegPV}
+              total={statusTargetPV}
+              percentageOverride={statusProgressPercent}
+            />
           </article>
 
           <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">

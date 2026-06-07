@@ -54,7 +54,7 @@ const userDefaults: DashboardCurrentUser = {
   registrationDate: '-',
   walletAvailable: 0,
   totalEarned: 0,
-  personalPV: 2500,
+  personalPV: 0,
   teamPV: 0,
   bonusesTotal: 0,
   referralsCount: 0,
@@ -397,8 +397,12 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
       ?? getNumber(walletRecord, ['available', 'balance', 'amount'])
       ?? userDefaults.walletAvailable,
     totalEarned: getNumber(walletRecord, ['total_earned', 'totalEarned', 'earned']) ?? getNumber(record, ['total_earned', 'totalEarned']) ?? userDefaults.totalEarned,
-    personalPV: getNumber(record, ['total_pv', 'totalPV', 'personal_pv', 'personalPV', 'pv']) ?? userDefaults.personalPV,
-    teamPV: getNumber(record, ['team_pv', 'teamPV', 'structure_pv']) ?? userDefaults.teamPV,
+    personalPV: getNumber(record, ['package_activity_pv', 'packageActivityPv', 'personal_pv', 'personalPV'])
+      ?? getNumber(packageRecord, ['activity_pv', 'activityPv', 'pv'])
+      ?? userDefaults.personalPV,
+    teamPV: getNumber(record, ['team_pv', 'teamPV', 'structure_pv'])
+      ?? ((getNumber(record, ['left_pv']) ?? 0) + (getNumber(record, ['right_pv']) ?? 0))
+      ?? userDefaults.teamPV,
     bonusesTotal: getNumber(record, ['bonuses_total', 'bonusesTotal', 'bonus_balance']) ?? userDefaults.bonusesTotal,
     referralsCount: getNumber(record, ['referrals_count', 'referralsCount']) ?? userDefaults.referralsCount,
     raw: response,

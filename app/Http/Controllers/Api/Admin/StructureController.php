@@ -129,6 +129,8 @@ class StructureController extends Controller
         $wallets = $user->relationLoaded('wallets') ? $user->wallets : collect();
         $balance = (float) $wallets->where('type', 'main')->sum('balance');
         $totalBalance = (float) $wallets->whereIn('type', ['main', 'bonus', 'deposit'])->sum('balance');
+        $leftPv = (float) ($user->left_pv ?? 0);
+        $rightPv = (float) ($user->right_pv ?? 0);
 
         return [
             'id' => $user->id,
@@ -147,6 +149,9 @@ class StructureController extends Controller
             'status' => $user->status,
             'left_pv' => $user->left_pv,
             'right_pv' => $user->right_pv,
+            'weak_leg_pv' => min($leftPv, $rightPv),
+            'team_pv' => $leftPv + $rightPv,
+            'package_activity_pv' => $package ? (float) $package->activityPv() : 0,
             'total_pv' => $user->total_pv,
             'balance' => $balance,
             'total_balance' => $totalBalance,
