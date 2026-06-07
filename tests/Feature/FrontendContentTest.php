@@ -93,6 +93,11 @@ class FrontendContentTest extends TestCase
             $this->assertStringNotContainsString('href="tel:', $contents);
             $this->assertStringNotContainsString('safilife_support', $contents);
         }
+
+        $this->assertStringNotContainsString('Демо кабинета', $footer);
+        $this->assertStringNotContainsString('onSubmit={e => e.preventDefault()}', $contacts);
+        $this->assertStringContainsString("t('contacts.supportTitle'", $contacts);
+        $this->assertStringContainsString('to="/login"', $contacts);
     }
 
     public function test_header_uses_authenticated_cabinet_actions(): void

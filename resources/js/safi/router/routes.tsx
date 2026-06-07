@@ -4,7 +4,7 @@ import { MainLayout } from '../components/layout/MainLayout';
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { features } from '../config/features';
 
-// Mock pages for now
+// Public pages
 const HomePage = React.lazy(() => import('../pages/HomePage'));
 const AboutPage = React.lazy(() => import('../pages/AboutPage'));
 const ProductsPage = React.lazy(() => import('../pages/ProductsPage'));

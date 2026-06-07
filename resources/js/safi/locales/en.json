@@ -209,7 +209,11 @@
     "formPhone": "Phone",
     "formSubject": "Subject",
     "formMessage": "Message",
-    "formSubmit": "Send message"
+    "formSubmit": "Send message",
+    "supportTitle": "Support",
+    "supportTitleAccent": "through the website",
+    "supportText": "Authenticated users can create a ticket in their personal cabinet, track its status, and receive replies from the support team. External messengers and phone floating buttons are not used on the website.",
+    "supportNote": "If you already have an account, open the Support section in the cabinet and create a ticket with a subject and issue description."
   },
   "auth": {
     "loginTitle": "Log in to",

@@ -37,26 +37,17 @@ export default function ContactsPage() {
           
           <div className="bg-white p-8 md:p-10 rounded-[40px] shadow-xl border border-safi-green/5 relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-safi-gold/10 rounded-bl-full -z-10"></div>
-            <h3 className="text-3xl font-serif font-bold mb-8 text-safi-green">Оставить <span className="italic text-safi-gold">заявку</span></h3>
-            <form className="space-y-6" onSubmit={e => e.preventDefault()}>
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest font-bold text-safi-green opacity-80 mb-2">Имя</label>
-                <input type="text" className="w-full px-5 py-4 rounded-xl border border-safi-green/20 bg-[#F5F5F0] focus:ring-2 focus:ring-safi-green focus:border-safi-green focus:bg-white outline-none transition-all placeholder:text-safi-text/40" placeholder={t('contacts.formName', 'Ваше имя')} />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest font-bold text-safi-green opacity-80 mb-2">Телефон</label>
-                <input type="tel" className="w-full px-5 py-4 rounded-xl border border-safi-green/20 bg-[#F5F5F0] focus:ring-2 focus:ring-safi-green focus:border-safi-green focus:bg-white outline-none transition-all placeholder:text-safi-text/40" placeholder="+7 (___) ___-__-__" />
-              </div>
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest font-bold text-safi-green opacity-80 mb-2">Меня интересует</label>
-                <select className="w-full px-5 py-4 rounded-xl border border-safi-green/20 bg-[#F5F5F0] focus:ring-2 focus:ring-safi-green focus:border-safi-green focus:bg-white outline-none transition-all text-sm text-safi-green">
-                  <option>Продукция</option>
-                  <option>Партнерство</option>
-                  <option>Другой вопрос</option>
-                </select>
-              </div>
-              <Button type="submit" className="w-full mt-2">Отправить</Button>
-            </form>
+            <h3 className="text-3xl font-serif font-bold mb-6 text-safi-green">{t('contacts.supportTitle', 'Поддержка')} <span className="italic text-safi-gold">{t('contacts.supportTitleAccent', 'через сайт')}</span></h3>
+            <p className="text-sm leading-7 text-safi-text/70">
+              {t('contacts.supportText', 'Авторизованные пользователи могут создать обращение в личном кабинете, отслеживать статус и получать ответы команды поддержки. Внешние мессенджеры и телефонные floating-кнопки на сайте не используются.')}
+            </p>
+            <div className="mt-8 grid gap-3 sm:grid-cols-2">
+              <Button to="/login" className="w-full">{t('nav.login', 'Вход')}</Button>
+              <Button to="/register" variant="outline" className="w-full">{t('nav.register', 'Регистрация')}</Button>
+            </div>
+            <div className="mt-8 rounded-3xl border border-safi-green/10 bg-[#F5F5F0] p-5 text-sm leading-7 text-safi-green/75">
+              {t('contacts.supportNote', 'Если у вас уже есть аккаунт, откройте раздел “Поддержка” в кабинете и создайте обращение с темой и описанием вопроса.')}
+            </div>
           </div>
         </div>
       </Container>

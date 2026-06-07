@@ -42,9 +42,6 @@ export function Footer() {
               <li><Link to="/marketing" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.marketing', 'Маркетинг-план')}</Link></li>
               <li><Link to="/how-to-start" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.howToStart', 'Как начать')}</Link></li>
               <li><Link to="/login" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.login', 'Вход в кабинет')}</Link></li>
-              <li><Link to="/dashboard" className="text-safi-gold hover:text-white transition-colors font-bold uppercase text-[10px] tracking-wider relative group">
-                <span className="bg-white/10 px-2 py-1 rounded inline-block">Демо кабинета</span>
-              </Link></li>
             </ul>
           </div>
 
