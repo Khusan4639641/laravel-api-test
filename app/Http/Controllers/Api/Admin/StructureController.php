@@ -6,6 +6,8 @@ use App\Http\Controllers\Api\Concerns\RespondsWithPagination;
 use App\Http\Controllers\Controller;
 use App\Models\BinaryNode;
 use App\Models\User;
+use App\Services\DashboardBranchVolumeService;
+use App\Support\SystemLabel;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -14,7 +16,7 @@ class StructureController extends Controller
 {
     use RespondsWithPagination;
 
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, DashboardBranchVolumeService $branchVolumeService): JsonResponse
     {
         $selectedUser = null;
         $rootNode = null;
@@ -49,23 +51,25 @@ class StructureController extends Controller
             ]);
         }
 
-        $stats = $this->statsFor($selectedUser, $rootNode);
+        $stats = $this->statsFor($selectedUser, $rootNode, $branchVolumeService);
         $nodes = $this->subtreeNodes($rootNode, $maxDepth);
         $loadedRootNode = $rootNode ? $nodes->firstWhere('id', $rootNode->id) : null;
         $rootDepth = $loadedRootNode?->depth ?? 0;
         $root = $loadedRootNode
-            ? $this->nodeTree($loadedRootNode, $nodes, $rootDepth)
-            : $this->userOnlyNode($selectedUser);
+            ? $this->nodeTree($loadedRootNode, $nodes, $rootDepth, $branchVolumeService)
+            : $this->userOnlyNode($selectedUser, $branchVolumeService);
         $response = [
             'root_user_id' => $selectedUser->id,
             'root' => $root,
+            'tree' => $root,
+            'summary' => $stats,
             'stats' => $stats,
             'nodes' => $this->flattenTree($root),
             'depth' => $maxDepth,
         ];
 
         if ($includeFlat) {
-            $response['flat'] = $this->descendantFlatNodes($rootNode);
+            $response['flat'] = $this->descendantFlatNodes($rootNode, $branchVolumeService);
         }
 
         return response()->json($response);
@@ -96,34 +100,35 @@ class StructureController extends Controller
      * @param  \Illuminate\Support\Collection<int, BinaryNode>  $nodes
      * @return array<string, mixed>
      */
-    private function nodeTree(BinaryNode $node, $nodes, int $rootDepth): array
+    private function nodeTree(BinaryNode $node, $nodes, int $rootDepth, DashboardBranchVolumeService $branchVolumeService): array
     {
         $leftNode = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'L');
         $rightNode = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'R');
 
         return $this->userNode($node->user, $node, [
-            'left' => $leftNode ? $this->nodeTree($leftNode, $nodes, $rootDepth) : null,
-            'right' => $rightNode ? $this->nodeTree($rightNode, $nodes, $rootDepth) : null,
-        ], max(0, $node->depth - $rootDepth));
+            'left' => $leftNode ? $this->nodeTree($leftNode, $nodes, $rootDepth, $branchVolumeService) : null,
+            'right' => $rightNode ? $this->nodeTree($rightNode, $nodes, $rootDepth, $branchVolumeService) : null,
+        ], max(0, $node->depth - $rootDepth), $branchVolumeService);
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function userOnlyNode(User $user): array
+    private function userOnlyNode(User $user, DashboardBranchVolumeService $branchVolumeService): array
     {
         return $this->userNode($user, null, [
             'left' => null,
             'right' => null,
-        ], 0);
+        ], 0, $branchVolumeService);
     }
 
     /**
      * @param  array{left: array<string, mixed>|null, right: array<string, mixed>|null}  $children
      * @return array<string, mixed>
      */
-    private function userNode(User $user, ?BinaryNode $node, array $children, int $level): array
+    private function userNode(User $user, ?BinaryNode $node, array $children, int $level, DashboardBranchVolumeService $branchVolumeService): array
     {
+        $user->loadMissing(['currentPackage', 'sponsor', 'wallets']);
         $package = $user->currentPackage;
         $sponsor = $user->sponsor;
         $wallets = $user->relationLoaded('wallets') ? $user->wallets : collect();
@@ -131,6 +136,10 @@ class StructureController extends Controller
         $totalBalance = (float) $wallets->whereIn('type', ['main', 'bonus', 'deposit'])->sum('balance');
         $leftPv = (float) ($user->left_pv ?? 0);
         $rightPv = (float) ($user->right_pv ?? 0);
+        $packageCode = $package?->code;
+        $personalPv = $branchVolumeService->getUserPersonalPv($user);
+        $turnoverPv = $branchVolumeService->getUserTurnoverPvForBranch($user);
+        $statusCode = strtoupper((string) $user->status);
 
         return [
             'id' => $user->id,
@@ -145,13 +154,29 @@ class StructureController extends Controller
                 'name' => $sponsor->name,
                 'login' => $sponsor->login,
             ] : null,
-            'package' => $package?->name ?? $package?->code,
+            'package' => $package ? [
+                'id' => $package->id,
+                'code' => $packageCode,
+                'name' => $package->name,
+                'label' => SystemLabel::package($packageCode, $package->name, 'ru'),
+                'activity_pv' => $personalPv,
+                'turnover_pv' => $turnoverPv,
+            ] : null,
+            'package_code' => $packageCode,
+            'package_label' => SystemLabel::package($packageCode, $package?->name, 'ru'),
             'status' => $user->status,
+            'status_label' => SystemLabel::mlmStatus($user->status, null, 'ru'),
+            'mlm_status' => [
+                'code' => $statusCode,
+                'label' => SystemLabel::mlmStatus($user->status, null, 'ru'),
+            ],
             'left_pv' => $user->left_pv,
             'right_pv' => $user->right_pv,
             'weak_leg_pv' => min($leftPv, $rightPv),
             'team_pv' => $leftPv + $rightPv,
-            'package_activity_pv' => $package ? (float) $package->activityPv() : 0,
+            'personal_pv' => $personalPv,
+            'package_activity_pv' => $personalPv,
+            'turnover_pv' => $turnoverPv,
             'total_pv' => $user->total_pv,
             'balance' => $balance,
             'total_balance' => $totalBalance,
@@ -186,13 +211,28 @@ class StructureController extends Controller
     /**
      * @return array<string, int>
      */
-    private function statsFor(User $rootUser, ?BinaryNode $rootNode): array
+    private function statsFor(User $rootUser, ?BinaryNode $rootNode, DashboardBranchVolumeService $branchVolumeService): array
     {
+        $volumes = $branchVolumeService->getVolumesForRoot($rootUser);
+        $totalCount = $volumes['left_count'] + $volumes['right_count'];
+
         return [
-            'direct_invited_count' => User::query()->where('sponsor_id', $rootUser->id)->count(),
-            'total_downline_count' => $this->descendantCount($rootNode),
-            'left_branch_count' => $this->branchCount($rootNode, 'L'),
-            'right_branch_count' => $this->branchCount($rootNode, 'R'),
+            'direct_invited_count' => User::query()
+                ->where('sponsor_id', $rootUser->id)
+                ->where('role', User::ROLE_USER)
+                ->count(),
+            'total_downline_count' => $totalCount,
+            'total_structure_count' => $totalCount,
+            'left_branch_count' => $volumes['left_count'],
+            'right_branch_count' => $volumes['right_count'],
+            'left_count' => $volumes['left_count'],
+            'right_count' => $volumes['right_count'],
+            'left_pv' => $volumes['left_pv'],
+            'right_pv' => $volumes['right_pv'],
+            'weak_leg_pv' => $volumes['weak_leg_pv'],
+            'left_branch_pv' => $volumes['left_branch_pv'],
+            'right_branch_pv' => $volumes['right_branch_pv'],
+            'weak_leg' => $volumes['weak_leg'],
         ];
     }
 
@@ -230,7 +270,7 @@ class StructureController extends Controller
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function descendantFlatNodes(?BinaryNode $rootNode): array
+    private function descendantFlatNodes(?BinaryNode $rootNode, DashboardBranchVolumeService $branchVolumeService): array
     {
         if (! $rootNode) {
             return [];
@@ -245,7 +285,7 @@ class StructureController extends Controller
             ->map(fn (BinaryNode $node): array => $this->userNode($node->user, $node, [
                 'left' => null,
                 'right' => null,
-            ], max(0, $node->depth - $rootNode->depth)))
+            ], max(0, $node->depth - $rootNode->depth), $branchVolumeService))
             ->values()
             ->all();
     }

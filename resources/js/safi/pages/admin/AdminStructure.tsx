@@ -39,6 +39,9 @@ interface StructureStats {
   totalDownlineCount: number;
   leftBranchCount: number;
   rightBranchCount: number;
+  leftPV: number;
+  rightPV: number;
+  weakLegPV: number;
 }
 
 interface PartnerSearchResult {
@@ -54,6 +57,9 @@ const emptyStats: StructureStats = {
   totalDownlineCount: 0,
   leftBranchCount: 0,
   rightBranchCount: 0,
+  leftPV: 0,
+  rightPV: 0,
+  weakLegPV: 0,
 };
 
 export default function AdminStructure() {
@@ -124,10 +130,10 @@ export default function AdminStructure() {
         const results = normalizePartnerSearchResults(response);
 
         setSearchResults(results);
-        setSearchMessage(results.length === 0 ? 'Партнёр не найден' : '');
+        setSearchMessage(results.length === 0 ? adminText('Партнёр не найден') : '');
       } catch (caughtError) {
         setSearchResults([]);
-        setSearchMessage(getApiErrorState(caughtError).error || 'Не удалось выполнить поиск партнёра');
+        setSearchMessage(getApiErrorState(caughtError).error || adminText('Не удалось выполнить поиск партнёра'));
       } finally {
         setIsSearching(false);
       }
@@ -167,7 +173,7 @@ export default function AdminStructure() {
       return;
     }
 
-    setSearchMessage(searchResults.length > 1 ? 'Выберите партнёра из списка ниже' : 'Партнёр не найден');
+    setSearchMessage(searchResults.length > 1 ? adminText('Выберите партнёра из списка ниже') : adminText('Партнёр не найден'));
   };
 
   const openNodeTree = (userId: string) => {
@@ -224,7 +230,7 @@ export default function AdminStructure() {
 
       {(isSearching || searchMessage || searchResults.length > 0) && (
         <section className="rounded-[24px] border border-safi-green/5 bg-white p-4 shadow-sm">
-          {isSearching && <div className="text-sm font-bold text-safi-muted">Ищем партнёра...</div>}
+          {isSearching && <div className="text-sm font-bold text-safi-muted">{adminText('Ищем партнёра...')}</div>}
           {!isSearching && searchMessage && <div className="text-sm font-bold text-safi-muted">{searchMessage}</div>}
           {!isSearching && searchResults.length > 0 && (
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -238,7 +244,7 @@ export default function AdminStructure() {
                     onClick={() => openNodeTree(partner.id)}
                     className="mt-4 inline-flex cursor-pointer items-center justify-center rounded-full border border-safi-green bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white"
                   >
-                    Открыть дерево
+                    {adminText('Открыть дерево')}
                   </button>
                 </article>
               ))}
@@ -248,11 +254,20 @@ export default function AdminStructure() {
       )}
 
       {!isLoading && !error && rootNode && (
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard label={adminText('a_0JvQuNGH0L3Q_2')} value={stats.directInvitedCount.toLocaleString('ru-RU')} />
-          <SummaryCard label={adminText('a_0JLRgdC10LPQ_4')} value={stats.totalDownlineCount.toLocaleString('ru-RU')} />
-          <SummaryCard label={adminText('a_0JvQtdCy0LDR_2')} value={stats.leftBranchCount.toLocaleString('ru-RU')} />
-          <SummaryCard label={adminText('a_0J_RgNCw0LLQ_2')} value={stats.rightBranchCount.toLocaleString('ru-RU')} />
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <SummaryCard label={adminText('Лично пригласил')} value={stats.directInvitedCount.toLocaleString('ru-RU')} />
+          <SummaryCard label={adminText('Всего в структуре')} value={stats.totalDownlineCount.toLocaleString('ru-RU')} />
+          <SummaryCard
+            label={adminText('Левая ветка')}
+            value={`${stats.leftBranchCount.toLocaleString('ru-RU')} ${adminText('Партнёров').toLowerCase()}`}
+            subValue={`${stats.leftPV.toLocaleString('ru-RU')} PV`}
+          />
+          <SummaryCard
+            label={adminText('Правая ветка')}
+            value={`${stats.rightBranchCount.toLocaleString('ru-RU')} ${adminText('Партнёров').toLowerCase()}`}
+            subValue={`${stats.rightPV.toLocaleString('ru-RU')} PV`}
+          />
+          <SummaryCard label={adminText('Малая ветка PV')} value={`${stats.weakLegPV.toLocaleString('ru-RU')} PV`} />
         </section>
       )}
 
@@ -307,9 +322,9 @@ export default function AdminStructure() {
               <td className="px-6 py-4"><AdminBadge variant="gold">{node.packageName}</AdminBadge></td>
               <td className="px-6 py-4"><AdminBadge variant="default">{node.status}</AdminBadge></td>
               <td className="px-6 py-4">
-                <div className="font-bold text-safi-green">Личный PV: {node.personalPV.toLocaleString('ru-RU')}</div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">Командный PV: {node.teamPV.toLocaleString('ru-RU')}</div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-gold">Малая ветка PV: {node.weakLegPV.toLocaleString('ru-RU')}</div>
+                <div className="font-bold text-safi-green">{adminText('Личный PV')}: {node.personalPV.toLocaleString('ru-RU')}</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('Командный PV')}: {node.teamPV.toLocaleString('ru-RU')}</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-gold">{adminText('Малая ветка PV')}: {node.weakLegPV.toLocaleString('ru-RU')}</div>
               </td>
               <td className="px-6 py-4">{node.balance.toLocaleString('ru-RU')}</td>
               <td className="px-6 py-4">
@@ -334,11 +349,12 @@ export default function AdminStructure() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryCard({ label, value, subValue }: { label: string; value: string; subValue?: string }) {
   return (
     <article className="rounded-3xl border border-safi-border bg-white p-5 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
       <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>
       <div className="mt-3 font-serif text-2xl font-semibold text-safi-green">{value}</div>
+      {subValue && <div className="mt-2 text-sm font-extrabold text-safi-gold">{subValue}</div>}
     </article>
   );
 }
@@ -365,9 +381,19 @@ function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: bool
         </div>
         <div className="mb-1 w-full truncate text-sm font-bold text-safi-green" title={node.name}>{node.name}</div>
         <div className="mb-2 rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-[10px] text-safi-text/50">{node.login || node.userId}</div>
-        <div className="mt-1 flex w-full items-center justify-between border-t border-safi-green/5 pt-2 text-[10px]">
-          <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
-          <span className="font-bold text-safi-green">Личный PV: {node.personalPV.toLocaleString('ru-RU')}</span>
+        <div className="mt-3 space-y-1 border-t border-safi-green/5 pt-3 text-left text-[10px] font-bold text-safi-text/70">
+          <div className="flex items-center justify-between gap-2">
+            <span>{adminText('Пакет')}:</span>
+            <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span>{adminText('Статус')}:</span>
+            <span className="truncate text-safi-green">{node.status}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span>{adminText('Личный PV')}:</span>
+            <span className="text-safi-gold">{node.personalPV.toLocaleString('ru-RU')} PV</span>
+          </div>
         </div>
       </button>
 
@@ -409,13 +435,19 @@ function EmptyTreeSlot() {
 }
 
 function normalizeStats(response: unknown): StructureStats {
-  const stats = unwrapRecord(response, ['stats']);
+  const summary = unwrapRecord(response, ['summary']);
+  const stats = Object.keys(summary).length > 0 ? summary : unwrapRecord(response, ['stats']);
+  const leftPV = getNumber(stats, ['left_pv', 'leftPV', 'left_branch_pv', 'leftBranchPv']) ?? 0;
+  const rightPV = getNumber(stats, ['right_pv', 'rightPV', 'right_branch_pv', 'rightBranchPv']) ?? 0;
 
   return {
     directInvitedCount: getNumber(stats, ['direct_invited_count', 'directInvitedCount']) ?? 0,
-    totalDownlineCount: getNumber(stats, ['total_downline_count', 'totalDownlineCount']) ?? 0,
-    leftBranchCount: getNumber(stats, ['left_branch_count', 'leftBranchCount']) ?? 0,
-    rightBranchCount: getNumber(stats, ['right_branch_count', 'rightBranchCount']) ?? 0,
+    totalDownlineCount: getNumber(stats, ['total_structure_count', 'totalStructureCount', 'total_downline_count', 'totalDownlineCount']) ?? 0,
+    leftBranchCount: getNumber(stats, ['left_count', 'leftCount', 'left_branch_count', 'leftBranchCount']) ?? 0,
+    rightBranchCount: getNumber(stats, ['right_count', 'rightCount', 'right_branch_count', 'rightBranchCount']) ?? 0,
+    leftPV,
+    rightPV,
+    weakLegPV: getNumber(stats, ['weak_leg_pv', 'weakLegPv', 'weak_leg_branch_pv', 'weakLegBranchPv']) ?? Math.min(leftPV, rightPV),
   };
 }
 
@@ -448,13 +480,21 @@ function normalizePackage(record: Record<string, unknown>) {
   const pkg = record.package && typeof record.package === 'object' ? record.package as Record<string, unknown> : undefined;
   const code = getString(pkg, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode', 'package']) || '';
 
-  return packageLabel(code, getString(pkg, ['code_label', 'codeLabel', 'label', 'name']) || getString(record, ['package_name', 'packageName', 'package']) || '-');
+  return packageLabel(code, getString(pkg, ['code_label', 'codeLabel', 'label', 'name']) || getString(record, ['package_label', 'packageLabel', 'package_name', 'packageName', 'package']) || '-');
 }
 
 function normalizePackageCode(record: Record<string, unknown>) {
   const pkg = record.package && typeof record.package === 'object' ? record.package as Record<string, unknown> : undefined;
 
   return String(getString(pkg, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode', 'package']) || '').toUpperCase();
+}
+
+function normalizeMlmStatus(record: Record<string, unknown>) {
+  const mlmStatus = record.mlm_status && typeof record.mlm_status === 'object' ? record.mlm_status as Record<string, unknown> : undefined;
+  const code = getString(mlmStatus, ['code']) || getString(record, ['status']);
+  const label = getString(mlmStatus, ['label']) || getString(record, ['status_label', 'statusLabel']) || '-';
+
+  return mlmStatusLabel(code, label);
 }
 
 function normalizeNodeRecord(record: Record<string, unknown>, index = 0): StructureNode {
@@ -473,8 +513,8 @@ function normalizeNodeRecord(record: Record<string, unknown>, index = 0): Struct
     sponsor: normalizeSponsor(record),
     packageCode: normalizePackageCode(record),
     packageName: normalizePackage(record),
-    status: mlmStatusLabel(getString(record, ['status']), getString(record, ['status_label', 'statusLabel']) || '-'),
-    personalPV: getNumber(record, ['package_activity_pv', 'packageActivityPv']) ?? 0,
+    status: normalizeMlmStatus(record),
+    personalPV: getNumber(record, ['personal_pv', 'personalPv', 'package_activity_pv', 'packageActivityPv']) ?? 0,
     teamPV: getNumber(record, ['team_pv', 'teamPv'])
       ?? ((getNumber(record, ['left_pv']) ?? 0) + (getNumber(record, ['right_pv']) ?? 0)),
     weakLegPV: getNumber(record, ['weak_leg_pv', 'weakLegPv'])

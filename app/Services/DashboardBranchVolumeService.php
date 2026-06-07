@@ -10,6 +10,27 @@ use Illuminate\Support\Collection;
 class DashboardBranchVolumeService
 {
     /**
+     * @return array{left_count: int, right_count: int, left_pv: string, right_pv: string, weak_leg_pv: float, total_pv: string, weak_leg: string, left_branch_pv: string, right_branch_pv: string}
+     */
+    public function getVolumesForRoot(User $root): array
+    {
+        $volumes = $this->getBranchVolumes($root);
+        $counts = $this->branchCounts($root);
+
+        return [
+            'left_count' => $counts['left_count'],
+            'right_count' => $counts['right_count'],
+            'left_pv' => $volumes['left_pv'],
+            'right_pv' => $volumes['right_pv'],
+            'weak_leg_pv' => $volumes['weak_leg_pv'],
+            'total_pv' => $volumes['total_pv'],
+            'weak_leg' => $volumes['weak_leg'],
+            'left_branch_pv' => $volumes['left_pv'],
+            'right_branch_pv' => $volumes['right_pv'],
+        ];
+    }
+
+    /**
      * @return array{left_pv: string, right_pv: string, weak_leg_pv: float, total_pv: string, weak_leg: string, fallback_left_pv: string, fallback_right_pv: string, transaction_left_pv: string, transaction_right_pv: string}
      */
     public function getBranchVolumes(User $user): array
@@ -41,6 +62,20 @@ class DashboardBranchVolumeService
             'transaction_left_pv' => $transactionVolumes['left_pv'],
             'transaction_right_pv' => $transactionVolumes['right_pv'],
         ];
+    }
+
+    public function getUserTurnoverPvForBranch(User $user): float
+    {
+        $user->loadMissing('currentPackage');
+
+        return $user->currentPackage ? (float) $user->currentPackage->turnoverPv() : 0.0;
+    }
+
+    public function getUserPersonalPv(User $user): float
+    {
+        $user->loadMissing('currentPackage');
+
+        return $user->currentPackage ? (float) $user->currentPackage->activityPv() : 0.0;
     }
 
     /**
@@ -117,6 +152,48 @@ class DashboardBranchVolumeService
             });
 
         return $volumes;
+    }
+
+    /**
+     * @return array{left_count: int, right_count: int}
+     */
+    private function branchCounts(User $user): array
+    {
+        $user->loadMissing('binaryNode');
+        $rootNode = $user->binaryNode;
+
+        if (! $rootNode?->path) {
+            return ['left_count' => 0, 'right_count' => 0];
+        }
+
+        $rootSegments = explode('.', $rootNode->path);
+        $rootChildren = BinaryNode::query()
+            ->where('parent_id', $rootNode->id)
+            ->pluck('position', 'user_id');
+        $counts = ['left_count' => 0, 'right_count' => 0];
+
+        $this->descendantNodes($rootNode->path)
+            ->with('user')
+            ->orderBy('depth')
+            ->orderBy('id')
+            ->get()
+            ->each(function (BinaryNode $node) use (&$counts, $rootSegments, $rootChildren): void {
+                if (! $node->user || $node->user->role !== User::ROLE_USER) {
+                    return;
+                }
+
+                $branch = $this->rootBranch($node, $rootSegments, $rootChildren);
+
+                if ($branch === 'left') {
+                    $counts['left_count']++;
+                }
+
+                if ($branch === 'right') {
+                    $counts['right_count']++;
+                }
+            });
+
+        return $counts;
     }
 
     /**
