@@ -4,6 +4,7 @@ import { Badge, StatCard } from '../../components/dashboard/ui';
 import { cn } from '../../lib/utils';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getApiErrorState, getArray, getDashboardTransactions, getNumber, getString } from '../../lib/api';
+import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
 
 const filters = ['Все', 'Начисления', 'Выводы', 'Кэшбэк'];
 
@@ -11,7 +12,7 @@ export default function Transactions() {
   const [filter, setFilter] = useState('Все');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<Array<{ id: string; date: string; type: string; amount: string; status: string; source: string; comment: string }>>([]);
+  const [transactions, setTransactions] = useState<Array<{ id: string; date: string; typeCode: string; type: string; amount: string; statusCode: string; status: string; source: string; comment: string }>>([]);
   const balance = useMemo(() => {
     const totalEarned = transactions.filter((transaction) => transaction.amount.startsWith('+')).reduce((sum, transaction) => sum + Number(transaction.amount.replace(/[^\d.-]/g, '')), 0);
     const withdrawn = transactions.filter((transaction) => transaction.amount.startsWith('-')).reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount.replace(/[^\d.-]/g, ''))), 0);
@@ -29,12 +30,15 @@ export default function Transactions() {
         const direction = getString(record, ['direction']) || 'credit';
         const amount = getNumber(record, ['amount']) ?? 0;
         const rawType = getString(record, ['type']) || 'operation';
+        const statusCode = getString(record, ['status']) || 'completed';
         return {
           id: getString(record, ['id']) || String(index + 1),
           date: getString(record, ['created_at']) || '',
-          type: transactionTypeLabel(rawType),
+          typeCode: rawType,
+          type: transactionTypeLabel(rawType, getString(record, ['type_label', 'typeLabel']) || rawType),
           amount: formatTransactionAmount(direction, amount),
-          status: getString(record, ['status']) || 'completed',
+          statusCode,
+          status: transactionStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel']) || statusCode),
           source: getString(record, ['description']) || 'Система',
           comment: getString(record, ['description']) || '',
         };
@@ -61,10 +65,10 @@ export default function Transactions() {
     }
 
     if (filter === 'Выводы') {
-      return transactions.filter((transaction) => transaction.type.includes('Вывод'));
+      return transactions.filter((transaction) => transaction.typeCode.includes('withdrawal') || transaction.typeCode.includes('payout'));
     }
 
-    return transactions.filter((transaction) => transaction.type.includes('Кэшбэк'));
+    return transactions.filter((transaction) => transaction.typeCode.includes('cashback'));
   }, [filter, transactions]);
 
   return (
@@ -168,7 +172,7 @@ export default function Transactions() {
                     <div className="mt-1 text-xs text-safi-muted">{transaction.comment}</div>
                   </td>
                   <td className="px-7 py-5">
-                    <Badge variant={transaction.status === 'Начислено' || transaction.status === 'Выплачено' ? 'success' : 'warning'}>
+                    <Badge variant={transactionStatusVariant(transaction.statusCode)}>
                       {transaction.status}
                     </Badge>
                   </td>
@@ -207,7 +211,7 @@ export default function Transactions() {
               </div>
               <div className="mt-4 flex items-end justify-between gap-4">
                 <p className="text-xs leading-6 text-safi-muted">{transaction.source}</p>
-                <Badge variant={transaction.status === 'Начислено' || transaction.status === 'Выплачено' ? 'success' : 'warning'}>
+                <Badge variant={transactionStatusVariant(transaction.statusCode)}>
                   {transaction.status}
                 </Badge>
               </div>
@@ -233,14 +237,16 @@ function formatTransactionAmount(direction: string, amount: number) {
   return `${amount.toLocaleString('ru-RU')} ₸`;
 }
 
-function transactionTypeLabel(type: string) {
-  const labels: Record<string, string> = {
-    withdrawal_hold: 'Вывод: сумма в холде',
-    withdrawal_approved: 'Вывод: выплата подтверждена',
-    withdrawal_rejected: 'Вывод: заявка отклонена',
-    withdrawal_request: 'Вывод: заявка создана',
-    payout_completed: 'Вывод: выплата завершена',
-  };
+function transactionStatusVariant(status: string) {
+  const normalized = status.toLowerCase();
 
-  return labels[type] || type;
+  if (['rejected', 'declined', 'failed', 'cancelled'].includes(normalized)) {
+    return 'danger';
+  }
+
+  if (['pending', 'new', 'processing', 'in_progress'].includes(normalized)) {
+    return 'warning';
+  }
+
+  return 'success';
 }

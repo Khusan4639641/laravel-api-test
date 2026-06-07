@@ -4,6 +4,7 @@ import { Badge, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getApiErrorState, getArray, getDashboardStructure, getNumber, getString } from '../../lib/api';
+import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 
 export default function Structure() {
   const { currentUser } = useDashboardContext();
@@ -37,11 +38,11 @@ export default function Structure() {
           id: getString(user, ['id', 'login']) || String(index + 1),
           line: getNumber(node, ['level', 'depth']) ?? 0,
           branch,
-          package: getString(pkg, ['name']) || '-',
-          status: getString(user, ['status']) || '-',
+          package: packageLabel(getString(pkg, ['code', 'slug', 'id']), getString(pkg, ['code_label', 'codeLabel', 'label', 'name']) || '-'),
+          status: mlmStatusLabel(getString(user, ['status']), getString(user, ['status_label', 'statusLabel']) || '-'),
           personalPV,
           teamPV: leftPV + rightPV,
-          activity: getString(user, ['status']) === 'inactive' ? 'Неактивен' : 'Активен',
+          activity: accountStatusLabel(getString(user, ['account_status', 'accountStatus']), getString(user, ['account_status_label', 'accountStatusLabel']) || accountStatusLabel('active')),
         };
       });
       setPartners(list);

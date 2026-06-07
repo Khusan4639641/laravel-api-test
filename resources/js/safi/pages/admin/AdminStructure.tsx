@@ -6,6 +6,7 @@ import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminStructure, getApiErrorState, getArray, getNumber, getString, searchAdminPartners, unwrapRecord } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
+import { mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 
 interface StructureNode {
   id: string;
@@ -16,6 +17,7 @@ interface StructureNode {
   login: string;
   email: string;
   sponsor: string;
+  packageCode: string;
   packageName: string;
   status: string;
   personalPV: number;
@@ -357,14 +359,14 @@ function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: bool
       >
         <div className={cn(
           'mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold font-serif text-white',
-          node.packageName === 'START' ? 'bg-blue-400' : node.packageName === 'VIP' ? 'bg-purple-500' : 'bg-safi-gold'
+          node.packageCode === 'START' ? 'bg-blue-400' : node.packageCode === 'VIP' ? 'bg-purple-500' : 'bg-safi-gold'
         )}>
           {node.name.charAt(0)}
         </div>
         <div className="mb-1 w-full truncate text-sm font-bold text-safi-green" title={node.name}>{node.name}</div>
         <div className="mb-2 rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-[10px] text-safi-text/50">{node.login || node.userId}</div>
         <div className="mt-1 flex w-full items-center justify-between border-t border-safi-green/5 pt-2 text-[10px]">
-          <AdminBadge variant={node.packageName === 'ELITE' || node.packageName === 'VIP' ? 'gold' : 'default'} className="px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
+          <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
           <span className="font-bold text-safi-green">Личный PV: {node.personalPV.toLocaleString('ru-RU')}</span>
         </div>
       </button>
@@ -444,8 +446,15 @@ function normalizeSponsor(record: Record<string, unknown>) {
 
 function normalizePackage(record: Record<string, unknown>) {
   const pkg = record.package && typeof record.package === 'object' ? record.package as Record<string, unknown> : undefined;
+  const code = getString(pkg, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode', 'package']) || '';
 
-  return getString(pkg, ['name', 'code']) || getString(record, ['package']) || '-';
+  return packageLabel(code, getString(pkg, ['code_label', 'codeLabel', 'label', 'name']) || getString(record, ['package_name', 'packageName', 'package']) || '-');
+}
+
+function normalizePackageCode(record: Record<string, unknown>) {
+  const pkg = record.package && typeof record.package === 'object' ? record.package as Record<string, unknown> : undefined;
+
+  return String(getString(pkg, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode', 'package']) || '').toUpperCase();
 }
 
 function normalizeNodeRecord(record: Record<string, unknown>, index = 0): StructureNode {
@@ -462,8 +471,9 @@ function normalizeNodeRecord(record: Record<string, unknown>, index = 0): Struct
     login: getString(record, ['login']) || '',
     email: getString(record, ['email']) || '',
     sponsor: normalizeSponsor(record),
+    packageCode: normalizePackageCode(record),
     packageName: normalizePackage(record),
-    status: getString(record, ['status']) || '-',
+    status: mlmStatusLabel(getString(record, ['status']), getString(record, ['status_label', 'statusLabel']) || '-'),
     personalPV: getNumber(record, ['package_activity_pv', 'packageActivityPv']) ?? 0,
     teamPV: getNumber(record, ['team_pv', 'teamPv'])
       ?? ((getNumber(record, ['left_pv']) ?? 0) + (getNumber(record, ['right_pv']) ?? 0)),

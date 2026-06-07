@@ -5,12 +5,14 @@ import { useDashboardContext } from '../../components/dashboard/DashboardLayout'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ApiError, createDashboardWithdrawal, getApiErrorState, getDashboardBonuses, getDashboardOverview, getDashboardWithdrawals, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
 import { cn } from '../../lib/utils';
+import { withdrawalStatusLabel } from '../../lib/systemLabels';
 
 interface WithdrawalItem {
   id: string;
   date: string;
   amount: string;
   method: string;
+  statusCode: string;
   status: string;
   paymentDate: string;
   comment?: string;
@@ -328,7 +330,7 @@ export default function Bonuses() {
                       <td className="px-7 py-5 font-extrabold text-safi-green">{withdrawal.amount}</td>
                       <td className="px-7 py-5 text-safi-muted">{withdrawal.method}</td>
                       <td className="px-7 py-5">
-                        <Badge variant={withdrawal.status === 'Выплачено' ? 'success' : withdrawal.status === 'Отклонено' ? 'danger' : 'warning'}>
+                        <Badge variant={withdrawalStatusVariant(withdrawal.statusCode)}>
                           {withdrawal.status}
                         </Badge>
                       </td>
@@ -384,31 +386,35 @@ function normalizeWithdrawals(response: unknown): WithdrawalItem[] {
 
   return list.map((item, index) => {
     const record = isRecord(item) ? item : {};
+    const statusCode = normalizeWithdrawalStatusCode(getString(record, ['status']) || 'pending');
 
     return {
       id: getString(record, ['id', 'uuid', 'number']) || `W-${index + 1}`,
       date: getString(record, ['date', 'created_at', 'createdAt']) || '-',
       amount: formatAmount(record.amount ?? record.sum),
       method: methodLabel(getString(record, ['method', 'payment_method', 'paymentMethod'])),
-      status: normalizeWithdrawalStatus(getString(record, ['status']) || 'pending'),
+      statusCode,
+      status: withdrawalStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel']) || statusCode),
       paymentDate: getString(record, ['payment_date', 'paymentDate', 'paid_at', 'processed_at']) || '-',
       comment: getString(record, ['comment']),
     };
   });
 }
 
-function normalizeWithdrawalStatus(status: string) {
-  const normalized = status.toLowerCase();
+function normalizeWithdrawalStatusCode(status: string) {
+  return status.toLowerCase();
+}
 
-  if (['approved', 'paid', 'completed'].includes(normalized)) {
-    return 'Выплачено';
+function withdrawalStatusVariant(status: string) {
+  if (['approved', 'paid', 'completed'].includes(status)) {
+    return 'success';
   }
 
-  if (['rejected', 'declined', 'failed'].includes(normalized)) {
-    return 'Отклонено';
+  if (['rejected', 'declined', 'failed'].includes(status)) {
+    return 'danger';
   }
 
-  return 'В обработке';
+  return 'warning';
 }
 
 function getArray(response: unknown) {

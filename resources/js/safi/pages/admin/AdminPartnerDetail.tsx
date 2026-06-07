@@ -44,6 +44,7 @@ import {
   unwrapRecord,
 } from '../../lib/api';
 import { formatPv } from '../../lib/format';
+import { accountStatusLabel, mlmStatusLabel, packageLabel, transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
 
 interface PartnerDetail {
   id: string;
@@ -57,7 +58,9 @@ interface PartnerDetail {
   sponsor: string;
   invitedCount: number;
   packageId: string;
+  packageCode: string;
   package: string;
+  statusCode: string;
   status: string;
   personalPV: number;
   teamPV: number;
@@ -102,7 +105,9 @@ const partnerDefaults: PartnerDetail = {
   sponsor: '-',
   invitedCount: 0,
   packageId: '',
+  packageCode: '',
   package: '-',
+  statusCode: 'user',
   status: '-',
   personalPV: 0,
   teamPV: 0,
@@ -188,7 +193,7 @@ export default function AdminPartnerDetail() {
       setNote(normalizedPartner.adminNote);
       setSelectedPackageId(normalizedPartner.packageId);
       setApplyPackageBusinessEffects(true);
-      setSelectedStatus(normalizedPartner.status);
+      setSelectedStatus(normalizedPartner.statusCode);
       setApplyStatusBonusEffects(false);
       setTransactions(normalizeTransactions(transactionsResponse));
       setPackages(packagesResponse);
@@ -445,7 +450,7 @@ export default function AdminPartnerDetail() {
                   <button
                     type="button"
                     onClick={() => {
-                      setSelectedStatus(partner.status);
+                      setSelectedStatus(partner.statusCode);
                       setApplyStatusBonusEffects(false);
                       setStatusModalOpen(true);
                     }}
@@ -614,7 +619,7 @@ export default function AdminPartnerDetail() {
               <select value={selectedPackageId} onChange={(event) => setSelectedPackageId(event.target.value)} className={inputClass} required>
                 <option value="">{adminText('a_0JLRi9Cx0LXR')}</option>
                 {packages.map((item) => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
+                  <option key={item.id} value={item.id}>{item.label || item.name}</option>
                 ))}
               </select>
             </FormField>
@@ -647,7 +652,7 @@ export default function AdminPartnerDetail() {
             <FormField label={adminText('a_0KHRgtCw0YLR')}>
               <select value={selectedStatus} onChange={(event) => setSelectedStatus(event.target.value)} className={inputClass} required>
                 {statusOptions.map((status) => (
-                  <option key={status} value={status}>{status}</option>
+                  <option key={status} value={status}>{mlmStatusLabel(status)}</option>
                 ))}
               </select>
             </FormField>
@@ -811,6 +816,8 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
   const apiTotalEarned = getNumber(user, ['total_earned', 'totalEarned', 'total_balance', 'totalBalance', 'total_wallet_balance', 'totalWalletBalance']);
   const availableBalance = apiAvailableBalance ?? walletBalance;
   const totalEarned = apiTotalEarned ?? totalWalletEarned;
+  const packageCode = getString(pkg, ['code', 'slug', 'id']) || getString(user, ['package_code', 'packageCode', 'package']) || '';
+  const statusCode = getString(user, ['status']) || 'user';
 
   return {
     id: getString(user, ['id']) || fallbackId,
@@ -824,8 +831,10 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     sponsor: getString(sponsor, ['name', 'login', 'id']) || getString(user, ['sponsor_id']) || '-',
     invitedCount: getNumber(user, ['invited_count', 'invited_users_count', 'referrals_count']) ?? 0,
     packageId: getString(user, ['current_package_id']) || '',
-    package: getString(pkg, ['name', 'code']) || '-',
-    status: getString(user, ['status']) || 'user',
+    packageCode,
+    package: packageLabel(packageCode, getString(pkg, ['code_label', 'codeLabel', 'label', 'name']) || '-'),
+    statusCode,
+    status: mlmStatusLabel(statusCode, getString(user, ['status_label', 'statusLabel']) || statusCode),
     personalPV: packageActivityPV,
     teamPV: (getNumber(user, ['left_pv']) ?? 0) + (getNumber(user, ['right_pv']) ?? 0),
     leftPV: getNumber(user, ['left_pv']) ?? 0,
@@ -838,7 +847,7 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     packageActivityAmount,
     registrationDate: getString(user, ['created_at']) || '-',
     accountStatus,
-    accountStatusLabel: accountStatus === 'blocked' ? adminText('a_0JfQsNCx0LvQ_2') : adminText('a_0JDQutGC0LjQ_2'),
+    accountStatusLabel: accountStatusLabel(accountStatus),
     adminNote: getString(user, ['admin_note']) || '',
   };
 }
@@ -852,9 +861,9 @@ function normalizeTransactions(response: unknown): PartnerTransaction[] {
     return {
       id: getString(record, ['id']) || String(index + 1),
       date: getString(record, ['created_at']) || '-',
-      type: getString(record, ['type']) || '-',
+      type: transactionTypeLabel(getString(record, ['type']), getString(record, ['type_label', 'typeLabel']) || '-'),
       amount: formatTransactionAmount(direction, amount),
-      status: getString(record, ['status']) || '-',
+      status: transactionStatusLabel(getString(record, ['status']), getString(record, ['status_label', 'statusLabel']) || '-'),
       comment: getString(record, ['description']) || '-',
     };
   });

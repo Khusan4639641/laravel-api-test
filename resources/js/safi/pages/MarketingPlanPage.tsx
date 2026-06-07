@@ -142,7 +142,7 @@ export default function MarketingPlanPage() {
                             : 'bg-[#F5F5F0] text-safi-green hover:bg-safi-green/10 border border-safi-green/5'
                         }`}
                       >
-                        {pkg.name}
+                        {pkg.label || pkg.name}
                       </button>
                     ))}
                   </div>

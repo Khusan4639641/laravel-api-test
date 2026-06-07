@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\SystemLabel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -16,11 +17,13 @@ class BonusTransactionResource extends JsonResource
             'source_user_id' => $this->source_user_id,
             'source_order_id' => $this->source_order_id,
             'bonus_type' => $this->bonus_type,
+            'bonus_type_label' => SystemLabel::label('transaction_types', $this->bonus_type),
             'amount' => $this->amount,
             'left_pv' => $this->left_pv,
             'right_pv' => $this->right_pv,
             'matched_pv' => $this->matched_pv,
             'status' => $this->status,
+            'status_label' => SystemLabel::transactionStatus($this->status),
             'metadata' => $this->metadata,
             'calculated_at' => $this->calculated_at?->toISOString(),
             'user' => new UserResource($this->whenLoaded('user')),

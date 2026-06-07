@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Support\LocalizedValue;
+use App\Support\SystemLabel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -10,10 +11,15 @@ class PackageResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $fallbackName = LocalizedValue::get($this->name_translations, $this->name);
+        $name = SystemLabel::package($this->code, $fallbackName);
+
         return [
             'id' => $this->id,
             'code' => $this->code,
-            'name' => LocalizedValue::get($this->name_translations, $this->name),
+            'code_label' => SystemLabel::package($this->code, $fallbackName),
+            'name' => $fallbackName,
+            'label' => $name,
             'slug' => $this->slug,
             'description' => LocalizedValue::get($this->description_translations, $this->description),
             'price' => $this->price,
@@ -34,6 +40,7 @@ class PackageResource extends JsonResource
             'binaryBonus' => (float) $this->binary_percent,
             'sort_order' => $this->sort_order,
             'status' => $this->status,
+            'status_label' => SystemLabel::productStatus($this->status),
             'is_active' => $this->is_active,
             'is_upgradeable' => $this->is_upgradeable,
             'translations' => [

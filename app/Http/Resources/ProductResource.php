@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Support\LocalizedValue;
+use App\Support\SystemLabel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -45,6 +46,7 @@ class ProductResource extends JsonResource
             'in_stock' => (int) $this->stock_quantity > 0 && $this->status === 'active',
             'is_in_stock' => (int) $this->stock_quantity > 0 && $this->status === 'active',
             'status' => $this->status,
+            'status_label' => SystemLabel::productStatus($this->status),
             'is_deposit_product' => (bool) $this->is_deposit_product,
             'isDepositProduct' => (bool) $this->is_deposit_product,
             'image_path' => $this->image_path,

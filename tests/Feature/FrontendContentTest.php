@@ -131,4 +131,19 @@ class FrontendContentTest extends TestCase
         $this->assertStringContainsString('|| productImagePlaceholder', $api);
         $this->assertStringContainsString('product.image || productImagePlaceholder', $adminProducts);
     }
+
+    public function test_frontend_system_label_helper_contains_required_mappings(): void
+    {
+        $helper = file_get_contents(resource_path('js/safi/lib/systemLabels.ts'));
+        $adminProducts = file_get_contents(resource_path('js/safi/pages/admin/AdminProducts.tsx'));
+
+        $this->assertStringContainsString('mlmStatuses', $helper);
+        $this->assertStringContainsString('GOLD_DIRECTOR', $helper);
+        $this->assertStringContainsString('gold_director', $helper);
+        $this->assertStringContainsString('Золотой директор', $helper);
+        $this->assertStringContainsString("inactive: { ru: 'Неактивно'", $helper);
+        $this->assertStringContainsString('orderStatuses', $helper);
+        $this->assertStringContainsString('Ожидает подтверждения', $helper);
+        $this->assertStringContainsString('productStatusLabel(product.status)', $adminProducts);
+    }
 }

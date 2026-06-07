@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getApiErrorState, getArray, getDashboardOverview, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
 import { features } from '../../config/features';
+import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
 
 interface TransactionItem {
   id: string;
@@ -87,12 +88,14 @@ export default function Overview() {
         const trx = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const amount = getNumber(trx, ['amount']) ?? 0;
         const direction = getString(trx, ['direction']) || 'credit';
+        const typeCode = getString(trx, ['type']) || 'operation';
+        const statusCode = getString(trx, ['status']) || '';
         return {
           id: getString(trx, ['id']) || String(index + 1),
           date: getString(trx, ['created_at']) || '',
-          type: getString(trx, ['type']) || 'Операция',
+          type: transactionTypeLabel(typeCode, getString(trx, ['type_label', 'typeLabel']) || typeCode || 'Операция'),
           amount: `${direction === 'credit' ? '+' : '-'}${amount.toLocaleString('ru-RU')} ₸`,
-          status: getString(trx, ['status']) || '',
+          status: transactionStatusLabel(statusCode, getString(trx, ['status_label', 'statusLabel']) || statusCode),
           source: getString(trx, ['description']) || 'Система',
           comment: getString(trx, ['description']) || '',
         };

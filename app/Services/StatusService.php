@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\User;
 use App\Notifications\StatusAchievedNotification;
 use App\Support\LocalizedValue;
+use App\Support\SystemLabel;
 
 class StatusService
 {
@@ -71,7 +72,12 @@ class StatusService
             ->map(function (array $definition): array {
                 $translations = self::STATUS_TRANSLATIONS[$definition['id']] ?? [];
 
-                $definition['name'] = LocalizedValue::get($translations['name'] ?? null, $definition['name']);
+                $name = SystemLabel::mlmStatus($definition['id'], LocalizedValue::get($translations['name'] ?? null, $definition['name']));
+
+                $definition['code'] = $definition['id'];
+                $definition['label'] = $name;
+                $definition['name_label'] = $name;
+                $definition['name'] = $name;
                 $definition['reward'] = LocalizedValue::get($translations['reward'] ?? null, $definition['reward']);
                 $definition['translations'] = $translations;
 

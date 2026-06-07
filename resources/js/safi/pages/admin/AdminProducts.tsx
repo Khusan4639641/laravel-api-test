@@ -13,6 +13,7 @@ import {
   productImagePlaceholder,
   updateAdminProduct,
 } from '../../lib/api';
+import { productStatusLabel } from '../../lib/systemLabels';
 
 interface ProductFormState {
   id?: string;
@@ -243,8 +244,8 @@ export default function AdminProducts() {
                   onChange={(event) => setForm({ ...form, status: event.target.value })}
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
                 >
-                  <option value="active">активен</option>
-                  <option value="inactive">неактивно</option>
+                  <option value="active">{productStatusLabel('active')}</option>
+                  <option value="inactive">{productStatusLabel('inactive')}</option>
                 </select>
               </div>
               <div className="md:col-span-2">
@@ -295,7 +296,7 @@ export default function AdminProducts() {
                 {(product.stock || 0) <= 0 && <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-red-500">нет в наличии</div>}
               </td>
               <td className="px-6 py-4">
-                <AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{productStatusLabel(product.status)}</AdminBadge>
+                <AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{product.statusLabel || productStatusLabel(product.status)}</AdminBadge>
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex justify-end gap-2">
@@ -345,8 +346,4 @@ function Field({
       />
     </div>
   );
-}
-
-function productStatusLabel(status?: string) {
-  return status === 'inactive' ? 'неактивно' : 'активен';
 }

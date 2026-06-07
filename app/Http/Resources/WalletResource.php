@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\SystemLabel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,7 @@ class WalletResource extends JsonResource
             'hold_balance' => $this->hold_balance,
             'available' => $this->balance,
             'status' => $this->status,
+            'status_label' => SystemLabel::accountStatus($this->status),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

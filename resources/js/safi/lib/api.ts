@@ -1,5 +1,11 @@
 import { API_BASE_URL, endpoints } from './endpoints';
 import { getCurrentLanguage } from './language';
+import {
+  mlmStatusLabel,
+  orderStatusLabel,
+  packageLabel,
+  productStatusLabel,
+} from './systemLabels';
 
 export { API_BASE_URL, endpoints };
 
@@ -95,6 +101,7 @@ export interface Product {
   inStock?: boolean;
   isDepositProduct?: boolean;
   status?: string;
+  statusLabel?: string;
   createdAt?: string;
 }
 
@@ -125,7 +132,9 @@ export interface Order {
   userId?: string;
   user?: OrderUser | null;
   status: string;
+  statusLabel?: string;
   paymentStatus?: string;
+  paymentStatusLabel?: string;
   recipientName?: string;
   phone?: string;
   city?: string;
@@ -143,6 +152,7 @@ export interface Package {
   id: string;
   code?: string;
   name: string;
+  label?: string;
   price: number;
   pv: number;
   activityPv: number;
@@ -156,12 +166,16 @@ export interface Package {
   isPopular?: boolean;
   sortOrder?: number;
   status?: string;
+  statusLabel?: string;
+  codeLabel?: string;
   isActive?: boolean;
 }
 
 export interface Status {
   id: string;
+  code?: string;
   name: string;
+  label?: string;
   pv: number;
   incomePotential: number;
   reward: string;
@@ -1210,14 +1224,17 @@ export function normalizeOrder(item: unknown, index = 0): Order {
   const delivery = isRecord(record.delivery) ? record.delivery : {};
   const shippingAddress = isRecord(record.shipping_address) ? record.shipping_address : isRecord(record.shippingAddress) ? record.shippingAddress : {};
   const items = getArray(record.items).map((orderItem, itemIndex) => normalizeOrderItem(orderItem, itemIndex));
+  const status = getString(record, ['status']) || 'pending';
 
   return {
     id: getString(record, ['id']) || String(index + 1),
     orderNumber: getString(record, ['order_number', 'orderNumber']),
     userId: getString(record, ['user_id', 'userId']),
     user: user ? normalizeOrderUser(user) : null,
-    status: getString(record, ['status']) || 'pending',
+    status,
+    statusLabel: orderStatusLabel(status, getString(record, ['status_label', 'statusLabel'])),
     paymentStatus: getString(record, ['payment_status', 'paymentStatus']),
+    paymentStatusLabel: getString(record, ['payment_status_label', 'paymentStatusLabel']),
     recipientName: getString(record, ['recipient_name', 'recipientName'])
       || getString(delivery, ['recipient_name', 'recipientName'])
       || getString(shippingAddress, ['recipient_name', 'recipientName', 'recipient']),
@@ -1296,6 +1313,7 @@ export function normalizeProducts(response: unknown): Product[] {
     const record = isRecord(item) ? item : {};
     const metadata = isRecord(record.metadata) ? record.metadata : {};
     const image = getString(record, ['image', 'image_url', 'imageUrl']) || getString(metadata, ['image', 'image_url', 'imageUrl']) || productImagePlaceholder;
+    const status = getString(record, ['status']) || 'active';
 
     return {
       id: getString(record, ['id', 'uuid']) || String(index + 1),
@@ -1313,9 +1331,10 @@ export function normalizeProducts(response: unknown): Product[] {
       stock: getNumber(record, ['stock', 'stock_quantity']) ?? undefined,
       stockQuantity: getNumber(record, ['stock_quantity', 'stock']) ?? undefined,
       reservedQuantity: getNumber(record, ['reserved_quantity']) ?? 0,
-      inStock: Boolean(record.in_stock ?? record.is_in_stock ?? ((getNumber(record, ['stock', 'stock_quantity']) ?? 0) > 0 && getString(record, ['status']) !== 'inactive')),
+      inStock: Boolean(record.in_stock ?? record.is_in_stock ?? ((getNumber(record, ['stock', 'stock_quantity']) ?? 0) > 0 && status !== 'inactive')),
       isDepositProduct: Boolean(record.is_deposit_product ?? record.isDepositProduct),
-      status: getString(record, ['status']),
+      status,
+      statusLabel: productStatusLabel(status, getString(record, ['status_label', 'statusLabel'])),
       createdAt: getString(record, ['created_at', 'createdAt']),
     };
   });
@@ -1328,11 +1347,15 @@ export function normalizePackages(response: unknown): Package[] {
     const record = isRecord(item) ? item : {};
     const code = getString(record, ['code', 'slug', 'id']) || String(index + 1);
     const name = getString(record, ['name', 'title', 'code']) || code.toUpperCase();
+    const label = packageLabel(code, getString(record, ['code_label', 'codeLabel', 'label']) || name);
+    const status = getString(record, ['status']);
 
     return {
       id: getString(record, ['id']) || code.toLowerCase(),
       code,
+      codeLabel: label,
       name,
+      label,
       price: getNumber(record, ['price']) ?? 0,
       pv: getNumber(record, ['pv']) ?? 0,
       activityPv: getNumber(record, ['activityPv', 'activity_pv', 'pv']) ?? 0,
@@ -1348,9 +1371,10 @@ export function normalizePackages(response: unknown): Package[] {
         'Реферальная ссылка',
         'Обучающие материалы',
       ],
-      isPopular: name.toLowerCase() === 'vip',
+      isPopular: code.toLowerCase() === 'vip',
       sortOrder: getNumber(record, ['sort_order', 'sortOrder']) ?? index,
-      status: getString(record, ['status']),
+      status,
+      statusLabel: productStatusLabel(status, getString(record, ['status_label', 'statusLabel'])),
       isActive: Boolean(record.is_active ?? record.isActive ?? true),
     };
   });
@@ -1398,10 +1422,13 @@ export function normalizeFaqs(response: unknown): FaqCategory[] {
 export function normalizeStatuses(response: unknown): Status[] {
   return getArray(response, ['statuses']).map((item, index) => {
     const record = isRecord(item) ? item : {};
+    const code = getString(record, ['code', 'id']) || String(index + 1);
 
     return {
-      id: getString(record, ['id', 'code']) || String(index + 1),
-      name: getString(record, ['name', 'title']) || `Status ${index + 1}`,
+      id: code,
+      code,
+      name: mlmStatusLabel(code, getString(record, ['name_label', 'label', 'name', 'title']) || `Status ${index + 1}`),
+      label: mlmStatusLabel(code, getString(record, ['label', 'name_label', 'name', 'title']) || `Status ${index + 1}`),
       pv: getNumber(record, ['pv', 'threshold']) ?? 0,
       incomePotential: getNumber(record, ['incomePotential', 'income_potential']) ?? 0,
       reward: getString(record, ['reward']) || '',

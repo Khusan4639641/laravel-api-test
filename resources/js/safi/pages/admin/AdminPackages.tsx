@@ -4,6 +4,7 @@ import { Package, Plus, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { createAdminPackage, getAdminPackages, getApiErrorState, Package as ApiPackage, updateAdminPackage } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
+import { productStatusLabel } from '../../lib/systemLabels';
 
 interface PackageFormState {
   id?: string;
@@ -178,8 +179,8 @@ export default function AdminPackages() {
                 onChange={(event) => setForm({ ...form, status: event.target.value })}
                 className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
               >
-                <option value="active">active</option>
-                <option value="inactive">inactive</option>
+                <option value="active">{productStatusLabel('active')}</option>
+                <option value="inactive">{productStatusLabel('inactive')}</option>
               </select>
             </div>
           </div>
@@ -206,11 +207,11 @@ export default function AdminPackages() {
             <div key={pkg.id} className="bg-white rounded-[32px] border border-safi-green/5 shadow-sm p-6 relative overflow-hidden group">
               <div className="mb-4">
                 <AdminBadge variant={pkg.isActive === false || pkg.status === 'inactive' ? 'danger' : 'gold'}>
-                  {pkg.isActive === false || pkg.status === 'inactive' ? adminText('a_0J3QtdCw0LrR_2') : adminText('a_0JDQutGC0LjQ_2')}
+                  {pkg.isActive === false || pkg.status === 'inactive' ? productStatusLabel('inactive') : productStatusLabel('active')}
                 </AdminBadge>
               </div>
               <Package className="w-10 h-10 text-safi-green/20 absolute top-6 right-6" />
-              <h3 className="text-2xl font-serif font-bold text-safi-green mb-1">{pkg.name}</h3>
+              <h3 className="text-2xl font-serif font-bold text-safi-green mb-1">{pkg.label || pkg.name}</h3>
               <div className="text-sm text-safi-text/60 mb-6">{pkg.price.toLocaleString('ru-RU')} ₸</div>
 
               <div className="space-y-3 mb-6 flex-1">

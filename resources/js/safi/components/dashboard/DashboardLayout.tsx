@@ -6,6 +6,7 @@ import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { ApiError, clearAuthToken, getAuthToken, getDashboardNotifications, getMyPermissions, me } from '../../lib/api';
 import { getCurrentLanguage } from '../../lib/language';
 import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
+import { mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 
 export interface DashboardCurrentUser {
   id?: string | number;
@@ -16,7 +17,9 @@ export interface DashboardCurrentUser {
   role: string;
   partnerId: string;
   referralCode: string;
+  packageCode?: string;
   packageName: string;
+  statusCode?: string;
   status: string;
   sponsor: string;
   registrationDate: string;
@@ -49,7 +52,9 @@ const userDefaults: DashboardCurrentUser = {
   role: 'user',
   partnerId: 'SAFI',
   referralCode: 'SAFI',
+  packageCode: '',
   packageName: '-',
+  statusCode: 'user',
   status: 'user',
   sponsor: '-',
   registrationDate: '-',
@@ -372,12 +377,19 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
   const walletRecord = mainWalletRecord || (isRecord(record.wallet) ? record.wallet : undefined);
   const sponsorRecord = isRecord(record.sponsor) ? record.sponsor : undefined;
 
-  const packageName = getString(packageRecord, ['name', 'title'])
+  const packageCode = getString(packageRecord, ['code', 'slug', 'id'])
+    || getString(record, ['package_code', 'packageCode', 'package_id', 'package'])
+    || '';
+  const packageName = packageLabel(packageCode, getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name', 'title'])
     || getString(record, ['package_name', 'packageName', 'package_id', 'package'])
-    || userDefaults.packageName;
-  const statusName = getString(statusRecord, ['name', 'title'])
+    || userDefaults.packageName);
+  const statusCode = getString(record, ['status'])
+    || getString(statusRecord, ['code', 'id'])
+    || userDefaults.statusCode;
+  const statusName = mlmStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel'])
+    || getString(statusRecord, ['name_label', 'label', 'name', 'title'])
     || getString(record, ['status_name', 'statusName', 'status'])
-    || userDefaults.status;
+    || userDefaults.status);
   const sponsorName = getString(sponsorRecord, ['name', 'full_name'])
     || getString(record, ['sponsor_name', 'sponsorName', 'sponsor'])
     || userDefaults.sponsor;
@@ -392,7 +404,9 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
     role: getString(record, ['role', 'user_role', 'role_name']) || userDefaults.role,
     partnerId: getString(record, ['partner_id', 'partnerId', 'member_id', 'code']) || userDefaults.partnerId,
     referralCode: getString(record, ['referral_code', 'referralCode', 'invite_code']) || userDefaults.referralCode,
+    packageCode,
     packageName,
+    statusCode,
     status: statusName,
     sponsor: sponsorName,
     registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || userDefaults.registrationDate,

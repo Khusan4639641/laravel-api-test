@@ -8,6 +8,7 @@ import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState } from '.
 import { formatPv } from '../../lib/format';
 import { adminText } from '../../i18n/adminText';
 import { features } from '../../config/features';
+import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 
 interface AdminPartnerRow {
   id: string;
@@ -19,7 +20,9 @@ interface AdminPartnerRow {
   city: string;
   sponsor: string;
   invitedCount: number;
+  packageCode: string;
   package: string;
+  statusCode: string;
   status: string;
   personalPV: number;
   teamPV: number;
@@ -174,7 +177,7 @@ export default function AdminPartners() {
     return status === 'active';
   }).length;
   const vipElitePartnersCount = partnerRowsForSummary.filter((partner) => {
-    const packageName = String(partner.package || '').toUpperCase();
+    const packageName = String(partner.packageCode || partner.package || '').toUpperCase();
 
     return packageName === 'VIP' || packageName === 'ELITE';
   }).length;
@@ -598,6 +601,8 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
     const displayBalance = apiBalance ?? walletBalance;
     const displayTotalBalance = apiTotalBalance ?? totalWalletBalance;
     const accountStatusCode = getString(record, ['account_status', 'accountStatus', 'state']) || 'active';
+    const packageCode = getString(packageRecord, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode', 'package']) || '';
+    const statusCode = getString(record, ['status']) || getString(record, ['status_code', 'statusCode']) || 'user';
 
     return {
       id: getString(record, ['partner_id', 'partnerId', 'code', 'id']) || `USER-${index + 1}`,
@@ -609,15 +614,17 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       city: getString(record, ['city']) || getString(profileRecord, ['city']) || '-',
       sponsor: getString(sponsorRecord, ['name', 'login', 'partner_id', 'id']) || getString(record, ['sponsor_id', 'sponsorId']) || '-',
       invitedCount: getNumber(record, ['invited_count', 'invitedCount', 'invited_users_count', 'referrals_count', 'children_count']) ?? 0,
-      package: getString(packageRecord, ['name', 'title', 'code']) || getString(record, ['package_name', 'packageName', 'package']) || '-',
-      status: getString(record, ['status_name', 'statusName', 'status']) || adminText('a_0KPRh9Cw0YHR'),
+      packageCode,
+      package: packageLabel(packageCode, getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name', 'title']) || getString(record, ['package_name', 'packageName', 'package']) || '-'),
+      statusCode,
+      status: mlmStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel', 'status_name', 'statusName']) || adminText('a_0KPRh9Cw0YHR')),
       personalPV,
       teamPV: leftPV + rightPV,
       totalIncome: displayTotalBalance,
       availableBalance: displayBalance,
       registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || '-',
       accountStatusCode,
-      accountStatus: getAccountStatusLabel(accountStatusCode),
+      accountStatus: accountStatusLabel(accountStatusCode),
     };
   });
 }
@@ -706,10 +713,6 @@ function getWalletBalance(wallets: Record<string, unknown>[], type: string) {
   return wallets
     .filter((wallet) => getString(wallet, ['type']) === type)
     .reduce((sum, wallet) => sum + (getNumber(wallet, ['balance']) ?? 0), 0);
-}
-
-function getAccountStatusLabel(status?: string) {
-  return status === 'blocked' ? adminText('a_0JfQsNCx0LvQ_2') : adminText('a_0JDQutGC0LjQ_2');
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

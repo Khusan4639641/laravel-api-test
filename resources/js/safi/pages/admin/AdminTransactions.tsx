@@ -5,6 +5,7 @@ import { Search, Filter, Download } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminTransactions, getApiErrorState, getArray, getNumber, getString } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
+import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
 
 type TransactionRow = {
   id: string;
@@ -13,6 +14,7 @@ type TransactionRow = {
   partnerName: string;
   type: string;
   amount: string;
+  statusCode: string;
   status: string;
   comment: string;
 };
@@ -30,7 +32,7 @@ export default function AdminTransactions() {
   const summary = [
     { label: adminText('a_0JLRgdC10LPQ_5'), value: transactions.filter((trx) => trx.amount.startsWith('+')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
     { label: adminText('a_0JLRgdC10LPQ_6'), value: transactions.filter((trx) => trx.amount.startsWith('-')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
-    { label: adminText('a_0JIg0L7QsdGA'), value: transactions.filter((trx) => trx.status === 'pending').reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
+    { label: adminText('a_0JIg0L7QsdGA'), value: transactions.filter((trx) => trx.statusCode === 'pending').reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
     { label: adminText('a_0J7RgtC70L7Q'), value: 0 },
   ];
 
@@ -49,14 +51,16 @@ export default function AdminTransactions() {
         const direction = getString(trx, ['direction']) || 'credit';
         const amount = getNumber(trx, ['amount']) ?? 0;
         const rawType = getString(trx, ['type']) || '-';
+        const statusCode = getString(trx, ['status']) || '-';
         return {
           id: getString(trx, ['id']) || String(index + 1),
           date: getString(trx, ['created_at']) || '-',
           partnerId: getString(user, ['id', 'login']) || getString(trx, ['user_id']) || '-',
           partnerName: getString(user, ['name']) || '-',
-          type: transactionTypeLabel(rawType),
+          type: transactionTypeLabel(rawType, getString(trx, ['type_label', 'typeLabel']) || rawType),
           amount: formatTransactionAmount(direction, amount),
-          status: getString(trx, ['status']) || '-',
+          statusCode,
+          status: transactionStatusLabel(statusCode, getString(trx, ['status_label', 'statusLabel']) || statusCode),
           comment: getString(trx, ['description']) || '-',
         };
       }));
@@ -150,7 +154,7 @@ export default function AdminTransactions() {
                 </div>
               </td>
               <td className="px-6 py-4">
-                <AdminBadge variant={trx.status === adminText('a_0J7RgtC60LvQ') ? 'danger' : trx.status === adminText('a_0JIg0L7QsdGA') ? 'warning' : 'success'}>
+                <AdminBadge variant={transactionBadgeVariant(trx.statusCode)}>
                   {trx.status}
                 </AdminBadge>
               </td>
@@ -183,14 +187,16 @@ function formatTransactionAmount(direction: string, amount: number) {
   return `${amount.toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`;
 }
 
-function transactionTypeLabel(type: string) {
-  const labels: Record<string, string> = {
-    withdrawal_hold: 'Вывод: сумма в холде',
-    withdrawal_approved: 'Вывод: выплата подтверждена',
-    withdrawal_rejected: 'Вывод: заявка отклонена',
-    withdrawal_request: 'Вывод: заявка создана',
-    payout_completed: 'Вывод: выплата завершена',
-  };
+function transactionBadgeVariant(status: string) {
+  const normalized = status.toLowerCase();
 
-  return labels[type] || type;
+  if (['rejected', 'declined', 'failed', 'cancelled'].includes(normalized)) {
+    return 'danger';
+  }
+
+  if (['pending', 'new', 'processing', 'in_progress'].includes(normalized)) {
+    return 'warning';
+  }
+
+  return 'success';
 }

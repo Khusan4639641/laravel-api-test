@@ -16,7 +16,7 @@ export default function PackageStatus() {
   const [pendingPackage, setPendingPackage] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const currentPackageCode = normalizePackageCode(currentUser.packageName);
+  const currentPackageCode = normalizePackageCode(currentUser.packageCode || currentUser.packageName);
   const displayPackages = packages.filter((pkg) => {
     const packageCode = normalizePackageCode(pkg.code || pkg.name);
 
@@ -146,7 +146,7 @@ export default function PackageStatus() {
               )}
             >
               {isCurrent && <Trophy className="absolute right-6 top-6 h-6 w-6 text-safi-gold" />}
-              <h2 className={`font-serif text-3xl font-semibold ${isCurrent ? 'text-white' : 'text-safi-green'}`}>{pkg.name}</h2>
+              <h2 className={`font-serif text-3xl font-semibold ${isCurrent ? 'text-white' : 'text-safi-green'}`}>{pkg.label || pkg.name}</h2>
               <div className={`mt-3 text-4xl font-extrabold ${isCurrent ? 'text-safi-gold' : 'text-safi-green'}`}>
                 {pkg.price.toLocaleString('ru-RU')} ₸
               </div>

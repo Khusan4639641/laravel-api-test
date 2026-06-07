@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\SystemLabel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -18,6 +19,7 @@ class WithdrawalRequestResource extends JsonResource
             'net_amount' => $this->net_amount,
             'currency' => $this->currency,
             'status' => $this->status,
+            'status_label' => SystemLabel::withdrawalStatus($this->status),
             'payment_method' => $this->payment_method,
             'payment_details' => $this->payment_details,
             'payout_period_days' => $this->payout_period_days,

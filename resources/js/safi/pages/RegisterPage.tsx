@@ -246,7 +246,7 @@ export default function RegisterPage() {
                 <option value="">{packagesLoading ? 'Загружаем пакеты...' : 'Выберите пакет'}</option>
                 {packages.map((pkg) => (
                   <option key={pkg.id} value={pkg.id}>
-                    {pkg.name} — {pkg.price.toLocaleString('ru-RU')} ₸
+                    {pkg.label || pkg.name} — {pkg.price.toLocaleString('ru-RU')} ₸
                   </option>
                 ))}
               </select>

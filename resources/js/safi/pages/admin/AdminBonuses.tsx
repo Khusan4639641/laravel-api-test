@@ -4,6 +4,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncS
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import { calculateAdminBinaryBonuses, getAdminBonuses, getApiErrorState, getArray, getNumber, getString } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
+import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
 
 export default function AdminBonuses() {
   const [bonuses, setBonuses] = useState<Array<{ date: string; partnerId: string; partnerName: string; type: string; basis: string; percentage: string; amount: string; status: string }>>([]);
@@ -31,11 +32,11 @@ export default function AdminBonuses() {
           date: getString(bonus, ['created_at', 'calculated_at']) || '-',
           partnerId: getString(user, ['id', 'login']) || getString(bonus, ['user_id']) || '-',
           partnerName: getString(user, ['name']) || '-',
-          type: getString(bonus, ['bonus_type']) || '-',
+          type: transactionTypeLabel(getString(bonus, ['bonus_type', 'type']), getString(bonus, ['bonus_type_label', 'bonusTypeLabel', 'type_label', 'typeLabel']) || getString(bonus, ['bonus_type', 'type']) || '-'),
           basis: getString(bonus, ['description']) || adminText('a_0KHQuNGB0YLQ'),
           percentage: '',
           amount: `${(getNumber(bonus, ['amount']) ?? 0).toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`,
-          status: getString(bonus, ['status']) || '-',
+          status: transactionStatusLabel(getString(bonus, ['status']), getString(bonus, ['status_label', 'statusLabel']) || getString(bonus, ['status']) || '-'),
         };
       }));
     } catch (caughtError) {

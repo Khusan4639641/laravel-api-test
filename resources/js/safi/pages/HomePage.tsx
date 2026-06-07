@@ -642,7 +642,7 @@ function PackageCard({ pkg }: { pkg: Package }) {
         </div>
       )}
 
-      <h3 className={cn('mb-2 font-serif text-2xl', isPopular ? 'text-white' : 'text-safi-green')}>{pkg.name}</h3>
+      <h3 className={cn('mb-2 font-serif text-2xl', isPopular ? 'text-white' : 'text-safi-green')}>{pkg.label || pkg.name}</h3>
       <div className={cn('mb-8 text-4xl font-bold', isPopular ? 'text-safi-gold' : 'text-safi-green')}>
         {formatPrice(pkg.price)}
       </div>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\SystemLabel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Storage;
@@ -45,7 +46,9 @@ class UserResource extends JsonResource
             'sponsor_id' => $this->sponsor_id,
             'current_package_id' => $this->current_package_id,
             'status' => $this->status,
+            'status_label' => SystemLabel::mlmStatus($this->status),
             'account_status' => $this->account_status,
+            'account_status_label' => SystemLabel::accountStatus($this->account_status),
             'admin_note' => $this->admin_note,
             'avatar_path' => $avatarPath,
             'avatar_url' => $this->avatarUrl($avatarPath),

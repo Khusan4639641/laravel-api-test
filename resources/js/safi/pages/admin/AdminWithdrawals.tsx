@@ -4,6 +4,7 @@ import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ApiError, approveAdminWithdrawal, getAdminWithdrawals, rejectAdminWithdrawal } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
+import { withdrawalStatusLabel } from '../../lib/systemLabels';
 
 interface AdminWithdrawalRow {
   id: string;
@@ -15,6 +16,7 @@ interface AdminWithdrawalRow {
   reqs: string;
   bank: string;
   iin: string;
+  statusCode: string;
   status: string;
   comment: string;
   processedDate: string;
@@ -63,10 +65,10 @@ export default function AdminWithdrawals() {
   }, [withdrawals, query]);
 
   const stats = useMemo(() => ({
-    new: withdrawals.filter((withdrawal) => withdrawal.status === adminText('a_0J3QvtCy0LDR')).length,
-    processing: withdrawals.filter((withdrawal) => withdrawal.status === adminText('a_0JIg0L7QsdGA')).length,
-    approved: withdrawals.filter((withdrawal) => withdrawal.status === adminText('a_0JLRi9C_0LvQ_2') || withdrawal.status === adminText('a_0J7QtNC-0LHR')).length,
-    rejected: withdrawals.filter((withdrawal) => withdrawal.status === adminText('a_0J7RgtC60LvQ')).length,
+    new: withdrawals.filter((withdrawal) => ['new', 'pending'].includes(withdrawal.statusCode)).length,
+    processing: withdrawals.filter((withdrawal) => ['processing', 'in_progress'].includes(withdrawal.statusCode)).length,
+    approved: withdrawals.filter((withdrawal) => ['approved', 'paid', 'completed'].includes(withdrawal.statusCode)).length,
+    rejected: withdrawals.filter((withdrawal) => ['rejected', 'declined', 'failed'].includes(withdrawal.statusCode)).length,
   }), [withdrawals]);
 
   const handleAction = async (withdrawalId: string, action: 'approve' | 'reject') => {
@@ -167,12 +169,12 @@ export default function AdminWithdrawals() {
                 <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank}{adminText('a_LyDQmNCY0J06')}{withdrawal.iin}</div>
               </td>
               <td className="px-6 py-5">
-                <AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.status)}>{withdrawal.status}</AdminBadge>
+                <AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.statusCode)}>{withdrawal.status}</AdminBadge>
                 {withdrawal.comment && <div className="mt-2 text-[10px] text-red-600">{withdrawal.comment}</div>}
               </td>
               <td className="px-6 py-5">
                 <div className="flex items-center justify-center gap-2">
-                  {isProcessed(withdrawal.status) ? (
+                  {isProcessed(withdrawal.statusCode) ? (
                     <span className="text-xs font-bold uppercase tracking-[0.14em] text-safi-muted">{withdrawal.processedDate}</span>
                   ) : (
                     <>
@@ -220,6 +222,7 @@ function normalizeWithdrawals(response: unknown): AdminWithdrawalRow[] {
     const record = isRecord(item) ? item : {};
     const userRecord = isRecord(record.user) ? record.user : isRecord(record.partner) ? record.partner : undefined;
     const details = isRecord(record.payment_details) ? record.payment_details : {};
+    const statusCode = normalizeStatusCode(getString(record, ['status']) || 'pending');
 
     return {
       id: getString(record, ['id', 'uuid', 'number']) || `W-${index + 1}`,
@@ -231,7 +234,8 @@ function normalizeWithdrawals(response: unknown): AdminWithdrawalRow[] {
       reqs: getString(details, ['label', 'reqs', 'requisites', 'card', 'iban']) || getString(record, ['reqs', 'requisites', 'card', 'iban']) || '-',
       bank: getString(details, ['bank']) || getString(record, ['bank']) || '-',
       iin: getString(details, ['iin', 'tax_id', 'taxId']) || getString(record, ['iin', 'tax_id', 'taxId']) || '-',
-      status: normalizeStatus(getString(record, ['status']) || adminText('a_0J3QvtCy0LDR')),
+      statusCode,
+      status: withdrawalStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel']) || statusCode),
       comment: getString(record, ['comment', 'reject_reason', 'rejectReason']) || '',
       processedDate: getString(record, ['processed_date', 'processedDate', 'paid_at', 'updated_at']) || '-',
     };
@@ -261,15 +265,15 @@ function getArray(response: unknown) {
 }
 
 function getWithdrawalBadgeVariant(status: string) {
-  if (status === adminText('a_0J7RgtC60LvQ')) {
+  if (['rejected', 'declined', 'failed'].includes(status)) {
     return 'danger';
   }
 
-  if (status === adminText('a_0JIg0L7QsdGA')) {
+  if (['pending', 'new', 'processing', 'in_progress'].includes(status)) {
     return 'warning';
   }
 
-  if (status === adminText('a_0JLRi9C_0LvQ_2') || status === adminText('a_0J7QtNC-0LHR')) {
+  if (['approved', 'paid', 'completed'].includes(status)) {
     return 'success';
   }
 
@@ -277,29 +281,29 @@ function getWithdrawalBadgeVariant(status: string) {
 }
 
 function isProcessed(status: string) {
-  return [adminText('a_0JLRi9C_0LvQ_2'), adminText('a_0J7RgtC60LvQ'), adminText('a_0J7QtNC-0LHR')].includes(status);
+  return ['approved', 'paid', 'completed', 'rejected', 'declined', 'failed'].includes(status);
 }
 
-function normalizeStatus(status: string) {
+function normalizeStatusCode(status: string) {
   const normalized = status.toLowerCase();
 
   if (['approved', 'paid', 'completed'].includes(normalized)) {
-    return adminText('a_0JLRi9C_0LvQ_2');
+    return normalized;
   }
 
   if (['rejected', 'declined', 'failed'].includes(normalized)) {
-    return adminText('a_0J7RgtC60LvQ');
+    return normalized;
   }
 
   if (['processing', 'in_progress'].includes(normalized)) {
-    return adminText('a_0JIg0L7QsdGA');
+    return normalized;
   }
 
   if (['pending', 'new'].includes(normalized)) {
-    return adminText('a_0J3QvtCy0LDR');
+    return normalized;
   }
 
-  return status;
+  return normalized || 'pending';
 }
 
 function formatAmount(value: unknown) {

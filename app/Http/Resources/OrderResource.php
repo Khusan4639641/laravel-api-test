@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Support\SystemLabel;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -22,7 +23,9 @@ class OrderResource extends JsonResource
             'user_id' => $this->user_id,
             'order_number' => $this->order_number,
             'status' => $this->status,
+            'status_label' => SystemLabel::orderStatus($this->status),
             'payment_status' => $this->payment_status,
+            'payment_status_label' => SystemLabel::label('payment_statuses', $this->payment_status),
             'items_count' => $itemsCount === null ? null : (int) $itemsCount,
             'subtotal_amount' => $this->subtotal_amount,
             'discount_amount' => $this->discount_amount,
