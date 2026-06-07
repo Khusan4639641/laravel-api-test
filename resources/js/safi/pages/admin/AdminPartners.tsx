@@ -57,6 +57,7 @@ interface AdminPartnersPagination {
 }
 
 type FieldErrors = Record<string, string[]>;
+type PaginationItem = number | 'ellipsis';
 
 const initialCreateForm = {
   name: '',
@@ -215,11 +216,24 @@ export default function AdminPartners() {
   };
 
   const visiblePartners = partners;
-  const paginationStart = pagination.filteredTotal === 0 ? 0 : pagination.offset + 1;
-  const paginationEnd = pagination.filteredTotal === 0
+  const effectiveLimit = Math.max(pagination.limit || limit, 1);
+  const effectiveOffset = Math.max(pagination.offset || offset, 0);
+  const totalItems = pagination.filteredTotal ?? pagination.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalItems / effectiveLimit));
+  const currentPage = Math.min(Math.floor(effectiveOffset / effectiveLimit) + 1, totalPages);
+  const paginationStart = totalItems === 0 ? 0 : effectiveOffset + 1;
+  const paginationEnd = totalItems === 0
     ? 0
-    : Math.min(pagination.offset + visiblePartners.length, pagination.filteredTotal);
+    : Math.min(effectiveOffset + effectiveLimit, totalItems);
+  const paginationItems = getPaginationItems(currentPage, totalPages);
   const canCreatePartners = currentUser.role === 'super_admin';
+  const changePage = (page: number) => {
+    if (page < 1 || page > totalPages || page === currentPage || isLoading) {
+      return;
+    }
+
+    setOffset((page - 1) * limit);
+  };
 
   return (
     <div className="space-y-8">
@@ -372,16 +386,16 @@ export default function AdminPartners() {
             ))}
           </AdminTable>
 
-          <div className="flex flex-col gap-4 rounded-[24px] border border-safi-border bg-white px-5 py-4 shadow-[0_14px_36px_rgba(11,23,18,0.05)] md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-4 rounded-[24px] border border-safi-border bg-white px-5 py-4 shadow-[0_14px_36px_rgba(11,23,18,0.05)] xl:flex-row xl:items-center xl:justify-between">
             <div className="text-sm font-bold text-safi-muted">
-              Показано: <span className="text-safi-green">{paginationStart}–{paginationEnd}</span> из <span className="text-safi-green">{pagination.filteredTotal.toLocaleString('ru-RU')}</span>
+              Показано: <span className="text-safi-green">{paginationStart}–{paginationEnd}</span> из <span className="text-safi-green">{totalItems.toLocaleString('ru-RU')}</span>
               {pagination.total !== pagination.filteredTotal && (
                 <span className="ml-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
                   всего {pagination.total.toLocaleString('ru-RU')}
                 </span>
               )}
             </div>
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={limit}
                 onChange={(event) => {
@@ -399,19 +413,48 @@ export default function AdminPartners() {
               </select>
               <button
                 type="button"
-                onClick={() => setOffset(Math.max(offset - limit, 0))}
-                disabled={!pagination.hasPrev || isLoading}
-                className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-5 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => changePage(currentPage - 1)}
+                disabled={currentPage <= 1 || isLoading}
+                className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-base font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Предыдущая страница"
               >
-                Назад
+                ‹
               </button>
+              <div className="flex flex-wrap items-center gap-1">
+                {paginationItems.map((item, index) => item === 'ellipsis' ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex h-9 min-w-9 items-center justify-center px-2 text-sm font-extrabold text-safi-muted"
+                    aria-hidden="true"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => changePage(item)}
+                    disabled={item === currentPage || isLoading}
+                    aria-current={item === currentPage ? 'page' : undefined}
+                    className={[
+                      'flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border px-3 text-xs font-extrabold transition-colors disabled:cursor-default',
+                      item === currentPage
+                        ? 'border-safi-green bg-safi-green text-white shadow-[0_8px_22px_rgba(29,78,54,0.18)]'
+                        : 'border-safi-border bg-safi-cream text-safi-green hover:border-safi-green hover:bg-white disabled:opacity-60',
+                    ].join(' ')}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
               <button
                 type="button"
-                onClick={() => setOffset(offset + limit)}
-                disabled={!pagination.hasNext || isLoading}
-                className="cursor-pointer rounded-full border border-safi-green bg-safi-green px-5 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-50"
+                onClick={() => changePage(currentPage + 1)}
+                disabled={currentPage >= totalPages || isLoading}
+                className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-base font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                aria-label="Следующая страница"
               >
-                Вперёд
+                ›
               </button>
             </div>
           </div>
@@ -741,6 +784,37 @@ function normalizePagination(response: unknown, fallbackLimit: number, fallbackO
     hasNext: typeof hasNextValue === 'boolean' ? hasNextValue : offset + limit < filteredTotal,
     hasPrev: typeof hasPrevValue === 'boolean' ? hasPrevValue : offset > 0,
   };
+}
+
+function getPaginationItems(currentPage: number, totalPages: number): PaginationItem[] {
+  const safeTotalPages = Math.max(1, Math.floor(totalPages));
+  const safeCurrentPage = Math.min(Math.max(Math.floor(currentPage), 1), safeTotalPages);
+
+  if (safeTotalPages <= 9) {
+    return pageRange(1, safeTotalPages);
+  }
+
+  if (safeCurrentPage <= 5) {
+    return [...pageRange(1, 8), 'ellipsis', safeTotalPages - 1, safeTotalPages];
+  }
+
+  if (safeCurrentPage >= safeTotalPages - 4) {
+    return [1, 2, 'ellipsis', ...pageRange(safeTotalPages - 7, safeTotalPages)];
+  }
+
+  return [
+    1,
+    2,
+    'ellipsis',
+    ...pageRange(safeCurrentPage - 2, safeCurrentPage + 2),
+    'ellipsis',
+    safeTotalPages - 1,
+    safeTotalPages,
+  ];
+}
+
+function pageRange(start: number, end: number): number[] {
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 function unwrapAdminPartnersPayload(response: unknown) {
