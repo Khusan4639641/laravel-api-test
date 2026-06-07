@@ -24,8 +24,8 @@ export default function ContactsPage() {
               </div>
               <div className="pl-6 relative">
                 <div className="absolute left-[-4px] top-2 w-2 h-2 rounded-full bg-safi-gold"></div>
-                <h4 className="text-[10px] uppercase font-bold text-safi-gold tracking-widest mb-1">{t('contacts.formPhone', 'Телефон')}</h4>
-                <p className="text-safi-green font-serif text-xl font-bold">+7 (700) 000-00-00</p>
+                <h4 className="text-[10px] uppercase font-bold text-safi-gold tracking-widest mb-1">Обращения</h4>
+                <p className="text-safi-green font-serif text-xl font-bold">Через форму на сайте</p>
               </div>
               <div className="pl-6 relative">
                 <div className="absolute left-[-4px] top-2 w-2 h-2 rounded-full bg-safi-gold"></div>

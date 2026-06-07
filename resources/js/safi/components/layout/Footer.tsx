@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Container } from '../ui/Container';
-import { Camera, MessageCircle, Send } from 'lucide-react';
 
 export function Footer() {
   const { t } = useTranslation();
@@ -23,11 +22,6 @@ export function Footer() {
             <p className="text-sm text-safi-bg/70 mb-6 max-w-xs leading-relaxed">
               Натуральная продукция из Казахстана для здоровья и красоты. Ваш надежный партнер в развитии бизнеса.
             </p>
-            <div className="flex gap-4">
-              <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-safi-bg/70 hover:text-safi-gold hover:bg-white/10 transition-all border border-white/5"><Camera className="h-5 w-5" /></a>
-              <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-safi-bg/70 hover:text-safi-gold hover:bg-white/10 transition-all border border-white/5"><MessageCircle className="h-5 w-5" /></a>
-              <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-safi-bg/70 hover:text-safi-gold hover:bg-white/10 transition-all border border-white/5"><Send className="h-5 w-5" /></a>
-            </div>
           </div>
           
           <div>
@@ -64,7 +58,6 @@ export function Footer() {
               <li className="flex flex-col mt-4">
                 <span className="text-[10px] text-safi-gold uppercase tracking-wider mb-1">Связь</span>
                 <a href="mailto:info@safilife.kz" className="hover:text-white transition-colors">info@safilife.kz</a>
-                <a href="tel:+77000000000" className="hover:text-white transition-colors">+7 (700) 000-00-00</a>
               </li>
             </ul>
           </div>

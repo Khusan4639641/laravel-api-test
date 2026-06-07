@@ -28,6 +28,15 @@ class MenuApiTest extends TestCase
             ->assertJsonPath('menu.0.path', '/dashboard');
     }
 
+    public function test_user_sees_dashboard_support_menu(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => 'user']));
+
+        $menuPaths = array_column($this->getJson('/api/me/permissions')->assertOk()->json('menu'), 'path');
+
+        $this->assertContains('/dashboard/support', $menuPaths);
+    }
+
     public function test_menu_changes_by_role(): void
     {
         Sanctum::actingAs(User::factory()->create(['role' => 'support']));

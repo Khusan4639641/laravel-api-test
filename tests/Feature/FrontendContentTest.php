@@ -64,4 +64,34 @@ class FrontendContentTest extends TestCase
         $this->assertSame(['START', 'VIP', 'ELITE'], $packages);
         $this->assertNotContains('BUSINESS', $packages);
     }
+
+    public function test_support_frontend_is_enabled_without_floating_external_contacts(): void
+    {
+        $features = file_get_contents(resource_path('js/safi/config/features.ts'));
+        $routes = file_get_contents(resource_path('js/safi/router/routes.tsx'));
+        $overview = file_get_contents(resource_path('js/safi/pages/dashboard/Overview.tsx'));
+
+        $this->assertStringContainsString('support: true', $features);
+        $this->assertStringContainsString('floatingExternalContacts: false', $features);
+        $this->assertStringContainsString('path="support"', $routes);
+        $this->assertStringContainsString('to="/dashboard/support"', $overview);
+    }
+
+    public function test_floating_and_public_external_support_contacts_are_not_rendered(): void
+    {
+        $this->assertFileDoesNotExist(resource_path('js/safi/components/layout/FloatingContactButtons.tsx'));
+
+        $mainLayout = file_get_contents(resource_path('js/safi/components/layout/MainLayout.tsx'));
+        $footer = file_get_contents(resource_path('js/safi/components/layout/Footer.tsx'));
+        $contacts = file_get_contents(resource_path('js/safi/pages/ContactsPage.tsx'));
+        $dashboardSupport = file_get_contents(resource_path('js/safi/pages/dashboard/Support.tsx'));
+
+        foreach ([$mainLayout, $footer, $contacts, $dashboardSupport] as $contents) {
+            $this->assertStringNotContainsString('FloatingContactButtons', $contents);
+            $this->assertStringNotContainsString('WhatsApp', $contents);
+            $this->assertStringNotContainsString('Telegram', $contents);
+            $this->assertStringNotContainsString('href="tel:', $contents);
+            $this->assertStringNotContainsString('safilife_support', $contents);
+        }
+    }
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { FormEvent, ReactNode } from 'react';
-import { FileUp, Filter, Mail, MessageSquare, Phone } from 'lucide-react';
+import type { FormEvent } from 'react';
+import { FileUp, Filter } from 'lucide-react';
 import { Badge } from '../../components/dashboard/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import {
@@ -209,11 +209,10 @@ export default function Support() {
       <section className="grid gap-8 lg:grid-cols-[0.36fr_0.64fr]">
         <aside className="space-y-8">
           <article className="rounded-[32px] border border-safi-green bg-safi-green p-7 text-white shadow-[0_18px_48px_rgba(11,23,18,0.10)]">
-            <h2 className="font-serif text-3xl font-semibold text-white">Контакты менеджера</h2>
-            <div className="mt-7 space-y-6">
-              <ContactRow icon={<Phone className="h-5 w-5" />} label="Телефон / WhatsApp" value="+7 (701) 000-00-00" />
-              <ContactRow icon={<MessageSquare className="h-5 w-5" />} label="Telegram" value="@safilife_support" />
-              <ContactRow icon={<Mail className="h-5 w-5" />} label="Email" value="support@safilife.kz" />
+            <h2 className="font-serif text-3xl font-semibold text-white">Поддержка через сайт</h2>
+            <div className="mt-7 space-y-4 text-sm font-bold leading-7 text-white/80">
+              <p>Создайте обращение в форме ниже. Ответ поддержки появится в истории обращений в личном кабинете.</p>
+              <p>Для закрытия решённого вопроса используйте кнопку "Закрыть обращение". Удаление обращений недоступно.</p>
             </div>
           </article>
 
@@ -412,18 +411,6 @@ function TicketForm({
         </button>
       </div>
     </form>
-  );
-}
-
-function ContactRow({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex items-center gap-4">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-safi-gold">{icon}</div>
-      <div>
-        <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-white/60">{label}</div>
-        <div className="mt-1 font-extrabold text-white">{value}</div>
-      </div>
-    </div>
   );
 }
 

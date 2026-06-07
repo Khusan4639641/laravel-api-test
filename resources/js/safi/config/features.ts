@@ -1,5 +1,6 @@
 export const features = {
-  support: false,
+  support: true,
+  floatingExternalContacts: false,
 } as const;
 
 export function isSupportFrontendPath(path?: string | null) {
