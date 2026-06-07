@@ -388,6 +388,18 @@ export async function getDashboardProfile<T = unknown>() {
   });
 }
 
+export async function uploadDashboardAvatar<T = unknown>(file: File) {
+  const formData = new FormData();
+  formData.append('_method', 'PATCH');
+  formData.append('avatar', file);
+
+  return apiRequest<T>(endpoints.dashboard.profileAvatar, {
+    method: 'POST',
+    body: formData,
+    auth: true,
+  });
+}
+
 export async function getDashboardOverview<T = unknown>() {
   return apiRequest<T>(endpoints.dashboard.overview, {
     method: 'GET',

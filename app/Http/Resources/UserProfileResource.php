@@ -4,6 +4,8 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class UserProfileResource extends JsonResource
 {
@@ -20,9 +22,23 @@ class UserProfileResource extends JsonResource
             'city' => $this->city,
             'address' => $this->address,
             'avatar_path' => $this->avatar_path,
+            'avatar_url' => $this->avatarUrl($this->avatar_path),
             'metadata' => $this->metadata,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
+    }
+
+    private function avatarUrl(?string $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://', '/'])) {
+            return $path;
+        }
+
+        return asset(Storage::url($path));
     }
 }

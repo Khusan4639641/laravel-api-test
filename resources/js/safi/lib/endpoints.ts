@@ -27,6 +27,7 @@ export const endpoints = {
   dashboard: {
     overview: '/dashboard/overview',
     profile: '/dashboard/profile',
+    profileAvatar: '/dashboard/profile/avatar',
     structure: '/dashboard/structure',
     transactions: '/dashboard/transactions',
     bonuses: '/dashboard/bonuses',

@@ -12,6 +12,7 @@ export interface DashboardCurrentUser {
   name: string;
   login?: string;
   email?: string;
+  avatarUrl?: string;
   role: string;
   partnerId: string;
   referralCode: string;
@@ -386,6 +387,8 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
     name: getString(record, ['name', 'full_name', 'fullName']) || userDefaults.name,
     login: getString(record, ['login', 'username']),
     email: getString(record, ['email']),
+    avatarUrl: getString(record, ['avatar_url', 'avatarUrl'])
+      || getString(isRecord(record.profile) ? record.profile : undefined, ['avatar_url', 'avatarUrl']),
     role: getString(record, ['role', 'user_role', 'role_name']) || userDefaults.role,
     partnerId: getString(record, ['partner_id', 'partnerId', 'member_id', 'code']) || userDefaults.partnerId,
     referralCode: getString(record, ['referral_code', 'referralCode', 'invite_code']) || userDefaults.referralCode,

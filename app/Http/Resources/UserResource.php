@@ -4,6 +4,8 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class UserResource extends JsonResource
 {
@@ -24,6 +26,8 @@ class UserResource extends JsonResource
         $rightPv = (float) ($this->right_pv ?? 0);
         $weakLegPv = min($leftPv, $rightPv);
         $attributes = $this->resource->getAttributes();
+        $profileAvatarPath = $this->resource->relationLoaded('profile') ? $this->profile?->avatar_path : null;
+        $avatarPath = $this->avatar_path ?: $profileAvatarPath;
         $invitedCount = (int) ($attributes['invited_count']
             ?? $attributes['invited_users_count']
             ?? $attributes['referrals_count']
@@ -43,6 +47,8 @@ class UserResource extends JsonResource
             'status' => $this->status,
             'account_status' => $this->account_status,
             'admin_note' => $this->admin_note,
+            'avatar_path' => $avatarPath,
+            'avatar_url' => $this->avatarUrl($avatarPath),
             'left_pv' => $this->left_pv,
             'right_pv' => $this->right_pv,
             'weak_leg_pv' => $weakLegPv,
@@ -73,5 +79,18 @@ class UserResource extends JsonResource
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
+    }
+
+    private function avatarUrl(?string $path): ?string
+    {
+        if (! is_string($path) || trim($path) === '') {
+            return null;
+        }
+
+        if (Str::startsWith($path, ['http://', 'https://', '/'])) {
+            return $path;
+        }
+
+        return asset(Storage::url($path));
     }
 }

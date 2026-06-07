@@ -51,6 +51,7 @@ interface PartnerDetail {
   fullName: string;
   phone: string;
   email: string;
+  avatarUrl: string;
   city: string;
   sponsorId: string;
   sponsor: string;
@@ -95,6 +96,7 @@ const partnerDefaults: PartnerDetail = {
   fullName: '-',
   phone: '-',
   email: '-',
+  avatarUrl: '',
   city: '-',
   sponsorId: '',
   sponsor: '-',
@@ -353,6 +355,7 @@ export default function AdminPartnerDetail() {
           <Link to="/admin/partners" className="cursor-pointer p-3 bg-white rounded-xl border border-safi-green/5 shadow-sm text-safi-text/60 hover:text-safi-green hover:bg-[#F5F5F0] transition-colors" title={adminText('a_0J3QsNC30LDQ')}>
             <ArrowLeft className="w-5 h-5" />
           </Link>
+          <PartnerAvatar name={partner.fullName} avatarUrl={partner.avatarUrl} />
           <div>
             <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{partner.fullName}</h1>
             <div className="flex items-center gap-3">
@@ -732,6 +735,24 @@ function CredentialLine({ label, value }: { label: string; value: string }) {
   );
 }
 
+function PartnerAvatar({ name, avatarUrl }: { name: string; avatarUrl: string }) {
+  if (avatarUrl) {
+    return (
+      <img
+        src={avatarUrl}
+        alt={name}
+        className="h-16 w-16 shrink-0 rounded-2xl border border-safi-green/5 object-cover shadow-sm"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border border-safi-green/5 bg-safi-green font-serif text-2xl font-semibold text-safi-gold shadow-sm">
+      {initials(name)}
+    </div>
+  );
+}
+
 function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
     <div className="flex items-center gap-4 group">
@@ -753,6 +774,15 @@ function MiniStat({ title, value }: { title: string; value: string | number }) {
       <div className="text-lg font-bold text-safi-green">{value}</div>
     </div>
   );
+}
+
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'S';
 }
 
 function normalizePartner(response: unknown, fallbackId: string): PartnerDetail {
@@ -788,6 +818,7 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     fullName: getString(user, ['name']) || '-',
     phone: getString(user, ['phone']) || getString(profile, ['phone']) || '-',
     email: getString(user, ['email']) || '-',
+    avatarUrl: getString(user, ['avatar_url', 'avatarUrl']) || getString(profile, ['avatar_url', 'avatarUrl']) || '',
     city: getString(user, ['city']) || getString(profile, ['city']) || '-',
     sponsorId: getString(user, ['sponsor_id']) || '',
     sponsor: getString(sponsor, ['name', 'login', 'id']) || getString(user, ['sponsor_id']) || '-',

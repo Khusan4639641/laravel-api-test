@@ -1,14 +1,67 @@
+import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react';
 import { Bell, Camera, CreditCard, Save, Shield, User } from 'lucide-react';
 import { Badge } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
+import { ApiError, uploadDashboardAvatar } from '../../lib/api';
+import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 
 const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 py-4 text-sm font-bold text-safi-green outline-none transition-all placeholder:text-safi-muted/50 focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25';
 
 export default function Profile() {
-  const { currentUser } = useDashboardContext();
+  const { currentUser, refreshCurrentUser } = useDashboardContext();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [avatarPreview, setAvatarPreview] = useState(currentUser.avatarUrl || '');
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  useEffect(() => {
+    setAvatarPreview(currentUser.avatarUrl || '');
+  }, [currentUser.avatarUrl]);
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    const toast = { id: Date.now() + Math.floor(Math.random() * 1000), message, type };
+    setToasts((current) => [...current, toast]);
+    window.setTimeout(() => setToasts((current) => current.filter((item) => item.id !== toast.id)), 3500);
+  };
+
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const localPreview = URL.createObjectURL(file);
+    setAvatarPreview(localPreview);
+    setIsUploadingAvatar(true);
+
+    try {
+      const response = await uploadDashboardAvatar(file);
+      const uploadedAvatarUrl = getAvatarUrlFromResponse(response);
+
+      if (uploadedAvatarUrl) {
+        setAvatarPreview(uploadedAvatarUrl);
+      }
+
+      await refreshCurrentUser();
+      showToast('Фото профиля обновлено');
+    } catch (caughtError) {
+      setAvatarPreview(currentUser.avatarUrl || '');
+      const message = caughtError instanceof ApiError
+        ? caughtError.message
+        : 'Не удалось загрузить фото профиля.';
+      showToast(message, 'error');
+    } finally {
+      URL.revokeObjectURL(localPreview);
+      setIsUploadingAvatar(false);
+      event.target.value = '';
+    }
+  };
 
   return (
     <div className="space-y-8">
+      <ToastStack toasts={toasts} onDismiss={(toastId) => setToasts((current) => current.filter((toast) => toast.id !== toastId))} />
+
       <section className="flex flex-col gap-5 rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:flex-row md:items-end md:justify-between md:p-8">
         <div>
           <span className="safi-kicker">Profile</span>
@@ -30,10 +83,31 @@ export default function Profile() {
         <aside className="space-y-8">
           <article className="rounded-[32px] border border-safi-border bg-white p-7 text-center shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             <div className="relative mx-auto mb-6 h-32 w-32">
-              <div className="flex h-32 w-32 items-center justify-center rounded-full border-4 border-white bg-safi-green font-serif text-5xl font-semibold text-safi-gold shadow-[0_18px_48px_rgba(11,23,18,0.14)]">
-                {currentUser.name.charAt(0)}
-              </div>
-              <button type="button" className="absolute bottom-0 right-0 flex h-11 w-11 items-center justify-center rounded-full border-4 border-white bg-safi-cream text-safi-green shadow-sm transition-colors hover:bg-safi-green hover:text-white">
+              {avatarPreview ? (
+                <img
+                  src={avatarPreview}
+                  alt={currentUser.name}
+                  className="h-32 w-32 rounded-full border-4 border-white object-cover shadow-[0_18px_48px_rgba(11,23,18,0.14)]"
+                />
+              ) : (
+                <div className="flex h-32 w-32 items-center justify-center rounded-full border-4 border-white bg-safi-green font-serif text-5xl font-semibold text-safi-gold shadow-[0_18px_48px_rgba(11,23,18,0.14)]">
+                  {initials(currentUser.name)}
+                </div>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="sr-only"
+                onChange={(event) => void handleAvatarChange(event)}
+              />
+              <button
+                type="button"
+                disabled={isUploadingAvatar}
+                onClick={() => fileInputRef.current?.click()}
+                className="absolute bottom-0 right-0 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-4 border-white bg-safi-cream text-safi-green shadow-sm transition-colors hover:bg-safi-green hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Загрузить фото профиля"
+              >
                 <Camera className="h-4 w-4" />
               </button>
             </div>
@@ -107,7 +181,7 @@ export default function Profile() {
   );
 }
 
-function Panel({ icon, title, children }: { icon: React.ReactNode; title: string; children: React.ReactNode }) {
+function Panel({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }) {
   return (
     <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
       <h2 className="mb-6 flex items-center gap-3 font-serif text-2xl font-semibold text-safi-green">
@@ -117,6 +191,39 @@ function Panel({ icon, title, children }: { icon: React.ReactNode; title: string
       {children}
     </article>
   );
+}
+
+function initials(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('') || 'S';
+}
+
+function getAvatarUrlFromResponse(response: unknown) {
+  if (!response || typeof response !== 'object' || Array.isArray(response)) {
+    return '';
+  }
+
+  const record = response as Record<string, unknown>;
+
+  if (typeof record.avatar_url === 'string') {
+    return record.avatar_url;
+  }
+
+  const user = record.user;
+
+  if (user && typeof user === 'object' && !Array.isArray(user)) {
+    const userRecord = user as Record<string, unknown>;
+
+    if (typeof userRecord.avatar_url === 'string') {
+      return userRecord.avatar_url;
+    }
+  }
+
+  return '';
 }
 
 function ConfigInput({ label, defaultValue, type = 'text', placeholder }: { label: string; defaultValue?: string; type?: string; placeholder?: string }) {

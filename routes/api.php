@@ -79,6 +79,8 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
     Route::prefix('dashboard')->group(function (): void {
         Route::get('/overview', DashboardOverviewController::class);
         Route::get('/profile', DashboardProfileController::class);
+        Route::patch('/profile/avatar', [DashboardProfileController::class, 'avatar']);
+        Route::post('/profile/avatar', [DashboardProfileController::class, 'avatar']);
         Route::get('/structure', DashboardStructureController::class);
         Route::get('/transactions', DashboardTransactionController::class);
         Route::get('/bonuses', DashboardBonusController::class);

@@ -24,6 +24,7 @@ use Laravel\Sanctum\HasApiTokens;
     'status',
     'account_status',
     'admin_note',
+    'avatar_path',
     'role',
     'left_pv',
     'right_pv',
