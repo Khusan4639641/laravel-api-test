@@ -16,14 +16,40 @@ class UserController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $users = User::query()
+        $usersQuery = User::query()
             ->with(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
-            ->withCount(['referrals', 'invitedUsers as invited_count'])
+            ->withCount(['referrals', 'invitedUsers as invited_count']);
+
+        $this->applyPartnerSearch($usersQuery, $request->query('search', $request->query('q')));
+
+        $users = $usersQuery
             ->latest()
             ->paginate($this->perPage($request));
 
         return $this->paginated($users, UserResource::class, 'users', $request, [
             'summary' => $this->partnersSummary(),
+        ]);
+    }
+
+    public function search(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        $usersQuery = User::query()
+            ->with(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
+            ->withCount(['referrals', 'invitedUsers as invited_count'])
+            ->latest();
+
+        $this->applyPartnerSearch($usersQuery, $validated['q'] ?? '');
+
+        $users = $usersQuery
+            ->limit((int) min(max($request->integer('limit', 10), 1), 25))
+            ->get();
+
+        return response()->json([
+            'partners' => UserResource::collection($users),
         ]);
     }
 
@@ -64,5 +90,35 @@ class UserController extends Controller
                 ->count(),
             'total_balance' => $walletBalance,
         ];
+    }
+
+    private function applyPartnerSearch($query, mixed $search): void
+    {
+        $search = trim((string) $search);
+        $phoneDigits = preg_replace('/\D+/', '', $search) ?? '';
+
+        if ($search === '') {
+            return;
+        }
+
+        $query->where(function ($query) use ($search, $phoneDigits): void {
+            if (ctype_digit($search)) {
+                $query->orWhere('id', (int) $search);
+            }
+
+            $query->orWhere('name', 'like', "%{$search}%")
+                ->orWhere('login', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%")
+                ->orWhereHas('profile', function ($profileQuery) use ($search, $phoneDigits): void {
+                    $profileQuery->where('phone', 'like', "%{$search}%");
+
+                    if ($phoneDigits !== '') {
+                        $profileQuery->orWhereRaw(
+                            "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', ''), '(', ''), ')', '') LIKE ?",
+                            ["%{$phoneDigits}%"]
+                        );
+                    }
+                });
+        });
     }
 }

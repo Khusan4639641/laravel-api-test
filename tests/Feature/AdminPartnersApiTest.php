@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Package;
 use App\Models\User;
+use App\Models\UserProfile;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -327,6 +328,88 @@ class AdminPartnersApiTest extends TestCase
         $this->assertEquals(0, $payload['bonus_balance']);
         $this->assertEquals(0, $payload['deposit_balance']);
         $this->assertEquals(0, $payload['total_balance']);
+    }
+
+    public function test_admin_partner_search_finds_user_outside_current_page(): void
+    {
+        $target = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'name' => 'Global Search Target',
+            'login' => 'global-search-target',
+            'email' => 'global-search-target@safi.test',
+            'created_at' => now()->subDays(10),
+        ]);
+        User::factory()->count(30)->create([
+            'role' => User::ROLE_USER,
+            'created_at' => now(),
+        ]);
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
+
+        $firstPageIds = collect($this->getJson('/api/admin/partners?per_page=5')
+            ->assertOk()
+            ->json('data'))
+            ->pluck('id')
+            ->all();
+
+        $this->assertNotContains($target->id, $firstPageIds);
+
+        $searchIds = collect($this->getJson('/api/admin/partners?search=global-search-target&per_page=5')
+            ->assertOk()
+            ->json('data'))
+            ->pluck('id')
+            ->all();
+
+        $this->assertContains($target->id, $searchIds);
+    }
+
+    public function test_admin_partner_search_endpoint_finds_user_by_email(): void
+    {
+        $target = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'email' => 'needle.email@safi.test',
+        ]);
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $ids = collect($this->getJson('/api/admin/partners/search?q=needle.email@safi.test')
+            ->assertOk()
+            ->json('partners'))
+            ->pluck('id')
+            ->all();
+
+        $this->assertContains($target->id, $ids);
+    }
+
+    public function test_admin_partner_search_endpoint_finds_user_by_phone(): void
+    {
+        $target = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'name' => 'Phone Search Partner',
+        ]);
+        UserProfile::query()->create([
+            'user_id' => $target->id,
+            'phone' => '+7 777 123 45 67',
+        ]);
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $ids = collect($this->getJson('/api/admin/partners/search?q=77712345')
+            ->assertOk()
+            ->json('partners'))
+            ->pluck('id')
+            ->all();
+
+        $this->assertContains($target->id, $ids);
+    }
+
+    public function test_user_and_support_cannot_use_admin_partner_search(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_USER]));
+        $this->getJson('/api/admin/partners/search?q=test')->assertForbidden();
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPPORT]));
+        $this->getJson('/api/admin/partners/search?q=test')->assertForbidden();
     }
 
     public function test_normal_user_cannot_access_admin_partners_list(): void

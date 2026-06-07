@@ -50,6 +50,7 @@ export const endpoints = {
   admin: {
     overview: '/admin/overview',
     partners: '/admin/partners',
+    partnersSearch: '/admin/partners/search',
     partnersBulkCreate: '/admin/partners/bulk-create',
     partner: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}`,
     partnerStatus: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/status`,

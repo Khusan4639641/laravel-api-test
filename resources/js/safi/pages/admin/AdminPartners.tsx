@@ -1,4 +1,4 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Copy, Eye, Filter, Network, Plus, Search, X } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
@@ -67,12 +67,13 @@ export default function AdminPartners() {
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
   const [copyStatus, setCopyStatus] = useState('');
 
-  const loadUsers = async () => {
+  const loadUsers = async (searchQuery = query) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await getAdminUsers();
+      const normalizedQuery = searchQuery.trim();
+      const response = await getAdminUsers(normalizedQuery ? { search: normalizedQuery } : {});
       const body = unwrapAdminPartnersPayload(response);
       const normalizedPartners = normalizePartners(body);
 
@@ -86,8 +87,12 @@ export default function AdminPartners() {
   };
 
   useEffect(() => {
-    void loadUsers();
-  }, []);
+    const timeout = window.setTimeout(() => {
+      void loadUsers(query);
+    }, query.trim() ? 300 : 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [query]);
 
   const openCreateModal = () => {
     setCreateForm(initialCreateForm);
@@ -122,7 +127,7 @@ export default function AdminPartners() {
         sponsor_id: current.sponsor_id,
         branch: current.branch,
       }));
-      await loadUsers();
+      await loadUsers(query);
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setCreateError(caughtError.message);
@@ -155,17 +160,7 @@ export default function AdminPartners() {
     }
   };
 
-  const visiblePartners = useMemo(() => {
-    const normalizedQuery = query.toLowerCase().trim();
-
-    if (!normalizedQuery) {
-      return partners;
-    }
-
-    return partners.filter((partner) =>
-      `${partner.id} ${partner.fullName} ${partner.phone} ${partner.email}`.toLowerCase().includes(normalizedQuery)
-    );
-  }, [partners, query]);
+  const visiblePartners = partners;
   const staffRoles = ['super_admin', 'admin', 'accountant', 'support'];
   const partnerRowsForSummary = partners.filter((partner) => {
     const role = String(partner.role || '').toLowerCase();
@@ -269,7 +264,7 @@ export default function AdminPartners() {
               type="text"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={adminText('a_0J_QvtC40YHQ')}
+              placeholder="Поиск по ID, ФИО, login, email или телефону"
               className="w-full rounded-full border border-safi-border bg-safi-cream py-3 pl-12 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
             />
           </label>
@@ -284,9 +279,9 @@ export default function AdminPartners() {
       </section>
 
       {isLoading && <LoadingState />}
-      {!isLoading && error && <ErrorState description={error} onRetry={loadUsers} />}
+      {!isLoading && error && <ErrorState description={error} onRetry={() => void loadUsers(query)} />}
       {!isLoading && !error && visiblePartners.length === 0 && (
-        <EmptyState title={adminText('a_0J_QsNGA0YLQ_6')} description={query ? adminText('a_0J_QvtC_0YDQ') : adminText('a_0KHQv9C40YHQ')} />
+        <EmptyState title={query ? 'Партнёр не найден' : adminText('a_0J_QsNGA0YLQ_6')} description={query ? 'Попробуйте другой ID, ФИО, login, email или телефон.' : adminText('a_0KHQv9C40YHQ')} />
       )}
 
       {!isLoading && !error && visiblePartners.length > 0 && (
@@ -329,8 +324,8 @@ export default function AdminPartners() {
                   <Link to={`/admin/partners/${partner.id}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title={adminText('a_0J7RgtC60YDR_2')}>
                     <Eye className="h-4 w-4" />
                   </Link>
-                  <Link to={`/admin/structure?user_id=${encodeURIComponent(partner.id)}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title={adminText('a_0KHRgtGA0YPQ')}>
-                    <Network className="h-4 w-4" />
+                  <Link to={`/admin/structure?user_id=${encodeURIComponent(partner.id)}`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white" title={adminText('a_0KHRgtGA0YPQ')}>
+                    <Network className="h-4 w-4" />Открыть дерево
                   </Link>
                 </div>
               </td>
@@ -585,7 +580,9 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
     const sponsorRecord = isRecord(record.sponsor) ? record.sponsor : undefined;
     const profileRecord = isRecord(record.profile) ? record.profile : undefined;
     const wallets = Array.isArray(record.wallets) ? record.wallets.filter(isRecord) : [];
-    const personalPV = getNumber(record, ['total_pv', 'totalPv', 'personal_pv', 'personalPV', 'pv']) ?? 0;
+    const personalPV = getNumber(record, ['package_activity_pv', 'packageActivityPv', 'personal_pv', 'personalPV'])
+      ?? getNumber(packageRecord, ['activity_pv', 'activityPv', 'pv'])
+      ?? 0;
     const leftPV = getNumber(record, ['left_pv', 'leftPV']) ?? 0;
     const rightPV = getNumber(record, ['right_pv', 'rightPV']) ?? 0;
     const walletBalance = getNumber(record, ['wallet_balance', 'walletBalance', 'main_balance', 'mainBalance'])

@@ -4,7 +4,7 @@ import { Search, Info } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { getAdminStructure, getApiErrorState, getArray, getNumber, getString, unwrapRecord } from '../../lib/api';
+import { getAdminStructure, getApiErrorState, getArray, getNumber, getString, searchAdminPartners, unwrapRecord } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 
 interface StructureNode {
@@ -39,6 +39,14 @@ interface StructureStats {
   rightBranchCount: number;
 }
 
+interface PartnerSearchResult {
+  id: string;
+  name: string;
+  login: string;
+  email: string;
+  phone: string;
+}
+
 const emptyStats: StructureStats = {
   directInvitedCount: 0,
   totalDownlineCount: 0,
@@ -56,6 +64,9 @@ export default function AdminStructure() {
   const [rootNode, setRootNode] = useState<StructureNode | null>(null);
   const [nodes, setNodes] = useState<StructureNode[]>([]);
   const [stats, setStats] = useState<StructureStats>(emptyStats);
+  const [searchResults, setSearchResults] = useState<PartnerSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchMessage, setSearchMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,6 +103,37 @@ export default function AdminStructure() {
     void loadStructure();
   }, [selectedUserId, selectedDepth]);
 
+  useEffect(() => {
+    const normalizedQuery = query.trim();
+
+    if (!normalizedQuery || normalizedQuery === selectedUserId) {
+      setSearchResults([]);
+      setSearchMessage('');
+      setIsSearching(false);
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      setIsSearching(true);
+      setSearchMessage('');
+
+      try {
+        const response = await searchAdminPartners(normalizedQuery, 8);
+        const results = normalizePartnerSearchResults(response);
+
+        setSearchResults(results);
+        setSearchMessage(results.length === 0 ? 'Партнёр не найден' : '');
+      } catch (caughtError) {
+        setSearchResults([]);
+        setSearchMessage(getApiErrorState(caughtError).error || 'Не удалось выполнить поиск партнёра');
+      } finally {
+        setIsSearching(false);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [query, selectedUserId]);
+
   const visibleNodes = useMemo(() => {
     const normalizedQuery = query.toLowerCase().trim();
 
@@ -109,9 +151,21 @@ export default function AdminStructure() {
     event.preventDefault();
     const normalizedQuery = query.trim();
 
+    if (!normalizedQuery) {
+      return;
+    }
+
     if (/^\d+$/.test(normalizedQuery)) {
       navigate(`/admin/structure?user_id=${encodeURIComponent(normalizedQuery)}`);
+      return;
     }
+
+    if (searchResults.length === 1) {
+      openNodeTree(searchResults[0].id);
+      return;
+    }
+
+    setSearchMessage(searchResults.length > 1 ? 'Выберите партнёра из списка ниже' : 'Партнёр не найден');
   };
 
   const openNodeTree = (userId: string) => {
@@ -155,16 +209,41 @@ export default function AdminStructure() {
             type="text"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder={adminText('a_0JLQstC10LTQ_2')}
+            placeholder="Поиск по ID, ФИО, email, login или телефону"
             className="w-full pl-12 pr-4 py-3 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
           />
         </div>
         <button
           type="submit"
-          disabled={!/^\d+$/.test(query.trim())}
+          disabled={!query.trim()}
           className="w-full cursor-pointer rounded-xl bg-safi-green px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
         >{adminText('a_0J7RgtC60YDR_3')}</button>
       </form>
+
+      {(isSearching || searchMessage || searchResults.length > 0) && (
+        <section className="rounded-[24px] border border-safi-green/5 bg-white p-4 shadow-sm">
+          {isSearching && <div className="text-sm font-bold text-safi-muted">Ищем партнёра...</div>}
+          {!isSearching && searchMessage && <div className="text-sm font-bold text-safi-muted">{searchMessage}</div>}
+          {!isSearching && searchResults.length > 0 && (
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {searchResults.map((partner) => (
+                <article key={partner.id} className="rounded-2xl border border-safi-border bg-safi-cream p-4">
+                  <div className="font-bold text-safi-green">{partner.name}</div>
+                  <div className="mt-1 font-mono text-[10px] text-safi-text/50">ID {partner.id}</div>
+                  <div className="mt-2 text-xs text-safi-text/60">{partner.login || partner.email || partner.phone || '-'}</div>
+                  <button
+                    type="button"
+                    onClick={() => openNodeTree(partner.id)}
+                    className="mt-4 inline-flex cursor-pointer items-center justify-center rounded-full border border-safi-green bg-white px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+                  >
+                    Открыть дерево
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {!isLoading && !error && rootNode && (
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -336,6 +415,21 @@ function normalizeStats(response: unknown): StructureStats {
     leftBranchCount: getNumber(stats, ['left_branch_count', 'leftBranchCount']) ?? 0,
     rightBranchCount: getNumber(stats, ['right_branch_count', 'rightBranchCount']) ?? 0,
   };
+}
+
+function normalizePartnerSearchResults(response: unknown): PartnerSearchResult[] {
+  return getArray(response, ['partners', 'users']).map((item, index) => {
+    const record = item && typeof item === 'object' ? item as Record<string, unknown> : {};
+    const profile = record.profile && typeof record.profile === 'object' ? record.profile as Record<string, unknown> : {};
+
+    return {
+      id: getString(record, ['id', 'user_id', 'partner_id']) || String(index + 1),
+      name: getString(record, ['name', 'full_name', 'fullName']) || `Partner ${index + 1}`,
+      login: getString(record, ['login']) || '',
+      email: getString(record, ['email']) || '',
+      phone: getString(record, ['phone']) || getString(profile, ['phone']) || '',
+    };
+  });
 }
 
 function normalizeSponsor(record: Record<string, unknown>) {

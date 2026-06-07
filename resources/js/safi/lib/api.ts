@@ -590,8 +590,15 @@ export async function getAdminStructure<T = unknown>(params: Record<string, stri
   });
 }
 
-export async function getAdminUsers<T = unknown>() {
-  return apiRequest<T>(endpoints.admin.partners, {
+export async function getAdminUsers<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+  return apiRequest<T>(buildEndpointWithParams(endpoints.admin.partners, params), {
+    method: 'GET',
+    auth: true,
+  });
+}
+
+export async function searchAdminPartners<T = unknown>(q: string, limit = 10) {
+  return apiRequest<T>(buildEndpointWithParams(endpoints.admin.partnersSearch, { q, limit }), {
     method: 'GET',
     auth: true,
   });
