@@ -61,6 +61,7 @@ class PackageActivationTest extends TestCase
         $this->assertSame('100.00', $sponsor->left_pv);
         $this->assertSame('100.00', $sponsor->remaining_left_pv);
         $this->assertSame('0.00', $sponsor->right_pv);
+        $this->assertSame(0, WalletTransaction::query()->where('user_id', $user->id)->count());
     }
 
     public function test_vip_activation_sets_personal_pv_and_upline_turnover_without_buyer_branch_pv(): void
@@ -92,6 +93,7 @@ class PackageActivationTest extends TestCase
         $this->assertSame('0.00', $sponsor->left_pv);
         $this->assertSame('300.00', $sponsor->right_pv);
         $this->assertSame('300.00', $sponsor->remaining_right_pv);
+        $this->assertSame(0, WalletTransaction::query()->where('user_id', $user->id)->count());
     }
 
     public function test_start_activation_pays_sponsor_ten_percent(): void
@@ -118,6 +120,7 @@ class PackageActivationTest extends TestCase
         $this->assertSame('6000.00', $bonus->amount);
         $this->assertSame('6000.00', $walletTransaction->amount);
         $this->assertSame($sponsor->id, $bonus->user_id);
+        $this->assertSame(0, WalletTransaction::query()->where('user_id', $user->id)->count());
     }
 
     public function test_activation_accrues_referral_bonus_to_sponsor_main_wallet(): void

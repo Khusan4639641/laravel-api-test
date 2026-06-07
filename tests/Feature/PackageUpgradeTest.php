@@ -6,6 +6,7 @@ use App\Models\BonusTransaction;
 use App\Models\Package;
 use App\Models\User;
 use App\Models\UserStatusBonus;
+use App\Models\WalletTransaction;
 use App\Services\BinaryTreeService;
 use Database\Seeders\StatusBonusDefinitionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -56,6 +57,7 @@ class PackageUpgradeTest extends TestCase
         $this->assertSame('0.00', $user->right_pv);
         $this->assertSame('12000.00', $referralBonus->amount);
         $this->assertSame('12000.00', $sponsorMainWallet->balance);
+        $this->assertSame(0, WalletTransaction::query()->where('user_id', $user->id)->count());
         $this->assertDatabaseMissing('wallet_transactions', [
             'type' => 'package_upgrade_cashback',
         ]);
@@ -109,6 +111,7 @@ class PackageUpgradeTest extends TestCase
         $this->assertSame('0.00', $sponsor->remaining_right_pv);
         $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'referral')->count());
         $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'binary')->count());
+        $this->assertSame(0, WalletTransaction::query()->where('user_id', $user->id)->count());
     }
 
     public function test_vip_to_elite_upgrade_awards_missed_status_bonuses(): void

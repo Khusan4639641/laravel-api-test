@@ -755,12 +755,11 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
   const accountStatus = normalizeAccountStatus(getString(user, ['account_status']));
   const walletBalance = getNumber(user, ['wallet_balance', 'walletBalance', 'balance', 'main_balance'])
     ?? getWalletBalance(wallets, 'main');
-  const pvMoneyRate = getNumber(user, ['pv_money_rate', 'pvMoneyRate']) ?? 500;
   const packageActivityPV = getNumber(user, ['package_activity_pv', 'packageActivityPv'])
     ?? getNumber(pkg, ['activity_pv', 'activityPv', 'pv'])
     ?? 0;
   const packageActivityAmount = getNumber(user, ['package_activity_amount', 'packageActivityAmount'])
-    ?? packageActivityPV * pvMoneyRate;
+    ?? 0;
   const bonusBalance = getNumber(user, ['bonus_balance', 'bonusBalance'])
     ?? getWalletBalance(wallets, 'bonus');
   const depositBalance = getNumber(user, ['deposit_balance', 'depositBalance'])
@@ -812,11 +811,23 @@ function normalizeTransactions(response: unknown): PartnerTransaction[] {
       id: getString(record, ['id']) || String(index + 1),
       date: getString(record, ['created_at']) || '-',
       type: getString(record, ['type']) || '-',
-      amount: `${direction === 'credit' ? '+' : '-'}${amount.toLocaleString('ru-RU')} ₸`,
+      amount: formatTransactionAmount(direction, amount),
       status: getString(record, ['status']) || '-',
       comment: getString(record, ['description']) || '-',
     };
   });
+}
+
+function formatTransactionAmount(direction: string, amount: number) {
+  if (direction === 'credit') {
+    return `+${amount.toLocaleString('ru-RU')} ₸`;
+  }
+
+  if (direction === 'debit') {
+    return `-${amount.toLocaleString('ru-RU')} ₸`;
+  }
+
+  return `${amount.toLocaleString('ru-RU')} ₸`;
 }
 
 function normalizeCredentials(response: unknown, partner: PartnerDetail): Credentials {

@@ -21,12 +21,12 @@ class AdminPartnerTransactionsTest extends TestCase
         $old = app(WalletService::class)->credit($wallet, 1000, 'referral_bonus', null, [], 'Old transaction');
         $old->forceFill(['created_at' => now()->subDay(), 'updated_at' => now()->subDay()])->save();
 
-        $new = app(WalletService::class)->credit($wallet->refresh(), 50000, 'package_activity_credit', null, [], 'Manual package assignment: START');
+        $new = app(WalletService::class)->credit($wallet->refresh(), 50000, 'status_bonus', null, [], 'Manual status bonus');
         $new->forceFill(['created_at' => now(), 'updated_at' => now()])->save();
 
         $other = User::factory()->create();
         app(WalletService::class)->createUserWallets($other);
-        app(WalletService::class)->credit($other->wallets()->where('type', 'main')->firstOrFail(), 99999, 'package_activity_credit');
+        app(WalletService::class)->credit($other->wallets()->where('type', 'main')->firstOrFail(), 99999, 'status_bonus');
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
 
@@ -36,9 +36,9 @@ class AdminPartnerTransactionsTest extends TestCase
 
         $this->assertCount(2, $transactions);
         $this->assertSame($new->id, $transactions[0]['id']);
-        $this->assertSame('package_activity_credit', $transactions[0]['type']);
+        $this->assertSame('status_bonus', $transactions[0]['type']);
         $this->assertSame('50000.00', $transactions[0]['amount']);
-        $this->assertSame('Manual package assignment: START', $transactions[0]['description']);
+        $this->assertSame('Manual status bonus', $transactions[0]['description']);
         $this->assertSame($old->id, $transactions[1]['id']);
         $this->assertEquals([$partner->id], collect($transactions)->pluck('user_id')->unique()->values()->all());
     }

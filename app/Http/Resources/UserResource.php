@@ -7,8 +7,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
 {
-    private const PV_MONEY_RATE = 500;
-
     public function toArray(Request $request): array
     {
         $wallets = $this->resource->relationLoaded('wallets') ? $this->wallets : collect();
@@ -18,7 +16,6 @@ class UserResource extends JsonResource
         $totalWalletBalance = $mainBalance + $bonusBalance + $depositBalance;
         $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
-        $packageActivityAmount = $packageActivityPv * self::PV_MONEY_RATE;
         $attributes = $this->resource->getAttributes();
         $invitedCount = (int) ($attributes['invited_count']
             ?? $attributes['invited_users_count']
@@ -55,9 +52,9 @@ class UserResource extends JsonResource
             'total_balance' => $totalWalletBalance,
             'total_earned' => $totalWalletBalance,
             'package_activity_pv' => $packageActivityPv,
-            'package_activity_amount' => $packageActivityAmount,
-            'pv_amount' => $packageActivityAmount,
-            'pv_money_rate' => self::PV_MONEY_RATE,
+            'package_activity_amount' => 0,
+            'pv_amount' => 0,
+            'pv_money_rate' => null,
             'current_package' => new PackageResource($this->whenLoaded('currentPackage')),
             'package' => new PackageResource($this->whenLoaded('currentPackage')),
             'profile' => new UserProfileResource($this->whenLoaded('profile')),

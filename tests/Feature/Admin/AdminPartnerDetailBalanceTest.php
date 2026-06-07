@@ -4,8 +4,8 @@ namespace Tests\Feature\Admin;
 
 use App\Models\Package;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Models\WalletTransaction;
-use App\Services\WalletService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -14,80 +14,62 @@ class AdminPartnerDetailBalanceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_start_package_assignment_credits_activity_amount_to_partner_balances(): void
+    public function test_start_package_assignment_sets_personal_pv_without_partner_balance_credit(): void
     {
         [$partner, $payload] = $this->assignPackageAndGetPartnerPayload('START');
 
-        $this->assertEquals(50000, $payload['wallet_balance']);
-        $this->assertEquals(100, $payload['total_pv']);
-        $this->assertEquals(100, $payload['package_activity_pv']);
-        $this->assertEquals(50000, $payload['package_activity_amount']);
-        $this->assertEquals(50000, $payload['pv_amount']);
-        $this->assertEquals(500, $payload['pv_money_rate']);
-        $this->assertEquals(50000, $payload['available_balance']);
-        $this->assertEquals(50000, $payload['total_balance']);
-        $this->assertEquals(50000, $payload['total_earned']);
+        $this->assertPackagePayload($payload, 100, 0);
         $this->assertSame('100.00', $partner->refresh()->total_pv);
+        $this->assertSame(0, WalletTransaction::query()->where('user_id', $partner->id)->count());
     }
 
-    public function test_vip_package_assignment_calculates_amount_from_activity_pv_not_price(): void
+    public function test_vip_package_assignment_sets_personal_pv_without_partner_balance_credit(): void
     {
-        [, $payload] = $this->assignPackageAndGetPartnerPayload('VIP');
+        [$partner, $payload] = $this->assignPackageAndGetPartnerPayload('VIP');
 
-        $this->assertEquals(300, $payload['total_pv']);
-        $this->assertEquals(300, $payload['package_activity_pv']);
-        $this->assertEquals(150000, $payload['package_activity_amount']);
-        $this->assertEquals(150000, $payload['pv_amount']);
-        $this->assertEquals(150000, $payload['available_balance']);
-        $this->assertEquals(150000, $payload['total_balance']);
-        $this->assertEquals(150000, $payload['total_earned']);
-        $this->assertNotEquals(180000, $payload['package_activity_amount']);
-        $this->assertNotEquals(180000, $payload['available_balance']);
+        $this->assertPackagePayload($payload, 300, 0);
+        $this->assertSame('300.00', $partner->refresh()->total_pv);
+        $this->assertSame(0, WalletTransaction::query()->where('user_id', $partner->id)->count());
     }
 
-    public function test_elite_package_assignment_calculates_amount_from_activity_pv_not_price(): void
+    public function test_elite_package_assignment_sets_personal_pv_without_partner_balance_credit(): void
     {
-        [, $payload] = $this->assignPackageAndGetPartnerPayload('ELITE');
+        [$partner, $payload] = $this->assignPackageAndGetPartnerPayload('ELITE');
 
-        $this->assertEquals(500, $payload['total_pv']);
-        $this->assertEquals(500, $payload['package_activity_pv']);
-        $this->assertEquals(250000, $payload['package_activity_amount']);
-        $this->assertEquals(250000, $payload['pv_amount']);
-        $this->assertEquals(250000, $payload['available_balance']);
-        $this->assertEquals(250000, $payload['total_balance']);
-        $this->assertEquals(250000, $payload['total_earned']);
-        $this->assertNotEquals(300000, $payload['package_activity_amount']);
-        $this->assertNotEquals(300000, $payload['available_balance']);
+        $this->assertPackagePayload($payload, 500, 0);
+        $this->assertSame('500.00', $partner->refresh()->total_pv);
+        $this->assertSame(0, WalletTransaction::query()->where('user_id', $partner->id)->count());
     }
 
-    public function test_package_price_is_not_used_as_pv_activity_amount_or_wallet_balance(): void
+    public function test_package_price_and_activity_amount_are_not_used_as_wallet_balance(): void
     {
         [, $payload] = $this->assignPackageAndGetPartnerPayload('START');
 
         $this->assertEquals(60000, $payload['current_package']['price']);
-        $this->assertEquals(50000, $payload['wallet_balance']);
         $this->assertEquals(100, $payload['package_activity_pv']);
-        $this->assertEquals(50000, $payload['package_activity_amount']);
-        $this->assertEquals(50000, $payload['pv_amount']);
-        $this->assertEquals(50000, $payload['available_balance']);
-        $this->assertEquals(50000, $payload['total_earned']);
-        $this->assertNotEquals(60000, $payload['package_activity_pv']);
-        $this->assertNotEquals(60000, $payload['package_activity_amount']);
+        $this->assertEquals(0, $payload['package_activity_amount']);
+        $this->assertEquals(0, $payload['pv_amount']);
+        $this->assertEquals(0, $payload['wallet_balance']);
+        $this->assertEquals(0, $payload['available_balance']);
+        $this->assertEquals(0, $payload['total_balance']);
+        $this->assertEquals(0, $payload['total_earned']);
         $this->assertNotEquals(60000, $payload['available_balance']);
+        $this->assertNotEquals(50000, $payload['available_balance']);
     }
 
-    public function test_existing_wallet_amount_is_added_to_package_activity_credit(): void
+    public function test_existing_real_wallet_balance_is_preserved_without_package_activity_credit(): void
     {
         [, $payload] = $this->assignPackageAndGetPartnerPayload('START', walletBalance: 10000);
 
-        $this->assertEquals(60000, $payload['wallet_balance']);
-        $this->assertEquals(50000, $payload['package_activity_amount']);
-        $this->assertEquals(60000, $payload['available_balance']);
-        $this->assertEquals(60000, $payload['total_balance']);
-        $this->assertEquals(60000, $payload['total_earned']);
+        $this->assertEquals(10000, $payload['wallet_balance']);
+        $this->assertEquals(10000, $payload['available_balance']);
+        $this->assertEquals(10000, $payload['total_balance']);
+        $this->assertEquals(10000, $payload['total_earned']);
+        $this->assertEquals(100, $payload['package_activity_pv']);
+        $this->assertEquals(0, $payload['package_activity_amount']);
     }
 
-    public function test_partner_detail_returns_recent_package_activity_transaction(): void
+    public function test_partner_detail_does_not_return_package_activity_credit_transaction(): void
     {
         [$partner] = $this->assignPackageAndGetPartnerPayload('START');
 
@@ -96,29 +78,11 @@ class AdminPartnerDetailBalanceTest extends TestCase
         $response = $this->getJson("/api/admin/partners/{$partner->id}")
             ->assertOk();
 
-        $response->assertJsonPath('recent_transactions.0.type', 'package_activity_credit')
-            ->assertJsonPath('recent_transactions.0.amount', '50000.00')
-            ->assertJsonPath('recent_transactions.0.status', 'completed')
-            ->assertJsonPath('recent_transactions.0.description', 'Manual package assignment: START');
-    }
-
-    public function test_partner_detail_recent_transactions_only_belong_to_selected_user(): void
-    {
-        [$partner] = $this->assignPackageAndGetPartnerPayload('START');
-        $other = User::factory()->create();
-        app(WalletService::class)->createUserWallets($other);
-        $wallet = $other->wallets()->where('type', 'main')->firstOrFail();
-        app(WalletService::class)->credit($wallet, 99999, 'package_activity_credit');
-
-        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
-
-        $transactions = $this->getJson("/api/admin/partners/{$partner->id}")
-            ->assertOk()
-            ->json('recent_transactions');
-
-        $this->assertNotEmpty($transactions);
-        $this->assertEquals([$partner->id], collect($transactions)->pluck('user_id')->unique()->values()->all());
-        $this->assertFalse(collect($transactions)->contains(fn (array $transaction): bool => $transaction['amount'] === '99999.00'));
+        $this->assertSame([], $response->json('recent_transactions'));
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'user_id' => $partner->id,
+            'type' => 'package_activity_credit',
+        ]);
     }
 
     /**
@@ -131,10 +95,14 @@ class AdminPartnerDetailBalanceTest extends TestCase
         $package = $this->createPackage($code);
 
         if ($walletBalance > 0) {
-            app(WalletService::class)->createUserWallets($partner);
-            $partner->wallets()->where('type', 'main')->firstOrFail()->forceFill([
+            Wallet::query()->create([
+                'user_id' => $partner->id,
+                'type' => 'main',
+                'currency' => 'KZT',
                 'balance' => $walletBalance,
-            ])->save();
+                'hold_balance' => 0,
+                'status' => 'active',
+            ]);
         }
 
         Sanctum::actingAs($admin);
@@ -148,17 +116,24 @@ class AdminPartnerDetailBalanceTest extends TestCase
             ->assertOk()
             ->json('user');
 
-        $this->assertDatabaseHas('wallet_transactions', [
+        $this->assertDatabaseMissing('wallet_transactions', [
             'user_id' => $partner->id,
             'type' => 'package_activity_credit',
-            'status' => 'completed',
         ]);
-        $this->assertSame(1, WalletTransaction::query()
-            ->where('user_id', $partner->id)
-            ->where('type', 'package_activity_credit')
-            ->count());
 
         return [$partner, $payload];
+    }
+
+    private function assertPackagePayload(array $payload, int $expectedPv, int $expectedBalance): void
+    {
+        $this->assertEquals($expectedPv, $payload['total_pv']);
+        $this->assertEquals($expectedPv, $payload['package_activity_pv']);
+        $this->assertEquals(0, $payload['package_activity_amount']);
+        $this->assertEquals(0, $payload['pv_amount']);
+        $this->assertEquals($expectedBalance, $payload['wallet_balance']);
+        $this->assertEquals($expectedBalance, $payload['available_balance']);
+        $this->assertEquals($expectedBalance, $payload['total_balance']);
+        $this->assertEquals($expectedBalance, $payload['total_earned']);
     }
 
     private function createPackage(string $code): Package

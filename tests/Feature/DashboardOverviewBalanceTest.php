@@ -28,7 +28,8 @@ class DashboardOverviewBalanceTest extends TestCase
             ->assertJsonPath('balances.available', '0')
             ->assertJsonPath('user.available_balance', 0)
             ->assertJsonPath('user.total_earned', 0)
-            ->assertJsonPath('user.package_activity_amount', 50000);
+            ->assertJsonPath('user.package_activity_pv', 100)
+            ->assertJsonPath('user.package_activity_amount', 0);
     }
 
     public function test_dashboard_available_balance_uses_main_wallet_only(): void

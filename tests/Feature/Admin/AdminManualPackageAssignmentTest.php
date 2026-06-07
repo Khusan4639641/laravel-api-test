@@ -63,7 +63,7 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame('0.00', $partner->right_pv);
         $this->assertSame('100.00', $sponsor->refresh()->left_pv);
         $this->assertSame('100.00', $sponsor->remaining_left_pv);
-        $this->assertPackageActivityCredit($partner, '50000.00', 'START');
+        $this->assertNoPackageActivityCredit($partner);
     }
 
     public function test_manual_vip_package_assignment_uses_package_pv_not_price(): void
@@ -95,7 +95,7 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame('0.00', $partner->right_pv);
         $this->assertSame('300.00', $sponsor->refresh()->right_pv);
         $this->assertSame('300.00', $sponsor->remaining_right_pv);
-        $this->assertPackageActivityCredit($partner, '150000.00', 'VIP');
+        $this->assertNoPackageActivityCredit($partner);
     }
 
     public function test_manual_elite_package_assignment_uses_activity_pv_and_turnover_pv_correctly(): void
@@ -132,7 +132,7 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame('0.00', $sponsor->remaining_left_pv);
         $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'referral')->count());
         $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'binary')->count());
-        $this->assertPackageActivityCredit($partner, '250000.00', 'ELITE');
+        $this->assertNoPackageActivityCredit($partner);
     }
 
     public function test_manual_package_assignment_accrues_referral_bonus_from_pv_volume_not_price(): void
@@ -220,7 +220,7 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame(0, WalletTransaction::query()->where('user_id', $partner->id)->count());
     }
 
-    public function test_manual_package_assignment_credits_package_activity_amount_but_not_package_price(): void
+    public function test_manual_package_assignment_sets_package_pv_without_crediting_buyer_balance(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
         $partner = User::factory()->create(['total_pv' => 0]);
@@ -235,19 +235,23 @@ class AdminManualPackageAssignmentTest extends TestCase
             'apply_business_effects' => true,
         ])
             ->assertOk()
-            ->assertJsonPath('user.balance', 50000)
-            ->assertJsonPath('user.available_balance', 50000)
-            ->assertJsonPath('user.total_earned', 50000)
-            ->assertJsonPath('user.package_activity_amount', 50000);
+            ->assertJsonPath('user.balance', 0)
+            ->assertJsonPath('user.available_balance', 0)
+            ->assertJsonPath('user.total_earned', 0)
+            ->assertJsonPath('user.package_activity_pv', 100)
+            ->assertJsonPath('user.package_activity_amount', 0);
 
         $mainWallet = $partner->wallets()->where('type', 'main')->firstOrFail();
 
-        $this->assertSame('50000.00', $mainWallet->refresh()->balance);
+        $this->assertSame('0.00', $mainWallet->refresh()->balance);
         $this->assertDatabaseMissing('wallet_transactions', [
             'user_id' => $partner->id,
             'amount' => '60000.00',
         ]);
-        $this->assertPackageActivityCredit($partner, '50000.00', 'START');
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'user_id' => $partner->id,
+            'type' => 'package_activity_credit',
+        ]);
     }
 
     public function test_package_matrix_uses_price_activity_pv_and_turnover_pv_separately(): void
@@ -305,18 +309,11 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame($binaryPercent, $package->binary_percent);
     }
 
-    private function assertPackageActivityCredit(User $partner, string $amount, string $packageCode): void
+    private function assertNoPackageActivityCredit(User $partner): void
     {
-        $walletTransaction = WalletTransaction::query()
-            ->where('user_id', $partner->id)
-            ->where('type', 'package_activity_credit')
-            ->first();
-
-        $this->assertNotNull($walletTransaction);
-        $this->assertSame($amount, $walletTransaction->amount);
-        $this->assertSame('completed', $walletTransaction->status);
-        $this->assertSame("Manual package assignment: {$packageCode}", $walletTransaction->description);
-        $this->assertSame($packageCode, $walletTransaction->metadata['package_code']);
-        $this->assertSame('500', $walletTransaction->metadata['pv_money_rate']);
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'user_id' => $partner->id,
+            'type' => 'package_activity_credit',
+        ]);
     }
 }
