@@ -83,6 +83,7 @@ export interface Product {
   price: number;
   pv: number;
   image: string;
+  imageUrl?: string;
   stock?: number;
   stockQuantity?: number;
   reservedQuantity?: number;
@@ -712,18 +713,30 @@ export async function getAdminProducts<T = unknown>() {
   });
 }
 
-export async function createAdminProduct<T = unknown>(payload: Record<string, unknown>) {
+export async function createAdminProduct<T = unknown>(payload: Record<string, unknown> | FormData) {
   return apiRequest<T>(endpoints.admin.products, {
     method: 'POST',
-    body: payload,
+    body: isFormData(payload) ? payload : compactPayload(payload),
     auth: true,
   });
 }
 
-export async function updateAdminProduct<T = unknown>(productId: string | number, payload: Record<string, unknown>) {
+export async function updateAdminProduct<T = unknown>(productId: string | number, payload: Record<string, unknown> | FormData) {
+  if (isFormData(payload)) {
+    if (!payload.has('_method')) {
+      payload.append('_method', 'PUT');
+    }
+
+    return apiRequest<T>(endpoints.admin.product(productId), {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    });
+  }
+
   return apiRequest<T>(endpoints.admin.product(productId), {
     method: 'PUT',
-    body: payload,
+    body: compactPayload(payload),
     auth: true,
   });
 }
@@ -1242,6 +1255,7 @@ export function normalizeProducts(response: unknown): Product[] {
   return getArray(response, ['products']).map((item, index) => {
     const record = isRecord(item) ? item : {};
     const metadata = isRecord(record.metadata) ? record.metadata : {};
+    const image = getString(record, ['image', 'image_url', 'imageUrl']) || getString(metadata, ['image', 'image_url', 'imageUrl']) || productImagePlaceholder;
 
     return {
       id: getString(record, ['id', 'uuid']) || String(index + 1),
@@ -1254,7 +1268,8 @@ export function normalizeProducts(response: unknown): Product[] {
       usage: getString(record, ['usage']) || getString(metadata, ['usage']) || '',
       price: getNumber(record, ['price', 'amount']) ?? 0,
       pv: getNumber(record, ['pv', 'points']) ?? 0,
-      image: getString(record, ['image', 'image_url', 'imageUrl']) || getString(metadata, ['image', 'image_url', 'imageUrl']) || 'https://images.unsplash.com/photo-1584362917165-526a968579e8?auto=format&fit=crop&q=80&w=400&h=400',
+      image,
+      imageUrl: image,
       stock: getNumber(record, ['stock', 'stock_quantity']) ?? undefined,
       stockQuantity: getNumber(record, ['stock_quantity', 'stock']) ?? undefined,
       reservedQuantity: getNumber(record, ['reserved_quantity']) ?? 0,
@@ -1265,6 +1280,8 @@ export function normalizeProducts(response: unknown): Product[] {
     };
   });
 }
+
+export const productImagePlaceholder = '/images/product-placeholder.svg';
 
 export function normalizePackages(response: unknown): Package[] {
   return getArray(response, ['packages']).map((item, index) => {

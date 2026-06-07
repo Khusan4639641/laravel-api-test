@@ -94,4 +94,16 @@ class FrontendContentTest extends TestCase
             $this->assertStringNotContainsString('safilife_support', $contents);
         }
     }
+
+    public function test_product_with_no_image_uses_local_placeholder(): void
+    {
+        $this->assertFileExists(public_path('images/product-placeholder.svg'));
+
+        $api = file_get_contents(resource_path('js/safi/lib/api.ts'));
+        $adminProducts = file_get_contents(resource_path('js/safi/pages/admin/AdminProducts.tsx'));
+
+        $this->assertStringContainsString("export const productImagePlaceholder = '/images/product-placeholder.svg'", $api);
+        $this->assertStringContainsString('|| productImagePlaceholder', $api);
+        $this->assertStringContainsString('product.image || productImagePlaceholder', $adminProducts);
+    }
 }

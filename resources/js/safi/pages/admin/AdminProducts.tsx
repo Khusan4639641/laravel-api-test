@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
-import { Plus, Edit, Trash2, X } from 'lucide-react';
+import { ImageIcon, Plus, Edit, Trash2, Upload, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { adminText } from '../../i18n/adminText';
 import {
@@ -10,6 +10,7 @@ import {
   getApiErrorState,
   normalizeProducts,
   Product,
+  productImagePlaceholder,
   updateAdminProduct,
 } from '../../lib/api';
 
@@ -22,6 +23,8 @@ interface ProductFormState {
   pv: string;
   stock: string;
   status: string;
+  imagePreview: string;
+  removeImage: boolean;
 }
 
 const emptyForm: ProductFormState = {
@@ -32,6 +35,8 @@ const emptyForm: ProductFormState = {
   pv: '',
   stock: '0',
   status: 'active',
+  imagePreview: productImagePlaceholder,
+  removeImage: false,
 };
 
 export default function AdminProducts() {
@@ -42,6 +47,7 @@ export default function AdminProducts() {
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const loadProducts = async () => {
     setIsLoading(true);
@@ -64,6 +70,7 @@ export default function AdminProducts() {
 
   const openCreateForm = () => {
     setForm(emptyForm);
+    setImageFile(null);
     setActionError(null);
     setShowForm(true);
   };
@@ -78,7 +85,10 @@ export default function AdminProducts() {
       pv: String(product.pv || ''),
       stock: String(product.stock ?? 0),
       status: product.status || 'active',
+      imagePreview: product.image || productImagePlaceholder,
+      removeImage: false,
     });
+    setImageFile(null);
     setActionError(null);
     setShowForm(true);
   };
@@ -86,24 +96,53 @@ export default function AdminProducts() {
   const closeForm = () => {
     setShowForm(false);
     setForm(emptyForm);
+    setImageFile(null);
     setActionError(null);
+  };
+
+  const handleImageChange = (file: File | null) => {
+    setImageFile(file);
+
+    if (!file) {
+      return;
+    }
+
+    setForm((current) => ({
+      ...current,
+      imagePreview: URL.createObjectURL(file),
+      removeImage: false,
+    }));
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setForm((current) => ({
+      ...current,
+      imagePreview: productImagePlaceholder,
+      removeImage: Boolean(current.id),
+    }));
   };
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setActionError(null);
 
-    const payload = {
-      name: form.name,
-      description: form.description,
-      price: Number(form.price),
-      pv: Number(form.pv),
-      stock_quantity: Number(form.stock || 0),
-      status: form.status,
-      metadata: {
-        category: form.category,
-      },
-    };
+    const payload = new FormData();
+    payload.append('name', form.name);
+    payload.append('description', form.description);
+    payload.append('price', String(Number(form.price)));
+    payload.append('pv', String(Number(form.pv)));
+    payload.append('stock_quantity', String(Number(form.stock || 0)));
+    payload.append('status', form.status);
+    payload.append('category', form.category);
+
+    if (imageFile) {
+      payload.append('image', imageFile);
+    }
+
+    if (form.removeImage) {
+      payload.append('remove_image', '1');
+    }
 
     try {
       if (form.id) {
@@ -159,31 +198,64 @@ export default function AdminProducts() {
       {showForm && (
         <form onSubmit={handleSubmit} className="bg-white p-8 rounded-[32px] border border-safi-green/5 shadow-sm">
           <h3 className="text-xl font-serif font-bold text-safi-green mb-6">{form.id ? adminText('a_0KDQtdC00LDQ_4') : adminText('a_0J3QvtCy0YvQ_3')}</h3>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Field label={adminText('a_0J3QsNC30LLQ')} value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
-            <Field label={adminText('a_0JrQsNGC0LXQ')} value={form.category} onChange={(value) => setForm({ ...form, category: value })} />
-            <Field label={adminText('a_0KbQtdC90LA')} type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} required />
-            <Field label="PV" type="number" value={form.pv} onChange={(value) => setForm({ ...form, pv: value })} required />
-            <Field label={adminText('a_0J7RgdGC0LDR')} type="number" value={form.stock} onChange={(value) => setForm({ ...form, stock: value })} />
-            <div>
-              <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KHRgtCw0YLR')}</label>
-              <select
-                value={form.status}
-                onChange={(event) => setForm({ ...form, status: event.target.value })}
-                className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
-              >
-                <option value="active">active</option>
-                <option value="inactive">inactive</option>
-              </select>
+          <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
+            <div className="rounded-3xl border border-safi-border bg-safi-cream p-4">
+              <div className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-white">
+                <img src={form.imagePreview || productImagePlaceholder} alt={form.name || 'Product'} className="h-full w-full object-cover" />
+                {!form.imagePreview && (
+                  <div className="absolute inset-0 flex items-center justify-center text-safi-muted">
+                    <ImageIcon className="h-8 w-8" />
+                  </div>
+                )}
+              </div>
+              <div className="mt-4 grid gap-3">
+                <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green hover:text-white">
+                  <Upload className="h-4 w-4" />
+                  Загрузить фото
+                  <input
+                    key={`${form.id || 'new'}-${form.imagePreview}`}
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(event) => handleImageChange(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="rounded-full border border-safi-border bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                >
+                  Удалить фото
+                </button>
+              </div>
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0J7Qv9C40YHQ')}</label>
-              <textarea
-                rows={4}
-                value={form.description}
-                onChange={(event) => setForm({ ...form, description: event.target.value })}
-                className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green resize-none"
-              />
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <Field label={adminText('a_0J3QsNC30LLQ')} value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
+              <Field label={adminText('a_0JrQsNGC0LXQ')} value={form.category} onChange={(value) => setForm({ ...form, category: value })} />
+              <Field label={adminText('a_0KbQtdC90LA')} type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} required />
+              <Field label="PV" type="number" value={form.pv} onChange={(value) => setForm({ ...form, pv: value })} required />
+              <Field label={adminText('a_0J7RgdGC0LDR')} type="number" value={form.stock} onChange={(value) => setForm({ ...form, stock: value })} />
+              <div>
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KHRgtCw0YLR')}</label>
+                <select
+                  value={form.status}
+                  onChange={(event) => setForm({ ...form, status: event.target.value })}
+                  className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
+                >
+                  <option value="active">активен</option>
+                  <option value="inactive">неактивно</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0J7Qv9C40YHQ')}</label>
+                <textarea
+                  rows={4}
+                  value={form.description}
+                  onChange={(event) => setForm({ ...form, description: event.target.value })}
+                  className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green resize-none"
+                />
+              </div>
             </div>
           </div>
           <button type="submit" className="mt-6 px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors">
@@ -202,8 +274,8 @@ export default function AdminProducts() {
             <tr key={product.id} className="hover:bg-safi-green/5 transition-colors group">
               <td className="px-6 py-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-[#F5F5F0] flex items-center justify-center text-safi-text/30 shrink-0 border border-safi-green/10">
-                    Img
+                  <div className="h-14 w-14 overflow-hidden rounded-xl border border-safi-green/10 bg-[#F5F5F0] shrink-0">
+                    <img src={product.image || productImagePlaceholder} alt={product.name} className="h-full w-full object-cover" />
                   </div>
                   <div>
                     <div className="font-bold text-safi-green">{product.name}</div>
@@ -220,9 +292,10 @@ export default function AdminProducts() {
               </td>
               <td className="px-6 py-4">
                 <div className="text-sm font-bold">{product.stock || 0}{adminText('a_0YjRgg')}</div>
+                {(product.stock || 0) <= 0 && <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-red-500">нет в наличии</div>}
               </td>
               <td className="px-6 py-4">
-                <AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{product.status || 'active'}</AdminBadge>
+                <AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{productStatusLabel(product.status)}</AdminBadge>
               </td>
               <td className="px-6 py-4 text-right">
                 <div className="flex justify-end gap-2">
@@ -272,4 +345,8 @@ function Field({
       />
     </div>
   );
+}
+
+function productStatusLabel(status?: string) {
+  return status === 'inactive' ? 'неактивно' : 'активен';
 }

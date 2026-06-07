@@ -7,6 +7,8 @@ use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -242,6 +244,71 @@ class ProductStockOrderTest extends TestCase
         $this->assertSame(15, $product->refresh()->stock_quantity);
     }
 
+    public function test_admin_can_upload_product_image_and_api_returns_image_url(): void
+    {
+        Storage::fake('public');
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $response = $this->post('/api/admin/products', [
+            'name' => 'Image Upload Product',
+            'description' => 'Product with uploaded image.',
+            'price' => 12000,
+            'pv' => 40,
+            'stock_quantity' => 5,
+            'status' => 'active',
+            'category' => 'Beauty',
+            'image' => $this->tinyPngUpload('product.png'),
+        ], ['Accept' => 'application/json'])
+            ->assertCreated()
+            ->assertJsonPath('product.category', 'Beauty');
+
+        $imagePath = $response->json('product.image_path');
+        $imageUrl = $response->json('product.image_url');
+
+        $this->assertIsString($imagePath);
+        $this->assertStringStartsWith('products/', $imagePath);
+        Storage::disk('public')->assertExists($imagePath);
+
+        $this->assertIsString($imageUrl);
+        $this->assertStringContainsString('/storage/products/', $imageUrl);
+
+        $this->getJson('/api/public/products')
+            ->assertOk()
+            ->assertJsonPath('products.0.image_url', $imageUrl);
+    }
+
+    public function test_admin_can_replace_and_remove_product_image(): void
+    {
+        Storage::fake('public');
+        Storage::disk('public')->put('products/old.png', 'old-image');
+
+        $product = $this->product(imagePath: 'products/old.png');
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $replaceResponse = $this->post("/api/admin/products/{$product->id}", [
+            '_method' => 'PUT',
+            'image' => $this->tinyPngUpload('new-product.png'),
+        ], ['Accept' => 'application/json'])
+            ->assertOk();
+
+        $newPath = $replaceResponse->json('product.image_path');
+
+        Storage::disk('public')->assertMissing('products/old.png');
+        Storage::disk('public')->assertExists($newPath);
+
+        $this->post("/api/admin/products/{$product->id}", [
+            '_method' => 'PUT',
+            'remove_image' => '1',
+        ], ['Accept' => 'application/json'])
+            ->assertOk()
+            ->assertJsonPath('product.image_path', null)
+            ->assertJsonPath('product.image_url', null);
+
+        Storage::disk('public')->assertMissing($newPath);
+    }
+
     public function test_order_creation_uses_transaction_and_product_row_lock(): void
     {
         $source = file_get_contents(app_path('Http/Controllers/Api/OrderController.php'));
@@ -270,5 +337,12 @@ class ProductStockOrderTest extends TestCase
             'status' => $status,
             'image_path' => $imagePath,
         ]);
+    }
+
+    private function tinyPngUpload(string $name): UploadedFile
+    {
+        return UploadedFile::fake()->createWithContent($name, base64_decode(
+            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII='
+        ));
     }
 }

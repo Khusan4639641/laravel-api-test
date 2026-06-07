@@ -32,4 +32,33 @@ class PublicProductsLanguageTest extends TestCase
             ->assertJsonPath('products.0.description', 'English description')
             ->assertJsonPath('products.0.shortDescription', 'Short');
     }
+
+    public function test_public_catalog_shows_active_products_only(): void
+    {
+        $active = Product::query()->create([
+            'name' => 'Active public product',
+            'sku' => 'PUBLIC-ACTIVE-001',
+            'description' => 'Active',
+            'price' => 1000,
+            'pv' => 10,
+            'stock_quantity' => 5,
+            'status' => 'active',
+        ]);
+
+        Product::query()->create([
+            'name' => 'Inactive public product',
+            'sku' => 'PUBLIC-INACTIVE-001',
+            'description' => 'Inactive',
+            'price' => 1000,
+            'pv' => 10,
+            'stock_quantity' => 5,
+            'status' => 'inactive',
+        ]);
+
+        $products = $this->getJson('/api/public/products')
+            ->assertOk()
+            ->json('products');
+
+        $this->assertSame([$active->id], array_column($products, 'id'));
+    }
 }
