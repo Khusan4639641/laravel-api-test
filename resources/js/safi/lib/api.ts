@@ -322,6 +322,7 @@ export async function logout(redirectTo = '/login') {
     await apiRequest(endpoints.auth.logout, {
       method: 'POST',
       auth: true,
+      redirectOnUnauthorized: false,
     });
   } finally {
     clearAuthToken();

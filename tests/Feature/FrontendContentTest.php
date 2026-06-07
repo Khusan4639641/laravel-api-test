@@ -95,6 +95,31 @@ class FrontendContentTest extends TestCase
         }
     }
 
+    public function test_header_uses_authenticated_cabinet_actions(): void
+    {
+        $header = file_get_contents(resource_path('js/safi/components/layout/Header.tsx'));
+
+        $this->assertStringContainsString("t('nav.cabinet', 'Кабинет')", $header);
+        $this->assertStringContainsString("t('nav.logout', 'Выйти')", $header);
+        $this->assertStringContainsString('to={cabinetPath}', $header);
+        $this->assertStringContainsString('isAuthenticated ? (', $header);
+        $this->assertStringContainsString('to="/login"', $header);
+        $this->assertStringContainsString('to="/register"', $header);
+    }
+
+    public function test_header_cabinet_routes_are_role_based_and_public_home_does_not_logout(): void
+    {
+        $header = file_get_contents(resource_path('js/safi/components/layout/Header.tsx'));
+        $api = file_get_contents(resource_path('js/safi/lib/api.ts'));
+
+        $this->assertStringContainsString("const BACKOFFICE_ROLES = ['super_admin', 'admin', 'accountant', 'support']", $header);
+        $this->assertStringContainsString("return BACKOFFICE_ROLES.includes(role.toLowerCase()) ? '/admin' : '/dashboard';", $header);
+        $this->assertStringContainsString("path: '/'", $header);
+        $this->assertStringContainsString('redirectOnUnauthorized: false', $header);
+        $this->assertStringNotContainsString("path: '/', onClick: handleLogout", $header);
+        $this->assertStringContainsString('redirectOnUnauthorized: false', $api);
+    }
+
     public function test_product_with_no_image_uses_local_placeholder(): void
     {
         $this->assertFileExists(public_path('images/product-placeholder.svg'));

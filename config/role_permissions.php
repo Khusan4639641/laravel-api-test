@@ -35,15 +35,16 @@ return [
 
         'support' => [
             'label' => 'Support',
-            'redirect_after_login' => '/support',
+            'redirect_after_login' => '/admin',
             'allowed_routes' => [
+                '/admin',
+                '/admin/support',
                 '/support',
                 '/support/tickets',
                 '/support/profile',
             ],
             'menu' => [
-                ['path' => '/support', 'label' => 'Обращения', 'icon' => 'message-square'],
-                ['path' => '/support/profile', 'label' => 'Профиль', 'icon' => 'user-circle'],
+                ['path' => '/admin/support', 'label' => 'Обращения', 'icon' => 'message-square'],
             ],
         ],
 

@@ -118,11 +118,7 @@ export default function LoginPage() {
 function getRedirectPath(response: unknown) {
   const role = extractRole(response);
 
-  if (role === 'support') {
-    return '/support';
-  }
-
-  if (role === 'admin' || role === 'accountant' || role === 'super_admin') {
+  if (role === 'admin' || role === 'accountant' || role === 'super_admin' || role === 'support') {
     return '/admin';
   }
 

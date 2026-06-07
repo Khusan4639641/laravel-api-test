@@ -37,6 +37,22 @@ class MenuApiTest extends TestCase
         $this->assertContains('/dashboard/support', $menuPaths);
     }
 
+    public function test_support_redirects_to_admin_shell(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => 'support']));
+
+        $this->getJson('/api/me/permissions')
+            ->assertOk()
+            ->assertJsonPath('role', 'support')
+            ->assertJsonPath('redirect_after_login', '/admin');
+
+        $permissions = $this->getJson('/api/me/permissions')->assertOk()->json();
+
+        $this->assertContains('/admin', $permissions['allowed_routes']);
+        $this->assertContains('/admin/support', $permissions['allowed_routes']);
+        $this->assertSame(['/admin/support'], array_column($permissions['menu'], 'path'));
+    }
+
     public function test_menu_changes_by_role(): void
     {
         Sanctum::actingAs(User::factory()->create(['role' => 'support']));
@@ -51,7 +67,7 @@ class MenuApiTest extends TestCase
         Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
         $superAdminMenu = $this->getJson('/api/me/permissions')->assertOk()->json('menu');
 
-        $this->assertContains('/support', array_column($supportMenu, 'path'));
+        $this->assertContains('/admin/support', array_column($supportMenu, 'path'));
         $this->assertNotContains('/admin/settings', array_column($supportMenu, 'path'));
         $this->assertContains('/admin/products', array_column($adminMenu, 'path'));
         $this->assertNotContains('/admin/settings', array_column($adminMenu, 'path'));

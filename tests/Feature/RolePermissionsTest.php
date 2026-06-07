@@ -23,13 +23,16 @@ class RolePermissionsTest extends TestCase
         $this->assertNotContains('/support', $permissions['allowed_routes']);
     }
 
-    public function test_support_permissions_contain_support_routes_only(): void
+    public function test_support_permissions_use_admin_shell_for_support_tickets(): void
     {
         $permissions = $this->permissionsFor('support');
 
         $this->assertSame('support', $permissions['role']);
-        $this->assertSame('/support', $permissions['redirect_after_login']);
+        $this->assertSame('/admin', $permissions['redirect_after_login']);
+        $this->assertContains('/admin', $permissions['allowed_routes']);
+        $this->assertContains('/admin/support', $permissions['allowed_routes']);
         $this->assertContains('/support', $permissions['allowed_routes']);
+        $this->assertSame(['/admin/support'], array_column($permissions['menu'], 'path'));
         $this->assertNotContains('/admin/products', $permissions['allowed_routes']);
         $this->assertNotContains('/dashboard', $permissions['allowed_routes']);
     }

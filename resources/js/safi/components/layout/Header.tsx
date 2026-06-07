@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Container } from '../ui/Container';
@@ -7,6 +7,16 @@ import { Menu, ShoppingCart, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
 import { useCart } from '../../context/CartContext';
+import { ApiError, apiRequest, endpoints, getAuthToken, logout } from '../../lib/api';
+
+type HeaderAuthState = 'checking' | 'authenticated' | 'guest';
+
+interface HeaderSession {
+  role: string;
+  cabinetPath: string;
+}
+
+const BACKOFFICE_ROLES = ['super_admin', 'admin', 'accountant', 'support'];
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -14,6 +24,8 @@ export function Header() {
   const location = useLocation();
   const { t, i18n } = useTranslation();
   const { totalItems } = useCart();
+  const [authState, setAuthState] = useState<HeaderAuthState>(() => getAuthToken() ? 'checking' : 'guest');
+  const [session, setSession] = useState<HeaderSession | null>(null);
 
   const navLinks = useMemo(() => [
     { name: t('nav.home', 'Главная'), path: '/' },
@@ -29,6 +41,66 @@ export function Header() {
   const [visibleItemsCount, setVisibleItemsCount] = useState(navLinks.length);
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
+  const isAuthenticated = authState === 'authenticated' || (authState === 'checking' && Boolean(getAuthToken()));
+  const cabinetPath = session?.cabinetPath || '/dashboard';
+
+  useEffect(() => {
+    let isActive = true;
+    const token = getAuthToken();
+
+    if (!token) {
+      setSession(null);
+      setAuthState('guest');
+      return;
+    }
+
+    setAuthState('checking');
+
+    void apiRequest(endpoints.auth.me, {
+      method: 'GET',
+      auth: true,
+      redirectOnUnauthorized: false,
+    })
+      .then((response) => {
+        if (!isActive) {
+          return;
+        }
+
+        const role = getRoleFromAuthResponse(response);
+        setSession({
+          role,
+          cabinetPath: getCabinetPathForRole(role),
+        });
+        setAuthState('authenticated');
+      })
+      .catch((error) => {
+        if (!isActive) {
+          return;
+        }
+
+        if (error instanceof ApiError && error.status === 401) {
+          setSession(null);
+          setAuthState('guest');
+          return;
+        }
+
+        if (getAuthToken()) {
+          setSession({
+            role: 'user',
+            cabinetPath: '/dashboard',
+          });
+          setAuthState('authenticated');
+          return;
+        }
+
+        setSession(null);
+        setAuthState('guest');
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [location.pathname]);
 
   useEffect(() => {
     let animationFrameId: number;
@@ -96,6 +168,13 @@ export function Header() {
     setIsMobileMenuOpen(false);
     setIsMoreMenuOpen(false);
   };
+
+  const handleLogout = useCallback(() => {
+    closeMenu();
+    setSession(null);
+    setAuthState('guest');
+    void logout('/');
+  }, []);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-safi-green/10 bg-white/50 backdrop-blur-md shrink-0">
@@ -189,8 +268,17 @@ export function Header() {
                 </span>
               )}
             </Link>
-            <Button variant="outline" size="sm" to="/login" className="px-5">{t('nav.login', 'Вход')}</Button>
-            <Button size="sm" to="/register" className="px-5">{t('nav.register', 'Регистрация')}</Button>
+            {isAuthenticated ? (
+              <>
+                <Button variant="outline" size="sm" to={cabinetPath} className="px-5">{t('nav.cabinet', 'Кабинет')}</Button>
+                <Button variant="ghost" size="sm" onClick={handleLogout} className="px-4">{t('nav.logout', 'Выйти')}</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" size="sm" to="/login" className="px-5">{t('nav.login', 'Вход')}</Button>
+                <Button size="sm" to="/register" className="px-5">{t('nav.register', 'Регистрация')}</Button>
+              </>
+            )}
           </div>
 
           {/* Mobile menu button */}
@@ -238,11 +326,91 @@ export function Header() {
               </Link>
             ))}
             <div className="h-px w-full bg-safi-green/5 my-4"></div>
-            <Button variant="outline" to="/login" onClick={closeMenu} className="w-full justify-center">{t('nav.login', 'Вход')}</Button>
-            <Button to="/register" onClick={closeMenu} className="w-full justify-center">{t('nav.register', 'Регистрация')}</Button>
+            {isAuthenticated ? (
+              <>
+                <Button variant="outline" to={cabinetPath} onClick={closeMenu} className="w-full justify-center">{t('nav.cabinet', 'Кабинет')}</Button>
+                <Button variant="ghost" onClick={handleLogout} className="w-full justify-center">{t('nav.logout', 'Выйти')}</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" to="/login" onClick={closeMenu} className="w-full justify-center">{t('nav.login', 'Вход')}</Button>
+                <Button to="/register" onClick={closeMenu} className="w-full justify-center">{t('nav.register', 'Регистрация')}</Button>
+              </>
+            )}
           </nav>
         </div>
       )}
     </header>
   );
+}
+
+function getCabinetPathForRole(role: string) {
+  return BACKOFFICE_ROLES.includes(role.toLowerCase()) ? '/admin' : '/dashboard';
+}
+
+function getRoleFromAuthResponse(response: unknown) {
+  const record = unwrapAuthUserRecord(response);
+  const directRole = getStringValue(record, ['role', 'user_role', 'role_name', 'type']);
+
+  if (directRole) {
+    return directRole.toLowerCase();
+  }
+
+  const role = record.role;
+
+  if (isRecord(role)) {
+    return (getStringValue(role, ['name', 'slug']) || 'user').toLowerCase();
+  }
+
+  const roles = record.roles;
+
+  if (Array.isArray(roles)) {
+    const backofficeRole = roles
+      .map((item) => typeof item === 'string' ? item : isRecord(item) ? getStringValue(item, ['name', 'slug']) : undefined)
+      .find((item): item is string => Boolean(item && BACKOFFICE_ROLES.includes(item.toLowerCase())));
+
+    return (backofficeRole || 'user').toLowerCase();
+  }
+
+  return 'user';
+}
+
+function unwrapAuthUserRecord(response: unknown): Record<string, unknown> {
+  if (!isRecord(response)) {
+    return {};
+  }
+
+  if (isRecord(response.user)) {
+    return response.user;
+  }
+
+  if (isRecord(response.data)) {
+    if (isRecord(response.data.user)) {
+      return response.data.user;
+    }
+
+    return response.data;
+  }
+
+  return response;
+}
+
+function getStringValue(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === 'string' && value.trim() !== '') {
+      return value;
+    }
+
+    if (typeof value === 'number') {
+      return String(value);
+    }
+  }
+
+  return undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
