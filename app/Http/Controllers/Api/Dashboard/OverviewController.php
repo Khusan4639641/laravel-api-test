@@ -12,15 +12,20 @@ use App\Models\BonusTransaction;
 use App\Models\Order;
 use App\Models\WalletTransaction;
 use App\Models\WithdrawalRequest;
+use App\Services\DashboardBranchVolumeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class OverviewController extends Controller
 {
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, DashboardBranchVolumeService $branchVolumeService): JsonResponse
     {
         $user = $request->user()->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode']);
+        $branchVolumes = $branchVolumeService->getBranchVolumes($user);
+        $user->setAttribute('left_pv', $branchVolumes['left_pv']);
+        $user->setAttribute('right_pv', $branchVolumes['right_pv']);
+        $user->setAttribute('total_pv', $branchVolumes['total_pv']);
         $recentTransactions = WalletTransaction::query()
             ->where('user_id', $user->id)
             ->latest()
@@ -35,13 +40,13 @@ class OverviewController extends Controller
             ->where('type', 'main')
             ->sum('balance');
         $totalWalletBalance = (string) $user->wallets->sum('balance');
-        $leftPv = (float) ($user->left_pv ?? 0);
-        $rightPv = (float) ($user->right_pv ?? 0);
-        $weakLegPv = min($leftPv, $rightPv);
         $pendingBinaryAmount = (string) BinaryBonusRun::query()
             ->where('user_id', $user->id)
             ->where('status', 'pending')
             ->sum('pending_amount');
+        $teamCount = $this->descendantsQuery($user->binaryNode?->path)
+            ->whereHas('user', fn ($query) => $query->where('role', 'user'))
+            ->count();
 
         return response()->json([
             'user' => UserResource::make($user),
@@ -66,15 +71,19 @@ class OverviewController extends Controller
                     ->sum('amount'),
             ],
             'structure' => [
-                'total_partners' => $this->descendantsQuery($user->binaryNode?->path)->count(),
-                'left_pv' => $user->left_pv,
-                'right_pv' => $user->right_pv,
-                'total_pv' => $user->total_pv,
-                'weak_leg_pv' => $weakLegPv,
+                'total_partners' => $teamCount,
+                'left_pv' => $branchVolumes['left_pv'],
+                'right_pv' => $branchVolumes['right_pv'],
+                'total_pv' => $branchVolumes['total_pv'],
+                'weak_leg_pv' => $branchVolumes['weak_leg_pv'],
                 'remaining_left_pv' => $user->remaining_left_pv,
                 'remaining_right_pv' => $user->remaining_right_pv,
-                'weak_leg' => $leftPv <= $rightPv ? 'left' : 'right',
+                'weak_leg' => $branchVolumes['weak_leg'],
             ],
+            'team_count' => $teamCount,
+            'left_pv' => $branchVolumes['left_pv'],
+            'right_pv' => $branchVolumes['right_pv'],
+            'weak_leg_pv' => $branchVolumes['weak_leg_pv'],
             'bonuses' => $bonusTotals,
             'bonuses_summary' => [
                 'total' => (string) BonusTransaction::query()->where('user_id', $user->id)->sum('amount'),

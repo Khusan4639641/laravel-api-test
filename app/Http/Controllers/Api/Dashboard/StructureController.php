@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Concerns\RespondsWithPagination;
 use App\Http\Controllers\Controller;
 use App\Models\BinaryNode;
 use App\Models\User;
+use App\Services\DashboardBranchVolumeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -15,7 +16,7 @@ class StructureController extends Controller
 {
     use RespondsWithPagination;
 
-    public function __invoke(Request $request): JsonResponse
+    public function __invoke(Request $request, DashboardBranchVolumeService $branchVolumeService): JsonResponse
     {
         $user = $request->user()->load(['binaryNode', 'currentPackage']);
         $rootNode = $user->binaryNode;
@@ -42,8 +43,7 @@ class StructureController extends Controller
         $filteredPartnerRows = $this->filterPartnerRows($partnerRows, $request);
         $paginator = $this->paginateRows($filteredPartnerRows, $request);
         $branchCounts = $this->branchCounts($partnerRows);
-        $leftPv = (float) ($user->left_pv ?? 0);
-        $rightPv = (float) ($user->right_pv ?? 0);
+        $branchVolumes = $branchVolumeService->getBranchVolumes($user);
         $summary = [
             'total_partners' => $partnerRows->count(),
             'direct_invited' => User::query()->where('sponsor_id', $user->id)->count(),
@@ -51,12 +51,12 @@ class StructureController extends Controller
             'right_count' => $branchCounts['right'],
             'left_partners' => $branchCounts['left'],
             'right_partners' => $branchCounts['right'],
-            'left_pv' => $user->left_pv,
-            'right_pv' => $user->right_pv,
-            'weak_leg_pv' => min($leftPv, $rightPv),
+            'left_pv' => $branchVolumes['left_pv'],
+            'right_pv' => $branchVolumes['right_pv'],
+            'weak_leg_pv' => $branchVolumes['weak_leg_pv'],
             'remaining_left_pv' => $user->remaining_left_pv,
             'remaining_right_pv' => $user->remaining_right_pv,
-            'weak_leg' => $leftPv <= $rightPv ? 'left' : 'right',
+            'weak_leg' => $branchVolumes['weak_leg'],
         ];
 
         $partnersPayload = [

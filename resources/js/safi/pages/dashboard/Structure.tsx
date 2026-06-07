@@ -109,14 +109,16 @@ export default function Structure() {
       });
       setPartners(list);
       setPartnersMeta(getPartnersMeta(record));
+      const leftPV = getNumber(structureRecord, ['left_pv', 'leftPV', 'left_branch_pv', 'leftBranchPv']) ?? 0;
+      const rightPV = getNumber(structureRecord, ['right_pv', 'rightPV', 'right_branch_pv', 'rightBranchPv']) ?? 0;
       setStructure({
         totalPartners: getNumber(structureRecord, ['total_partners']) ?? list.length,
         leftPartners: getNumber(structureRecord, ['left_count', 'left_partners']) ?? list.filter((partner) => partner.branch === 'Левая ветка').length,
         rightPartners: getNumber(structureRecord, ['right_count', 'right_partners']) ?? list.filter((partner) => partner.branch === 'Правая ветка').length,
-        leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
-        rightPV: getNumber(structureRecord, ['right_pv']) ?? 0,
-        weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv'])
-          ?? Math.min(getNumber(structureRecord, ['left_pv']) ?? 0, getNumber(structureRecord, ['right_pv']) ?? 0),
+        leftPV,
+        rightPV,
+        weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv', 'weak_leg_branch_pv', 'weakLegBranchPv'])
+          ?? Math.min(leftPV, rightPV),
         weakLeg: getString(structureRecord, ['weak_leg']) || 'left',
       });
     } catch (caughtError) {

@@ -40,14 +40,16 @@ export default function PackageStatus() {
       ]);
       const overview = overviewResponse && typeof overviewResponse === 'object' ? overviewResponse as Record<string, unknown> : {};
       const structure = overview.structure && typeof overview.structure === 'object' ? overview.structure as Record<string, unknown> : {};
+      const leftPV = getNumber(structure, ['left_pv', 'leftPV', 'left_branch_pv', 'leftBranchPv']) ?? 0;
+      const rightPV = getNumber(structure, ['right_pv', 'rightPV', 'right_branch_pv', 'rightBranchPv']) ?? 0;
 
       setPackages(packageItems);
       setStatuses(statusItems);
       setStatusProgress({
-        leftPV: getNumber(structure, ['left_pv']) ?? 0,
-        rightPV: getNumber(structure, ['right_pv']) ?? 0,
-        weakLegPV: getNumber(structure, ['weak_leg_pv', 'weakLegPv'])
-          ?? Math.min(getNumber(structure, ['left_pv']) ?? 0, getNumber(structure, ['right_pv']) ?? 0),
+        leftPV,
+        rightPV,
+        weakLegPV: getNumber(structure, ['weak_leg_pv', 'weakLegPv', 'weak_leg_branch_pv', 'weakLegBranchPv'])
+          ?? Math.min(leftPV, rightPV),
       });
     } catch (caughtError) {
       setPackages([]);

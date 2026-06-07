@@ -87,6 +87,8 @@ export default function Bonuses() {
       });
 
       const structureRecord = overviewRecord.structure && typeof overviewRecord.structure === 'object' ? overviewRecord.structure as Record<string, unknown> : {};
+      const leftPV = getNumber(structureRecord, ['left_pv', 'leftPV', 'left_branch_pv', 'leftBranchPv']) ?? 0;
+      const rightPV = getNumber(structureRecord, ['right_pv', 'rightPV', 'right_branch_pv', 'rightBranchPv']) ?? 0;
       setBalance({
         available: earningsSummaryResponse.availableToWithdraw,
         totalEarned: earningsSummaryResponse.totalEarned,
@@ -95,10 +97,10 @@ export default function Bonuses() {
         withdrawn: earningsSummaryResponse.withdrawnTotal,
       });
       setStructure({
-        leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
-        rightPV: getNumber(structureRecord, ['right_pv']) ?? 0,
-        weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv'])
-          ?? Math.min(getNumber(structureRecord, ['left_pv']) ?? 0, getNumber(structureRecord, ['right_pv']) ?? 0),
+        leftPV,
+        rightPV,
+        weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv', 'weak_leg_branch_pv', 'weakLegBranchPv'])
+          ?? Math.min(leftPV, rightPV),
         weakLeg: getString(structureRecord, ['weak_leg']) || 'left',
       });
     } catch (caughtError) {

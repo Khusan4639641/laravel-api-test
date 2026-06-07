@@ -52,13 +52,15 @@ export default function Overview() {
       const bonusTypes = bonusesRecord.by_type && typeof bonusesRecord.by_type === 'object' ? bonusesRecord.by_type as Record<string, unknown> : {};
       const ordersRecord = record.orders_summary && typeof record.orders_summary === 'object' ? record.orders_summary as Record<string, unknown> : {};
       const withdrawalsRecord = record.withdrawals_summary && typeof record.withdrawals_summary === 'object' ? record.withdrawals_summary as Record<string, unknown> : {};
+      const leftPV = getNumber(structureRecord, ['left_pv', 'leftPV', 'left_branch_pv', 'leftBranchPv']) ?? 0;
+      const rightPV = getNumber(structureRecord, ['right_pv', 'rightPV', 'right_branch_pv', 'rightBranchPv']) ?? 0;
 
       setStatuses(statusItems);
       setStructure({
         totalPartners: getNumber(structureRecord, ['total_partners']) ?? 0,
-        leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
-        rightPV: getNumber(structureRecord, ['right_pv']) ?? 0,
-        weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv']) ?? Math.min(getNumber(structureRecord, ['left_pv']) ?? 0, getNumber(structureRecord, ['right_pv']) ?? 0),
+        leftPV,
+        rightPV,
+        weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv', 'weak_leg_branch_pv', 'weakLegBranchPv']) ?? Math.min(leftPV, rightPV),
         weakLeg: getString(structureRecord, ['weak_leg']) || 'left',
       });
       setBalances({
