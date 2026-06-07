@@ -74,6 +74,17 @@ export default function OrderDetail() {
         <InfoCard label={t('orders.totalPv')} value={`${order.totalPv.toLocaleString('ru-RU')} PV`} />
       </section>
 
+      <section className="rounded-[32px] border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-7">
+        <h2 className="font-serif text-2xl font-semibold text-safi-green">{t('orders.deliveryInfo')}</h2>
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <InfoCard compact label={t('orders.recipientName')} value={order.recipientName || '-'} />
+          <InfoCard compact label={t('orders.deliveryPhone')} value={order.phone || '-'} />
+          <InfoCard compact label={t('orders.deliveryCity')} value={order.city || '-'} />
+          <InfoCard compact label={t('orders.deliveryAddress')} value={order.deliveryAddress || '-'} />
+          {order.comment && <InfoCard compact label={t('orders.deliveryComment')} value={order.comment} />}
+        </div>
+      </section>
+
       <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
         <div className="border-b border-safi-border p-6">
           <div className="flex items-center gap-3">

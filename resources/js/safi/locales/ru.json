@@ -243,7 +243,14 @@
     "orderCreated": "Заказ создан",
     "invalidStockWarning": "В корзине есть товары, которых нет в нужном количестве.",
     "checkoutFailed": "Не удалось оформить заказ.",
-    "stockSyncFailed": "Не удалось обновить остатки товаров."
+    "stockSyncFailed": "Не удалось обновить остатки товаров.",
+    "deliveryTitle": "Доставка",
+    "recipientName": "Получатель",
+    "deliveryPhone": "Телефон получателя",
+    "deliveryCity": "Город",
+    "deliveryAddress": "Адрес доставки",
+    "deliveryComment": "Комментарий",
+    "deliveryRequired": "Укажите получателя, телефон, город и адрес доставки."
   },
   "menu": {
     "dashboardOverview": "Обзор",
@@ -305,11 +312,18 @@
     "imagePlaceholder": "Img",
     "totalAmount": "Итоговая сумма",
     "totalPv": "Итоговый PV",
+    "deliveryInfo": "Доставка",
+    "recipientName": "Получатель",
+    "deliveryPhone": "Телефон получателя",
+    "deliveryCity": "Город",
+    "deliveryAddress": "Адрес доставки",
+    "deliveryComment": "Комментарий",
     "statusLabels": {
       "pending": "Ожидает подтверждения",
-      "confirmed": "Подтверждён",
+      "confirmed": "Подтверждено",
       "cancelled": "Отменён",
-      "completed": "Выполнен"
+      "completed": "Выполнен",
+      "shipped": "Отправлен"
     }
   }
 }

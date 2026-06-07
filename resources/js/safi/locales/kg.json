@@ -243,7 +243,14 @@
     "orderCreated": "Заказ түзүлдү",
     "invalidStockWarning": "Себетте керектүү санда жок товарлар бар.",
     "checkoutFailed": "Заказ берүү мүмкүн болгон жок.",
-    "stockSyncFailed": "Товар калдыктарын жаңыртуу мүмкүн болгон жок."
+    "stockSyncFailed": "Товар калдыктарын жаңыртуу мүмкүн болгон жок.",
+    "deliveryTitle": "Жеткирүү",
+    "recipientName": "Алуучу",
+    "deliveryPhone": "Алуучунун телефону",
+    "deliveryCity": "Шаар",
+    "deliveryAddress": "Жеткирүү дареги",
+    "deliveryComment": "Комментарий",
+    "deliveryRequired": "Алуучуну, телефонду, шаарды жана жеткирүү дарегин көрсөтүңүз."
   },
   "menu": {
     "dashboardOverview": "Обзор",
@@ -305,11 +312,18 @@
     "imagePlaceholder": "Img",
     "totalAmount": "Жалпы сумма",
     "totalPv": "Жалпы PV",
+    "deliveryInfo": "Жеткирүү",
+    "recipientName": "Алуучу",
+    "deliveryPhone": "Алуучунун телефону",
+    "deliveryCity": "Шаар",
+    "deliveryAddress": "Жеткирүү дареги",
+    "deliveryComment": "Комментарий",
     "statusLabels": {
       "pending": "Ырастоону күтөт",
       "confirmed": "Ырасталды",
       "cancelled": "Жокко чыгарылды",
-      "completed": "Аткарылды"
+      "completed": "Аткарылды",
+      "shipped": "Жөнөтүлдү"
     }
   }
 }

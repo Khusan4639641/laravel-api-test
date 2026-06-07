@@ -17,6 +17,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'total_amount',
     'total_pv',
     'shipping_address',
+    'recipient_name',
+    'phone',
+    'city',
+    'delivery_address',
+    'comment',
     'metadata',
 ])]
 class Order extends Model

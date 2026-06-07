@@ -55,6 +55,29 @@ class AdminOrdersApiTest extends TestCase
         $this->getJson('/api/admin/orders')->assertForbidden();
     }
 
+    public function test_admin_order_detail_returns_user_and_delivery_info(): void
+    {
+        $user = User::factory()->create([
+            'role' => 'user',
+            'name' => 'Delivery User',
+            'email' => 'delivery-user@example.test',
+        ]);
+        $order = $this->orderFor($user);
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
+
+        $this->getJson("/api/admin/orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonPath('order.user.id', $user->id)
+            ->assertJsonPath('order.user.email', 'delivery-user@example.test')
+            ->assertJsonPath('order.recipient_name', 'Safi Client')
+            ->assertJsonPath('order.phone', '+77010000000')
+            ->assertJsonPath('order.city', 'Almaty')
+            ->assertJsonPath('order.delivery_address', 'Abay 10')
+            ->assertJsonPath('order.comment', 'Call before delivery')
+            ->assertJsonPath('order.delivery.phone', '+77010000000');
+    }
+
     public function test_admin_can_search_orders_by_order_id(): void
     {
         $target = $this->orderFor(User::factory()->create(['id' => 501, 'role' => 'user']), orderId: 901);
@@ -111,11 +134,11 @@ class AdminOrdersApiTest extends TestCase
         $this->assertSame('confirmed', $order->refresh()->status);
     }
 
-    public function test_cancelling_pending_order_returns_stock_if_stock_was_deducted(): void
+    public function test_cancelling_order_returns_stock_if_stock_was_deducted(): void
     {
         $user = User::factory()->create(['role' => 'user']);
         $product = $this->product(stock: 3);
-        $order = $this->orderFor($user, product: $product, quantity: 2, status: 'pending');
+        $order = $this->orderFor($user, product: $product, quantity: 2, status: 'confirmed');
 
         Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
 
@@ -126,6 +149,21 @@ class AdminOrdersApiTest extends TestCase
             ->assertJsonPath('order.status', 'cancelled');
 
         $this->assertSame(5, $product->refresh()->stock_quantity);
+    }
+
+    public function test_cancelled_order_cannot_be_reopened_to_avoid_duplicate_stock_restore(): void
+    {
+        $order = $this->orderFor(User::factory()->create(['role' => 'user']), status: 'cancelled');
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'admin']));
+
+        $this->patchJson("/api/admin/orders/{$order->id}/status", [
+            'status' => 'confirmed',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('status');
+
+        $this->assertSame('cancelled', $order->refresh()->status);
     }
 
     private function orderFor(User $user, ?Product $product = null, int $quantity = 1, string $status = 'pending', ?int $orderId = null): Order
@@ -143,6 +181,19 @@ class AdminOrdersApiTest extends TestCase
             'discount_amount' => 0,
             'total_amount' => $totalAmount,
             'total_pv' => $totalPv,
+            'shipping_address' => [
+                'recipient_name' => 'Safi Client',
+                'phone' => '+77010000000',
+                'city' => 'Almaty',
+                'delivery_address' => 'Abay 10',
+                'address' => 'Abay 10',
+                'comment' => 'Call before delivery',
+            ],
+            'recipient_name' => 'Safi Client',
+            'phone' => '+77010000000',
+            'city' => 'Almaty',
+            'delivery_address' => 'Abay 10',
+            'comment' => 'Call before delivery',
         ]);
 
         if ($orderId !== null) {

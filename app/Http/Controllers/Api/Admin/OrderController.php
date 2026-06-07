@@ -11,10 +11,13 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class OrderController extends Controller
 {
     use RespondsWithPagination;
+
+    private const ORDER_STATUSES = ['pending', 'confirmed', 'cancelled', 'completed', 'shipped'];
 
     public function index(Request $request): JsonResponse
     {
@@ -56,7 +59,7 @@ class OrderController extends Controller
     public function status(Request $request, Order $order): JsonResponse
     {
         $validated = $request->validate([
-            'status' => ['required', 'string', Rule::in(['pending', 'confirmed', 'cancelled', 'completed'])],
+            'status' => ['required', 'string', Rule::in(self::ORDER_STATUSES)],
         ]);
 
         DB::transaction(function () use ($order, $validated): void {
@@ -64,7 +67,13 @@ class OrderController extends Controller
             $currentStatus = $order->status;
             $nextStatus = $validated['status'];
 
-            if ($currentStatus === 'pending' && $nextStatus === 'cancelled') {
+            if ($currentStatus === 'cancelled' && $nextStatus !== 'cancelled') {
+                throw ValidationException::withMessages([
+                    'status' => 'Отменённый заказ нельзя вернуть в работу',
+                ]);
+            }
+
+            if ($currentStatus !== 'cancelled' && $nextStatus === 'cancelled') {
                 foreach ($order->items as $item) {
                     if ($item->product_id && $item->product) {
                         $item->product->increment('stock_quantity', $item->quantity);

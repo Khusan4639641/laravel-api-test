@@ -62,6 +62,11 @@ export interface OrderPayload {
   product_id?: string | number;
   quantity?: number;
   items?: Array<{ product_id: string | number; quantity: number }>;
+  recipient_name?: string;
+  phone?: string;
+  city?: string;
+  delivery_address?: string;
+  comment?: string;
   [key: string]: unknown;
 }
 
@@ -121,6 +126,11 @@ export interface Order {
   user?: OrderUser | null;
   status: string;
   paymentStatus?: string;
+  recipientName?: string;
+  phone?: string;
+  city?: string;
+  deliveryAddress?: string;
+  comment?: string;
   totalAmount: number;
   totalPv: number;
   itemsCount: number;
@@ -1184,6 +1194,8 @@ export function normalizeOrders(response: unknown): Order[] {
 export function normalizeOrder(item: unknown, index = 0): Order {
   const record = isRecord(item) ? item : {};
   const user = isRecord(record.user) ? record.user : undefined;
+  const delivery = isRecord(record.delivery) ? record.delivery : {};
+  const shippingAddress = isRecord(record.shipping_address) ? record.shipping_address : isRecord(record.shippingAddress) ? record.shippingAddress : {};
   const items = getArray(record.items).map((orderItem, itemIndex) => normalizeOrderItem(orderItem, itemIndex));
 
   return {
@@ -1193,6 +1205,21 @@ export function normalizeOrder(item: unknown, index = 0): Order {
     user: user ? normalizeOrderUser(user) : null,
     status: getString(record, ['status']) || 'pending',
     paymentStatus: getString(record, ['payment_status', 'paymentStatus']),
+    recipientName: getString(record, ['recipient_name', 'recipientName'])
+      || getString(delivery, ['recipient_name', 'recipientName'])
+      || getString(shippingAddress, ['recipient_name', 'recipientName', 'recipient']),
+    phone: getString(record, ['phone'])
+      || getString(delivery, ['phone'])
+      || getString(shippingAddress, ['phone']),
+    city: getString(record, ['city'])
+      || getString(delivery, ['city'])
+      || getString(shippingAddress, ['city']),
+    deliveryAddress: getString(record, ['delivery_address', 'deliveryAddress'])
+      || getString(delivery, ['delivery_address', 'deliveryAddress'])
+      || getString(shippingAddress, ['delivery_address', 'deliveryAddress', 'address']),
+    comment: getString(record, ['comment'])
+      || getString(delivery, ['comment'])
+      || getString(shippingAddress, ['comment']),
     totalAmount: getNumber(record, ['total_amount', 'totalAmount']) ?? 0,
     totalPv: getNumber(record, ['total_pv', 'totalPv']) ?? 0,
     itemsCount: getNumber(record, ['items_count', 'itemsCount']) ?? items.reduce((sum, orderItem) => sum + orderItem.quantity, 0),

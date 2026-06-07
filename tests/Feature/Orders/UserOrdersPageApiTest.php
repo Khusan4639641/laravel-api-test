@@ -63,6 +63,12 @@ class UserOrdersPageApiTest extends TestCase
 
         $this->getJson("/api/orders/{$order->id}")
             ->assertOk()
+            ->assertJsonPath('order.status', 'pending')
+            ->assertJsonPath('order.recipient_name', 'Safi Client')
+            ->assertJsonPath('order.phone', '+77010000000')
+            ->assertJsonPath('order.city', 'Almaty')
+            ->assertJsonPath('order.delivery_address', 'Abay 10')
+            ->assertJsonPath('order.delivery.delivery_address', 'Abay 10')
             ->assertJsonCount(1, 'order.items')
             ->assertJsonPath('order.items.0.product_name', 'Safi Product');
     }
@@ -93,6 +99,19 @@ class UserOrdersPageApiTest extends TestCase
             'discount_amount' => 0,
             'total_amount' => $totalAmount,
             'total_pv' => $totalPv,
+            'shipping_address' => [
+                'recipient_name' => 'Safi Client',
+                'phone' => '+77010000000',
+                'city' => 'Almaty',
+                'delivery_address' => 'Abay 10',
+                'address' => 'Abay 10',
+                'comment' => 'Call before delivery',
+            ],
+            'recipient_name' => 'Safi Client',
+            'phone' => '+77010000000',
+            'city' => 'Almaty',
+            'delivery_address' => 'Abay 10',
+            'comment' => 'Call before delivery',
         ]);
 
         OrderItem::query()->create([

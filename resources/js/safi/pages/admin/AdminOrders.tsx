@@ -7,7 +7,7 @@ import { ToastItem, ToastStack } from '../../components/ui/Toast';
 import { getAdminOrders, getApiErrorState, Order, updateAdminOrderStatus } from '../../lib/api';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 
-const orderStatuses = ['pending', 'confirmed', 'cancelled', 'completed'] as const;
+const orderStatuses = ['pending', 'confirmed', 'shipped', 'completed', 'cancelled'] as const;
 
 export default function AdminOrders() {
   const { t, i18n } = useTranslation();
@@ -166,6 +166,8 @@ export default function AdminOrders() {
                 <td className="px-6 py-4">
                   <div className="text-sm font-bold text-safi-green">{order.user?.login || '-'}</div>
                   <div className="mt-1 text-xs text-safi-text/60">{order.user?.email || '-'}</div>
+                  <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-gold">{order.city || '-'}</div>
+                  <div className="mt-1 text-xs text-safi-text/60">{order.phone || '-'}</div>
                 </td>
                 <td className="px-6 py-4 font-bold text-safi-green">{order.itemsCount.toLocaleString('ru-RU')}</td>
                 <td className="px-6 py-4 font-bold text-safi-green">{formatCurrency(order.totalAmount)}</td>
@@ -202,20 +204,32 @@ export default function AdminOrders() {
               {expandedOrderId === order.id && (
                 <tr className="bg-safi-cream/60">
                   <td colSpan={9} className="px-6 py-5">
-                    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      {order.items.map((item) => (
-                        <div key={item.id} className="rounded-2xl border border-safi-border bg-white p-4">
-                          <div className="flex items-center gap-4">
-                            <ProductImage image={item.image} alt={`${t('orders.productImage')}: ${item.productName}`} />
-                            <div className="font-serif text-lg font-semibold text-safi-green">{item.productName}</div>
-                          </div>
-                          <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                            <Metric label={t('orders.quantity')} value={item.quantity.toLocaleString('ru-RU')} />
-                            <Metric label={t('orders.amount')} value={formatCurrency(item.totalPrice)} />
-                            <Metric label={t('orders.pv')} value={`${item.totalPv.toLocaleString('ru-RU')} PV`} />
-                          </div>
+                    <div className="grid gap-5 xl:grid-cols-[0.34fr_0.66fr]">
+                      <section className="rounded-2xl border border-safi-border bg-white p-5">
+                        <h3 className="font-serif text-xl font-semibold text-safi-green">{t('orders.deliveryInfo')}</h3>
+                        <div className="mt-4 grid gap-3 text-sm">
+                          <Metric label={t('orders.recipientName')} value={order.recipientName || order.user?.name || '-'} />
+                          <Metric label={t('orders.deliveryPhone')} value={order.phone || '-'} />
+                          <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
+                          <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || '-'} />
+                          {order.comment && <Metric label={t('orders.deliveryComment')} value={order.comment} />}
                         </div>
-                      ))}
+                      </section>
+                      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                        {order.items.map((item) => (
+                          <div key={item.id} className="rounded-2xl border border-safi-border bg-white p-4">
+                            <div className="flex items-center gap-4">
+                              <ProductImage image={item.image} alt={`${t('orders.productImage')}: ${item.productName}`} />
+                              <div className="font-serif text-lg font-semibold text-safi-green">{item.productName}</div>
+                            </div>
+                            <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
+                              <Metric label={t('orders.quantity')} value={item.quantity.toLocaleString('ru-RU')} />
+                              <Metric label={t('orders.amount')} value={formatCurrency(item.totalPrice)} />
+                              <Metric label={t('orders.pv')} value={`${item.totalPv.toLocaleString('ru-RU')} PV`} />
+                            </div>
+                          </div>
+                        ))}
+                      </section>
                     </div>
                   </td>
                 </tr>

@@ -114,7 +114,12 @@ class OrderController extends Controller
                 'discount_amount' => 0,
                 'total_amount' => $subtotal,
                 'total_pv' => $totalPv,
-                'shipping_address' => $validated['shipping_address'] ?? null,
+                'shipping_address' => $this->shippingAddress($validated),
+                'recipient_name' => $validated['recipient_name'] ?? null,
+                'phone' => $validated['phone'],
+                'city' => $validated['city'] ?? null,
+                'delivery_address' => $validated['delivery_address'],
+                'comment' => $validated['comment'] ?? null,
             ]);
 
             foreach ($preparedItems as $preparedItem) {
@@ -177,6 +182,22 @@ class OrderController extends Controller
         } while (Order::query()->where('order_number', $number)->exists());
 
         return $number;
+    }
+
+    private function shippingAddress(array $validated): array
+    {
+        $shippingAddress = is_array($validated['shipping_address'] ?? null)
+            ? $validated['shipping_address']
+            : [];
+
+        return array_filter(array_merge($shippingAddress, [
+            'recipient_name' => $validated['recipient_name'] ?? null,
+            'phone' => $validated['phone'] ?? null,
+            'city' => $validated['city'] ?? null,
+            'delivery_address' => $validated['delivery_address'] ?? null,
+            'address' => $validated['delivery_address'] ?? null,
+            'comment' => $validated['comment'] ?? null,
+        ]), fn ($value): bool => $value !== null && $value !== '');
     }
 
     private function productImageUrl(Product $product): ?string

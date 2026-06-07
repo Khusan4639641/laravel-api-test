@@ -243,7 +243,14 @@
     "orderCreated": "Order created",
     "invalidStockWarning": "The cart contains products that are not available in the requested quantity.",
     "checkoutFailed": "Could not place the order.",
-    "stockSyncFailed": "Could not update product stock."
+    "stockSyncFailed": "Could not update product stock.",
+    "deliveryTitle": "Delivery",
+    "recipientName": "Recipient",
+    "deliveryPhone": "Recipient phone",
+    "deliveryCity": "City",
+    "deliveryAddress": "Delivery address",
+    "deliveryComment": "Comment",
+    "deliveryRequired": "Enter recipient, phone, city and delivery address."
   },
   "menu": {
     "dashboardOverview": "Overview",
@@ -305,11 +312,18 @@
     "imagePlaceholder": "Img",
     "totalAmount": "Total amount",
     "totalPv": "Total PV",
+    "deliveryInfo": "Delivery",
+    "recipientName": "Recipient",
+    "deliveryPhone": "Recipient phone",
+    "deliveryCity": "City",
+    "deliveryAddress": "Delivery address",
+    "deliveryComment": "Comment",
     "statusLabels": {
       "pending": "Pending confirmation",
       "confirmed": "Confirmed",
       "cancelled": "Cancelled",
-      "completed": "Completed"
+      "completed": "Completed",
+      "shipped": "Shipped"
     }
   }
 }

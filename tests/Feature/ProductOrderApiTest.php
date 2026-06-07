@@ -44,15 +44,19 @@ class ProductOrderApiTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $response = $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $first->id, 'quantity' => 2],
-                ['product_id' => $second->id, 'quantity' => 3],
-            ],
+        $response = $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $first->id, 'quantity' => 2],
+            ['product_id' => $second->id, 'quantity' => 3],
+        ], [
+            'recipient_name' => 'Dana Client',
+            'phone' => '+77011112233',
+            'city' => 'Tashkent',
+            'delivery_address' => 'Navoi 20',
+            'comment' => 'Deliver after 18:00',
             'shipping_address' => [
-                'city' => 'Tashkent',
+                'legacy_note' => 'keep existing address metadata',
             ],
-        ]);
+        ]));
 
         $response
             ->assertCreated()
@@ -61,6 +65,12 @@ class ProductOrderApiTest extends TestCase
             ->assertJsonPath('order.subtotal_amount', '9500.00')
             ->assertJsonPath('order.total_amount', '9500.00')
             ->assertJsonPath('order.total_pv', '4000.00')
+            ->assertJsonPath('order.recipient_name', 'Dana Client')
+            ->assertJsonPath('order.phone', '+77011112233')
+            ->assertJsonPath('order.city', 'Tashkent')
+            ->assertJsonPath('order.delivery_address', 'Navoi 20')
+            ->assertJsonPath('order.comment', 'Deliver after 18:00')
+            ->assertJsonPath('order.delivery.phone', '+77011112233')
             ->assertJsonCount(2, 'order.items');
 
         $order = Order::query()->with('items')->firstOrFail();
@@ -68,6 +78,13 @@ class ProductOrderApiTest extends TestCase
         $this->assertSame($user->id, $order->user_id);
         $this->assertSame('9500.00', $order->total_amount);
         $this->assertSame('4000.00', $order->total_pv);
+        $this->assertSame('Dana Client', $order->recipient_name);
+        $this->assertSame('+77011112233', $order->phone);
+        $this->assertSame('Tashkent', $order->city);
+        $this->assertSame('Navoi 20', $order->delivery_address);
+        $this->assertSame('Deliver after 18:00', $order->comment);
+        $this->assertSame('Navoi 20', $order->shipping_address['delivery_address']);
+        $this->assertSame('keep existing address metadata', $order->shipping_address['legacy_note']);
         $this->assertSame('2000.00', $order->items[0]->total_price);
         $this->assertSame('7500.00', $order->items[1]->total_price);
     }
@@ -79,11 +96,9 @@ class ProductOrderApiTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 1],
-            ],
-        ])->assertUnprocessable()
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))->assertUnprocessable()
             ->assertJsonValidationErrors('items');
 
         $this->assertDatabaseCount('orders', 0);
@@ -96,11 +111,9 @@ class ProductOrderApiTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 0],
-            ],
-        ])->assertUnprocessable()
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 0],
+        ]))->assertUnprocessable()
             ->assertJsonValidationErrors('items.0.quantity');
     }
 
@@ -346,5 +359,22 @@ class ProductOrderApiTest extends TestCase
             'status' => $status,
             'is_deposit_product' => $isDepositProduct,
         ]);
+    }
+
+    /**
+     * @param  array<int, array{product_id: int, quantity: int}>  $items
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function orderPayload(array $items, array $overrides = []): array
+    {
+        return array_merge([
+            'items' => $items,
+            'recipient_name' => 'Safi Client',
+            'phone' => '+77010000000',
+            'city' => 'Almaty',
+            'delivery_address' => 'Abay 10',
+            'comment' => 'Call before delivery',
+        ], $overrides);
     }
 }

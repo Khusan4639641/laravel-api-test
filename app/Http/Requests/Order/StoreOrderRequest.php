@@ -41,6 +41,11 @@ class StoreOrderRequest extends FormRequest
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'gt:0'],
             'shipping_address' => ['nullable', 'array'],
+            'recipient_name' => ['required', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'max:255'],
+            'city' => ['required', 'string', 'max:255'],
+            'delivery_address' => ['required', 'string', 'max:1000'],
+            'comment' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }

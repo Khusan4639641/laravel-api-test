@@ -9,6 +9,13 @@ import { ApiError, createOrder, getApiErrorState, getAuthToken, getPublicProduct
 import { getAvailableStock, isProductOrderable, useCart } from '../context/CartContext';
 
 const formatCurrency = (value: number) => `${value.toLocaleString('ru-RU')} ₸`;
+const emptyDeliveryForm = {
+  recipientName: '',
+  phone: '',
+  city: '',
+  deliveryAddress: '',
+  comment: '',
+};
 
 export default function CartPage() {
   const { t } = useTranslation();
@@ -29,6 +36,7 @@ export default function CartPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
+  const [deliveryForm, setDeliveryForm] = useState(emptyDeliveryForm);
 
   const showToast = useCallback((message: string, type: ToastType = 'success') => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -57,7 +65,11 @@ export default function CartPage() {
   }, []);
 
   const invalidItems = useMemo(() => items.filter((item) => !isProductOrderable(item.product) || item.quantity > getAvailableStock(item.product)), [items]);
-  const canCheckout = items.length > 0 && invalidItems.length === 0 && !isCheckingOut;
+  const hasDeliveryRequiredFields = deliveryForm.recipientName.trim() !== ''
+    && deliveryForm.phone.trim() !== ''
+    && deliveryForm.city.trim() !== ''
+    && deliveryForm.deliveryAddress.trim() !== '';
+  const canCheckout = items.length > 0 && invalidItems.length === 0 && hasDeliveryRequiredFields && !isCheckingOut;
 
   const handleIncrease = (productId: string) => {
     const item = items.find((cartItem) => String(cartItem.product.id) === String(productId));
@@ -94,6 +106,11 @@ export default function CartPage() {
       return;
     }
 
+    if (!hasDeliveryRequiredFields) {
+      setCheckoutError(t('cart.deliveryRequired', 'Укажите телефон и адрес доставки.'));
+      return;
+    }
+
     setIsCheckingOut(true);
 
     try {
@@ -102,9 +119,15 @@ export default function CartPage() {
           product_id: item.product.id,
           quantity: item.quantity,
         })),
+        recipient_name: deliveryForm.recipientName.trim(),
+        phone: deliveryForm.phone.trim(),
+        city: deliveryForm.city.trim(),
+        delivery_address: deliveryForm.deliveryAddress.trim(),
+        comment: deliveryForm.comment.trim(),
       });
 
       clearCart();
+      setDeliveryForm(emptyDeliveryForm);
       setCheckoutMessage(t('orders.orderCreated'));
       showToast(t('orders.orderCreated'));
       navigate('/dashboard/orders', { state: { orderCreated: true } });
@@ -253,6 +276,43 @@ export default function CartPage() {
           </div>
 
           <aside className="h-fit rounded-[28px] bg-safi-green p-6 text-white shadow-xl lg:sticky lg:top-28">
+            <div className="mb-6 border-b border-white/10 pb-6">
+              <h2 className="font-serif text-2xl font-bold">{t('cart.deliveryTitle', 'Доставка')}</h2>
+              <div className="mt-5 space-y-4">
+                <DeliveryInput
+                  label={t('cart.recipientName', 'Получатель')}
+                  value={deliveryForm.recipientName}
+                  onChange={(value) => setDeliveryForm((current) => ({ ...current, recipientName: value }))}
+                  required
+                />
+                <DeliveryInput
+                  label={t('cart.deliveryPhone', 'Телефон получателя')}
+                  value={deliveryForm.phone}
+                  onChange={(value) => setDeliveryForm((current) => ({ ...current, phone: value }))}
+                  required
+                />
+                <DeliveryInput
+                  label={t('cart.deliveryCity', 'Город')}
+                  value={deliveryForm.city}
+                  onChange={(value) => setDeliveryForm((current) => ({ ...current, city: value }))}
+                  required
+                />
+                <DeliveryInput
+                  label={t('cart.deliveryAddress', 'Адрес доставки')}
+                  value={deliveryForm.deliveryAddress}
+                  onChange={(value) => setDeliveryForm((current) => ({ ...current, deliveryAddress: value }))}
+                  required
+                  multiline
+                />
+                <DeliveryInput
+                  label={t('cart.deliveryComment', 'Комментарий')}
+                  value={deliveryForm.comment}
+                  onChange={(value) => setDeliveryForm((current) => ({ ...current, comment: value }))}
+                  multiline
+                />
+              </div>
+            </div>
+
             <div className="mb-6 flex items-center justify-between border-b border-white/10 pb-5">
               <h2 className="font-serif text-2xl font-bold">{t('cart.summary', 'Итого')}</h2>
               <ShoppingBag className="h-6 w-6 text-safi-gold" />
@@ -290,5 +350,44 @@ export default function CartPage() {
         </div>
       </Container>
     </div>
+  );
+}
+
+function DeliveryInput({
+  label,
+  value,
+  onChange,
+  required = false,
+  multiline = false,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  required?: boolean;
+  multiline?: boolean;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/60">
+        {label}{required ? ' *' : ''}
+      </span>
+      {multiline ? (
+        <textarea
+          rows={3}
+          value={value}
+          required={required}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full resize-none rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/35 focus:border-safi-gold focus:bg-white/15"
+        />
+      ) : (
+        <input
+          type="text"
+          value={value}
+          required={required}
+          onChange={(event) => onChange(event.target.value)}
+          className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/35 focus:border-safi-gold focus:bg-white/15"
+        />
+      )}
+    </label>
   );
 }

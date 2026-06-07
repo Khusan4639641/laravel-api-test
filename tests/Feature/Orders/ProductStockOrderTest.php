@@ -35,11 +35,9 @@ class ProductStockOrderTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 2],
-            ],
-        ])
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 2],
+        ]))
             ->assertCreated()
             ->assertJsonPath('order.status', 'pending')
             ->assertJsonPath('order.total_amount', '36000.00')
@@ -50,6 +48,25 @@ class ProductStockOrderTest extends TestCase
         $this->assertDatabaseCount('order_items', 1);
     }
 
+    public function test_order_requires_delivery_fields(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $product = $this->product(stock: 10);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['recipient_name', 'phone', 'city', 'delivery_address']);
+
+        $this->assertSame(10, $product->refresh()->stock_quantity);
+        $this->assertDatabaseCount('orders', 0);
+    }
+
     public function test_user_cannot_order_more_than_stock(): void
     {
         $user = User::factory()->create(['role' => 'user']);
@@ -57,11 +74,9 @@ class ProductStockOrderTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 2],
-            ],
-        ])
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 2],
+        ]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('items');
 
@@ -76,11 +91,9 @@ class ProductStockOrderTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 1],
-            ],
-        ])
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('items');
 
@@ -95,11 +108,9 @@ class ProductStockOrderTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 1],
-            ],
-        ])
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))
             ->assertUnprocessable()
             ->assertJsonValidationErrors('items');
 
@@ -114,11 +125,9 @@ class ProductStockOrderTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 2],
-            ],
-        ])->assertCreated();
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 2],
+        ]))->assertCreated();
 
         $item = OrderItem::query()->firstOrFail();
 
@@ -142,11 +151,9 @@ class ProductStockOrderTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 1],
-            ],
-        ])
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))
             ->assertCreated()
             ->assertJsonPath('order.items.0.image_url', 'https://cdn.test/safi-image.jpg');
 
@@ -164,11 +171,9 @@ class ProductStockOrderTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $orderId = $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 1],
-            ],
-        ])->assertCreated()->json('order.id');
+        $orderId = $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))->assertCreated()->json('order.id');
 
         $this->getJson('/api/orders')
             ->assertOk()
@@ -186,11 +191,9 @@ class ProductStockOrderTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 1],
-            ],
-        ])->assertCreated();
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))->assertCreated();
 
         Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
 
@@ -206,11 +209,9 @@ class ProductStockOrderTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 1],
-            ],
-        ])
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))
             ->assertCreated()
             ->assertJsonPath('order.items.0.image_url', null);
     }
@@ -219,11 +220,9 @@ class ProductStockOrderTest extends TestCase
     {
         $product = $this->product(stock: 10);
 
-        $this->postJson('/api/orders', [
-            'items' => [
-                ['product_id' => $product->id, 'quantity' => 1],
-            ],
-        ])->assertUnauthorized();
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))->assertUnauthorized();
 
         $this->assertSame(10, $product->refresh()->stock_quantity);
     }
@@ -337,6 +336,23 @@ class ProductStockOrderTest extends TestCase
             'status' => $status,
             'image_path' => $imagePath,
         ]);
+    }
+
+    /**
+     * @param  array<int, array{product_id: int, quantity: int}>  $items
+     * @param  array<string, mixed>  $overrides
+     * @return array<string, mixed>
+     */
+    private function orderPayload(array $items, array $overrides = []): array
+    {
+        return array_merge([
+            'items' => $items,
+            'recipient_name' => 'Safi Client',
+            'phone' => '+77010000000',
+            'city' => 'Almaty',
+            'delivery_address' => 'Abay 10',
+            'comment' => 'Call before delivery',
+        ], $overrides);
     }
 
     private function tinyPngUpload(string $name): UploadedFile

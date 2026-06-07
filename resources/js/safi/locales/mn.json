@@ -243,7 +243,14 @@
     "orderCreated": "Захиалга үүссэн",
     "invalidStockWarning": "Сагсанд шаардлагатай тоо хэмжээгээр байхгүй бараа байна.",
     "checkoutFailed": "Захиалга өгөх боломжгүй.",
-    "stockSyncFailed": "Барааны үлдэгдлийг шинэчилж чадсангүй."
+    "stockSyncFailed": "Барааны үлдэгдлийг шинэчилж чадсангүй.",
+    "deliveryTitle": "Хүргэлт",
+    "recipientName": "Хүлээн авагч",
+    "deliveryPhone": "Хүлээн авагчийн утас",
+    "deliveryCity": "Хот",
+    "deliveryAddress": "Хүргэлтийн хаяг",
+    "deliveryComment": "Тайлбар",
+    "deliveryRequired": "Хүлээн авагч, утас, хот болон хүргэлтийн хаягаа оруулна уу."
   },
   "menu": {
     "dashboardOverview": "Тойм",
@@ -305,11 +312,18 @@
     "imagePlaceholder": "Img",
     "totalAmount": "Нийт дүн",
     "totalPv": "Нийт PV",
+    "deliveryInfo": "Хүргэлт",
+    "recipientName": "Хүлээн авагч",
+    "deliveryPhone": "Хүлээн авагчийн утас",
+    "deliveryCity": "Хот",
+    "deliveryAddress": "Хүргэлтийн хаяг",
+    "deliveryComment": "Тайлбар",
     "statusLabels": {
       "pending": "Баталгаажуулалт хүлээгдэж байна",
       "confirmed": "Баталгаажсан",
       "cancelled": "Цуцлагдсан",
-      "completed": "Дууссан"
+      "completed": "Дууссан",
+      "shipped": "Илгээгдсэн"
     }
   }
 }

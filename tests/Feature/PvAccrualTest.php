@@ -115,6 +115,10 @@ class PvAccrualTest extends TestCase
             'items' => [
                 ['product_id' => $product->id, 'quantity' => 1],
             ],
+            'recipient_name' => 'Safi Client',
+            'phone' => '+77010000000',
+            'city' => 'Almaty',
+            'delivery_address' => 'Abay 10',
         ])
             ->assertCreated()
             ->assertJsonPath('order.total_pv', '20.00');
