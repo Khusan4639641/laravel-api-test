@@ -254,6 +254,24 @@
     "deliveryComment": "Comment",
     "deliveryRequired": "Enter recipient, phone, city and delivery address."
   },
+  "earningsSummary": {
+    "kicker": "Earnings",
+    "title": "Earnings Summary",
+    "subtitle": "Money metrics without PV: bonuses, balances, withdrawals and pending binary.",
+    "totalEarned": "Total earned",
+    "availableToWithdraw": "Available to withdraw",
+    "pendingBinary": "Pending binary",
+    "referralTotal": "Referral bonus total",
+    "binaryTotal": "Binary bonus total",
+    "statusTotal": "Status bonus total",
+    "bonusX2Total": "X2 bonus total",
+    "cashbackTotal": "Cashback total",
+    "depositBalance": "Deposit balance",
+    "withdrawnTotal": "Withdrawn total",
+    "pendingWithdrawal": "Pending withdrawal",
+    "emptyTitle": "No earnings yet",
+    "emptyDescription": "Money statistics will appear after bonuses, deposit balance changes or withdrawal requests."
+  },
   "menu": {
     "dashboardOverview": "Overview",
     "dashboardStructure": "My Structure",

@@ -146,4 +146,19 @@ class FrontendContentTest extends TestCase
         $this->assertStringContainsString('Ожидает подтверждения', $helper);
         $this->assertStringContainsString('productStatusLabel(product.status)', $adminProducts);
     }
+
+    public function test_dashboard_earnings_summary_frontend_uses_endpoint_and_i18n(): void
+    {
+        $endpoints = file_get_contents(resource_path('js/safi/lib/endpoints.ts'));
+        $api = file_get_contents(resource_path('js/safi/lib/api.ts'));
+        $bonuses = file_get_contents(resource_path('js/safi/pages/dashboard/Bonuses.tsx'));
+        $ru = file_get_contents(resource_path('js/safi/locales/ru.json'));
+
+        $this->assertStringContainsString("earningsSummary: '/dashboard/earnings-summary'", $endpoints);
+        $this->assertStringContainsString('getDashboardEarningsSummary', $api);
+        $this->assertStringContainsString('getDashboardEarningsSummary', $bonuses);
+        $this->assertStringContainsString("t('earningsSummary.totalEarned')", $bonuses);
+        $this->assertStringContainsString('"earningsSummary"', $ru);
+        $this->assertStringContainsString('"Всего заработано"', $ru);
+    }
 }

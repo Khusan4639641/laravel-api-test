@@ -187,6 +187,21 @@ export interface Status {
   partnersCount?: number;
 }
 
+export interface EarningsSummary {
+  totalEarned: number;
+  availableToWithdraw: number;
+  pendingBinary: number;
+  referralTotal: number;
+  binaryTotal: number;
+  statusTotal: number;
+  bonusX2Total: number;
+  cashbackTotal: number;
+  depositBalance: number;
+  withdrawnTotal: number;
+  pendingWithdrawal: number;
+  currency: string;
+}
+
 export interface NewsArticle {
   id: string;
   title: string;
@@ -440,6 +455,15 @@ export async function getDashboardBonuses<T = unknown>() {
     method: 'GET',
     auth: true,
   });
+}
+
+export async function getDashboardEarningsSummary() {
+  const response = await apiRequest(endpoints.dashboard.earningsSummary, {
+    method: 'GET',
+    auth: true,
+  });
+
+  return normalizeEarningsSummary(response);
 }
 
 export async function getDashboardNotifications<T = unknown>(limit = 10) {
@@ -1440,6 +1464,26 @@ export function normalizeStatuses(response: unknown): Status[] {
       partnersCount: getNumber(record, ['partnersCount', 'partners_count']) ?? undefined,
     };
   });
+}
+
+export function normalizeEarningsSummary(response: unknown): EarningsSummary {
+  const summary = unwrapRecord(response, ['summary', 'earnings_summary', 'earningsSummary']);
+  const byType = isRecord(summary.by_type) ? summary.by_type : isRecord(summary.byType) ? summary.byType : {};
+
+  return {
+    totalEarned: getNumber(summary, ['total_earned', 'totalEarned', 'total']) ?? 0,
+    availableToWithdraw: getNumber(summary, ['available_to_withdraw', 'availableToWithdraw', 'available']) ?? 0,
+    pendingBinary: getNumber(summary, ['pending_binary', 'pendingBinary']) ?? 0,
+    referralTotal: getNumber(summary, ['referral_total', 'referralTotal']) ?? getNumber(byType, ['referral']) ?? 0,
+    binaryTotal: getNumber(summary, ['binary_total', 'binaryTotal']) ?? getNumber(byType, ['binary']) ?? 0,
+    statusTotal: getNumber(summary, ['status_total', 'statusTotal']) ?? getNumber(byType, ['status']) ?? 0,
+    bonusX2Total: getNumber(summary, ['bonus_x2_total', 'bonusX2Total']) ?? getNumber(byType, ['bonus_x2', 'x2']) ?? 0,
+    cashbackTotal: getNumber(summary, ['cashback_total', 'cashbackTotal']) ?? getNumber(byType, ['cashback']) ?? 0,
+    depositBalance: getNumber(summary, ['deposit_balance', 'depositBalance']) ?? 0,
+    withdrawnTotal: getNumber(summary, ['withdrawn_total', 'withdrawnTotal', 'withdrawn']) ?? 0,
+    pendingWithdrawal: getNumber(summary, ['pending_withdrawal', 'pendingWithdrawal', 'pending_withdrawals']) ?? 0,
+    currency: getString(summary, ['currency']) || 'KZT',
+  };
 }
 
 export function getString(record: Record<string, unknown> | undefined, keys: string[]) {

@@ -31,6 +31,7 @@ export const endpoints = {
     structure: '/dashboard/structure',
     transactions: '/dashboard/transactions',
     bonuses: '/dashboard/bonuses',
+    earningsSummary: '/dashboard/earnings-summary',
     notifications: '/dashboard/notifications',
     packages: '/dashboard/packages',
     products: '/dashboard/products',

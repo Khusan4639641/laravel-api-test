@@ -254,6 +254,24 @@
     "deliveryComment": "Тайлбар",
     "deliveryRequired": "Хүлээн авагч, утас, хот болон хүргэлтийн хаягаа оруулна уу."
   },
+  "earningsSummary": {
+    "kicker": "Орлого",
+    "title": "Орлогын статистик",
+    "subtitle": "PV ороогүй мөнгөн үзүүлэлтүүд: бонус, үлдэгдэл, таталт болон хүлээгдэж буй бинар.",
+    "totalEarned": "Нийт олсон",
+    "availableToWithdraw": "Татах боломжтой",
+    "pendingBinary": "Хүлээгдэж буй бинар",
+    "referralTotal": "Урилгын бонус нийт",
+    "binaryTotal": "Бинар бонус нийт",
+    "statusTotal": "Статусын бонус нийт",
+    "bonusX2Total": "X2 бонус нийт",
+    "cashbackTotal": "Cashback нийт",
+    "depositBalance": "Депозит үлдэгдэл",
+    "withdrawnTotal": "Нийт татсан",
+    "pendingWithdrawal": "Таталт хүлээгдэж байна",
+    "emptyTitle": "Одоогоор орлого алга",
+    "emptyDescription": "Мөнгөн статистик бонус, депозит үлдэгдэл эсвэл таталтын хүсэлтийн дараа гарна."
+  },
   "menu": {
     "dashboardOverview": "Тойм",
     "dashboardStructure": "Миний бүтэц",

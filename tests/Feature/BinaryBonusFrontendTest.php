@@ -12,9 +12,11 @@ class BinaryBonusFrontendTest extends TestCase
         $bonuses = $this->frontendFile('resources/js/safi/pages/dashboard/Bonuses.tsx');
         $adminBonuses = $this->frontendFile('resources/js/safi/pages/admin/AdminBonuses.tsx');
         $adminPartnerDetail = $this->frontendFile('resources/js/safi/pages/admin/AdminPartnerDetail.tsx');
+        $ru = $this->frontendFile('resources/js/safi/locales/ru.json');
 
         $this->assertStringContainsString('Бинар в ожидании', $overview);
-        $this->assertStringContainsString('Бинар в ожидании', $bonuses);
+        $this->assertStringContainsString("t('earningsSummary.pendingBinary')", $bonuses);
+        $this->assertStringContainsString('"pendingBinary": "Бинар в ожидании"', $ru);
         $this->assertStringContainsString('Запустить бинарный расчёт', $adminBonuses);
         $this->assertStringContainsString('canCalculateBinary', $adminPartnerDetail);
     }

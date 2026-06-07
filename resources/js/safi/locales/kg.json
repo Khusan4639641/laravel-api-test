@@ -254,6 +254,24 @@
     "deliveryComment": "Комментарий",
     "deliveryRequired": "Алуучуну, телефонду, шаарды жана жеткирүү дарегин көрсөтүңүз."
   },
+  "earningsSummary": {
+    "kicker": "Киреше",
+    "title": "Киреше статистикасы",
+    "subtitle": "PV эмес акча көрсөткүчтөрү: бонустар, баланс, чыгаруу жана күтүүдөгү бинар.",
+    "totalEarned": "Жалпы табылган",
+    "availableToWithdraw": "Чыгарууга жеткиликтүү",
+    "pendingBinary": "Күтүүдөгү бинар",
+    "referralTotal": "Рефералдык бонус жалпы",
+    "binaryTotal": "Бинардык бонус жалпы",
+    "statusTotal": "Статус бонусу жалпы",
+    "bonusX2Total": "X2 бонусу жалпы",
+    "cashbackTotal": "Cashback жалпы",
+    "depositBalance": "Депозит балансы",
+    "withdrawnTotal": "Чыгарылган жалпы",
+    "pendingWithdrawal": "Чыгарууну күтөт",
+    "emptyTitle": "Азырынча киреше жок",
+    "emptyDescription": "Акча статистикасы бонустардан, депозит балансынан же чыгаруу арыздарынан кийин пайда болот."
+  },
   "menu": {
     "dashboardOverview": "Обзор",
     "dashboardStructure": "Менин түзүмүм",

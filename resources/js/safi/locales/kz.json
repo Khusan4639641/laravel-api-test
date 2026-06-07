@@ -254,6 +254,24 @@
     "deliveryComment": "Пікір",
     "deliveryRequired": "Алушыны, телефонды, қаланы және жеткізу мекенжайын көрсетіңіз."
   },
+  "earningsSummary": {
+    "kicker": "Табыс",
+    "title": "Табыс статистикасы",
+    "subtitle": "PV емес ақша көрсеткіштері: бонустар, баланс, шығару және күтілген бинар.",
+    "totalEarned": "Барлығы табыс",
+    "availableToWithdraw": "Шығаруға қолжетімді",
+    "pendingBinary": "Күтілген бинар",
+    "referralTotal": "Рефералдық бонус барлығы",
+    "binaryTotal": "Бинарлық бонус барлығы",
+    "statusTotal": "Статус бонусы барлығы",
+    "bonusX2Total": "X2 бонусы барлығы",
+    "cashbackTotal": "Cashback барлығы",
+    "depositBalance": "Депозит балансы",
+    "withdrawnTotal": "Шығарылған барлығы",
+    "pendingWithdrawal": "Шығаруды күтуде",
+    "emptyTitle": "Әзірге табыс жоқ",
+    "emptyDescription": "Ақша статистикасы бонустардан, депозит балансынан немесе шығару өтінімдерінен кейін пайда болады."
+  },
   "menu": {
     "dashboardOverview": "Шолу",
     "dashboardStructure": "Менің құрылымым",

@@ -1,9 +1,10 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ArrowUpCircle, Info, Wallet } from 'lucide-react';
 import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ApiError, createDashboardWithdrawal, getApiErrorState, getDashboardBonuses, getDashboardOverview, getDashboardWithdrawals, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
+import { ApiError, createDashboardWithdrawal, EarningsSummary, getApiErrorState, getDashboardEarningsSummary, getDashboardOverview, getDashboardWithdrawals, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { withdrawalStatusLabel } from '../../lib/systemLabels';
 
@@ -18,10 +19,27 @@ interface WithdrawalItem {
   comment?: string;
 }
 
+const emptyEarningsSummary: EarningsSummary = {
+  totalEarned: 0,
+  availableToWithdraw: 0,
+  pendingBinary: 0,
+  referralTotal: 0,
+  binaryTotal: 0,
+  statusTotal: 0,
+  bonusX2Total: 0,
+  cashbackTotal: 0,
+  depositBalance: 0,
+  withdrawnTotal: 0,
+  pendingWithdrawal: 0,
+  currency: 'KZT',
+};
+
 export default function Bonuses() {
+  const { t } = useTranslation();
   const { currentUser } = useDashboardContext();
   const [activeTab, setActiveTab] = useState<'bonuses' | 'withdrawal'>('bonuses');
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
+  const [earningsSummary, setEarningsSummary] = useState<EarningsSummary>(emptyEarningsSummary);
   const [balance, setBalance] = useState({
     available: currentUser.walletAvailable,
     totalEarned: currentUser.totalEarned,
@@ -45,44 +63,36 @@ export default function Bonuses() {
     setLoadError(null);
 
     try {
-      const [withdrawalsResponse, bonusesResponse, overviewResponse, statusItems] = await Promise.all([
+      const [withdrawalsResponse, earningsSummaryResponse, overviewResponse, statusItems] = await Promise.all([
         getDashboardWithdrawals(),
-        getDashboardBonuses(),
+        getDashboardEarningsSummary(),
         getDashboardOverview(),
         getPublicStatuses(),
       ]);
 
       setWithdrawals(normalizeWithdrawals(withdrawalsResponse));
       setStatuses(statusItems);
+      setEarningsSummary(earningsSummaryResponse);
 
-      const response = bonusesResponse;
-      const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
-      const summary = record.summary && typeof record.summary === 'object' ? record.summary as Record<string, unknown> : {};
-      const byType = summary.by_type && typeof summary.by_type === 'object' ? summary.by_type as Record<string, unknown> : {};
       const overview = overviewResponse;
       const overviewRecord = overview && typeof overview === 'object' ? overview as Record<string, unknown> : {};
-      const wallets = Array.isArray(overviewRecord.wallets) ? overviewRecord.wallets : [];
-      const depositWallet = wallets.find((wallet) => isRecord(wallet) && getString(wallet, ['type']) === 'deposit');
 
       setBonuses({
-        referral: getNumber(byType, ['referral']) ?? 0,
-        binary: getNumber(byType, ['binary']) ?? 0,
-        status: getNumber(byType, ['status']) ?? 0,
-        cashback: getNumber(byType, ['cashback']) ?? 0,
-        deposit: isRecord(depositWallet) ? getNumber(depositWallet, ['balance', 'available']) ?? 0 : 0,
-        bonusX2: getNumber(byType, ['bonus_x2', 'x2']) ?? 0,
+        referral: earningsSummaryResponse.referralTotal,
+        binary: earningsSummaryResponse.binaryTotal,
+        status: earningsSummaryResponse.statusTotal,
+        cashback: earningsSummaryResponse.cashbackTotal,
+        deposit: earningsSummaryResponse.depositBalance,
+        bonusX2: earningsSummaryResponse.bonusX2Total,
       });
 
-      const balances = overviewRecord.balances && typeof overviewRecord.balances === 'object' ? overviewRecord.balances as Record<string, unknown> : {};
       const structureRecord = overviewRecord.structure && typeof overviewRecord.structure === 'object' ? overviewRecord.structure as Record<string, unknown> : {};
       setBalance({
-        available: getNumber(balances, ['available']) ?? currentUser.walletAvailable,
-        totalEarned: getNumber(balances, ['total_earned']) ?? currentUser.totalEarned,
-        pending: getNumber(balances, ['pending_withdrawals']) ?? 0,
-        pendingBinary: getNumber(balances, ['pending_binary', 'pendingBinary'])
-          ?? getNumber(summary, ['pending_binary', 'pendingBinary'])
-          ?? 0,
-        withdrawn: getNumber(balances, ['withdrawn']) ?? 0,
+        available: earningsSummaryResponse.availableToWithdraw,
+        totalEarned: earningsSummaryResponse.totalEarned,
+        pending: earningsSummaryResponse.pendingWithdrawal,
+        pendingBinary: earningsSummaryResponse.pendingBinary,
+        withdrawn: earningsSummaryResponse.withdrawnTotal,
       });
       setStructure({
         leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
@@ -94,6 +104,7 @@ export default function Bonuses() {
     } catch (caughtError) {
       setWithdrawals([]);
       setStatuses([]);
+      setEarningsSummary(emptyEarningsSummary);
       setBonuses({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
       setStructure({ leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
       setLoadError(getApiErrorState(caughtError).error);
@@ -167,27 +178,31 @@ export default function Bonuses() {
 
       {!isLoading && !loadError && activeTab === 'bonuses' && (
         <div className="space-y-8">
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <StatCard title="Доступно" value={`${balance.available.toLocaleString('ru-RU')} ₸`} icon={<Wallet className="h-5 w-5" />} variant="primary" />
-            <StatCard title="Всего заработано" value={`${balance.totalEarned.toLocaleString('ru-RU')} ₸`} />
-            <StatCard title="Ожидает" value={`${balance.pending.toLocaleString('ru-RU')} ₸`} />
-            <StatCard title="Бинар в ожидании" value={`${balance.pendingBinary.toLocaleString('ru-RU')} ₸`} />
-            <StatCard title="Выведено" value={`${balance.withdrawn.toLocaleString('ru-RU')} ₸`} />
+          <section className="rounded-[32px] border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-7">
+            <div className="mb-6">
+              <span className="safi-kicker">{t('earningsSummary.kicker')}</span>
+              <h2 className="mt-2 font-serif text-3xl font-semibold text-safi-green">{t('earningsSummary.title')}</h2>
+              <p className="mt-2 max-w-2xl text-sm leading-7 text-safi-muted">{t('earningsSummary.subtitle')}</p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <EarningsCard title={t('earningsSummary.totalEarned')} amount={earningsSummary.totalEarned} variant="dark" />
+              <EarningsCard title={t('earningsSummary.availableToWithdraw')} amount={earningsSummary.availableToWithdraw} variant="primary" />
+              <EarningsCard title={t('earningsSummary.pendingBinary')} amount={earningsSummary.pendingBinary} />
+              <EarningsCard title={t('earningsSummary.referralTotal')} amount={earningsSummary.referralTotal} />
+              <EarningsCard title={t('earningsSummary.binaryTotal')} amount={earningsSummary.binaryTotal} />
+              <EarningsCard title={t('earningsSummary.statusTotal')} amount={earningsSummary.statusTotal} />
+              <EarningsCard title={t('earningsSummary.bonusX2Total')} amount={earningsSummary.bonusX2Total} />
+              <EarningsCard title={t('earningsSummary.cashbackTotal')} amount={earningsSummary.cashbackTotal} />
+              <EarningsCard title={t('earningsSummary.depositBalance')} amount={earningsSummary.depositBalance} />
+              <EarningsCard title={t('earningsSummary.withdrawnTotal')} amount={earningsSummary.withdrawnTotal} />
+              <EarningsCard title={t('earningsSummary.pendingWithdrawal')} amount={earningsSummary.pendingWithdrawal} />
+            </div>
           </section>
 
-          <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-6">
-            <BonusMiniCard title="Реферальные" amount={bonuses.referral} />
-            <BonusMiniCard title="Бинарные" amount={bonuses.binary} />
-            <BonusMiniCard title="Статусные" amount={bonuses.status} />
-            <BonusMiniCard title="Кэшбэк" amount={bonuses.cashback} />
-            <BonusMiniCard title="Депозит" amount={bonuses.deposit} />
-            <BonusMiniCard title="Bonus X2" amount={bonuses.bonusX2} />
-          </section>
-
-          {Object.values(bonuses).every((amount) => amount === 0) && (
+          {isEarningsSummaryEmpty(earningsSummary) && (
             <EmptyState
-              title="Бонусов пока нет"
-              description="Начисления появятся после продаж, структуры или других бонусных операций."
+              title={t('earningsSummary.emptyTitle')}
+              description={t('earningsSummary.emptyDescription')}
             />
           )}
 
@@ -359,13 +374,31 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
   );
 }
 
-function BonusMiniCard({ title, amount }: { title: string; amount: number }) {
+function EarningsCard({ title, amount, variant }: { title: string; amount: number; variant?: 'primary' | 'dark' }) {
   return (
-    <article className="rounded-3xl border border-safi-border bg-white p-5 text-center shadow-[0_18px_48px_rgba(11,23,18,0.04)]">
-      <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{title}</div>
-      <div className="mt-3 font-serif text-2xl font-semibold text-safi-green">{amount > 0 ? `${amount.toLocaleString('ru-RU')} ₸` : '-'}</div>
-    </article>
+    <StatCard
+      title={title}
+      value={`${amount.toLocaleString('ru-RU')} ₸`}
+      icon={variant === 'primary' ? <Wallet className="h-5 w-5" /> : undefined}
+      variant={variant}
+    />
   );
+}
+
+function isEarningsSummaryEmpty(summary: EarningsSummary) {
+  return [
+    summary.totalEarned,
+    summary.availableToWithdraw,
+    summary.pendingBinary,
+    summary.referralTotal,
+    summary.binaryTotal,
+    summary.statusTotal,
+    summary.bonusX2Total,
+    summary.cashbackTotal,
+    summary.depositBalance,
+    summary.withdrawnTotal,
+    summary.pendingWithdrawal,
+  ].every((amount) => amount === 0);
 }
 
 function DetailRow({ label, value, highlight, badge }: { label: string; value: string; highlight?: boolean; badge?: boolean }) {

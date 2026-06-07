@@ -254,6 +254,24 @@
     "deliveryComment": "Комментарий",
     "deliveryRequired": "Укажите получателя, телефон, город и адрес доставки."
   },
+  "earningsSummary": {
+    "kicker": "Доходы",
+    "title": "Статистика доходов",
+    "subtitle": "Денежные показатели без PV: бонусы, баланс, выводы и ожидающий бинар.",
+    "totalEarned": "Всего заработано",
+    "availableToWithdraw": "Доступно к выводу",
+    "pendingBinary": "Бинар в ожидании",
+    "referralTotal": "Реферальный бонус всего",
+    "binaryTotal": "Бинарный бонус всего",
+    "statusTotal": "Статусный бонус всего",
+    "bonusX2Total": "X2 бонус всего",
+    "cashbackTotal": "Cashback всего",
+    "depositBalance": "Депозитный баланс",
+    "withdrawnTotal": "Выведено всего",
+    "pendingWithdrawal": "Ожидает вывода",
+    "emptyTitle": "Доходов пока нет",
+    "emptyDescription": "Денежная статистика появится после бонусов, пополнения депозитного баланса или заявок на вывод."
+  },
   "menu": {
     "dashboardOverview": "Обзор",
     "dashboardStructure": "Моя структура",
