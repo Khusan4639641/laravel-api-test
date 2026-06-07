@@ -91,16 +91,25 @@ This keeps placement deterministic and near the requested sponsor branch.
 
 Service: `App\Services\PvService`
 
-PV is added during package activation and package upgrade.
+Turnover PV is propagated through `PvService::accrueTurnoverToUplines()`.
+Sources:
+
+- `package_start`
+- `package_vip`
+- `package_elite_upgrade`
+- `product_order`
 
 Flow:
 
-1. Buyer receives personal `total_pv`.
+1. Buyer receives personal/package PV where applicable.
 2. If buyer has a `binary_nodes` entry, the service walks up to all parents.
 3. For each parent:
    - if child is in `L`, parent receives `left_pv`, `remaining_left_pv`, and `total_pv`;
    - if child is in `R`, parent receives `right_pv`, `remaining_right_pv`, and `total_pv`.
-4. After PV changes, `StatusService` recalculates user status.
+4. Buyer does not receive own turnover PV into `left_pv` or `right_pv`.
+5. Each upline movement is recorded in `pv_transactions` with buyer, upline, branch, source, PV and metadata.
+6. Product orders also store turnover audit metadata on the order.
+7. After PV changes, `StatusService` recalculates user status.
 
 ### Statuses
 

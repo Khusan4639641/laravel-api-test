@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Package;
 use App\Models\Order;
 use App\Models\Product;
+use App\Models\PvTransaction;
 use App\Models\User;
 use App\Services\BinaryTreeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -48,6 +49,35 @@ class PvAccrualTest extends TestCase
         $this->assertSame('0.00', $rightGrandchild->left_pv);
         $this->assertSame('0.00', $rightGrandchild->right_pv);
         $this->assertSame('300.00', $rightGrandchild->total_pv);
+        $this->assertPvTransaction($rightGrandchild, $leftChild, 'package_vip', 'R', '300.00', true);
+        $this->assertPvTransaction($rightGrandchild, $root, 'package_vip', 'L', '300.00', true);
+        $this->assertSame(2, PvTransaction::query()->where('buyer_id', $rightGrandchild->id)->count());
+    }
+
+    public function test_start_package_propagates_one_hundred_pv_to_direct_parent_left_branch(): void
+    {
+        $treeService = app(BinaryTreeService::class);
+        $parent = User::factory()->create();
+        $buyer = User::factory()->create();
+        $package = $this->createPackage('START', 60000, 100, 1);
+
+        $treeService->placeUser($parent);
+        $treeService->placeUser($buyer, $parent, 'L');
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson("/api/packages/{$package->id}/activate")
+            ->assertOk();
+
+        $buyer->refresh();
+        $parent->refresh();
+
+        $this->assertSame('0.00', $buyer->left_pv);
+        $this->assertSame('0.00', $buyer->right_pv);
+        $this->assertSame('100.00', $buyer->total_pv);
+        $this->assertSame('100.00', $parent->left_pv);
+        $this->assertSame('0.00', $parent->right_pv);
+        $this->assertPvTransaction($buyer, $parent, 'package_start', 'L', '100.00', true);
     }
 
     public function test_package_activation_without_binary_node_updates_only_user_total_pv(): void
@@ -112,6 +142,8 @@ class PvAccrualTest extends TestCase
         $this->assertSame('20.00', $order->metadata['pv_turnover']['pv']);
         $this->assertTrue($order->metadata['pv_turnover']['is_bonusable']);
         $this->assertSame('10000.00', $order->metadata['pv_turnover']['meta']['turnover_amount']);
+        $this->assertPvTransaction($buyer, $directParent, 'product_order', 'R', '20.00', true, $order);
+        $this->assertPvTransaction($buyer, $root, 'product_order', 'L', '20.00', true, $order);
     }
 
     public function test_elite_upgrade_propagates_only_two_hundred_non_bonusable_pv_to_uplines(): void
@@ -150,6 +182,32 @@ class PvAccrualTest extends TestCase
         $this->assertSame('0.00', $directParent->remaining_left_pv);
         $this->assertSame('200.00', $root->right_pv);
         $this->assertSame('0.00', $root->remaining_right_pv);
+        $this->assertPvTransaction($buyer, $directParent, 'package_elite_upgrade', 'L', '200.00', false);
+        $this->assertPvTransaction($buyer, $root, 'package_elite_upgrade', 'R', '200.00', false);
+    }
+
+    private function assertPvTransaction(
+        User $buyer,
+        User $upline,
+        string $source,
+        string $branch,
+        string $pv,
+        bool $isBonusable,
+        ?Order $sourceOrder = null,
+    ): void {
+        $query = PvTransaction::query()
+            ->where('buyer_id', $buyer->id)
+            ->where('upline_id', $upline->id)
+            ->where('source', $source)
+            ->where('branch', $branch)
+            ->where('pv', $pv)
+            ->where('is_bonusable', $isBonusable);
+
+        if ($sourceOrder) {
+            $query->where('source_order_id', $sourceOrder->id);
+        }
+
+        $this->assertTrue($query->exists(), "Missing PV transaction {$source} {$branch} {$pv}.");
     }
 
     private function createPackage(string $code, int $price, int $pv, int $sortOrder, ?int $turnoverPv = null): Package

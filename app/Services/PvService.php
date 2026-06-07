@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BinaryNode;
 use App\Models\Order;
+use App\Models\PvTransaction;
 use App\Models\User;
 use InvalidArgumentException;
 
@@ -68,6 +69,16 @@ class PvService
 
             if ($parentUser) {
                 $this->addBranchPv($parentUser, $currentNode->position, $pv, $isBonusable);
+                $this->recordPvTransaction(
+                    buyer: $buyer,
+                    upline: $parentUser,
+                    pv: $pv,
+                    source: $source,
+                    branch: $currentNode->position,
+                    meta: $meta,
+                    sourceOrder: $sourceOrder,
+                    isBonusable: $isBonusable,
+                );
                 $this->statusService->recalculate($parentUser);
             }
 
@@ -118,6 +129,35 @@ class PvService
             ])->save(),
             default => null,
         };
+    }
+
+    /**
+     * @param  array<string, mixed>  $meta
+     */
+    private function recordPvTransaction(
+        User $buyer,
+        User $upline,
+        string $pv,
+        string $source,
+        ?string $branch,
+        array $meta,
+        ?Order $sourceOrder,
+        bool $isBonusable,
+    ): void {
+        if (! in_array($branch, ['L', 'R'], true)) {
+            return;
+        }
+
+        PvTransaction::query()->create([
+            'buyer_id' => $buyer->id,
+            'upline_id' => $upline->id,
+            'source_order_id' => $sourceOrder?->id,
+            'source' => $source,
+            'branch' => $branch,
+            'pv' => $pv,
+            'is_bonusable' => $isBonusable,
+            'metadata' => $meta ?: null,
+        ]);
     }
 
     /**
