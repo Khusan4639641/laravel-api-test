@@ -79,6 +79,42 @@ class DashboardBranchVolumeService
     }
 
     /**
+     * @param  Collection<int, BinaryNode>  $nodes
+     * @return array<int, array{left_branch_pv: string, right_branch_pv: string, weak_leg_pv: float, subtree_turnover_pv: string}>
+     */
+    public function calculateNodeBranchVolumes(Collection $nodes): array
+    {
+        $fallbackVolumes = $this->calculatePackageFallbackNodeVolumes($nodes);
+        $transactionVolumes = $this->transactionVolumesForNodes($nodes);
+        $volumes = [];
+
+        foreach ($nodes as $node) {
+            $user = $node->user;
+            $userId = $user?->id;
+            $leftPv = $this->resolveBranchVolume(
+                (string) ($user?->left_pv ?? '0'),
+                $userId ? ($transactionVolumes[$userId]['left_pv'] ?? '0.00') : '0.00',
+                $fallbackVolumes[$node->id]['left_branch_pv'] ?? '0.00',
+            );
+            $rightPv = $this->resolveBranchVolume(
+                (string) ($user?->right_pv ?? '0'),
+                $userId ? ($transactionVolumes[$userId]['right_pv'] ?? '0.00') : '0.00',
+                $fallbackVolumes[$node->id]['right_branch_pv'] ?? '0.00',
+            );
+            $weakLegPv = $this->minDecimal($leftPv, $rightPv);
+
+            $volumes[$node->id] = [
+                'left_branch_pv' => $leftPv,
+                'right_branch_pv' => $rightPv,
+                'weak_leg_pv' => (float) $weakLegPv,
+                'subtree_turnover_pv' => $fallbackVolumes[$node->id]['subtree_turnover_pv'] ?? '0.00',
+            ];
+        }
+
+        return $volumes;
+    }
+
+    /**
      * Updates display cache only. Remaining PV is intentionally untouched to avoid recounting used binary PV.
      *
      * @return array{changed: bool, left_pv: string, right_pv: string, total_pv: string}
@@ -220,6 +256,114 @@ class DashboardBranchVolumeService
             });
 
         return $volumes;
+    }
+
+    /**
+     * @param  Collection<int, BinaryNode>  $nodes
+     * @return array<int, array{left_pv: string, right_pv: string}>
+     */
+    private function transactionVolumesForNodes(Collection $nodes): array
+    {
+        $userIds = $nodes
+            ->map(fn (BinaryNode $node): ?int => $node->user?->id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($userIds->isEmpty()) {
+            return [];
+        }
+
+        $volumes = [];
+
+        PvTransaction::query()
+            ->selectRaw('upline_id, branch, COALESCE(SUM(pv), 0) as total_pv')
+            ->whereIn('upline_id', $userIds)
+            ->whereHas('buyer', fn ($query) => $query->where('role', User::ROLE_USER))
+            ->groupBy('upline_id', 'branch')
+            ->get()
+            ->each(function (PvTransaction $row) use (&$volumes): void {
+                $uplineId = (int) $row->getAttribute('upline_id');
+                $volumes[$uplineId] ??= ['left_pv' => '0.00', 'right_pv' => '0.00'];
+
+                if ($row->branch === 'L') {
+                    $volumes[$uplineId]['left_pv'] = $this->decimal((string) $row->getAttribute('total_pv'));
+                }
+
+                if ($row->branch === 'R') {
+                    $volumes[$uplineId]['right_pv'] = $this->decimal((string) $row->getAttribute('total_pv'));
+                }
+            });
+
+        return $volumes;
+    }
+
+    /**
+     * @param  Collection<int, BinaryNode>  $nodes
+     * @return array<int, array{left_branch_pv: string, right_branch_pv: string, weak_leg_pv: float, subtree_turnover_pv: string}>
+     */
+    private function calculatePackageFallbackNodeVolumes(Collection $nodes): array
+    {
+        $nodesById = [];
+        $childrenByParentId = [];
+        $volumes = [];
+
+        foreach ($nodes as $node) {
+            $nodesById[$node->id] = $node;
+
+            if ($node->parent_id !== null) {
+                $childrenByParentId[(int) $node->parent_id][] = $node;
+            }
+        }
+
+        $calculateSubtreePv = function (BinaryNode $node) use (&$calculateSubtreePv, &$volumes, $childrenByParentId): string {
+            $leftPv = '0.00';
+            $rightPv = '0.00';
+            $otherPv = '0.00';
+
+            foreach ($childrenByParentId[$node->id] ?? [] as $child) {
+                $childSubtreePv = $calculateSubtreePv($child);
+
+                if ($child->position === 'L') {
+                    $leftPv = bcadd($leftPv, $childSubtreePv, 2);
+                } elseif ($child->position === 'R') {
+                    $rightPv = bcadd($rightPv, $childSubtreePv, 2);
+                } else {
+                    $otherPv = bcadd($otherPv, $childSubtreePv, 2);
+                }
+            }
+
+            $weakLegPv = $this->minDecimal($leftPv, $rightPv);
+            $ownTurnoverPv = $this->nodeTurnoverPv($node);
+            $subtreeTurnoverPv = bcadd(bcadd($ownTurnoverPv, $leftPv, 2), bcadd($rightPv, $otherPv, 2), 2);
+            $volumes[$node->id] = [
+                'left_branch_pv' => $leftPv,
+                'right_branch_pv' => $rightPv,
+                'weak_leg_pv' => (float) $weakLegPv,
+                'subtree_turnover_pv' => $subtreeTurnoverPv,
+            ];
+
+            return $subtreeTurnoverPv;
+        };
+
+        foreach ($nodes as $node) {
+            if ($node->parent_id === null || ! isset($nodesById[$node->parent_id])) {
+                $calculateSubtreePv($node);
+            }
+        }
+
+        return $volumes;
+    }
+
+    private function nodeTurnoverPv(BinaryNode $node): string
+    {
+        $user = $node->user;
+
+        if (! $user || $user->role !== User::ROLE_USER || ! $user->currentPackage) {
+            return '0.00';
+        }
+
+        return $this->decimal($user->currentPackage->turnoverPv());
     }
 
     private function descendantsQuery(?string $path)

@@ -24,9 +24,17 @@ class TransactionController extends Controller
                 $query->where(function ($query) use ($search): void {
                     if (ctype_digit($search)) {
                         $numericSearch = (int) $search;
+                        $hasUserTransactions = WalletTransaction::query()
+                            ->where('user_id', $numericSearch)
+                            ->exists();
 
-                        $query->where('id', $numericSearch)
-                            ->orWhere('user_id', $numericSearch);
+                        if ($hasUserTransactions) {
+                            $query->where('user_id', $numericSearch);
+                        } else {
+                            $query->where('id', $numericSearch);
+                        }
+
+                        return;
                     }
 
                     $query->orWhereHas('user', function ($userQuery) use ($search): void {

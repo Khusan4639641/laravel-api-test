@@ -25,6 +25,8 @@ interface StructureNode {
   weakLegPV: number;
   leftPV: number;
   rightPV: number;
+  leftBranchPV: number;
+  rightBranchPV: number;
   balance: number;
   totalBalance: number;
   depth: number;
@@ -323,6 +325,8 @@ export default function AdminStructure() {
               <td className="px-6 py-4"><AdminBadge variant="default">{node.status}</AdminBadge></td>
               <td className="px-6 py-4">
                 <div className="font-bold text-safi-green">{adminText('Личный PV')}: {node.personalPV.toLocaleString('ru-RU')}</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('Левая ветка PV')}: {node.leftBranchPV.toLocaleString('ru-RU')}</div>
+                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('Правая ветка PV')}: {node.rightBranchPV.toLocaleString('ru-RU')}</div>
                 <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('Командный PV')}: {node.teamPV.toLocaleString('ru-RU')}</div>
                 <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-gold">{adminText('Малая ветка PV')}: {node.weakLegPV.toLocaleString('ru-RU')}</div>
               </td>
@@ -393,6 +397,17 @@ function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: bool
           <div className="flex items-center justify-between gap-2">
             <span>{adminText('Личный PV')}:</span>
             <span className="text-safi-gold">{node.personalPV.toLocaleString('ru-RU')} PV</span>
+          </div>
+          <div className="grid grid-cols-3 gap-1 pt-1 text-center text-[9px] font-extrabold text-safi-green">
+            <div className="rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Левая ветка PV')}>
+              {adminText('Л')}: {formatCompactPv(node.leftBranchPV)}
+            </div>
+            <div className="rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Правая ветка PV')}>
+              {adminText('П')}: {formatCompactPv(node.rightBranchPV)}
+            </div>
+            <div className="rounded-lg bg-safi-gold/10 px-1 py-1 text-safi-gold" title={adminText('Малая ветка PV')}>
+              {adminText('М')}: {formatCompactPv(node.weakLegPV)}
+            </div>
           </div>
         </div>
       </button>
@@ -501,6 +516,8 @@ function normalizeNodeRecord(record: Record<string, unknown>, index = 0): Struct
   const children = record.children && typeof record.children === 'object' ? record.children as Record<string, unknown> : {};
   const left = children.left && typeof children.left === 'object' ? normalizeTreeNode(children.left as Record<string, unknown>) : null;
   const right = children.right && typeof children.right === 'object' ? normalizeTreeNode(children.right as Record<string, unknown>) : null;
+  const leftBranchPV = getNumber(record, ['left_branch_pv', 'leftBranchPv', 'left_pv', 'leftPV']) ?? 0;
+  const rightBranchPV = getNumber(record, ['right_branch_pv', 'rightBranchPv', 'right_pv', 'rightPV']) ?? 0;
 
   return {
     id: getString(record, ['binary_node_id', 'id']) || String(index + 1),
@@ -516,11 +533,13 @@ function normalizeNodeRecord(record: Record<string, unknown>, index = 0): Struct
     status: normalizeMlmStatus(record),
     personalPV: getNumber(record, ['personal_pv', 'personalPv', 'package_activity_pv', 'packageActivityPv']) ?? 0,
     teamPV: getNumber(record, ['team_pv', 'teamPv'])
-      ?? ((getNumber(record, ['left_pv']) ?? 0) + (getNumber(record, ['right_pv']) ?? 0)),
+      ?? (leftBranchPV + rightBranchPV),
     weakLegPV: getNumber(record, ['weak_leg_pv', 'weakLegPv'])
-      ?? Math.min(getNumber(record, ['left_pv']) ?? 0, getNumber(record, ['right_pv']) ?? 0),
-    leftPV: getNumber(record, ['left_pv']) ?? 0,
-    rightPV: getNumber(record, ['right_pv']) ?? 0,
+      ?? Math.min(leftBranchPV, rightBranchPV),
+    leftPV: leftBranchPV,
+    rightPV: rightBranchPV,
+    leftBranchPV,
+    rightBranchPV,
     balance: getNumber(record, ['balance']) ?? 0,
     totalBalance: getNumber(record, ['total_balance', 'totalBalance']) ?? 0,
     depth: getNumber(record, ['level', 'depth']) ?? 0,
@@ -576,4 +595,8 @@ function formatPosition(position: string) {
   }
 
   return position || '-';
+}
+
+function formatCompactPv(value: number) {
+  return `${value.toLocaleString('ru-RU')} PV`;
 }

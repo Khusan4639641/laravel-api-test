@@ -53,10 +53,12 @@ class StructureController extends Controller
 
         $stats = $this->statsFor($selectedUser, $rootNode, $branchVolumeService);
         $nodes = $this->subtreeNodes($rootNode, $maxDepth);
+        $volumeNodes = $this->allSubtreeNodes($rootNode);
+        $nodeVolumes = $branchVolumeService->calculateNodeBranchVolumes($volumeNodes);
         $loadedRootNode = $rootNode ? $nodes->firstWhere('id', $rootNode->id) : null;
         $rootDepth = $loadedRootNode?->depth ?? 0;
         $root = $loadedRootNode
-            ? $this->nodeTree($loadedRootNode, $nodes, $rootDepth, $branchVolumeService)
+            ? $this->nodeTree($loadedRootNode, $nodes, $rootDepth, $branchVolumeService, $nodeVolumes)
             : $this->userOnlyNode($selectedUser, $branchVolumeService);
         $response = [
             'root_user_id' => $selectedUser->id,
@@ -69,7 +71,7 @@ class StructureController extends Controller
         ];
 
         if ($includeFlat) {
-            $response['flat'] = $this->descendantFlatNodes($rootNode, $branchVolumeService);
+            $response['flat'] = $this->descendantFlatNodes($rootNode, $branchVolumeService, $nodeVolumes);
         }
 
         return response()->json($response);
@@ -97,18 +99,38 @@ class StructureController extends Controller
     }
 
     /**
+     * @return \Illuminate\Support\Collection<int, BinaryNode>
+     */
+    private function allSubtreeNodes(?BinaryNode $rootNode)
+    {
+        if (! $rootNode) {
+            return collect();
+        }
+
+        return BinaryNode::query()
+            ->with(['user.currentPackage'])
+            ->where(function ($query) use ($rootNode): void {
+                $query->where('id', $rootNode->id)
+                    ->orWhere('path', 'like', $rootNode->path.'.%');
+            })
+            ->orderBy('depth')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
      * @param  \Illuminate\Support\Collection<int, BinaryNode>  $nodes
      * @return array<string, mixed>
      */
-    private function nodeTree(BinaryNode $node, $nodes, int $rootDepth, DashboardBranchVolumeService $branchVolumeService): array
+    private function nodeTree(BinaryNode $node, $nodes, int $rootDepth, DashboardBranchVolumeService $branchVolumeService, array $nodeVolumes): array
     {
         $leftNode = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'L');
         $rightNode = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'R');
 
         return $this->userNode($node->user, $node, [
-            'left' => $leftNode ? $this->nodeTree($leftNode, $nodes, $rootDepth, $branchVolumeService) : null,
-            'right' => $rightNode ? $this->nodeTree($rightNode, $nodes, $rootDepth, $branchVolumeService) : null,
-        ], max(0, $node->depth - $rootDepth), $branchVolumeService);
+            'left' => $leftNode ? $this->nodeTree($leftNode, $nodes, $rootDepth, $branchVolumeService, $nodeVolumes) : null,
+            'right' => $rightNode ? $this->nodeTree($rightNode, $nodes, $rootDepth, $branchVolumeService, $nodeVolumes) : null,
+        ], max(0, $node->depth - $rootDepth), $branchVolumeService, $nodeVolumes[$node->id] ?? null);
     }
 
     /**
@@ -126,7 +148,7 @@ class StructureController extends Controller
      * @param  array{left: array<string, mixed>|null, right: array<string, mixed>|null}  $children
      * @return array<string, mixed>
      */
-    private function userNode(User $user, ?BinaryNode $node, array $children, int $level, DashboardBranchVolumeService $branchVolumeService): array
+    private function userNode(User $user, ?BinaryNode $node, array $children, int $level, DashboardBranchVolumeService $branchVolumeService, ?array $nodeVolume = null): array
     {
         $user->loadMissing(['currentPackage', 'sponsor', 'wallets']);
         $package = $user->currentPackage;
@@ -134,8 +156,9 @@ class StructureController extends Controller
         $wallets = $user->relationLoaded('wallets') ? $user->wallets : collect();
         $balance = (float) $wallets->where('type', 'main')->sum('balance');
         $totalBalance = (float) $wallets->whereIn('type', ['main', 'bonus', 'deposit'])->sum('balance');
-        $leftPv = (float) ($user->left_pv ?? 0);
-        $rightPv = (float) ($user->right_pv ?? 0);
+        $leftBranchPv = (string) ($nodeVolume['left_branch_pv'] ?? '0.00');
+        $rightBranchPv = (string) ($nodeVolume['right_branch_pv'] ?? '0.00');
+        $weakLegPv = (float) ($nodeVolume['weak_leg_pv'] ?? min((float) $leftBranchPv, (float) $rightBranchPv));
         $packageCode = $package?->code;
         $personalPv = $branchVolumeService->getUserPersonalPv($user);
         $turnoverPv = $branchVolumeService->getUserTurnoverPvForBranch($user);
@@ -170,10 +193,12 @@ class StructureController extends Controller
                 'code' => $statusCode,
                 'label' => SystemLabel::mlmStatus($user->status, null, 'ru'),
             ],
-            'left_pv' => $user->left_pv,
-            'right_pv' => $user->right_pv,
-            'weak_leg_pv' => min($leftPv, $rightPv),
-            'team_pv' => $leftPv + $rightPv,
+            'left_pv' => $leftBranchPv,
+            'right_pv' => $rightBranchPv,
+            'left_branch_pv' => $leftBranchPv,
+            'right_branch_pv' => $rightBranchPv,
+            'weak_leg_pv' => $weakLegPv,
+            'team_pv' => (float) $leftBranchPv + (float) $rightBranchPv,
             'personal_pv' => $personalPv,
             'package_activity_pv' => $personalPv,
             'turnover_pv' => $turnoverPv,
@@ -270,7 +295,7 @@ class StructureController extends Controller
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function descendantFlatNodes(?BinaryNode $rootNode, DashboardBranchVolumeService $branchVolumeService): array
+    private function descendantFlatNodes(?BinaryNode $rootNode, DashboardBranchVolumeService $branchVolumeService, array $nodeVolumes): array
     {
         if (! $rootNode) {
             return [];
@@ -285,7 +310,7 @@ class StructureController extends Controller
             ->map(fn (BinaryNode $node): array => $this->userNode($node->user, $node, [
                 'left' => null,
                 'right' => null,
-            ], max(0, $node->depth - $rootNode->depth), $branchVolumeService))
+            ], max(0, $node->depth - $rootNode->depth), $branchVolumeService, $nodeVolumes[$node->id] ?? null))
             ->values()
             ->all();
     }
