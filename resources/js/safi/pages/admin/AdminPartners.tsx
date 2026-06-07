@@ -40,6 +40,22 @@ interface CreatedCredentials {
   login_url: string;
 }
 
+interface AdminPartnersSummary {
+  totalPartners: number;
+  activePartners: number;
+  vipElitePartners: number;
+  totalBalance: number;
+}
+
+interface AdminPartnersPagination {
+  total: number;
+  filteredTotal: number;
+  limit: number;
+  offset: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
 type FieldErrors = Record<string, string[]>;
 
 const initialCreateForm = {
@@ -55,11 +71,31 @@ const initialCreateForm = {
 };
 
 const modalInputClass = 'w-full rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-sm font-bold text-safi-green outline-none transition-colors focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60';
+const pageSizeOptions = [10, 20, 50, 100];
+const defaultSummary: AdminPartnersSummary = {
+  totalPartners: 0,
+  activePartners: 0,
+  vipElitePartners: 0,
+  totalBalance: 0,
+};
+const defaultPagination: AdminPartnersPagination = {
+  total: 0,
+  filteredTotal: 0,
+  limit: 20,
+  offset: 0,
+  hasNext: false,
+  hasPrev: false,
+};
 
 export default function AdminPartners() {
   const { currentUser } = useAdminContext();
   const [partners, setPartners] = useState<AdminPartnerRow[]>([]);
   const [query, setQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [limit, setLimit] = useState(defaultPagination.limit);
+  const [offset, setOffset] = useState(defaultPagination.offset);
+  const [pagination, setPagination] = useState<AdminPartnersPagination>(defaultPagination);
+  const [summary, setSummary] = useState<AdminPartnersSummary>(defaultSummary);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -70,19 +106,29 @@ export default function AdminPartners() {
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
   const [copyStatus, setCopyStatus] = useState('');
 
-  const loadUsers = async (searchQuery = query) => {
+  const loadUsers = async (searchQuery = searchTerm, pageLimit = limit, pageOffset = offset) => {
     setIsLoading(true);
     setError(null);
 
     try {
       const normalizedQuery = searchQuery.trim();
-      const response = await getAdminUsers(normalizedQuery ? { search: normalizedQuery } : {});
+      const response = await getAdminUsers({
+        ...(normalizedQuery ? { search: normalizedQuery } : {}),
+        limit: pageLimit,
+        offset: pageOffset,
+        sort_by: 'created_at',
+        sort_dir: 'desc',
+      });
       const body = unwrapAdminPartnersPayload(response);
       const normalizedPartners = normalizePartners(body);
 
       setPartners(normalizedPartners);
+      setSummary(normalizeSummary(body));
+      setPagination(normalizePagination(body, pageLimit, pageOffset, normalizedPartners.length));
     } catch (caughtError) {
       setPartners([]);
+      setSummary(defaultSummary);
+      setPagination({ ...defaultPagination, limit: pageLimit, offset: pageOffset });
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_15'));
     } finally {
       setIsLoading(false);
@@ -91,11 +137,16 @@ export default function AdminPartners() {
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
-      void loadUsers(query);
-    }, query.trim() ? 300 : 0);
+      setOffset(0);
+      setSearchTerm(query.trim());
+    }, query.trim() ? 400 : 0);
 
     return () => window.clearTimeout(timeout);
   }, [query]);
+
+  useEffect(() => {
+    void loadUsers(searchTerm, limit, offset);
+  }, [searchTerm, limit, offset]);
 
   const openCreateModal = () => {
     setCreateForm(initialCreateForm);
@@ -130,7 +181,7 @@ export default function AdminPartners() {
         sponsor_id: current.sponsor_id,
         branch: current.branch,
       }));
-      await loadUsers(query);
+      await loadUsers(searchTerm, limit, offset);
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setCreateError(caughtError.message);
@@ -164,26 +215,10 @@ export default function AdminPartners() {
   };
 
   const visiblePartners = partners;
-  const staffRoles = ['super_admin', 'admin', 'accountant', 'support'];
-  const partnerRowsForSummary = partners.filter((partner) => {
-    const role = String(partner.role || '').toLowerCase();
-
-    return !staffRoles.includes(role);
-  });
-  const totalPartnersCount = partnerRowsForSummary.length;
-  const activePartnersCount = partnerRowsForSummary.filter((partner) => {
-    const status = String(partner.accountStatusCode || '').toLowerCase();
-
-    return status === 'active';
-  }).length;
-  const vipElitePartnersCount = partnerRowsForSummary.filter((partner) => {
-    const packageName = String(partner.packageCode || partner.package || '').toUpperCase();
-
-    return packageName === 'VIP' || packageName === 'ELITE';
-  }).length;
-  const partnersTotalBalance = partnerRowsForSummary.reduce((sum, partner) => {
-    return sum + Number(partner.totalIncome || partner.availableBalance || 0);
-  }, 0);
+  const paginationStart = pagination.filteredTotal === 0 ? 0 : pagination.offset + 1;
+  const paginationEnd = pagination.filteredTotal === 0
+    ? 0
+    : Math.min(pagination.offset + visiblePartners.length, pagination.filteredTotal);
   const canCreatePartners = currentUser.role === 'super_admin';
 
   return (
@@ -229,7 +264,7 @@ export default function AdminPartners() {
             {adminText('a_0JLRgdC10LPQ')}
           </div>
           <div className="mt-3 font-serif text-3xl font-semibold text-safi-green">
-            {totalPartnersCount.toLocaleString('ru-RU')}
+            {summary.totalPartners.toLocaleString('ru-RU')}
           </div>
         </article>
 
@@ -238,14 +273,14 @@ export default function AdminPartners() {
             {adminText('a_0JDQutGC0LjQ_3')}
           </div>
           <div className="mt-3 font-serif text-3xl font-semibold text-safi-green">
-            {activePartnersCount.toLocaleString('ru-RU')}
+            {summary.activePartners.toLocaleString('ru-RU')}
           </div>
         </article>
 
         <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
           <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">VIP / ELITE</div>
           <div className="mt-3 font-serif text-3xl font-semibold text-safi-green">
-            {vipElitePartnersCount.toLocaleString('ru-RU')}
+            {summary.vipElitePartners.toLocaleString('ru-RU')}
           </div>
         </article>
 
@@ -254,7 +289,7 @@ export default function AdminPartners() {
             {adminText('a_0JHQsNC70LDQ')}
           </div>
           <div className="mt-3 font-serif text-3xl font-semibold text-safi-green">
-            {formatMoney(partnersTotalBalance)}
+            {formatMoney(summary.totalBalance)}
           </div>
         </article>
       </section>
@@ -282,59 +317,105 @@ export default function AdminPartners() {
       </section>
 
       {isLoading && <LoadingState />}
-      {!isLoading && error && <ErrorState description={error} onRetry={() => void loadUsers(query)} />}
+      {!isLoading && error && <ErrorState description={error} onRetry={() => void loadUsers(searchTerm, limit, offset)} />}
       {!isLoading && !error && visiblePartners.length === 0 && (
-        <EmptyState title={query ? 'Партнёр не найден' : adminText('a_0J_QsNGA0YLQ_6')} description={query ? 'Попробуйте другой ID, ФИО, login, email или телефон.' : adminText('a_0KHQv9C40YHQ')} />
+        <EmptyState title={query ? 'Партнёры не найдены' : adminText('a_0J_QsNGA0YLQ_6')} description={query ? 'Попробуйте другой ID, ФИО, login, email или телефон.' : adminText('a_0KHQv9C40YHQ')} />
       )}
 
       {!isLoading && !error && visiblePartners.length > 0 && (
-        <AdminTable headers={[adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0JrQvtC90YLQ'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0J_QsNC60LXR_5'), 'PV', adminText('a_0KTQuNC90LDQ'), adminText('a_0JDQutC60LDR'), adminText('a_0JTQtdC50YHR')]}>
-          {visiblePartners.map((partner) => (
-            <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
-              <td className="px-6 py-4">
-                <Link to={`/admin/partners/${partner.id}`} className="block cursor-pointer hover:opacity-80">
-                  <div className="font-bold text-safi-green">{partner.fullName}</div>
-                  <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</div>
-                  <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0KDQtdCzOg')}{partner.registrationDate}</div>
-                </Link>
-              </td>
-              <td className="px-6 py-4">
-                <div className="text-sm text-safi-green">{partner.phone}</div>
-                <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
-                <div className="mt-1 text-[10px] text-safi-muted">{partner.city}</div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="inline-block rounded-full bg-safi-cream px-3 py-1 font-mono text-xs font-bold text-safi-green">{partner.sponsor}</div>
-                <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0J_RgNC40LPQ')}{partner.invitedCount}</div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="mb-2"><AdminBadge variant="gold">{partner.package}</AdminBadge></div>
-                <AdminBadge variant="default">{partner.status}</AdminBadge>
-              </td>
-              <td className="px-6 py-4">
-                <div className="text-sm">{adminText('a_0Js6')}<span className="font-bold text-safi-green">{formatPv(partner.personalPV)}</span></div>
-                <div className="mt-1 text-xs text-safi-muted">{adminText('a_0Jo6')}{formatPv(partner.teamPV)}</div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="text-sm font-bold text-safi-green">{adminText('a_0JHQsNC70LDQ_2')}{formatMoney(partner.availableBalance)}</div>
-                <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0JLRgdC10LPQ_3')}{formatMoney(partner.totalIncome)}</div>
-              </td>
-              <td className="px-6 py-4">
-                <AdminBadge variant={partner.accountStatus === adminText('a_0JDQutGC0LjQ_2') ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
-              </td>
-              <td className="px-6 py-4 text-right">
-                <div className="flex items-center justify-end gap-2">
-                  <Link to={`/admin/partners/${partner.id}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title={adminText('a_0J7RgtC60YDR_2')}>
-                    <Eye className="h-4 w-4" />
+        <section className="space-y-4">
+          <AdminTable headers={[adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0JrQvtC90YLQ'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0J_QsNC60LXR_5'), 'PV', adminText('a_0KTQuNC90LDQ'), adminText('a_0JDQutC60LDR'), adminText('a_0JTQtdC50YHR')]}>
+            {visiblePartners.map((partner) => (
+              <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
+                <td className="px-6 py-4">
+                  <Link to={`/admin/partners/${partner.id}`} className="block cursor-pointer hover:opacity-80">
+                    <div className="font-bold text-safi-green">{partner.fullName}</div>
+                    <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</div>
+                    <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0KDQtdCzOg')}{partner.registrationDate}</div>
                   </Link>
-                  <Link to={`/admin/structure?user_id=${encodeURIComponent(partner.id)}`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white" title={adminText('a_0KHRgtGA0YPQ')}>
-                    <Network className="h-4 w-4" />Открыть дерево
-                  </Link>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </AdminTable>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm text-safi-green">{partner.phone}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
+                  <div className="mt-1 text-[10px] text-safi-muted">{partner.city}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="inline-block rounded-full bg-safi-cream px-3 py-1 font-mono text-xs font-bold text-safi-green">{partner.sponsor}</div>
+                  <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0J_RgNC40LPQ')}{partner.invitedCount}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="mb-2"><AdminBadge variant="gold">{partner.package}</AdminBadge></div>
+                  <AdminBadge variant="default">{partner.status}</AdminBadge>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm">{adminText('a_0Js6')}<span className="font-bold text-safi-green">{formatPv(partner.personalPV)}</span></div>
+                  <div className="mt-1 text-xs text-safi-muted">{adminText('a_0Jo6')}{formatPv(partner.teamPV)}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-bold text-safi-green">{adminText('a_0JHQsNC70LDQ_2')}{formatMoney(partner.availableBalance)}</div>
+                  <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0JLRgdC10LPQ_3')}{formatMoney(partner.totalIncome)}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <AdminBadge variant={partner.accountStatus === adminText('a_0JDQutGC0LjQ_2') ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <Link to={`/admin/partners/${partner.id}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title={adminText('a_0J7RgtC60YDR_2')}>
+                      <Eye className="h-4 w-4" />
+                    </Link>
+                    <Link to={`/admin/structure?user_id=${encodeURIComponent(partner.id)}`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white" title={adminText('a_0KHRgtGA0YPQ')}>
+                      <Network className="h-4 w-4" />Открыть дерево
+                    </Link>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </AdminTable>
+
+          <div className="flex flex-col gap-4 rounded-[24px] border border-safi-border bg-white px-5 py-4 shadow-[0_14px_36px_rgba(11,23,18,0.05)] md:flex-row md:items-center md:justify-between">
+            <div className="text-sm font-bold text-safi-muted">
+              Показано: <span className="text-safi-green">{paginationStart}–{paginationEnd}</span> из <span className="text-safi-green">{pagination.filteredTotal.toLocaleString('ru-RU')}</span>
+              {pagination.total !== pagination.filteredTotal && (
+                <span className="ml-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+                  всего {pagination.total.toLocaleString('ru-RU')}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <select
+                value={limit}
+                onChange={(event) => {
+                  setLimit(Number(event.target.value));
+                  setOffset(0);
+                }}
+                className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
+                aria-label="Количество партнёров на странице"
+              >
+                {pageSizeOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => setOffset(Math.max(offset - limit, 0))}
+                disabled={!pagination.hasPrev || isLoading}
+                className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-5 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Назад
+              </button>
+              <button
+                type="button"
+                onClick={() => setOffset(offset + limit)}
+                disabled={!pagination.hasNext || isLoading}
+                className="cursor-pointer rounded-full border border-safi-green bg-safi-green px-5 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Вперёд
+              </button>
+            </div>
+          </div>
+        </section>
       )}
 
       {isCreateOpen && (
@@ -627,6 +708,39 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       accountStatus: accountStatusLabel(accountStatusCode),
     };
   });
+}
+
+function normalizeSummary(response: unknown): AdminPartnersSummary {
+  const record = isRecord(response) ? response : {};
+  const summary = isRecord(record.summary) ? record.summary : {};
+
+  return {
+    totalPartners: getNumber(summary, ['total_partners', 'totalPartners']) ?? 0,
+    activePartners: getNumber(summary, ['active_partners', 'activePartners']) ?? 0,
+    vipElitePartners: getNumber(summary, ['vip_elite_partners', 'vipElitePartners']) ?? 0,
+    totalBalance: getNumber(summary, ['total_balance', 'totalBalance']) ?? 0,
+  };
+}
+
+function normalizePagination(response: unknown, fallbackLimit: number, fallbackOffset: number, rowCount: number): AdminPartnersPagination {
+  const record = isRecord(response) ? response : {};
+  const pagination = isRecord(record.pagination) ? record.pagination : {};
+  const meta = isRecord(record.meta) ? record.meta : {};
+  const total = getNumber(pagination, ['total']) ?? getNumber(meta, ['total']) ?? rowCount;
+  const filteredTotal = getNumber(pagination, ['filtered_total', 'filteredTotal']) ?? getNumber(meta, ['total']) ?? total;
+  const limit = getNumber(pagination, ['limit']) ?? getNumber(meta, ['per_page', 'perPage']) ?? fallbackLimit;
+  const offset = getNumber(pagination, ['offset']) ?? fallbackOffset;
+  const hasNextValue = pagination.has_next ?? pagination.hasNext;
+  const hasPrevValue = pagination.has_prev ?? pagination.hasPrev;
+
+  return {
+    total,
+    filteredTotal,
+    limit,
+    offset,
+    hasNext: typeof hasNextValue === 'boolean' ? hasNextValue : offset + limit < filteredTotal,
+    hasPrev: typeof hasPrevValue === 'boolean' ? hasPrevValue : offset > 0,
+  };
 }
 
 function unwrapAdminPartnersPayload(response: unknown) {
