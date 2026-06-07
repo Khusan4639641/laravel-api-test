@@ -398,15 +398,12 @@ function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: bool
             <span>{adminText('Личный PV')}:</span>
             <span className="text-safi-gold">{node.personalPV.toLocaleString('ru-RU')} PV</span>
           </div>
-          <div className="grid grid-cols-3 gap-1 pt-1 text-center text-[9px] font-extrabold text-safi-green">
+          <div className="grid grid-cols-2 gap-1 pt-1 text-center text-[9px] font-extrabold text-safi-green">
             <div className="rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Левая ветка PV')}>
               {adminText('Л')}: {formatCompactPv(node.leftBranchPV)}
             </div>
             <div className="rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Правая ветка PV')}>
               {adminText('П')}: {formatCompactPv(node.rightBranchPV)}
-            </div>
-            <div className="rounded-lg bg-safi-gold/10 px-1 py-1 text-safi-gold" title={adminText('Малая ветка PV')}>
-              {adminText('М')}: {formatCompactPv(node.weakLegPV)}
             </div>
           </div>
         </div>
