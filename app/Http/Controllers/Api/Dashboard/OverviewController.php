@@ -7,6 +7,7 @@ use App\Http\Resources\UserResource;
 use App\Http\Resources\WalletResource;
 use App\Http\Resources\WalletTransactionResource;
 use App\Models\BinaryNode;
+use App\Models\BinaryBonusRun;
 use App\Models\BonusTransaction;
 use App\Models\Order;
 use App\Models\WalletTransaction;
@@ -37,6 +38,10 @@ class OverviewController extends Controller
         $leftPv = (float) ($user->left_pv ?? 0);
         $rightPv = (float) ($user->right_pv ?? 0);
         $weakLegPv = min($leftPv, $rightPv);
+        $pendingBinaryAmount = (string) BinaryBonusRun::query()
+            ->where('user_id', $user->id)
+            ->where('status', 'pending')
+            ->sum('pending_amount');
 
         return response()->json([
             'user' => UserResource::make($user),
@@ -54,6 +59,7 @@ class OverviewController extends Controller
                     ->where('user_id', $user->id)
                     ->where('status', 'pending')
                     ->sum('amount'),
+                'pending_binary' => $pendingBinaryAmount,
                 'withdrawn' => (string) WithdrawalRequest::query()
                     ->where('user_id', $user->id)
                     ->where('status', 'approved')
@@ -73,6 +79,7 @@ class OverviewController extends Controller
             'bonuses_summary' => [
                 'total' => (string) BonusTransaction::query()->where('user_id', $user->id)->sum('amount'),
                 'by_type' => $bonusTotals,
+                'pending_binary' => $pendingBinaryAmount,
             ],
             'orders_summary' => [
                 'total' => Order::query()->where('user_id', $user->id)->count(),

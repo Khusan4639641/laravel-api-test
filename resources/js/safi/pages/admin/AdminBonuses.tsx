@@ -82,7 +82,7 @@ export default function AdminBonuses() {
           disabled={isCalculating}
           className="cursor-pointer rounded-xl bg-safi-green px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isCalculating ? adminText('a_0KHQvtGF0YDQ_2') : 'Рассчитать бинарные бонусы'}
+          {isCalculating ? adminText('a_0KHQvtGF0YDQ_2') : 'Запустить бинарный расчёт'}
         </button>
       </div>
 

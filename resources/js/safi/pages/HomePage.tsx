@@ -118,8 +118,8 @@ export default function HomePage() {
       icon: Layers,
     },
     {
-      title: t('benefits.payout', 'Выплаты каждые 14 дней'),
-      desc: t('benefits.payoutDesc', 'Стабильные начисления прямо на ваш счет без скрытых комиссий.'),
+      title: t('benefits.payout', 'Расчёт бинарного бонуса каждые 15 дней'),
+      desc: t('benefits.payoutDesc', 'Расчёт идёт по малой ветке: 90% в основной кошелёк, 10% в депозитный.'),
       icon: Wallet,
     },
     {
@@ -187,7 +187,7 @@ export default function HomePage() {
               <div className="mt-8 flex w-full max-w-3xl flex-wrap justify-center gap-8 border-t border-safi-green/5 pt-8 lg:justify-start">
                 <TrustBadge value={t('trustBadges.binary', 'Бинар +')} label={t('trustBadges.classic', 'Классика')} />
                 <div className="hidden h-10 w-px bg-safi-green/10 sm:block" />
-                <TrustBadge value={t('trustBadges.days', '14 дней')} label={t('trustBadges.payouts', 'Выплаты бонусов')} />
+                <TrustBadge value={t('trustBadges.days', '15 дней')} label={t('trustBadges.payouts', 'Расчёт бинарного бонуса')} />
                 <div className="hidden h-10 w-px bg-safi-green/10 sm:block" />
                 <TrustBadge value={t('trustBadges.pv', 'PV')} label={t('trustBadges.accumulation', 'Накопительная система')} />
               </div>

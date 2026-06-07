@@ -24,7 +24,7 @@ export default function Overview() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [structure, setStructure] = useState({ totalPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
-  const [balances, setBalances] = useState({ available: currentUser.walletAvailable, totalEarned: currentUser.totalEarned });
+  const [balances, setBalances] = useState({ available: currentUser.walletAvailable, totalEarned: currentUser.totalEarned, pendingBinary: 0 });
   const [bonusesSummary, setBonusesSummary] = useState({ total: currentUser.bonusesTotal, referral: 0, binary: 0, cashback: 0 });
   const [ordersSummary, setOrdersSummary] = useState({ total: 0, pending: 0, totalAmount: 0, totalPV: 0 });
   const [withdrawalsSummary, setWithdrawalsSummary] = useState({ total: 0, pending: 0, approved: 0, pendingAmount: 0 });
@@ -63,6 +63,7 @@ export default function Overview() {
       setBalances({
         available: getNumber(balancesRecord, ['available']) ?? currentUser.walletAvailable,
         totalEarned: getNumber(balancesRecord, ['total_earned']) ?? currentUser.totalEarned,
+        pendingBinary: getNumber(balancesRecord, ['pending_binary', 'pendingBinary']) ?? 0,
       });
       setBonusesSummary({
         total: getNumber(bonusesRecord, ['total']) ?? currentUser.bonusesTotal,
@@ -176,8 +177,9 @@ export default function Overview() {
         />
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard title="Бонусы всего" value={`${bonusesSummary.total.toLocaleString('ru-RU')} ₸`} icon={<Wallet className="h-5 w-5" />} variant="dark" />
+        <StatCard title="Бинар в ожидании" value={`${balances.pendingBinary.toLocaleString('ru-RU')} ₸`} />
         <StatCard title="Заказы" value={ordersSummary.total} icon={<ShoppingBag className="h-5 w-5" />} trend={{ value: `${ordersSummary.totalPV.toLocaleString('ru-RU')} PV`, isPositive: true }} />
         <StatCard title="Выводы" value={withdrawalsSummary.total} icon={<ArrowUpCircle className="h-5 w-5" />} trend={{ value: `${withdrawalsSummary.pending} ожидает`, isPositive: withdrawalsSummary.pending === 0 }} />
         <StatCard title="Команда" value={structure.totalPartners} icon={<Users className="h-5 w-5" />} />

@@ -40,8 +40,8 @@
   "trustBadges": {
     "binary": "Binary +",
     "classic": "Classic",
-    "days": "14 days",
-    "payouts": "Bonus payouts",
+    "days": "15 days",
+    "payouts": "Binary bonus calculation",
     "pv": "PV",
     "accumulation": "Accumulation system"
   },
@@ -60,8 +60,8 @@
     "domesticDesc": "We produce health and beauty goods from quality raw materials.",
     "binary": "Binary + Classic",
     "binaryDesc": "Balanced payouts from the left and right branches plus cashback.",
-    "payout": "Payouts every 14 days",
-    "payoutDesc": "Stable accruals directly to your account without hidden fees.",
+    "payout": "Binary bonus calculation every 15 days",
+    "payoutDesc": "Calculated from the weak leg: 90% to main wallet, 10% to deposit wallet.",
     "upgrade": "Package upgrades",
     "upgradeDesc": "Start small and upgrade your package as your business grows.",
     "pv": "Accumulated points (PV)",

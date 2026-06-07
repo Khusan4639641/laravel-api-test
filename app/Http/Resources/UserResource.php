@@ -14,6 +14,10 @@ class UserResource extends JsonResource
         $bonusBalance = (float) $wallets->where('type', 'bonus')->sum('balance');
         $depositBalance = (float) $wallets->where('type', 'deposit')->sum('balance');
         $totalWalletBalance = $mainBalance + $bonusBalance + $depositBalance;
+        $totalEarned = (float) $this->resource->walletTransactions()
+            ->where('direction', 'credit')
+            ->sum('amount');
+        $totalEarned = $totalEarned > 0 ? $totalEarned : $totalWalletBalance;
         $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
         $leftPv = (float) ($this->left_pv ?? 0);
@@ -54,7 +58,7 @@ class UserResource extends JsonResource
             'deposit_balance' => $depositBalance,
             'total_wallet_balance' => $totalWalletBalance,
             'total_balance' => $totalWalletBalance,
-            'total_earned' => $totalWalletBalance,
+            'total_earned' => $totalEarned,
             'package_activity_pv' => $packageActivityPv,
             'package_activity_amount' => 0,
             'pv_amount' => 0,

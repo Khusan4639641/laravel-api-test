@@ -1,6 +1,7 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AdminBadge } from '../../components/admin/ui';
+import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import { adminText } from '../../i18n/adminText';
@@ -133,6 +134,7 @@ const inputClass = 'w-full rounded-xl border border-safi-green/10 bg-[#F5F5F0] p
 
 export default function AdminPartnerDetail() {
   const { id } = useParams();
+  const { currentUser } = useAdminContext();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [partner, setPartner] = useState<PartnerDetail>({ ...partnerDefaults, id: id || '' });
@@ -152,6 +154,7 @@ export default function AdminPartnerDetail() {
   const [selectedStatus, setSelectedStatus] = useState('');
   const [applyStatusBonusEffects, setApplyStatusBonusEffects] = useState(false);
   const isBlocked = partner.accountStatus === 'blocked';
+  const canCalculateBinary = ['admin', 'super_admin'].includes(currentUser.role.toLowerCase());
 
   const weakBranch = useMemo(() => (partner.leftPV < partner.rightPV ? adminText('a_0JvQtdCy0LDR') : adminText('a_0J_RgNCw0LLQ')), [partner.leftPV, partner.rightPV]);
 
@@ -376,15 +379,17 @@ export default function AdminPartnerDetail() {
             {isBlocked ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
             {actionLoading === 'block' ? adminText('a_0KHQvtGF0YDQ_2') : isBlocked ? adminText('a_0KDQsNC30LHQ') : adminText('a_0JfQsNCx0LvQ')}
           </button>
-          <button
-            type="button"
-            onClick={calculateBinaryBonus}
-            disabled={!partner.id || actionLoading === 'binary'}
-            className="flex cursor-pointer items-center gap-2 rounded-xl bg-safi-green px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Calculator className="w-4 h-4" />
-            {actionLoading === 'binary' ? adminText('a_0KHQvtGF0YDQ_2') : 'Рассчитать бинар'}
-          </button>
+          {canCalculateBinary && (
+            <button
+              type="button"
+              onClick={calculateBinaryBonus}
+              disabled={!partner.id || actionLoading === 'binary'}
+              className="flex cursor-pointer items-center gap-2 rounded-xl bg-safi-green px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Calculator className="w-4 h-4" />
+              {actionLoading === 'binary' ? adminText('a_0KHQvtGF0YDQ_2') : 'Рассчитать бинар'}
+            </button>
+          )}
         </div>
       </div>
 

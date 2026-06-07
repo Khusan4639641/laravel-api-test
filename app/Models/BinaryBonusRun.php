@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'carry_left_pv',
     'carry_right_pv',
     'amount',
+    'pending_amount',
     'metadata',
 ])]
 class BinaryBonusRun extends Model
@@ -34,6 +35,7 @@ class BinaryBonusRun extends Model
             'carry_left_pv' => 'decimal:2',
             'carry_right_pv' => 'decimal:2',
             'amount' => 'decimal:2',
+            'pending_amount' => 'decimal:2',
             'metadata' => 'array',
         ];
     }

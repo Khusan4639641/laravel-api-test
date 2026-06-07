@@ -66,6 +66,8 @@ class BinaryBonusCalculationTest extends TestCase
         $this->assertSame('600.00', $run->used_right_pv);
         $this->assertSame('400.00', $run->carry_left_pv);
         $this->assertSame('0.00', $run->carry_right_pv);
+        $this->assertSame('completed', $run->status);
+        $this->assertSame('0.00', $run->pending_amount);
         $this->assertSame('300000.00', $calculation->money_base_amount);
         $this->assertSame('24000.00', $calculation->bonus_amount);
         $this->assertCount(2, $walletTransactions);
@@ -236,6 +238,10 @@ class BinaryBonusCalculationTest extends TestCase
 
         $this->postJson('/api/bonuses/binary/calculate')
             ->assertForbidden();
+
+        $this->postJson('/api/admin/bonuses/binary/calculate', [
+            'user_id' => $user->id,
+        ])->assertForbidden();
 
         $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'binary')->count());
     }

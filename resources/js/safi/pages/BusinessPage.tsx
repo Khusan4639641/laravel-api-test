@@ -36,7 +36,7 @@ export default function BusinessPage() {
               <p className="flex items-start gap-4"><span className="text-safi-gold font-bold mt-1">✓</span> <span><strong>Не нужно искусственно "выращивать лидеров"</strong>. Маркетинг-план позволяет зарабатывать без скрытых обязательств.</span></p>
               <p className="flex items-start gap-4"><span className="text-safi-gold font-bold mt-1">✓</span> <span><strong>Отсутствие требований подтверждения статуса</strong>. Ваши достижения сохраняются.</span></p>
               <p className="flex items-start gap-4"><span className="text-safi-gold font-bold mt-1">✓</span> <span><strong>Накопительная система баллов (PV)</strong>. Вы не теряете объемы при переходе в новый период.</span></p>
-              <p className="flex items-start gap-4"><span className="text-safi-gold font-bold mt-1">✓</span> <span><strong>Выплаты каждые 14 дней</strong>. Регулярно на расчетный счет ИП или на карт-счет.</span></p>
+              <p className="flex items-start gap-4"><span className="text-safi-gold font-bold mt-1">✓</span> <span><strong>Расчёт бинарного бонуса каждые 15 дней</strong>. Расчёт выполняется по малой ветке с разделением 90% в основной кошелёк и 10% в депозитный.</span></p>
             </div>
           </div>
 

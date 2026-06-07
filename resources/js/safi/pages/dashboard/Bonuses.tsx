@@ -24,6 +24,7 @@ export default function Bonuses() {
     available: currentUser.walletAvailable,
     totalEarned: currentUser.totalEarned,
     pending: 0,
+    pendingBinary: 0,
     withdrawn: 0,
   });
   const [bonuses, setBonuses] = useState({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
@@ -76,6 +77,9 @@ export default function Bonuses() {
         available: getNumber(balances, ['available']) ?? currentUser.walletAvailable,
         totalEarned: getNumber(balances, ['total_earned']) ?? currentUser.totalEarned,
         pending: getNumber(balances, ['pending_withdrawals']) ?? 0,
+        pendingBinary: getNumber(balances, ['pending_binary', 'pendingBinary'])
+          ?? getNumber(summary, ['pending_binary', 'pendingBinary'])
+          ?? 0,
         withdrawn: getNumber(balances, ['withdrawn']) ?? 0,
       });
       setStructure({
@@ -161,10 +165,11 @@ export default function Bonuses() {
 
       {!isLoading && !loadError && activeTab === 'bonuses' && (
         <div className="space-y-8">
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
             <StatCard title="Доступно" value={`${balance.available.toLocaleString('ru-RU')} ₸`} icon={<Wallet className="h-5 w-5" />} variant="primary" />
             <StatCard title="Всего заработано" value={`${balance.totalEarned.toLocaleString('ru-RU')} ₸`} />
             <StatCard title="Ожидает" value={`${balance.pending.toLocaleString('ru-RU')} ₸`} />
+            <StatCard title="Бинар в ожидании" value={`${balance.pendingBinary.toLocaleString('ru-RU')} ₸`} />
             <StatCard title="Выведено" value={`${balance.withdrawn.toLocaleString('ru-RU')} ₸`} />
           </section>
 
@@ -281,7 +286,7 @@ export default function Bonuses() {
               <div className="mt-3 font-serif text-5xl font-semibold text-safi-gold">{balance.available.toLocaleString('ru-RU')} ₸</div>
               <div className="mt-8 flex gap-3 rounded-3xl border border-white/10 bg-white/[0.08] p-4 text-sm leading-6 text-white/75">
                 <Info className="mt-1 h-5 w-5 shrink-0 text-safi-gold" />
-                <p>Заявки проверяются администратором перед выплатой. Плановый период выплат - каждые 14 дней.</p>
+                <p>Заявки проверяются администратором перед выплатой. Расчёт бинарного бонуса каждые 15 дней.</p>
               </div>
             </aside>
           </section>

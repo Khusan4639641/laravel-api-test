@@ -168,6 +168,7 @@ class BonusService
                 'carry_left_pv' => $carryLeftPv,
                 'carry_right_pv' => $carryRightPv,
                 'amount' => $amount,
+                'pending_amount' => '0.00',
                 'metadata' => [
                     'pv_money_rate' => self::PV_MONEY_RATE,
                     'binary_percent' => $percent,
