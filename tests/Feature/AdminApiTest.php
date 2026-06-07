@@ -234,14 +234,14 @@ class AdminApiTest extends TestCase
         $wallet->refresh();
         $withdrawal->refresh();
         $walletTransaction = WalletTransaction::query()
-            ->where('type', 'withdrawal_approve')
+            ->where('type', 'withdrawal_approved')
             ->firstOrFail();
 
         $this->assertSame('750.00', $wallet->balance);
         $this->assertSame('0.00', $wallet->hold_balance);
         $this->assertSame('approved', $withdrawal->status);
         $this->assertNotNull($withdrawal->processed_at);
-        $this->assertSame('debit', $walletTransaction->direction);
+        $this->assertSame('neutral', $walletTransaction->direction);
         $this->assertSame('250.00', $walletTransaction->amount);
         $this->assertSame('750.00', $walletTransaction->balance_before);
         $this->assertSame('750.00', $walletTransaction->balance_after);
@@ -265,7 +265,7 @@ class AdminApiTest extends TestCase
         $wallet->refresh();
         $withdrawal->refresh();
         $walletTransaction = WalletTransaction::query()
-            ->where('type', 'withdrawal_reject')
+            ->where('type', 'withdrawal_rejected')
             ->firstOrFail();
 
         $this->assertSame('1000.00', $wallet->balance);
@@ -290,6 +290,79 @@ class AdminApiTest extends TestCase
         $this->patchJson("/api/admin/withdrawals/{$withdrawal->id}/approve")
             ->assertUnprocessable()
             ->assertJsonValidationErrors('withdrawal');
+    }
+
+    public function test_withdrawal_lifecycle_does_not_double_debit_main_wallet(): void
+    {
+        $partner = User::factory()->create();
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $wallet = $this->createMainWallet($partner, 100000, 0);
+
+        Sanctum::actingAs($partner);
+
+        $withdrawalId = $this->postJson('/api/withdrawals', [
+            'amount' => 50000,
+            'payment_method' => 'card_account',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('withdrawal.status', 'pending')
+            ->json('withdrawal.id');
+
+        $this->assertSame('50000.00', $wallet->refresh()->balance);
+        $this->assertSame('50000.00', $wallet->hold_balance);
+
+        Sanctum::actingAs($admin);
+
+        $this->patchJson("/api/admin/withdrawals/{$withdrawalId}/approve")
+            ->assertOk()
+            ->assertJsonPath('withdrawal.status', 'approved');
+
+        $wallet->refresh();
+
+        $this->assertSame('50000.00', $wallet->balance);
+        $this->assertSame('0.00', $wallet->hold_balance);
+        $this->assertEquals(50000, (float) WalletTransaction::query()
+            ->where('wallet_id', $wallet->id)
+            ->where('direction', 'debit')
+            ->sum('amount'));
+        $this->assertSame(1, WalletTransaction::query()
+            ->where('wallet_id', $wallet->id)
+            ->where('direction', 'debit')
+            ->count());
+        $this->assertDatabaseHas('wallet_transactions', [
+            'wallet_id' => $wallet->id,
+            'type' => 'withdrawal_hold',
+            'direction' => 'debit',
+            'amount' => 50000,
+        ]);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'wallet_id' => $wallet->id,
+            'type' => 'withdrawal_approved',
+            'direction' => 'neutral',
+            'amount' => 50000,
+            'balance_before' => 50000,
+            'balance_after' => 50000,
+        ]);
+    }
+
+    public function test_admin_cannot_reject_already_approved_withdrawal(): void
+    {
+        $admin = User::factory()->create(['role' => 'super_admin']);
+        $user = User::factory()->create();
+        $wallet = $this->createMainWallet($user, 750, 0);
+        $withdrawal = $this->createWithdrawal($user, $wallet, 250, 'approved');
+
+        Sanctum::actingAs($admin);
+
+        $this->patchJson("/api/admin/withdrawals/{$withdrawal->id}/reject", [
+            'reason' => 'Attempted double processing',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('withdrawal');
+
+        $this->assertSame('approved', $withdrawal->refresh()->status);
+        $this->assertSame('750.00', $wallet->refresh()->balance);
+        $this->assertSame('0.00', $wallet->hold_balance);
     }
 
     private function createMainWallet(User $user, int $balance, int $holdBalance): Wallet

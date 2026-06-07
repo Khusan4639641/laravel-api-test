@@ -28,11 +28,12 @@ export default function Transactions() {
         const record = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const direction = getString(record, ['direction']) || 'credit';
         const amount = getNumber(record, ['amount']) ?? 0;
+        const rawType = getString(record, ['type']) || 'operation';
         return {
           id: getString(record, ['id']) || String(index + 1),
           date: getString(record, ['created_at']) || '',
-          type: getString(record, ['type']) || 'Операция',
-          amount: `${direction === 'credit' ? '+' : '-'}${amount.toLocaleString('ru-RU')} ₸`,
+          type: transactionTypeLabel(rawType),
+          amount: formatTransactionAmount(direction, amount),
           status: getString(record, ['status']) || 'completed',
           source: getString(record, ['description']) || 'Система',
           comment: getString(record, ['description']) || '',
@@ -218,4 +219,28 @@ export default function Transactions() {
       )}
     </div>
   );
+}
+
+function formatTransactionAmount(direction: string, amount: number) {
+  if (direction === 'credit') {
+    return `+${amount.toLocaleString('ru-RU')} ₸`;
+  }
+
+  if (direction === 'debit') {
+    return `-${amount.toLocaleString('ru-RU')} ₸`;
+  }
+
+  return `${amount.toLocaleString('ru-RU')} ₸`;
+}
+
+function transactionTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    withdrawal_hold: 'Вывод: сумма в холде',
+    withdrawal_approved: 'Вывод: выплата подтверждена',
+    withdrawal_rejected: 'Вывод: заявка отклонена',
+    withdrawal_request: 'Вывод: заявка создана',
+    payout_completed: 'Вывод: выплата завершена',
+  };
+
+  return labels[type] || type;
 }

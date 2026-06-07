@@ -160,7 +160,7 @@ export default function AdminOverview() {
                   <div className="font-bold text-safi-green">{transaction.partnerName}</div>
                   <div className="safi-numeric mt-1 text-xs text-safi-muted">ID {transaction.partnerId}</div>
                 </div>
-                <div className={`safi-numeric font-bold ${transaction.direction === 'debit' ? 'text-red-500' : 'text-green-600'}`}>
+                <div className={`safi-numeric font-bold ${transaction.direction === 'debit' ? 'text-red-500' : transaction.direction === 'credit' ? 'text-green-600' : 'text-safi-muted'}`}>
                   {formatSignedMoney(transaction.amount, transaction.direction)}
                 </div>
               </div>
@@ -258,7 +258,7 @@ function formatMoney(value: number) {
 }
 
 function formatSignedMoney(value: number, direction: string) {
-  const sign = direction === 'debit' ? '-' : '+';
+  const sign = direction === 'debit' ? '-' : direction === 'credit' ? '+' : '';
 
   return `${sign}${value.toLocaleString('ru-RU')} ₸`;
 }

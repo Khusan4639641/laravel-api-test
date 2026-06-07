@@ -116,15 +116,17 @@ class WithdrawalService
 
             $walletTransaction = new WalletTransaction([
                 'user_id' => $withdrawalRequest->user_id,
-                'type' => 'withdrawal_approve',
-                'direction' => 'debit',
+                'type' => 'withdrawal_approved',
+                'direction' => 'neutral',
                 'amount' => $withdrawalRequest->amount,
                 'balance_before' => $wallet->balance,
                 'balance_after' => $wallet->balance,
                 'status' => 'completed',
+                'description' => 'Withdrawal approved from held funds',
                 'metadata' => [
                     'hold_balance_before' => $holdBefore,
                     'hold_balance_after' => $holdAfter,
+                    'available_balance_impact' => 'none',
                 ],
             ]);
             $walletTransaction->source()->associate($withdrawalRequest);
@@ -172,12 +174,13 @@ class WithdrawalService
 
             $walletTransaction = new WalletTransaction([
                 'user_id' => $withdrawalRequest->user_id,
-                'type' => 'withdrawal_reject',
+                'type' => 'withdrawal_rejected',
                 'direction' => 'credit',
                 'amount' => $withdrawalRequest->amount,
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'status' => 'completed',
+                'description' => 'Withdrawal rejected and held funds returned',
                 'metadata' => [
                     'hold_balance_before' => $holdBefore,
                     'hold_balance_after' => $holdAfter,

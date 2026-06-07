@@ -265,14 +265,15 @@ Admin approve:
 
 - only `pending` requests;
 - decreases `hold_balance`;
-- creates `withdrawal_approve` wallet transaction.
+- creates neutral `withdrawal_approved` wallet transaction;
+- does not debit wallet `balance` again.
 
 Admin reject:
 
 - only `pending` requests;
 - decreases `hold_balance`;
 - returns funds to `balance`;
-- creates `withdrawal_reject` wallet transaction.
+- creates `withdrawal_rejected` wallet transaction.
 
 ## Products And Orders
 

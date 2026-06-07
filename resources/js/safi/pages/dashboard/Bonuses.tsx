@@ -238,7 +238,7 @@ export default function Bonuses() {
                     onChange={(event) => setWithdrawalAmount(Number(event.target.value))}
                     className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-xl font-extrabold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25"
                   />
-                  <span className="mt-2 block text-xs font-bold text-safi-muted">Доступно: {currentUser.walletAvailable.toLocaleString('ru-RU')} ₸</span>
+                  <span className="mt-2 block text-xs font-bold text-safi-muted">Доступно: {balance.available.toLocaleString('ru-RU')} ₸</span>
                 </label>
 
                 <label className="block">
@@ -266,7 +266,7 @@ export default function Bonuses() {
 
             <aside className="rounded-[32px] border border-safi-green bg-safi-green p-7 text-white shadow-[0_18px_48px_rgba(11,23,18,0.10)]">
               <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/60">Доступно к выводу</div>
-              <div className="mt-3 font-serif text-5xl font-semibold text-safi-gold">{currentUser.walletAvailable.toLocaleString('ru-RU')} ₸</div>
+              <div className="mt-3 font-serif text-5xl font-semibold text-safi-gold">{balance.available.toLocaleString('ru-RU')} ₸</div>
               <div className="mt-8 flex gap-3 rounded-3xl border border-white/10 bg-white/[0.08] p-4 text-sm leading-6 text-white/75">
                 <Info className="mt-1 h-5 w-5 shrink-0 text-safi-gold" />
                 <p>Заявки проверяются администратором перед выплатой. Плановый период выплат - каждые 14 дней.</p>
@@ -373,11 +373,25 @@ function normalizeWithdrawals(response: unknown): WithdrawalItem[] {
       date: getString(record, ['date', 'created_at', 'createdAt']) || '-',
       amount: formatAmount(record.amount ?? record.sum),
       method: methodLabel(getString(record, ['method', 'payment_method', 'paymentMethod'])),
-      status: getString(record, ['status']) || 'В обработке',
-      paymentDate: getString(record, ['payment_date', 'paymentDate', 'paid_at']) || '-',
+      status: normalizeWithdrawalStatus(getString(record, ['status']) || 'pending'),
+      paymentDate: getString(record, ['payment_date', 'paymentDate', 'paid_at', 'processed_at']) || '-',
       comment: getString(record, ['comment']),
     };
   });
+}
+
+function normalizeWithdrawalStatus(status: string) {
+  const normalized = status.toLowerCase();
+
+  if (['approved', 'paid', 'completed'].includes(normalized)) {
+    return 'Выплачено';
+  }
+
+  if (['rejected', 'declined', 'failed'].includes(normalized)) {
+    return 'Отклонено';
+  }
+
+  return 'В обработке';
 }
 
 function getArray(response: unknown) {

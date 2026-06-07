@@ -391,7 +391,8 @@ Notes:
 
 - Only `pending` withdrawals can be approved.
 - Approval decreases wallet `hold_balance`.
-- A `wallet_transactions` row is created with type `withdrawal_approve`.
+- A neutral `wallet_transactions` row is created with type `withdrawal_approved`.
+- Approval does not debit wallet `balance` again.
 
 ### Reject Withdrawal
 
@@ -423,7 +424,7 @@ Notes:
 
 - Only `pending` withdrawals can be rejected.
 - Rejection returns amount from `hold_balance` to `balance`.
-- A `wallet_transactions` row is created with type `withdrawal_reject`.
+- A `wallet_transactions` row is created with type `withdrawal_rejected`.
 
 ## Products
 

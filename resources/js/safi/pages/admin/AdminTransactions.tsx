@@ -48,13 +48,14 @@ export default function AdminTransactions() {
         const user = trx.user && typeof trx.user === 'object' ? trx.user as Record<string, unknown> : {};
         const direction = getString(trx, ['direction']) || 'credit';
         const amount = getNumber(trx, ['amount']) ?? 0;
+        const rawType = getString(trx, ['type']) || '-';
         return {
           id: getString(trx, ['id']) || String(index + 1),
           date: getString(trx, ['created_at']) || '-',
           partnerId: getString(user, ['id', 'login']) || getString(trx, ['user_id']) || '-',
           partnerName: getString(user, ['name']) || '-',
-          type: getString(trx, ['type']) || '-',
-          amount: `${direction === 'credit' ? '+' : '-'}${amount.toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`,
+          type: transactionTypeLabel(rawType),
+          amount: formatTransactionAmount(direction, amount),
           status: getString(trx, ['status']) || '-',
           comment: getString(trx, ['description']) || '-',
         };
@@ -168,4 +169,28 @@ export default function AdminTransactions() {
 function amountValue(value: string) {
   const parsed = Number(value.replace(/[^\d.-]/g, ''));
   return Number.isFinite(parsed) ? Math.abs(parsed) : 0;
+}
+
+function formatTransactionAmount(direction: string, amount: number) {
+  if (direction === 'credit') {
+    return `+${amount.toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`;
+  }
+
+  if (direction === 'debit') {
+    return `-${amount.toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`;
+  }
+
+  return `${amount.toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`;
+}
+
+function transactionTypeLabel(type: string) {
+  const labels: Record<string, string> = {
+    withdrawal_hold: 'Вывод: сумма в холде',
+    withdrawal_approved: 'Вывод: выплата подтверждена',
+    withdrawal_rejected: 'Вывод: заявка отклонена',
+    withdrawal_request: 'Вывод: заявка создана',
+    payout_completed: 'Вывод: выплата завершена',
+  };
+
+  return labels[type] || type;
 }
