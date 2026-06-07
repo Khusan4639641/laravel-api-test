@@ -436,8 +436,8 @@ export async function getDashboardOverview<T = unknown>() {
   });
 }
 
-export async function getDashboardStructure<T = unknown>() {
-  return apiRequest<T>(endpoints.dashboard.structure, {
+export async function getDashboardStructure<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+  return apiRequest<T>(buildEndpointWithParams(endpoints.dashboard.structure, params), {
     method: 'GET',
     auth: true,
   });

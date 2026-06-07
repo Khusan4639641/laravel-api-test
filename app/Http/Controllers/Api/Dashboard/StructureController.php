@@ -22,9 +22,11 @@ class StructureController extends Controller
         $rootPath = $rootNode?->path;
         $rootDepth = $rootNode?->depth ?? 0;
         $rootSegments = $rootPath ? explode('.', $rootPath) : [];
-        $rootChildren = BinaryNode::query()
-            ->where('parent_id', $rootNode?->id)
-            ->pluck('position', 'user_id');
+        $rootChildren = $rootNode
+            ? BinaryNode::query()
+                ->where('parent_id', $rootNode->id)
+                ->pluck('position', 'user_id')
+            : collect();
 
         $descendantNodes = $this->descendantsQuery($rootPath)
             ->with(['user.profile', 'user.currentPackage'])
@@ -36,20 +38,14 @@ class StructureController extends Controller
             fn (BinaryNode $node) => $this->decorateNodeWithRootBranch($node, $rootSegments, $rootChildren, $rootDepth)
         );
 
-        $directInvitedUsers = User::query()
-            ->with(['profile', 'currentPackage', 'binaryNode'])
-            ->where('sponsor_id', $user->id)
-            ->whereNotIn('id', $descendantNodes->pluck('user_id')->all())
-            ->orderBy('id')
-            ->get();
-
-        $partnerRows = $this->partnerRows($descendantNodes, $directInvitedUsers);
-        $paginator = $this->paginateRows($partnerRows, $request);
+        $partnerRows = $this->partnerRows($descendantNodes);
+        $filteredPartnerRows = $this->filterPartnerRows($partnerRows, $request);
+        $paginator = $this->paginateRows($filteredPartnerRows, $request);
         $branchCounts = $this->branchCounts($descendantNodes);
         $leftPv = (float) ($user->left_pv ?? 0);
         $rightPv = (float) ($user->right_pv ?? 0);
         $summary = [
-            'total_partners' => $partnerRows->count(),
+            'total_partners' => $descendantNodes->filter(fn (BinaryNode $node): bool => $node->user !== null)->count(),
             'direct_invited' => User::query()->where('sponsor_id', $user->id)->count(),
             'left_count' => $branchCounts['left'],
             'right_count' => $branchCounts['right'],
@@ -65,6 +61,10 @@ class StructureController extends Controller
 
         return response()->json([
             'summary' => $summary,
+            'referral_links' => [
+                'left' => $this->referralLink($request, $user, 'left'),
+                'right' => $this->referralLink($request, $user, 'right'),
+            ],
             'structure' => [
                 'root_user_id' => $user->id,
                 'referral_code' => $user->login ?: (string) $user->id,
@@ -112,22 +112,51 @@ class StructureController extends Controller
 
     /**
      * @param  Collection<int, BinaryNode>  $descendantNodes
-     * @param  Collection<int, User>  $directInvitedUsers
      * @return Collection<int, array<string, mixed>>
      */
-    private function partnerRows(Collection $descendantNodes, Collection $directInvitedUsers): Collection
+    private function partnerRows(Collection $descendantNodes): Collection
     {
-        $binaryRows = $descendantNodes
+        return $descendantNodes
             ->filter(fn (BinaryNode $node): bool => $node->user !== null)
-            ->map(fn (BinaryNode $node): array => $this->partnerRow($node->user, $node));
-
-        $directRows = $directInvitedUsers
-            ->map(fn (User $user): array => $this->partnerRow($user, $user->binaryNode));
-
-        return collect($binaryRows->values()->all())
-            ->merge($directRows->values()->all())
+            ->map(fn (BinaryNode $node): array => $this->partnerRow($node->user, $node))
             ->unique('id')
             ->values();
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function filterPartnerRows(Collection $rows, Request $request): Collection
+    {
+        $branch = strtolower((string) $request->query('branch', 'all'));
+        $search = trim((string) $request->query('search', $request->query('q', '')));
+
+        if (in_array($branch, ['left', 'right'], true)) {
+            $rows = $rows->filter(fn (array $row): bool => ($row['branch'] ?? null) === $branch);
+        }
+
+        if ($search !== '') {
+            $needle = mb_strtolower($search);
+            $needleDigits = preg_replace('/\D+/', '', $search) ?? '';
+
+            $rows = $rows->filter(function (array $row) use ($needle, $needleDigits): bool {
+                $phoneDigits = preg_replace('/\D+/', '', (string) ($row['phone'] ?? '')) ?? '';
+                $haystack = mb_strtolower(implode(' ', array_filter([
+                    $row['id'] ?? null,
+                    $row['name'] ?? null,
+                    $row['login'] ?? null,
+                    $row['email'] ?? null,
+                    $row['phone'] ?? null,
+                    $phoneDigits,
+                ], fn (mixed $value): bool => $value !== null && $value !== '')));
+
+                return str_contains($haystack, $needle)
+                    || ($needleDigits !== '' && str_contains($phoneDigits, $needleDigits));
+            });
+        }
+
+        return $rows->values();
     }
 
     /**
@@ -151,6 +180,7 @@ class StructureController extends Controller
             'position' => $branch,
             'line' => max($line, 1),
             'level' => max($line, 1),
+            'depth' => max($line, 1),
             'package' => $package ? [
                 'id' => $package->id,
                 'code' => $package->code,
@@ -164,6 +194,7 @@ class StructureController extends Controller
             'team_pv' => $leftPv + $rightPv,
             'left_pv' => $partner->left_pv,
             'right_pv' => $partner->right_pv,
+            'registered_at' => $partner->created_at?->toISOString(),
             'created_at' => $partner->created_at?->toISOString(),
         ];
     }
@@ -255,5 +286,12 @@ class StructureController extends Controller
             'R', 'RIGHT' => 'right',
             default => null,
         };
+    }
+
+    private function referralLink(Request $request, User $user, string $branch): string
+    {
+        $code = $user->login ?: (string) $user->id;
+
+        return $request->getSchemeAndHttpHost().'/register-ref-branch?ref='.urlencode($code).'&branch='.$branch;
     }
 }

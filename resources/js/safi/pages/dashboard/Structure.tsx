@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Copy, Filter, Search, Users } from 'lucide-react';
 import { Badge, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
@@ -9,6 +9,8 @@ import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/syst
 export default function Structure() {
   const { currentUser } = useDashboardContext();
   const [query, setQuery] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [branchFilter, setBranchFilter] = useState<'all' | 'left' | 'right'>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [structure, setStructure] = useState({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
@@ -33,11 +35,14 @@ export default function Structure() {
     setError(null);
 
     try {
-      const response = await getDashboardStructure();
+      const response = await getDashboardStructure({
+        ...(searchTerm ? { search: searchTerm } : {}),
+        ...(branchFilter !== 'all' ? { branch: branchFilter } : {}),
+      });
       const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
       const summaryRecord = record.summary && typeof record.summary === 'object' ? record.summary as Record<string, unknown> : {};
       const structureRecord = record.structure && typeof record.structure === 'object' ? record.structure as Record<string, unknown> : summaryRecord;
-      const list = getArray(record, ['partners']).map((item, index) => {
+      const list = getStructurePartners(record).map((item, index) => {
         const node = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const nestedUser = node.user && typeof node.user === 'object' ? node.user as Record<string, unknown> : null;
         const user = nestedUser || node;
@@ -69,7 +74,7 @@ export default function Structure() {
           personalPV,
           teamPV: getNumber(user, ['team_pv', 'teamPV']) ?? leftPV + rightPV,
           activity: accountStatusLabel(getString(user, ['account_status', 'accountStatus']), getString(user, ['account_status_label', 'accountStatusLabel']) || accountStatusLabel('active')),
-          createdAt: formatDate(getString(user, ['created_at', 'createdAt']) || getString(node, ['created_at', 'createdAt'])),
+          createdAt: formatDate(getString(user, ['registered_at', 'registeredAt', 'created_at', 'createdAt']) || getString(node, ['registered_at', 'registeredAt', 'created_at', 'createdAt'])),
         };
       });
       setPartners(list);
@@ -90,30 +95,23 @@ export default function Structure() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [branchFilter, searchTerm]);
 
   useEffect(() => {
     void loadStructure();
   }, [loadStructure]);
 
-  const visiblePartners = useMemo(() => {
-    const normalizedQuery = query.toLowerCase().trim();
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setSearchTerm(query.trim());
+    }, query.trim() ? 400 : 0);
 
-    if (!normalizedQuery) {
-      return partners;
-    }
-
-    return partners.filter((partner) => [
-      partner.id,
-      partner.name,
-      partner.login,
-      partner.email,
-      partner.phone,
-      partner.branch,
-    ].join(' ').toLowerCase().includes(normalizedQuery));
+    return () => window.clearTimeout(timeout);
   }, [query]);
 
-  const hasStructureListMismatch = structure.totalPartners > 0 && partners.length === 0;
+  const visiblePartners = partners;
+  const hasActiveListFilter = searchTerm !== '' || query.trim() !== '' || branchFilter !== 'all';
+  const hasStructureListMismatch = structure.totalPartners > 0 && partners.length === 0 && !hasActiveListFilter;
 
   return (
     <div className="space-y-8">
@@ -178,7 +176,7 @@ export default function Structure() {
         <div className="border-b border-safi-border p-6 md:p-7">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <h2 className="font-serif text-3xl font-semibold text-safi-green">Список партнеров</h2>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 md:flex-row">
               <label className="relative min-w-0 flex-1 md:w-80 md:flex-none">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-safi-muted" />
                 <input
@@ -188,9 +186,19 @@ export default function Structure() {
                   className="w-full rounded-full border border-safi-border bg-safi-cream py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
                 />
               </label>
-              <button type="button" className="flex h-12 w-12 items-center justify-center rounded-full border border-safi-border bg-safi-cream text-safi-green">
-                <Filter className="h-4 w-4" />
-              </button>
+              <label className="relative md:w-48">
+                <Filter className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-safi-muted" />
+                <select
+                  value={branchFilter}
+                  onChange={(event) => setBranchFilter(event.target.value as 'all' | 'left' | 'right')}
+                  className="h-12 w-full cursor-pointer rounded-full border border-safi-border bg-safi-cream py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
+                  aria-label="Фильтр ветки"
+                >
+                  <option value="all">Все ветки</option>
+                  <option value="left">Левая ветка</option>
+                  <option value="right">Правая ветка</option>
+                </select>
+              </label>
             </div>
           </div>
         </div>
@@ -211,8 +219,8 @@ export default function Structure() {
                 <tr>
                   <td colSpan={5} className="px-7 py-8">
                     <EmptyState
-                      title="Партнеров пока нет"
-                      description="Приглашенные партнеры появятся в структуре после регистрации."
+                      title={structure.totalPartners > 0 ? 'Партнёры не найдены' : 'Партнёров пока нет'}
+                      description={structure.totalPartners > 0 ? 'Попробуйте изменить поиск или фильтр ветки.' : 'Партнёры появятся в списке после добавления в бинарную структуру.'}
                       className="min-h-[180px] shadow-none"
                     />
                   </td>
@@ -223,7 +231,7 @@ export default function Structure() {
                 <tr>
                   <td colSpan={5} className="px-7 py-8">
                     <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm font-bold text-amber-800">
-                      Есть партнёры в структуре, но список не загружен. Обновите страницу.
+                      Не удалось загрузить список структуры
                     </div>
                   </td>
                 </tr>
@@ -278,6 +286,20 @@ function branchLabel(branch?: string) {
   }
 
   return 'Не указана';
+}
+
+function getStructurePartners(record: Record<string, unknown>) {
+  const partners = record.partners;
+
+  if (Array.isArray(partners)) {
+    return partners;
+  }
+
+  if (partners && typeof partners === 'object') {
+    return getArray(partners);
+  }
+
+  return getArray(record, ['partners', 'downline', 'structure_partners']);
 }
 
 function formatDate(value?: string) {

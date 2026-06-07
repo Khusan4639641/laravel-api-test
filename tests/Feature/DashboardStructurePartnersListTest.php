@@ -16,21 +16,18 @@ class DashboardStructurePartnersListTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_dashboard_structure_returns_partners_list_when_user_has_direct_invited_partner(): void
+    public function test_user_dashboard_structure_keeps_direct_invited_separate_from_binary_downline(): void
     {
         $root = $this->partner('Root User', 'root_user');
-        $direct = $this->partner('Direct Invited', 'direct_invited', $root);
+        $this->partner('Direct Invited', 'direct_invited', $root);
 
         Sanctum::actingAs($root);
 
         $this->getJson('/api/dashboard/structure')
             ->assertOk()
-            ->assertJsonPath('summary.total_partners', 1)
+            ->assertJsonPath('summary.total_partners', 0)
             ->assertJsonPath('summary.direct_invited', 1)
-            ->assertJsonCount(1, 'partners')
-            ->assertJsonPath('partners.0.id', $direct->id)
-            ->assertJsonPath('partners.0.login', 'direct_invited')
-            ->assertJsonPath('partners.0.email', 'direct_invited@safilife.test');
+            ->assertJsonCount(0, 'partners');
     }
 
     public function test_user_dashboard_structure_returns_downline_partners(): void
@@ -134,7 +131,7 @@ class DashboardStructurePartnersListTest extends TestCase
         $this->assertStringContainsString("partner.login", $contents);
         $this->assertStringContainsString("partner.email", $contents);
         $this->assertStringContainsString("partner.phone", $contents);
-        $this->assertStringContainsString('Есть партнёры в структуре, но список не загружен', $contents);
+        $this->assertStringContainsString('Не удалось загрузить список структуры', $contents);
     }
 
     private function partner(string $name, string $login, ?User $sponsor = null): User
