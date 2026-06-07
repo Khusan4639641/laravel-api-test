@@ -12,7 +12,21 @@ export default function Structure() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [structure, setStructure] = useState({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
-  const [partners, setPartners] = useState<Array<{ name: string; id: string; line: number; branch: string; package: string; status: string; personalPV: number; teamPV: number; activity: string }>>([]);
+  const [partners, setPartners] = useState<Array<{
+    name: string;
+    id: string;
+    login: string;
+    email: string;
+    phone: string;
+    line: number;
+    branch: string;
+    package: string;
+    status: string;
+    personalPV: number;
+    teamPV: number;
+    activity: string;
+    createdAt: string;
+  }>>([]);
 
   const loadStructure = useCallback(async () => {
     setIsLoading(true);
@@ -21,35 +35,48 @@ export default function Structure() {
     try {
       const response = await getDashboardStructure();
       const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
-      const structureRecord = record.structure && typeof record.structure === 'object' ? record.structure as Record<string, unknown> : {};
+      const summaryRecord = record.summary && typeof record.summary === 'object' ? record.summary as Record<string, unknown> : {};
+      const structureRecord = record.structure && typeof record.structure === 'object' ? record.structure as Record<string, unknown> : summaryRecord;
       const list = getArray(record, ['partners']).map((item, index) => {
         const node = item && typeof item === 'object' ? item as Record<string, unknown> : {};
-        const user = node.user && typeof node.user === 'object' ? node.user as Record<string, unknown> : {};
-        const pkg = user.current_package && typeof user.current_package === 'object' ? user.current_package as Record<string, unknown> : {};
-        const branch = getString(node, ['branch', 'position']) === 'R' ? 'Правая' : 'Левая';
-        const personalPV = getNumber(user, ['package_activity_pv', 'packageActivityPv'])
-          ?? getNumber(pkg, ['activity_pv', 'activityPv', 'pv'])
+        const nestedUser = node.user && typeof node.user === 'object' ? node.user as Record<string, unknown> : null;
+        const user = nestedUser || node;
+        const packageRecord = user.package && typeof user.package === 'object'
+          ? user.package as Record<string, unknown>
+          : user.current_package && typeof user.current_package === 'object'
+            ? user.current_package as Record<string, unknown>
+            : node.package && typeof node.package === 'object'
+              ? node.package as Record<string, unknown>
+              : {};
+        const branch = branchLabel(getString(node, ['branch', 'position']) || getString(user, ['branch', 'position']));
+        const personalPV = getNumber(user, ['personal_pv', 'personalPV', 'package_activity_pv', 'packageActivityPv'])
+          ?? getNumber(packageRecord, ['activity_pv', 'activityPv', 'pv'])
           ?? 0;
         const leftPV = getNumber(user, ['left_pv']) ?? 0;
         const rightPV = getNumber(user, ['right_pv']) ?? 0;
+        const id = getString(user, ['id']) || getString(node, ['user_id', 'userId']) || String(index + 1);
 
         return {
           name: getString(user, ['name']) || `Partner ${index + 1}`,
-          id: getString(user, ['id', 'login']) || String(index + 1),
-          line: getNumber(node, ['level', 'depth']) ?? 0,
+          id,
+          login: getString(user, ['login']) || '',
+          email: getString(user, ['email']) || '',
+          phone: getString(user, ['phone']) || '',
+          line: getNumber(node, ['line', 'level', 'depth']) ?? getNumber(user, ['line', 'level', 'depth']) ?? 0,
           branch,
-          package: packageLabel(getString(pkg, ['code', 'slug', 'id']), getString(pkg, ['code_label', 'codeLabel', 'label', 'name']) || '-'),
+          package: packageLabel(getString(packageRecord, ['code', 'slug', 'id']), getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name']) || '-'),
           status: mlmStatusLabel(getString(user, ['status']), getString(user, ['status_label', 'statusLabel']) || '-'),
           personalPV,
-          teamPV: leftPV + rightPV,
+          teamPV: getNumber(user, ['team_pv', 'teamPV']) ?? leftPV + rightPV,
           activity: accountStatusLabel(getString(user, ['account_status', 'accountStatus']), getString(user, ['account_status_label', 'accountStatusLabel']) || accountStatusLabel('active')),
+          createdAt: formatDate(getString(user, ['created_at', 'createdAt']) || getString(node, ['created_at', 'createdAt'])),
         };
       });
       setPartners(list);
       setStructure({
         totalPartners: getNumber(structureRecord, ['total_partners']) ?? list.length,
-        leftPartners: getNumber(structureRecord, ['left_partners']) ?? list.filter((partner) => partner.branch === 'Левая').length,
-        rightPartners: getNumber(structureRecord, ['right_partners']) ?? list.filter((partner) => partner.branch === 'Правая').length,
+        leftPartners: getNumber(structureRecord, ['left_count', 'left_partners']) ?? list.filter((partner) => partner.branch === 'Левая ветка').length,
+        rightPartners: getNumber(structureRecord, ['right_count', 'right_partners']) ?? list.filter((partner) => partner.branch === 'Правая ветка').length,
         leftPV: getNumber(structureRecord, ['left_pv']) ?? 0,
         rightPV: getNumber(structureRecord, ['right_pv']) ?? 0,
         weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv'])
@@ -76,8 +103,17 @@ export default function Structure() {
       return partners;
     }
 
-    return partners.filter((partner) => `${partner.name} ${partner.id} ${partner.branch}`.toLowerCase().includes(normalizedQuery));
+    return partners.filter((partner) => [
+      partner.id,
+      partner.name,
+      partner.login,
+      partner.email,
+      partner.phone,
+      partner.branch,
+    ].join(' ').toLowerCase().includes(normalizedQuery));
   }, [query]);
+
+  const hasStructureListMismatch = structure.totalPartners > 0 && partners.length === 0;
 
   return (
     <div className="space-y-8">
@@ -148,7 +184,7 @@ export default function Structure() {
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Поиск по имени или ID"
+                  placeholder="Поиск по ID, имени, login, email или телефону"
                   className="w-full rounded-full border border-safi-border bg-safi-cream py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
                 />
               </label>
@@ -171,7 +207,7 @@ export default function Structure() {
               </tr>
             </thead>
             <tbody className="divide-y divide-safi-border text-sm">
-              {visiblePartners.length === 0 && (
+              {visiblePartners.length === 0 && !hasStructureListMismatch && (
                 <tr>
                   <td colSpan={5} className="px-7 py-8">
                     <EmptyState
@@ -183,15 +219,28 @@ export default function Structure() {
                 </tr>
               )}
 
+              {hasStructureListMismatch && (
+                <tr>
+                  <td colSpan={5} className="px-7 py-8">
+                    <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm font-bold text-amber-800">
+                      Есть партнёры в структуре, но список не загружен. Обновите страницу.
+                    </div>
+                  </td>
+                </tr>
+              )}
+
               {visiblePartners.map((partner) => (
                 <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
                   <td className="px-7 py-5">
                     <div className="font-extrabold text-safi-green">{partner.name}</div>
-                    <div className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{partner.id}</div>
+                    <div className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">ID: {partner.id}</div>
+                    {partner.login && <div className="mt-1 text-xs font-bold text-safi-muted">login: {partner.login}</div>}
+                    {partner.email && <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>}
+                    {partner.phone && <div className="mt-1 text-xs text-safi-muted">{partner.phone}</div>}
                   </td>
                   <td className="px-7 py-5">
                     <div className="font-bold text-safi-green">{partner.branch}</div>
-                    <div className="mt-1 text-xs text-safi-muted">{partner.line} линия</div>
+                    <div className="mt-1 text-xs text-safi-muted">Линия: {partner.line}</div>
                   </td>
                   <td className="px-7 py-5">
                     <div className="font-bold text-safi-green">{partner.package}</div>
@@ -203,6 +252,7 @@ export default function Structure() {
                   </td>
                   <td className="px-7 py-5 text-center">
                     <Badge variant={partner.activity === 'Активен' ? 'success' : 'default'}>{partner.activity}</Badge>
+                    {partner.createdAt && <div className="mt-2 text-xs text-safi-muted">{partner.createdAt}</div>}
                   </td>
                 </tr>
               ))}
@@ -214,6 +264,34 @@ export default function Structure() {
       )}
     </div>
   );
+}
+
+function branchLabel(branch?: string) {
+  const normalized = String(branch || '').toLowerCase();
+
+  if (['r', 'right', 'правая'].includes(normalized)) {
+    return 'Правая ветка';
+  }
+
+  if (['l', 'left', 'левая'].includes(normalized)) {
+    return 'Левая ветка';
+  }
+
+  return 'Не указана';
+}
+
+function formatDate(value?: string) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('ru-RU');
 }
 
 function BranchCard({ title, partners, pv, weak }: { title: string; partners: number; pv: number; weak: boolean }) {

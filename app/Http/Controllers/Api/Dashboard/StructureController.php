@@ -4,10 +4,12 @@ namespace App\Http\Controllers\Api\Dashboard;
 
 use App\Http\Controllers\Api\Concerns\RespondsWithPagination;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\BinaryNodeResource;
 use App\Models\BinaryNode;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 class StructureController extends Controller
 {
@@ -15,59 +17,76 @@ class StructureController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
-        $user = $request->user()->load('binaryNode');
-        $rootPath = $user->binaryNode?->path;
-        $rootDepth = $user->binaryNode?->depth ?? 0;
+        $user = $request->user()->load(['binaryNode', 'currentPackage']);
+        $rootNode = $user->binaryNode;
+        $rootPath = $rootNode?->path;
+        $rootDepth = $rootNode?->depth ?? 0;
         $rootSegments = $rootPath ? explode('.', $rootPath) : [];
         $rootChildren = BinaryNode::query()
-            ->where('parent_id', $user->binaryNode?->id)
+            ->where('parent_id', $rootNode?->id)
             ->pluck('position', 'user_id');
 
-        $partners = BinaryNode::query()
+        $descendantNodes = $this->descendantsQuery($rootPath)
             ->with(['user.profile', 'user.currentPackage'])
-            ->when(
-                $rootPath,
-                fn ($query) => $query->where('path', 'like', $rootPath.'.%'),
-                fn ($query) => $query->whereRaw('1 = 0'),
-            )
             ->orderBy('depth')
             ->orderBy('id')
-            ->paginate($this->perPage($request));
-        $partners->getCollection()->transform(function (BinaryNode $node) use ($rootSegments, $rootChildren, $rootDepth) {
-            $this->decorateNodeWithRootBranch($node, $rootSegments, $rootChildren, $rootDepth);
+            ->get();
 
-            return $node;
-        });
+        $descendantNodes->each(
+            fn (BinaryNode $node) => $this->decorateNodeWithRootBranch($node, $rootSegments, $rootChildren, $rootDepth)
+        );
 
-        $branchCounts = ['L' => 0, 'R' => 0];
+        $directInvitedUsers = User::query()
+            ->with(['profile', 'currentPackage', 'binaryNode'])
+            ->where('sponsor_id', $user->id)
+            ->whereNotIn('id', $descendantNodes->pluck('user_id')->all())
+            ->orderBy('id')
+            ->get();
+
+        $partnerRows = $this->partnerRows($descendantNodes, $directInvitedUsers);
+        $paginator = $this->paginateRows($partnerRows, $request);
+        $branchCounts = $this->branchCounts($descendantNodes);
         $leftPv = (float) ($user->left_pv ?? 0);
         $rightPv = (float) ($user->right_pv ?? 0);
+        $summary = [
+            'total_partners' => $partnerRows->count(),
+            'direct_invited' => User::query()->where('sponsor_id', $user->id)->count(),
+            'left_count' => $branchCounts['left'],
+            'right_count' => $branchCounts['right'],
+            'left_partners' => $branchCounts['left'],
+            'right_partners' => $branchCounts['right'],
+            'left_pv' => $user->left_pv,
+            'right_pv' => $user->right_pv,
+            'weak_leg_pv' => min($leftPv, $rightPv),
+            'remaining_left_pv' => $user->remaining_left_pv,
+            'remaining_right_pv' => $user->remaining_right_pv,
+            'weak_leg' => $leftPv <= $rightPv ? 'left' : 'right',
+        ];
 
-        $this->descendantsQuery($rootPath)
-            ->select(['id', 'user_id', 'depth', 'path'])
-            ->get()
-            ->each(function (BinaryNode $node) use (&$branchCounts, $rootSegments, $rootChildren, $rootDepth) {
-                $this->decorateNodeWithRootBranch($node, $rootSegments, $rootChildren, $rootDepth);
-                $branch = $node->getAttribute('root_branch');
-
-                if (isset($branchCounts[$branch])) {
-                    $branchCounts[$branch]++;
-                }
-            });
-
-        return $this->paginated($partners, BinaryNodeResource::class, 'partners', $request, [
+        return response()->json([
+            'summary' => $summary,
             'structure' => [
                 'root_user_id' => $user->id,
                 'referral_code' => $user->login ?: (string) $user->id,
-                'left_pv' => $user->left_pv,
-                'right_pv' => $user->right_pv,
-                'weak_leg_pv' => min($leftPv, $rightPv),
-                'remaining_left_pv' => $user->remaining_left_pv,
-                'remaining_right_pv' => $user->remaining_right_pv,
-                'weak_leg' => $leftPv <= $rightPv ? 'left' : 'right',
-                'total_partners' => $partners->total(),
-                'left_partners' => $branchCounts['L'],
-                'right_partners' => $branchCounts['R'],
+                ...$summary,
+            ],
+            'tree' => $this->tree($user, $rootNode, $descendantNodes, $rootDepth),
+            'partners' => $paginator->items(),
+            'data' => $paginator->items(),
+            'links' => [
+                'first' => $paginator->url(1),
+                'last' => $paginator->url($paginator->lastPage()),
+                'prev' => $paginator->previousPageUrl(),
+                'next' => $paginator->nextPageUrl(),
+            ],
+            'meta' => [
+                'current_page' => $paginator->currentPage(),
+                'from' => $paginator->firstItem(),
+                'last_page' => $paginator->lastPage(),
+                'path' => $paginator->path(),
+                'per_page' => $paginator->perPage(),
+                'to' => $paginator->lastItem(),
+                'total' => $paginator->total(),
             ],
         ]);
     }
@@ -81,12 +100,160 @@ class StructureController extends Controller
         );
     }
 
-    private function decorateNodeWithRootBranch(BinaryNode $node, array $rootSegments, $rootChildren, int $rootDepth): void
+    private function decorateNodeWithRootBranch(BinaryNode $node, array $rootSegments, Collection $rootChildren, int $rootDepth): void
     {
         $segments = $node->path ? explode('.', $node->path) : [];
         $rootChildUserId = $segments[count($rootSegments)] ?? null;
+        $position = $rootChildren->get((int) $rootChildUserId, $node->position);
 
-        $node->setAttribute('root_branch', $rootChildren->get((int) $rootChildUserId, $node->position));
+        $node->setAttribute('root_branch', $this->branchCode($position));
         $node->setAttribute('relative_level', max(($node->depth ?? 0) - $rootDepth, 0));
+    }
+
+    /**
+     * @param  Collection<int, BinaryNode>  $descendantNodes
+     * @param  Collection<int, User>  $directInvitedUsers
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function partnerRows(Collection $descendantNodes, Collection $directInvitedUsers): Collection
+    {
+        $binaryRows = $descendantNodes
+            ->filter(fn (BinaryNode $node): bool => $node->user !== null)
+            ->map(fn (BinaryNode $node): array => $this->partnerRow($node->user, $node));
+
+        $directRows = $directInvitedUsers
+            ->map(fn (User $user): array => $this->partnerRow($user, $user->binaryNode));
+
+        return collect($binaryRows->values()->all())
+            ->merge($directRows->values()->all())
+            ->unique('id')
+            ->values();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function partnerRow(User $partner, ?BinaryNode $node): array
+    {
+        $package = $partner->currentPackage;
+        $leftPv = (float) ($partner->left_pv ?? 0);
+        $rightPv = (float) ($partner->right_pv ?? 0);
+        $line = (int) ($node?->getAttribute('relative_level') ?? $node?->depth ?? 1);
+        $branch = $this->branchCode($node?->getAttribute('root_branch') ?? $node?->position);
+
+        return [
+            'id' => $partner->id,
+            'name' => $partner->name,
+            'login' => $partner->login,
+            'email' => $partner->email,
+            'phone' => $partner->profile?->phone,
+            'branch' => $branch,
+            'position' => $branch,
+            'line' => max($line, 1),
+            'level' => max($line, 1),
+            'package' => $package ? [
+                'id' => $package->id,
+                'code' => $package->code,
+                'name' => $package->name,
+            ] : null,
+            'status' => $partner->status,
+            'status_label' => \App\Support\SystemLabel::mlmStatus($partner->status),
+            'account_status' => $partner->account_status,
+            'account_status_label' => \App\Support\SystemLabel::accountStatus($partner->account_status),
+            'personal_pv' => $package ? (float) $package->activityPv() : 0,
+            'team_pv' => $leftPv + $rightPv,
+            'left_pv' => $partner->left_pv,
+            'right_pv' => $partner->right_pv,
+            'created_at' => $partner->created_at?->toISOString(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, BinaryNode>  $descendantNodes
+     * @return array{left: int, right: int}
+     */
+    private function branchCounts(Collection $descendantNodes): array
+    {
+        return [
+            'left' => $descendantNodes->where('root_branch', 'left')->count(),
+            'right' => $descendantNodes->where('root_branch', 'right')->count(),
+        ];
+    }
+
+    /**
+     * @param  Collection<int, array<string, mixed>>  $rows
+     */
+    private function paginateRows(Collection $rows, Request $request): LengthAwarePaginator
+    {
+        $perPage = min(max($request->integer('per_page', 100), 1), 500);
+        $page = max($request->integer('page', 1), 1);
+
+        return new LengthAwarePaginator(
+            $rows->forPage($page, $perPage)->values()->all(),
+            $rows->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ],
+        );
+    }
+
+    /**
+     * @param  Collection<int, BinaryNode>  $nodes
+     * @return array<string, mixed>
+     */
+    private function tree(User $rootUser, ?BinaryNode $rootNode, Collection $nodes, int $rootDepth): array
+    {
+        if (! $rootNode) {
+            return [
+                'id' => $rootUser->id,
+                'name' => $rootUser->name,
+                'login' => $rootUser->login,
+                'line' => 0,
+                'branch' => null,
+                'children' => [
+                    'left' => null,
+                    'right' => null,
+                ],
+            ];
+        }
+
+        return $this->treeNode($rootNode, $nodes->prepend($rootNode), $rootDepth);
+    }
+
+    /**
+     * @param  Collection<int, BinaryNode>  $nodes
+     * @return array<string, mixed>
+     */
+    private function treeNode(BinaryNode $node, Collection $nodes, int $rootDepth): array
+    {
+        $node->loadMissing(['user.currentPackage']);
+        $left = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'L');
+        $right = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'R');
+        $line = max(($node->depth ?? 0) - $rootDepth, 0);
+
+        return [
+            'id' => $node->user?->id,
+            'name' => $node->user?->name,
+            'login' => $node->user?->login,
+            'line' => $line,
+            'branch' => $this->branchCode($node->getAttribute('root_branch') ?? $node->position),
+            'package' => $node->user?->currentPackage?->code,
+            'children' => [
+                'left' => $left ? $this->treeNode($left, $nodes, $rootDepth) : null,
+                'right' => $right ? $this->treeNode($right, $nodes, $rootDepth) : null,
+            ],
+        ];
+    }
+
+    private function branchCode(mixed $position): ?string
+    {
+        return match (strtoupper((string) $position)) {
+            'L', 'LEFT' => 'left',
+            'R', 'RIGHT' => 'right',
+            default => null,
+        };
     }
 }
