@@ -27,7 +27,7 @@ class DashboardStructurePartnersListTest extends TestCase
             ->assertOk()
             ->assertJsonPath('summary.total_partners', 0)
             ->assertJsonPath('summary.direct_invited', 1)
-            ->assertJsonCount(0, 'partners');
+            ->assertJsonCount(0, 'partners.data');
     }
 
     public function test_user_dashboard_structure_returns_downline_partners(): void
@@ -50,7 +50,7 @@ class DashboardStructurePartnersListTest extends TestCase
             ->assertJsonPath('summary.total_partners', 3)
             ->assertJsonPath('summary.left_count', 2)
             ->assertJsonPath('summary.right_count', 1)
-            ->json('partners'));
+            ->json('partners.data'));
 
         $expectedIds = [$left->id, $right->id, $leftChild->id];
         $actualIds = $partners->pluck('id')->all();
@@ -78,8 +78,8 @@ class DashboardStructurePartnersListTest extends TestCase
         $response = $this->getJson('/api/dashboard/structure')->assertOk();
 
         $this->assertSame(4, $response->json('summary.total_partners'));
-        $this->assertCount(4, $response->json('partners'));
-        $this->assertGreaterThanOrEqual(count($response->json('partners')), $response->json('summary.total_partners'));
+        $this->assertCount(4, $response->json('partners.data'));
+        $this->assertGreaterThanOrEqual(count($response->json('partners.data')), $response->json('summary.total_partners'));
     }
 
     public function test_user_cannot_see_another_user_structure(): void
@@ -97,7 +97,7 @@ class DashboardStructurePartnersListTest extends TestCase
 
         Sanctum::actingAs($rootA);
 
-        $ids = collect($this->getJson('/api/dashboard/structure')->assertOk()->json('partners'))->pluck('id');
+        $ids = collect($this->getJson('/api/dashboard/structure')->assertOk()->json('partners.data'))->pluck('id');
 
         $this->assertTrue($ids->contains($partnerA->id));
         $this->assertFalse($ids->contains($partnerB->id));
@@ -119,7 +119,7 @@ class DashboardStructurePartnersListTest extends TestCase
         $this->getJson('/api/dashboard/structure')
             ->assertOk()
             ->assertJsonPath('summary.total_partners', 0)
-            ->assertJsonCount(0, 'partners');
+            ->assertJsonCount(0, 'partners.data');
     }
 
     public function test_dashboard_structure_frontend_filters_by_name_email_id_login_and_phone(): void

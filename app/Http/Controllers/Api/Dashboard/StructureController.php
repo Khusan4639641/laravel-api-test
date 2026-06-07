@@ -41,11 +41,11 @@ class StructureController extends Controller
         $partnerRows = $this->partnerRows($descendantNodes);
         $filteredPartnerRows = $this->filterPartnerRows($partnerRows, $request);
         $paginator = $this->paginateRows($filteredPartnerRows, $request);
-        $branchCounts = $this->branchCounts($descendantNodes);
+        $branchCounts = $this->branchCounts($partnerRows);
         $leftPv = (float) ($user->left_pv ?? 0);
         $rightPv = (float) ($user->right_pv ?? 0);
         $summary = [
-            'total_partners' => $descendantNodes->filter(fn (BinaryNode $node): bool => $node->user !== null)->count(),
+            'total_partners' => $partnerRows->count(),
             'direct_invited' => User::query()->where('sponsor_id', $user->id)->count(),
             'left_count' => $branchCounts['left'],
             'right_count' => $branchCounts['right'],
@@ -59,19 +59,7 @@ class StructureController extends Controller
             'weak_leg' => $leftPv <= $rightPv ? 'left' : 'right',
         ];
 
-        return response()->json([
-            'summary' => $summary,
-            'referral_links' => [
-                'left' => $this->referralLink($request, $user, 'left'),
-                'right' => $this->referralLink($request, $user, 'right'),
-            ],
-            'structure' => [
-                'root_user_id' => $user->id,
-                'referral_code' => $user->login ?: (string) $user->id,
-                ...$summary,
-            ],
-            'tree' => $this->tree($user, $rootNode, $descendantNodes, $rootDepth),
-            'partners' => $paginator->items(),
+        $partnersPayload = [
             'data' => $paginator->items(),
             'links' => [
                 'first' => $paginator->url(1),
@@ -88,6 +76,24 @@ class StructureController extends Controller
                 'to' => $paginator->lastItem(),
                 'total' => $paginator->total(),
             ],
+        ];
+
+        return response()->json([
+            'summary' => $summary,
+            'referral_links' => [
+                'left' => $this->referralLink($request, $user, 'left'),
+                'right' => $this->referralLink($request, $user, 'right'),
+            ],
+            'structure' => [
+                'root_user_id' => $user->id,
+                'referral_code' => $user->login ?: (string) $user->id,
+                ...$summary,
+            ],
+            'tree' => $this->tree($user, $rootNode, $descendantNodes, $rootDepth),
+            'partners' => $partnersPayload,
+            'data' => $partnersPayload['data'],
+            'links' => $partnersPayload['links'],
+            'meta' => $partnersPayload['meta'],
         ]);
     }
 
@@ -117,7 +123,7 @@ class StructureController extends Controller
     private function partnerRows(Collection $descendantNodes): Collection
     {
         return $descendantNodes
-            ->filter(fn (BinaryNode $node): bool => $node->user !== null)
+            ->filter(fn (BinaryNode $node): bool => $node->user !== null && $node->user->role === User::ROLE_USER)
             ->map(fn (BinaryNode $node): array => $this->partnerRow($node->user, $node))
             ->unique('id')
             ->values();
@@ -139,9 +145,12 @@ class StructureController extends Controller
         if ($search !== '') {
             $needle = mb_strtolower($search);
             $needleDigits = preg_replace('/\D+/', '', $search) ?? '';
+            $isPhoneLikeSearch = $needleDigits !== '' && preg_match('/^[\d\s()+-]+$/', $search) === 1;
 
-            $rows = $rows->filter(function (array $row) use ($needle, $needleDigits): bool {
+            $rows = $rows->filter(function (array $row) use ($needle, $needleDigits, $isPhoneLikeSearch): bool {
                 $phoneDigits = preg_replace('/\D+/', '', (string) ($row['phone'] ?? '')) ?? '';
+                $package = is_array($row['package'] ?? null) ? $row['package'] : [];
+                $branch = (string) ($row['branch'] ?? '');
                 $haystack = mb_strtolower(implode(' ', array_filter([
                     $row['id'] ?? null,
                     $row['name'] ?? null,
@@ -149,10 +158,30 @@ class StructureController extends Controller
                     $row['email'] ?? null,
                     $row['phone'] ?? null,
                     $phoneDigits,
+                    $branch,
+                    $this->branchLabel($branch),
+                    $row['line'] ?? null,
+                    $row['depth'] ?? null,
+                    $package['id'] ?? null,
+                    $package['code'] ?? null,
+                    $package['name'] ?? null,
+                    $row['package_code'] ?? null,
+                    $row['package_label'] ?? null,
+                    $this->packageSearchAliases((string) ($row['package_code'] ?? ($package['code'] ?? ''))),
+                    $row['status'] ?? null,
+                    $row['status_label'] ?? null,
+                    $this->statusSearchAliases((string) ($row['status'] ?? '')),
+                    $row['personal_pv'] ?? null,
+                    $row['team_pv'] ?? null,
+                    $row['account_status'] ?? null,
+                    $row['account_status_label'] ?? null,
+                    $this->accountStatusSearchAliases((string) ($row['account_status'] ?? '')),
+                    $row['registered_at'] ?? null,
+                    $row['registered_date'] ?? null,
                 ], fn (mixed $value): bool => $value !== null && $value !== '')));
 
                 return str_contains($haystack, $needle)
-                    || ($needleDigits !== '' && str_contains($phoneDigits, $needleDigits));
+                    || ($isPhoneLikeSearch && str_contains($phoneDigits, $needleDigits));
             });
         }
 
@@ -186,6 +215,8 @@ class StructureController extends Controller
                 'code' => $package->code,
                 'name' => $package->name,
             ] : null,
+            'package_code' => $package?->code,
+            'package_label' => \App\Support\SystemLabel::package($package?->code, $package?->name),
             'status' => $partner->status,
             'status_label' => \App\Support\SystemLabel::mlmStatus($partner->status),
             'account_status' => $partner->account_status,
@@ -194,20 +225,21 @@ class StructureController extends Controller
             'team_pv' => $leftPv + $rightPv,
             'left_pv' => $partner->left_pv,
             'right_pv' => $partner->right_pv,
-            'registered_at' => $partner->created_at?->toISOString(),
+            'registered_at' => $partner->created_at?->toDateString(),
+            'registered_date' => $partner->created_at?->toDateString(),
             'created_at' => $partner->created_at?->toISOString(),
         ];
     }
 
     /**
-     * @param  Collection<int, BinaryNode>  $descendantNodes
+     * @param  Collection<int, array<string, mixed>>  $rows
      * @return array{left: int, right: int}
      */
-    private function branchCounts(Collection $descendantNodes): array
+    private function branchCounts(Collection $rows): array
     {
         return [
-            'left' => $descendantNodes->where('root_branch', 'left')->count(),
-            'right' => $descendantNodes->where('root_branch', 'right')->count(),
+            'left' => $rows->where('branch', 'left')->count(),
+            'right' => $rows->where('branch', 'right')->count(),
         ];
     }
 
@@ -216,7 +248,7 @@ class StructureController extends Controller
      */
     private function paginateRows(Collection $rows, Request $request): LengthAwarePaginator
     {
-        $perPage = min(max($request->integer('per_page', 100), 1), 500);
+        $perPage = min(max($request->integer('per_page', 10), 1), 100);
         $page = max($request->integer('page', 1), 1);
 
         return new LengthAwarePaginator(
@@ -285,6 +317,52 @@ class StructureController extends Controller
             'L', 'LEFT' => 'left',
             'R', 'RIGHT' => 'right',
             default => null,
+        };
+    }
+
+    private function branchLabel(string $branch): string
+    {
+        return match ($branch) {
+            'left' => 'Левая ветка',
+            'right' => 'Правая ветка',
+            default => '',
+        };
+    }
+
+    private function packageSearchAliases(string $code): string
+    {
+        return match (strtoupper($code)) {
+            'START' => 'START Start Старт',
+            'VIP' => 'VIP ВИП',
+            'ELITE' => 'ELITE Elite Элит Элита',
+            default => '',
+        };
+    }
+
+    private function statusSearchAliases(string $status): string
+    {
+        return match (strtolower($status)) {
+            'user' => 'USER user Partner Партнёр Партнер',
+            'manager' => 'MANAGER manager Менеджер',
+            'leader' => 'LEADER leader Лидер',
+            'director' => 'DIRECTOR director Директор',
+            'bronze_director' => 'BRONZE_DIRECTOR bronze director Бронзовый директор',
+            'silver_director' => 'SILVER_DIRECTOR silver director Серебряный директор',
+            'gold_director' => 'GOLD_DIRECTOR gold director Золотой директор',
+            'platinum_director' => 'PLATINUM_DIRECTOR platinum director Платиновый директор',
+            'emerald_director' => 'EMERALD_DIRECTOR emerald director Изумрудный директор',
+            'diamond_director' => 'DIAMOND_DIRECTOR diamond director Бриллиантовый директор',
+            default => $status,
+        };
+    }
+
+    private function accountStatusSearchAliases(string $status): string
+    {
+        return match (strtolower($status)) {
+            'active' => 'active Active Активен активен',
+            'inactive' => 'inactive Inactive Неактивно неактивно',
+            'blocked' => 'blocked Blocked Заблокирован заблокирован',
+            default => $status,
         };
     }
 

@@ -6,38 +6,68 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncS
 import { getApiErrorState, getArray, getDashboardStructure, getNumber, getString } from '../../lib/api';
 import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 
+type BranchFilter = 'all' | 'left' | 'right';
+type PaginationItem = number | 'ellipsis';
+
+interface StructurePartnerRow {
+  name: string;
+  id: string;
+  login: string;
+  email: string;
+  phone: string;
+  line: number;
+  branch: string;
+  package: string;
+  status: string;
+  personalPV: number;
+  teamPV: number;
+  activity: string;
+  createdAt: string;
+}
+
+interface PartnersMeta {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number;
+  to: number;
+}
+
+const defaultPartnersMeta: PartnersMeta = {
+  current_page: 1,
+  last_page: 1,
+  per_page: 10,
+  total: 0,
+  from: 0,
+  to: 0,
+};
+const perPageOptions = [10, 25, 50];
+
 export default function Structure() {
   const { currentUser } = useDashboardContext();
   const [query, setQuery] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [branchFilter, setBranchFilter] = useState<'all' | 'left' | 'right'>('all');
+  const [branchFilter, setBranchFilter] = useState<BranchFilter>('all');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPartnersLoading, setIsPartnersLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [structure, setStructure] = useState({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
-  const [partners, setPartners] = useState<Array<{
-    name: string;
-    id: string;
-    login: string;
-    email: string;
-    phone: string;
-    line: number;
-    branch: string;
-    package: string;
-    status: string;
-    personalPV: number;
-    teamPV: number;
-    activity: string;
-    createdAt: string;
-  }>>([]);
+  const [partners, setPartners] = useState<StructurePartnerRow[]>([]);
+  const [partnersMeta, setPartnersMeta] = useState<PartnersMeta>(defaultPartnersMeta);
 
   const loadStructure = useCallback(async () => {
-    setIsLoading(true);
+    setIsPartnersLoading(true);
     setError(null);
 
     try {
       const response = await getDashboardStructure({
         ...(searchTerm ? { search: searchTerm } : {}),
         ...(branchFilter !== 'all' ? { branch: branchFilter } : {}),
+        page,
+        per_page: perPage,
       });
       const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
       const summaryRecord = record.summary && typeof record.summary === 'object' ? record.summary as Record<string, unknown> : {};
@@ -78,6 +108,7 @@ export default function Structure() {
         };
       });
       setPartners(list);
+      setPartnersMeta(getPartnersMeta(record));
       setStructure({
         totalPartners: getNumber(structureRecord, ['total_partners']) ?? list.length,
         leftPartners: getNumber(structureRecord, ['left_count', 'left_partners']) ?? list.filter((partner) => partner.branch === 'Левая ветка').length,
@@ -90,12 +121,14 @@ export default function Structure() {
       });
     } catch (caughtError) {
       setPartners([]);
+      setPartnersMeta(defaultPartnersMeta);
       setStructure({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
       setError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
+      setIsPartnersLoading(false);
     }
-  }, [branchFilter, searchTerm]);
+  }, [branchFilter, page, perPage, searchTerm]);
 
   useEffect(() => {
     void loadStructure();
@@ -103,8 +136,9 @@ export default function Structure() {
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
+      setPage(1);
       setSearchTerm(query.trim());
-    }, query.trim() ? 400 : 0);
+    }, query.trim() ? 300 : 0);
 
     return () => window.clearTimeout(timeout);
   }, [query]);
@@ -112,6 +146,16 @@ export default function Structure() {
   const visiblePartners = partners;
   const hasActiveListFilter = searchTerm !== '' || query.trim() !== '' || branchFilter !== 'all';
   const hasStructureListMismatch = structure.totalPartners > 0 && partners.length === 0 && !hasActiveListFilter;
+  const paginationItems = getPaginationItems(partnersMeta.current_page, partnersMeta.last_page);
+  const canGoPrev = partnersMeta.current_page > 1 && !isPartnersLoading;
+  const canGoNext = partnersMeta.current_page < partnersMeta.last_page && !isPartnersLoading;
+  const changePage = (nextPage: number) => {
+    if (nextPage < 1 || nextPage > partnersMeta.last_page || nextPage === partnersMeta.current_page || isPartnersLoading) {
+      return;
+    }
+
+    setPage(nextPage);
+  };
 
   return (
     <div className="space-y-8">
@@ -190,7 +234,10 @@ export default function Structure() {
                 <Filter className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-safi-muted" />
                 <select
                   value={branchFilter}
-                  onChange={(event) => setBranchFilter(event.target.value as 'all' | 'left' | 'right')}
+                  onChange={(event) => {
+                    setBranchFilter(event.target.value as BranchFilter);
+                    setPage(1);
+                  }}
                   className="h-12 w-full cursor-pointer rounded-full border border-safi-border bg-safi-cream py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
                   aria-label="Фильтр ветки"
                 >
@@ -203,7 +250,12 @@ export default function Structure() {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
+          {isPartnersLoading && !isLoading && (
+            <div className="absolute inset-x-0 top-0 z-10 h-1 overflow-hidden bg-safi-cream">
+              <div className="h-full w-1/3 animate-pulse rounded-full bg-safi-gold" />
+            </div>
+          )}
           <table className="w-full min-w-[860px] text-left">
             <thead className="bg-safi-cream text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
               <tr>
@@ -219,7 +271,7 @@ export default function Structure() {
                 <tr>
                   <td colSpan={5} className="px-7 py-8">
                     <EmptyState
-                      title={structure.totalPartners > 0 ? 'Партнёры не найдены' : 'Партнёров пока нет'}
+                      title={structure.totalPartners > 0 ? 'По вашему запросу партнёры не найдены' : 'Партнёров пока нет'}
                       description={structure.totalPartners > 0 ? 'Попробуйте изменить поиск или фильтр ветки.' : 'Партнёры появятся в списке после добавления в бинарную структуру.'}
                       className="min-h-[180px] shadow-none"
                     />
@@ -267,6 +319,109 @@ export default function Structure() {
             </tbody>
           </table>
         </div>
+
+        <div className="flex flex-col gap-4 border-t border-safi-border bg-white px-5 py-4 md:px-7">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-sm font-bold text-safi-muted">
+              Найдено: <span className="text-safi-green">{partnersMeta.total.toLocaleString('ru-RU')}</span>
+              {partnersMeta.total > 0 && (
+                <span className="ml-2">
+                  {partnersMeta.from}–{partnersMeta.to}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+                Показывать по
+                <select
+                  value={perPage}
+                  onChange={(event) => {
+                    setPerPage(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  disabled={isPartnersLoading}
+                  className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Показывать по"
+                >
+                  {perPageOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="flex w-full items-center justify-between gap-2 sm:w-auto lg:hidden">
+                <button
+                  type="button"
+                  onClick={() => changePage(partnersMeta.current_page - 1)}
+                  disabled={!canGoPrev}
+                  className="rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Назад
+                </button>
+                <div className="text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+                  Страница {partnersMeta.current_page} из {partnersMeta.last_page}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => changePage(partnersMeta.current_page + 1)}
+                  disabled={!canGoNext}
+                  className="rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Вперёд
+                </button>
+              </div>
+
+              <div className="hidden flex-wrap items-center gap-1 lg:flex">
+                <button
+                  type="button"
+                  onClick={() => changePage(partnersMeta.current_page - 1)}
+                  disabled={!canGoPrev}
+                  className="flex h-9 min-w-9 items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-sm font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Назад"
+                >
+                  ‹
+                </button>
+                {paginationItems.map((item, index) => item === 'ellipsis' ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex h-9 min-w-9 items-center justify-center px-2 text-sm font-extrabold text-safi-muted"
+                    aria-hidden="true"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => changePage(item)}
+                    disabled={item === partnersMeta.current_page || isPartnersLoading}
+                    aria-current={item === partnersMeta.current_page ? 'page' : undefined}
+                    className={[
+                      'flex h-9 min-w-9 items-center justify-center rounded-full border px-3 text-xs font-extrabold transition-colors disabled:cursor-default',
+                      item === partnersMeta.current_page
+                        ? 'border-safi-green bg-safi-green text-white shadow-[0_8px_22px_rgba(29,78,54,0.18)]'
+                        : 'border-safi-border bg-safi-cream text-safi-green hover:border-safi-green hover:bg-white disabled:opacity-60',
+                    ].join(' ')}
+                  >
+                    {item}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => changePage(partnersMeta.current_page + 1)}
+                  disabled={!canGoNext}
+                  className="flex h-9 min-w-9 items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-sm font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Вперёд"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
         </>
       )}
@@ -300,6 +455,52 @@ function getStructurePartners(record: Record<string, unknown>) {
   }
 
   return getArray(record, ['partners', 'downline', 'structure_partners']);
+}
+
+function getPartnersMeta(record: Record<string, unknown>): PartnersMeta {
+  const partners = record.partners && typeof record.partners === 'object'
+    ? record.partners as Record<string, unknown>
+    : {};
+  const meta = partners.meta && typeof partners.meta === 'object'
+    ? partners.meta as Record<string, unknown>
+    : record.meta && typeof record.meta === 'object'
+      ? record.meta as Record<string, unknown>
+      : {};
+  const total = getNumber(meta, ['total']) ?? 0;
+  const perPage = getNumber(meta, ['per_page', 'perPage']) ?? 10;
+  const lastPage = getNumber(meta, ['last_page', 'lastPage']) ?? Math.max(1, Math.ceil(total / perPage));
+
+  return {
+    current_page: getNumber(meta, ['current_page', 'currentPage']) ?? 1,
+    last_page: Math.max(1, lastPage),
+    per_page: perPage,
+    total,
+    from: getNumber(meta, ['from']) ?? 0,
+    to: getNumber(meta, ['to']) ?? 0,
+  };
+}
+
+function getPaginationItems(currentPage: number, totalPages: number): PaginationItem[] {
+  const safeTotalPages = Math.max(1, Math.floor(totalPages));
+  const safeCurrentPage = Math.min(Math.max(Math.floor(currentPage), 1), safeTotalPages);
+
+  if (safeTotalPages <= 7) {
+    return pageRange(1, safeTotalPages);
+  }
+
+  if (safeCurrentPage <= 4) {
+    return [...pageRange(1, 5), 'ellipsis', safeTotalPages];
+  }
+
+  if (safeCurrentPage >= safeTotalPages - 3) {
+    return [1, 'ellipsis', ...pageRange(safeTotalPages - 4, safeTotalPages)];
+  }
+
+  return [1, 'ellipsis', safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1, 'ellipsis', safeTotalPages];
+}
+
+function pageRange(start: number, end: number): number[] {
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 function formatDate(value?: string) {
