@@ -21,7 +21,9 @@ class FrontendStatusProgressDisplayTest extends TestCase
 
         $this->assertStringNotContainsString('Общий PV', $overview);
         $this->assertStringContainsString('Личный PV', $packageStatus);
-        $this->assertStringContainsString('Личный PV', $bonuses);
+        $this->assertStringContainsString('label="Прогресс"', $bonuses);
+        $this->assertStringContainsString('currentUser.personalPV', $bonuses);
+        $this->assertStringNotContainsString('label="Личный PV"', $bonuses);
     }
 
     public function test_structure_pages_show_explicit_personal_team_and_weak_leg_pv_labels(): void

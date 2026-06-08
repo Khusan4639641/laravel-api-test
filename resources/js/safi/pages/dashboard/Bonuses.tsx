@@ -240,7 +240,7 @@ export default function Bonuses() {
                 <DetailRow label="Текущий статус" value={currentUser.status} badge />
                 <DetailRow label="Следующий статус" value={nextStatus?.name || currentUser.status} />
                 <DetailRow label="Малая ветка PV" value={`${weakLegPV.toLocaleString('ru-RU')} PV`} highlight />
-                <DetailRow label="Личный PV" value={`${currentUser.personalPV.toLocaleString('ru-RU')} PV`} />
+                <DetailRow label="Прогресс" value={`${currentUser.personalPV.toLocaleString('ru-RU')} PV`} />
               </div>
               <div className="rounded-3xl border border-safi-border bg-safi-cream p-6">
                 <ProgressBar
