@@ -187,81 +187,77 @@ class AdminPartnersApiTest extends TestCase
         $this->assertEquals(13800, $payload['total_balance']);
     }
 
-    public function test_admin_partners_list_start_package_assignment_keeps_balance_zero_without_bonuses(): void
+    public function test_admin_partners_list_start_package_assignment_credits_balance(): void
     {
         $payload = $this->assignPackageAndGetAdminPayload('START');
 
-        $this->assertEquals(0, $payload['wallet_balance']);
+        $this->assertEquals(50000, $payload['wallet_balance']);
         $this->assertEquals(100, $payload['package_activity_pv']);
-        $this->assertEquals(0, $payload['package_activity_amount']);
-        $this->assertEquals(0, $payload['pv_amount']);
-        $this->assertEquals(0, $payload['balance']);
-        $this->assertEquals(0, $payload['available_balance']);
-        $this->assertEquals(0, $payload['total_balance']);
-        $this->assertEquals(0, $payload['total_earned']);
+        $this->assertEquals(50000, $payload['package_activity_amount']);
+        $this->assertEquals(50000, $payload['pv_amount']);
+        $this->assertEquals(50000, $payload['balance']);
+        $this->assertEquals(50000, $payload['available_balance']);
+        $this->assertEquals(50000, $payload['total_balance']);
+        $this->assertEquals(50000, $payload['total_earned']);
     }
 
-    public function test_admin_partners_list_vip_package_assignment_keeps_balance_zero_without_bonuses(): void
+    public function test_admin_partners_list_vip_package_assignment_credits_balance(): void
     {
         $payload = $this->assignPackageAndGetAdminPayload('VIP');
 
         $this->assertEquals(300, $payload['package_activity_pv']);
-        $this->assertEquals(0, $payload['package_activity_amount']);
-        $this->assertEquals(0, $payload['pv_amount']);
-        $this->assertEquals(0, $payload['balance']);
-        $this->assertEquals(0, $payload['total_balance']);
-        $this->assertNotEquals(150000, $payload['balance']);
+        $this->assertEquals(150000, $payload['package_activity_amount']);
+        $this->assertEquals(150000, $payload['pv_amount']);
+        $this->assertEquals(150000, $payload['balance']);
+        $this->assertEquals(150000, $payload['total_balance']);
         $this->assertNotEquals(180000, $payload['balance']);
     }
 
-    public function test_admin_partners_list_elite_package_assignment_keeps_balance_zero_without_bonuses(): void
+    public function test_admin_partners_list_elite_package_assignment_credits_balance(): void
     {
         $payload = $this->assignPackageAndGetAdminPayload('ELITE');
 
         $this->assertEquals(500, $payload['package_activity_pv']);
-        $this->assertEquals(0, $payload['package_activity_amount']);
-        $this->assertEquals(0, $payload['pv_amount']);
-        $this->assertEquals(0, $payload['balance']);
-        $this->assertEquals(0, $payload['total_balance']);
-        $this->assertNotEquals(250000, $payload['balance']);
+        $this->assertEquals(250000, $payload['package_activity_amount']);
+        $this->assertEquals(250000, $payload['pv_amount']);
+        $this->assertEquals(250000, $payload['balance']);
+        $this->assertEquals(250000, $payload['total_balance']);
         $this->assertNotEquals(300000, $payload['balance']);
     }
 
-    public function test_admin_partners_list_package_price_and_activity_amount_are_not_used_for_balance(): void
+    public function test_admin_partners_list_package_activity_amount_not_price_is_used_for_balance(): void
     {
         $payload = $this->assignPackageAndGetAdminPayload('START');
 
         $this->assertEquals(60000, $payload['current_package']['price']);
-        $this->assertEquals(0, $payload['package_activity_amount']);
-        $this->assertEquals(0, $payload['balance']);
-        $this->assertEquals(0, $payload['total_balance']);
+        $this->assertEquals(50000, $payload['package_activity_amount']);
+        $this->assertEquals(50000, $payload['balance']);
+        $this->assertEquals(50000, $payload['total_balance']);
         $this->assertNotEquals(60000, $payload['balance']);
-        $this->assertNotEquals(50000, $payload['total_balance']);
     }
 
-    public function test_admin_partners_list_preserves_existing_real_wallet_balance_without_package_credit(): void
+    public function test_admin_partners_list_preserves_existing_real_wallet_balance_with_package_credit(): void
     {
         $payload = $this->assignPackageAndGetAdminPayload('START', walletBalance: 10000);
 
-        $this->assertEquals(10000, $payload['wallet_balance']);
-        $this->assertEquals(0, $payload['package_activity_amount']);
-        $this->assertEquals(10000, $payload['balance']);
-        $this->assertEquals(10000, $payload['available_balance']);
-        $this->assertEquals(10000, $payload['total_balance']);
-        $this->assertEquals(10000, $payload['total_earned']);
+        $this->assertEquals(60000, $payload['wallet_balance']);
+        $this->assertEquals(50000, $payload['package_activity_amount']);
+        $this->assertEquals(60000, $payload['balance']);
+        $this->assertEquals(60000, $payload['available_balance']);
+        $this->assertEquals(60000, $payload['total_balance']);
+        $this->assertEquals(50000, $payload['total_earned']);
     }
 
-    public function test_admin_partners_summary_total_balance_excludes_package_activity_pv(): void
+    public function test_admin_partners_summary_total_balance_includes_package_activity_credit(): void
     {
         $firstPayload = $this->assignPackageAndGetAdminPayload('START');
         $secondPayload = $this->assignPackageAndGetAdminPayload('VIP');
 
         $summary = $this->adminSummaryPayload();
 
-        $this->assertEquals(0, $firstPayload['total_balance']);
-        $this->assertEquals(0, $secondPayload['total_balance']);
-        $this->assertEquals(0, $summary['total_balance']);
-        $this->assertNotEquals(200000, $summary['total_balance']);
+        $this->assertEquals(50000, $firstPayload['total_balance']);
+        $this->assertEquals(150000, $secondPayload['total_balance']);
+        $this->assertEquals(200000, $summary['total_balance']);
     }
 
     public function test_admin_partners_list_includes_sponsor_and_package_data(): void

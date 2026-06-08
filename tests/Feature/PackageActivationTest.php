@@ -61,7 +61,11 @@ class PackageActivationTest extends TestCase
         $this->assertSame('100.00', $sponsor->left_pv);
         $this->assertSame('100.00', $sponsor->remaining_left_pv);
         $this->assertSame('0.00', $sponsor->right_pv);
-        $this->assertSame(0, WalletTransaction::query()->where('user_id', $user->id)->count());
+        $this->assertDatabaseHas('wallet_transactions', [
+            'user_id' => $user->id,
+            'type' => 'package_activation_credit',
+            'amount' => '50000.00',
+        ]);
     }
 
     public function test_vip_activation_sets_personal_pv_and_upline_turnover_without_buyer_branch_pv(): void
@@ -93,7 +97,11 @@ class PackageActivationTest extends TestCase
         $this->assertSame('0.00', $sponsor->left_pv);
         $this->assertSame('300.00', $sponsor->right_pv);
         $this->assertSame('300.00', $sponsor->remaining_right_pv);
-        $this->assertSame(0, WalletTransaction::query()->where('user_id', $user->id)->count());
+        $this->assertDatabaseHas('wallet_transactions', [
+            'user_id' => $user->id,
+            'type' => 'package_activation_credit',
+            'amount' => '150000.00',
+        ]);
     }
 
     public function test_start_activation_pays_sponsor_ten_percent(): void
@@ -120,7 +128,10 @@ class PackageActivationTest extends TestCase
         $this->assertSame('6000.00', $bonus->amount);
         $this->assertSame('6000.00', $walletTransaction->amount);
         $this->assertSame($sponsor->id, $bonus->user_id);
-        $this->assertSame(0, WalletTransaction::query()->where('user_id', $user->id)->count());
+        $this->assertSame(1, WalletTransaction::query()
+            ->where('user_id', $user->id)
+            ->where('type', 'package_activation_credit')
+            ->count());
     }
 
     public function test_activation_accrues_referral_bonus_to_sponsor_main_wallet(): void
@@ -150,7 +161,7 @@ class PackageActivationTest extends TestCase
 
         $wallet = $sponsor->wallets()->where('type', 'main')->firstOrFail();
         $bonus = BonusTransaction::query()->firstOrFail();
-        $walletTransaction = WalletTransaction::query()->firstOrFail();
+        $walletTransaction = WalletTransaction::query()->where('type', 'referral_bonus')->firstOrFail();
 
         $this->assertSame('13500.00', $wallet->balance);
         $this->assertSame($sponsor->id, $bonus->user_id);

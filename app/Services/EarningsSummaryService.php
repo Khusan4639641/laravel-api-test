@@ -6,6 +6,7 @@ use App\Models\BinaryBonusRun;
 use App\Models\BonusTransaction;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Models\WithdrawalRequest;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -23,9 +24,21 @@ class EarningsSummaryService
         $statusTotal = $this->decimal($bonusTotals->get('status', '0'));
         $bonusX2Total = $this->decimal($bonusTotals->get('bonus_x2', '0'));
         $cashbackTotal = $this->decimal($bonusTotals->get('cashback', '0'));
-        $totalEarned = $this->decimal(BonusTransaction::query()
-            ->where('user_id', $user->id)
-            ->sum('amount'));
+        $totalEarned = $this->decimal(bcadd(
+            (string) BonusTransaction::query()
+                ->where('user_id', $user->id)
+                ->sum('amount'),
+            (string) WalletTransaction::query()
+                ->where('user_id', $user->id)
+                ->where('direction', 'credit')
+                ->whereIn('type', [
+                    'package_activation_credit',
+                    'package_upgrade_credit',
+                    'admin_package_assignment_credit',
+                ])
+                ->sum('amount'),
+            2,
+        ));
 
         $availableToWithdraw = $this->decimal(Wallet::query()
             ->where('user_id', $user->id)
@@ -91,6 +104,12 @@ class EarningsSummaryService
             return '0';
         }
 
-        return (string) $value;
+        $value = (string) $value;
+
+        if (str_contains($value, '.')) {
+            $value = rtrim(rtrim($value, '0'), '.');
+        }
+
+        return $value === '' ? '0' : $value;
     }
 }

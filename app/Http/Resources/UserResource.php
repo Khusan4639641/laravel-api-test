@@ -23,6 +23,7 @@ class UserResource extends JsonResource
         $totalEarned = $totalEarned > 0 ? $totalEarned : $totalWalletBalance;
         $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
+        $packageActivityAmount = $package ? (float) $package->volumeAmount() : 0;
         $leftPv = (float) ($this->left_pv ?? 0);
         $rightPv = (float) ($this->right_pv ?? 0);
         $weakLegPv = min($leftPv, $rightPv);
@@ -69,9 +70,9 @@ class UserResource extends JsonResource
             'total_balance' => $totalWalletBalance,
             'total_earned' => $totalEarned,
             'package_activity_pv' => $packageActivityPv,
-            'package_activity_amount' => 0,
-            'pv_amount' => 0,
-            'pv_money_rate' => null,
+            'package_activity_amount' => $packageActivityAmount,
+            'pv_amount' => $packageActivityAmount,
+            'pv_money_rate' => 500,
             'current_package' => new PackageResource($this->whenLoaded('currentPackage')),
             'package' => new PackageResource($this->whenLoaded('currentPackage')),
             'profile' => new UserProfileResource($this->whenLoaded('profile')),

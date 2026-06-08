@@ -107,9 +107,10 @@ class ReferralBonusRulesTest extends TestCase
         $buyerWallet = $buyer->wallets()->where('type', 'main')->firstOrFail();
 
         $this->assertSame('6000.00', $sponsorWallet->refresh()->balance);
-        $this->assertSame('0.00', $buyerWallet->refresh()->balance);
+        $this->assertSame('50000.00', $buyerWallet->refresh()->balance);
         $this->assertSame(1, WalletTransaction::query()->where('user_id', $sponsor->id)->where('type', 'referral_bonus')->count());
         $this->assertSame(0, WalletTransaction::query()->where('user_id', $buyer->id)->where('type', 'referral_bonus')->count());
+        $this->assertSame(1, WalletTransaction::query()->where('user_id', $buyer->id)->where('type', 'package_activation_credit')->count());
     }
 
     public function test_elite_upgrade_excludes_first_two_hundred_pv_from_referral_bonus(): void

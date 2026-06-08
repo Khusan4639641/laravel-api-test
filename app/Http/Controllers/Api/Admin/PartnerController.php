@@ -170,7 +170,7 @@ class PartnerController extends Controller
 
         $package = Package::query()->findOrFail($validated['package_id']);
         $applyBusinessEffects = $request->boolean('apply_business_effects', true);
-        $user = $this->packageService->assignPackageManually($user, $package, $applyBusinessEffects);
+        $user = $this->packageService->assignPackageManually($user, $package, $applyBusinessEffects, $request->user());
 
         return response()->json([
             'user' => UserResource::make($this->loadPartner($user)),

@@ -14,7 +14,7 @@ class DashboardOverviewBalanceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_dashboard_available_balance_excludes_package_activity_amount(): void
+    public function test_dashboard_available_balance_comes_from_wallet_not_package_field_alone(): void
     {
         $start = $this->createPackage('START', 60000, 100, 100);
         $user = User::factory()->create([
@@ -30,7 +30,7 @@ class DashboardOverviewBalanceTest extends TestCase
             ->assertJsonPath('user.available_balance', 0)
             ->assertJsonPath('user.total_earned', 0)
             ->assertJsonPath('user.package_activity_pv', 100)
-            ->assertJsonPath('user.package_activity_amount', 0);
+            ->assertJsonPath('user.package_activity_amount', 50000);
     }
 
     public function test_dashboard_available_balance_uses_main_wallet_only(): void

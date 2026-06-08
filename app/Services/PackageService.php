@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Order;
 use App\Models\Package;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -22,6 +23,7 @@ class PackageService
         private readonly PvService $pvService,
         private readonly ReferralBonusBaseResolver $referralBonusBaseResolver,
         private readonly StatusBonusService $statusBonusService,
+        private readonly WalletService $walletService,
     ) {
     }
 
@@ -73,6 +75,14 @@ class PackageService
                 }
             }
 
+            $this->creditPackageActivity(
+                $user,
+                $package,
+                $activityPv,
+                'package_activation_credit',
+                'package_activation',
+            );
+
             $this->checkMissedStatusBonusesForElite($user->refresh());
 
             return $user->refresh()->load(['currentPackage', 'sponsor', 'wallets']);
@@ -92,9 +102,9 @@ class PackageService
             && $package->code === (self::UPGRADE_CHAIN[$user->currentPackage->code] ?? null);
     }
 
-    public function assignPackageManually(User $user, Package $package, bool $applyBusinessEffects = true): User
+    public function assignPackageManually(User $user, Package $package, bool $applyBusinessEffects = true, ?User $actor = null): User
     {
-        return DB::transaction(function () use ($user, $package, $applyBusinessEffects): User {
+        return DB::transaction(function () use ($user, $package, $applyBusinessEffects, $actor): User {
             $user = User::query()
                 ->with('currentPackage')
                 ->lockForUpdate()
@@ -115,6 +125,15 @@ class PackageService
 
             if (bccomp($pvEffects['user_pv'], '0', 2) > 0) {
                 $this->pvService->addUserPv($user, $pvEffects['user_pv']);
+                $this->creditPackageActivity(
+                    $user,
+                    $package,
+                    $pvEffects['user_pv'],
+                    'admin_package_assignment_credit',
+                    'admin_package_assignment',
+                    $currentPackage,
+                    $actor,
+                );
             }
 
             if (bccomp($pvEffects['bonusable_turnover_pv'], '0', 2) > 0) {
@@ -237,9 +256,18 @@ class PackageService
                     null,
                     $this->isUpgradePvBonusable($targetPackage),
                 );
+                $this->creditPackageActivity(
+                    $user,
+                    $targetPackage,
+                    $additionalPv,
+                    'package_upgrade_credit',
+                    'package_upgrade',
+                    $currentPackage,
+                );
             }
 
             $cashbackAmount = '0.00';
+            $creditAmount = bcmul($additionalPv, self::PV_MONEY_RATE, 2);
 
             if ($user->sponsor_id) {
                 $sponsor = User::query()->find($user->sponsor_id);
@@ -275,6 +303,7 @@ class PackageService
                 'user' => $user->refresh()->load(['currentPackage', 'wallets']),
                 'payment_amount' => $paymentAmount,
                 'additional_pv' => $additionalPv,
+                'credit_amount' => $creditAmount,
                 'cashback_amount' => $cashbackAmount,
             ];
         });
@@ -341,6 +370,96 @@ class PackageService
     private function eligibleReferralAmountForManualAssignment(array $pvEffects): string
     {
         return $pvEffects['referral_base_amount'];
+    }
+
+    private function creditPackageActivity(
+        User $user,
+        Package $package,
+        string $creditedPv,
+        string $transactionType,
+        string $source,
+        ?Package $fromPackage = null,
+        ?User $actor = null,
+    ): ?WalletTransaction {
+        if (bccomp($creditedPv, '0', 2) <= 0) {
+            return null;
+        }
+
+        $creditAmount = bcmul($creditedPv, self::PV_MONEY_RATE, 2);
+
+        if (bccomp($creditAmount, '0', 2) <= 0) {
+            return null;
+        }
+
+        $this->walletService->createUserWallets($user);
+
+        $wallet = $user->wallets()
+            ->where('type', 'main')
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $metadata = [
+            'package_id' => $package->id,
+            'package_code' => $package->code,
+            'package_name' => $package->name,
+            'package_price' => (string) $package->price,
+            'activity_pv' => $package->activityPv(),
+            'credited_pv' => $creditedPv,
+            'pv_rate' => self::PV_MONEY_RATE,
+            'credit_amount' => $creditAmount,
+            'source' => $source,
+        ];
+
+        if ($fromPackage) {
+            $metadata['from_package_id'] = $fromPackage->id;
+            $metadata['from_package_code'] = $fromPackage->code;
+            $metadata['from_activity_pv'] = $fromPackage->activityPv();
+        }
+
+        if ($actor) {
+            $metadata['actor_id'] = $actor->id;
+            $metadata['actor_role'] = $actor->role;
+        }
+
+        return $this->walletService->credit(
+            $wallet,
+            $creditAmount,
+            $transactionType,
+            $package,
+            $metadata,
+            $this->packageCreditDescription($package, $creditedPv, $creditAmount, $source, $fromPackage),
+        );
+    }
+
+    private function packageCreditDescription(
+        Package $package,
+        string $creditedPv,
+        string $creditAmount,
+        string $source,
+        ?Package $fromPackage = null,
+    ): string {
+        $amount = $this->formatMoney($creditAmount);
+        $pv = $this->formatPv($creditedPv);
+
+        if ($source === 'package_upgrade' && $fromPackage) {
+            return "Upgrade {$fromPackage->code} -> {$package->code}: начислено {$amount} ₸ за {$pv} PV";
+        }
+
+        if ($source === 'admin_package_assignment') {
+            return "Super Admin назначил пакет {$package->code}: начислено {$amount} ₸ за {$pv} PV";
+        }
+
+        return "Покупка пакета {$package->code}: начислено {$amount} ₸ за {$pv} PV";
+    }
+
+    private function formatMoney(string $amount): string
+    {
+        return number_format((float) $amount, 0, '.', ' ');
+    }
+
+    private function formatPv(string $pv): string
+    {
+        return rtrim(rtrim(number_format((float) $pv, 2, '.', ''), '0'), '.');
     }
 
     private function checkMissedStatusBonusesForElite(User $user): void

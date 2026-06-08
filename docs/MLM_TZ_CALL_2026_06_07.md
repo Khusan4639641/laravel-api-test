@@ -11,27 +11,31 @@ This document records the latest business decisions from the 2026-06-07 call.
 If older project documents or implementation notes conflict with this file, this file has priority for the next implementation stage.
 
 Important conflict to resolve:
-- Older notes allowed package assignment to create a money credit for the buyer.
-- Current rule: buying or assigning a package does not add money to the buyer balance by itself.
+- 2026-06-08 business update supersedes the 2026-06-07 package balance rule.
+- Current rule: buying, upgrading or assigning a package with business effects credits the buyer's main wallet by credited activity PV * 500 KZT.
 
 ## 1. Package Purchase And Assignment
 
-Buying a package or assigning a package must not credit the buyer's money balance.
-Package purchase/assignment changes package activity PV, but balance stays zero unless the user earned bonuses.
+Buying, upgrading or assigning a package with business effects credits the buyer's main wallet.
+The credit is calculated from activity PV, not from package price:
 
-| Package | personal/package PV | balance when there are no bonuses |
+```text
+credit_amount = credited_activity_pv * 500 KZT
+```
+
+| Package | personal/package PV | first activation/admin assignment credit |
 |---|---:|---:|
-| START | 100 PV | 0 KZT |
-| VIP | 300 PV | 0 KZT |
-| ELITE | 500 PV | 0 KZT |
+| START | 100 PV | 50 000 KZT |
+| VIP | 300 PV | 150 000 KZT |
+| ELITE | 500 PV | 250 000 KZT |
 
 Required behavior:
-- START purchase or assignment gives `personal/package PV = 100 PV`.
-- VIP purchase or assignment gives `personal/package PV = 300 PV`.
-- ELITE purchase or assignment gives `personal/package PV = 500 PV`.
-- In all three cases `balance = 0 KZT` if no bonus was earned.
-- Do not convert package PV to money for the buyer.
-- Do not create wallet credit transactions such as package activity money credit for the buyer.
+- START purchase or assignment gives `personal/package PV = 100 PV` and credits `50 000 KZT`.
+- VIP purchase or assignment gives `personal/package PV = 300 PV` and credits `150 000 KZT`.
+- ELITE admin assignment gives `personal/package PV = 500 PV` and credits `250 000 KZT`; ELITE remains unavailable as a first user activation unless separately allowed.
+- Upgrade credits only delta PV * 500: START -> VIP credits `100 000 KZT`, VIP -> ELITE credits `100 000 KZT`.
+- `apply_business_effects=false` for admin assignment changes only the package and does not credit money or apply PV effects.
+- Create package credit wallet transactions: `package_activation_credit`, `package_upgrade_credit` or `admin_package_assignment_credit`.
 
 ## 2. PV And Balance Must Be Separate
 
@@ -39,12 +43,12 @@ PV and wallet balance are different entities and must not be mixed.
 
 Definitions:
 - `PV` is a turnover/activity metric.
-- `balance` is real money earned from bonuses only.
+- `balance` is real wallet money, including package credits and bonuses.
 
 Implementation implication:
 - Package PV can affect personal activity, upline turnover, statuses and binary calculation inputs.
-- Wallet balance can change only through bonus payouts, approved financial operations, cashback or other explicitly monetary flows.
-- UI cards must not display package PV as available money.
+- Wallet balance can change through package credits, bonus payouts, approved financial operations, cashback or other explicitly monetary flows.
+- UI cards must display actual wallet credits, but must not treat package price as PV or money.
 
 ## 3. Package And Product PV Accrual
 
@@ -52,6 +56,7 @@ PV from a package or product purchase must be propagated to uplines, not to the 
 
 Required behavior:
 - Buyer receives own personal/package PV where applicable.
+- Buyer receives package money credit where applicable.
 - Buyer does not receive the purchase PV into their own `left_pv` or `right_pv`.
 - Upline partners receive the purchase PV in the correct left/right branch according to binary placement.
 - The same separation applies to package purchases, package assignments with business effects, and product orders that carry PV.
