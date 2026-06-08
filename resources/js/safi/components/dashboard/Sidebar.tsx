@@ -19,6 +19,7 @@ const iconMap = {
 
 interface SidebarUser {
   name: string;
+  avatarUrl?: string;
   role: string;
   partnerId: string;
   packageName: string;
@@ -69,9 +70,17 @@ export function Sidebar({
 
         <div className="border-b border-safi-border px-5 py-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-safi-green font-serif text-xl font-semibold text-safi-gold">
-              {currentUser.name.charAt(0)}
-            </div>
+            {currentUser.avatarUrl ? (
+              <img
+                src={currentUser.avatarUrl}
+                alt={currentUser.name}
+                className="h-12 w-12 rounded-2xl border border-safi-border object-cover"
+              />
+            ) : (
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-safi-green font-serif text-xl font-semibold text-safi-gold">
+                {currentUser.name.charAt(0)}
+              </div>
+            )}
             <div className="min-w-0">
               <div className="truncate text-sm font-extrabold text-safi-green">{currentUser.name}</div>
               <div className="mt-1 truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">{currentUser.partnerId}</div>

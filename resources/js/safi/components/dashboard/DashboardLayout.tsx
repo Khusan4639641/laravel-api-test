@@ -269,9 +269,17 @@ export function DashboardLayout() {
                 <div className="text-sm font-extrabold text-safi-green">{currentUser.name}</div>
                 <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold">{currentUser.status}</div>
               </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-safi-green font-serif text-lg font-semibold text-safi-gold">
-                {currentUser.name.charAt(0)}
-              </div>
+              {currentUser.avatarUrl ? (
+                <img
+                  src={currentUser.avatarUrl}
+                  alt={currentUser.name}
+                  className="h-11 w-11 rounded-2xl border border-safi-border object-cover"
+                />
+              ) : (
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-safi-green font-serif text-lg font-semibold text-safi-gold">
+                  {currentUser.name.charAt(0)}
+                </div>
+              )}
             </div>
           </div>
         </header>

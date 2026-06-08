@@ -126,6 +126,15 @@ class PackageUpgradeTest extends TestCase
             'amount' => '120000.00',
             'affects_balance' => false,
         ]);
+
+        $upgradeTransaction = WalletTransaction::query()
+            ->where('user_id', $user->id)
+            ->where('type', 'package_upgrade')
+            ->firstOrFail();
+
+        $this->assertSame('VIP', $upgradeTransaction->metadata['upgrade_from']);
+        $this->assertSame('ELITE', $upgradeTransaction->metadata['upgrade_to']);
+        $this->assertSame('200.00', $upgradeTransaction->metadata['turnover_pv']);
     }
 
     public function test_vip_to_elite_upgrade_awards_missed_status_bonuses(): void

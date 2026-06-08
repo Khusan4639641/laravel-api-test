@@ -100,6 +100,8 @@ class DepositPurchaseService
             }
 
             $amount = bcmul((string) $product->price, (string) $quantity, 2);
+            $unitPv = $product->turnoverPv();
+            $totalPv = bcmul($unitPv, (string) $quantity, 2);
 
             $this->walletService->createUserWallets($user);
 
@@ -123,7 +125,7 @@ class DepositPurchaseService
                 'subtotal_amount' => $amount,
                 'discount_amount' => 0,
                 'total_amount' => $amount,
-                'total_pv' => bcmul((string) $product->pv, (string) $quantity, 2),
+                'total_pv' => $totalPv,
                 'metadata' => [
                     'source' => 'deposit_purchase',
                     'payment_wallet' => 'deposit',
@@ -137,14 +139,15 @@ class DepositPurchaseService
                 'quantity' => $quantity,
                 'unit_price' => $product->price,
                 'total_price' => $amount,
-                'unit_pv' => $product->pv,
-                'total_pv' => bcmul((string) $product->pv, (string) $quantity, 2),
+                'unit_pv' => $unitPv,
+                'total_pv' => $totalPv,
                 'item_snapshot' => [
                     'product_id' => $product->id,
                     'name' => $product->name,
                     'sku' => $product->sku,
                     'price' => (string) $product->price,
-                    'pv' => (string) $product->pv,
+                    'pv' => $unitPv,
+                    'pv_money_rate' => Product::PV_MONEY_RATE,
                     'is_deposit_product' => true,
                 ],
             ]);

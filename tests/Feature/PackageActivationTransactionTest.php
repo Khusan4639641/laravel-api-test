@@ -37,6 +37,7 @@ class PackageActivationTransactionTest extends TestCase
         $this->assertFalse($transaction->affects_balance);
         $this->assertSame('60000.00', $transaction->amount);
         $this->assertSame('60000.00', $transaction->metadata['package_price']);
+        $this->assertSame('60000.00', $transaction->metadata['transaction_amount']);
         $this->assertSame('100.00', $transaction->metadata['activity_pv']);
         $this->assertSame('100.00', $transaction->metadata['turnover_pv']);
         $this->assertFalse($transaction->metadata['affects_balance']);
@@ -88,6 +89,16 @@ class PackageActivationTransactionTest extends TestCase
             'amount' => '120000.00',
             'affects_balance' => false,
         ]);
+
+        $upgradeTransaction = WalletTransaction::query()
+            ->where('user_id', $user->id)
+            ->where('type', 'package_upgrade')
+            ->firstOrFail();
+
+        $this->assertSame('START', $upgradeTransaction->metadata['upgrade_from']);
+        $this->assertSame('VIP', $upgradeTransaction->metadata['upgrade_to']);
+        $this->assertSame('120000.00', $upgradeTransaction->metadata['transaction_amount']);
+        $this->assertSame('200.00', $upgradeTransaction->metadata['turnover_pv']);
     }
 
     public function test_upgrade_does_not_credit_own_balance(): void

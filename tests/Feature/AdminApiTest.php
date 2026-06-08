@@ -55,12 +55,12 @@ class AdminApiTest extends TestCase
             'sku' => 'SAFI-TEST-001',
             'description' => 'Test product description.',
             'price' => 12000,
-            'pv' => 50,
             'stock_quantity' => 12,
             'status' => 'active',
             'metadata' => ['category' => 'Test'],
         ])->assertCreated()
-            ->assertJsonPath('product.name', 'Safi Test Product');
+            ->assertJsonPath('product.name', 'Safi Test Product')
+            ->assertJsonPath('product.pv', '24.00');
 
         $productId = $productResponse->json('product.id');
 
@@ -73,6 +73,7 @@ class AdminApiTest extends TestCase
             'metadata' => ['image_url' => 'https://example.test/product.png'],
         ])->assertOk()
             ->assertJsonPath('product.price', '15000.00')
+            ->assertJsonPath('product.pv', '30.00')
             ->assertJsonPath('product.metadata.category', 'Test')
             ->assertJsonPath('product.metadata.image_url', 'https://example.test/product.png');
 

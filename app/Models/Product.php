@@ -28,6 +28,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Product extends Model
 {
+    public const PV_MONEY_RATE = 500;
+
     /**
      * @return array<string, string>
      */
@@ -53,5 +55,17 @@ class Product extends Model
     public function orderItems(): HasMany
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function turnoverPv(): string
+    {
+        return self::priceToTurnoverPv($this->price);
+    }
+
+    public static function priceToTurnoverPv(float|int|string|null $price): string
+    {
+        $numericPrice = is_numeric($price) ? (float) $price : 0.0;
+
+        return number_format(max(0, $numericPrice) / self::PV_MONEY_RATE, 2, '.', '');
     }
 }

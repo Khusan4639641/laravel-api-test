@@ -26,6 +26,7 @@ class ProductResource extends JsonResource
         $benefits = LocalizedValue::get($this->benefits_translations, $metadata['benefits'] ?? []);
         $composition = LocalizedValue::get($this->composition_translations, $metadata['composition'] ?? []);
         $usage = LocalizedValue::get($this->usage_translations, $metadata['usage'] ?? null);
+        $turnoverPv = $this->turnoverPv();
 
         return [
             'id' => $this->id,
@@ -39,7 +40,8 @@ class ProductResource extends JsonResource
             'composition' => $composition,
             'usage' => $usage,
             'price' => $this->price,
-            'pv' => $this->pv,
+            'pv' => $turnoverPv,
+            'turnover_pv' => $turnoverPv,
             'stock_quantity' => $this->stock_quantity,
             'reserved_quantity' => $this->reserved_quantity ?? 0,
             'stock' => $this->stock_quantity,

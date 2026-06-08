@@ -11,12 +11,22 @@ export default function Profile() {
   const { currentUser, refreshCurrentUser } = useDashboardContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [avatarPreview, setAvatarPreview] = useState(currentUser.avatarUrl || '');
-  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [selectedAvatarFile, setSelectedAvatarFile] = useState<File | null>(null);
+  const [previewObjectUrl, setPreviewObjectUrl] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
 
   useEffect(() => {
-    setAvatarPreview(currentUser.avatarUrl || '');
-  }, [currentUser.avatarUrl]);
+    if (!selectedAvatarFile) {
+      setAvatarPreview(currentUser.avatarUrl || '');
+    }
+  }, [currentUser.avatarUrl, selectedAvatarFile]);
+
+  useEffect(() => () => {
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+    }
+  }, [previewObjectUrl]);
 
   const showToast = (message: string, type: ToastType = 'success') => {
     const toast = { id: Date.now() + Math.floor(Math.random() * 1000), message, type };
@@ -24,37 +34,54 @@ export default function Profile() {
     window.setTimeout(() => setToasts((current) => current.filter((item) => item.id !== toast.id)), 3500);
   };
 
-  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) {
       return;
     }
 
+    if (previewObjectUrl) {
+      URL.revokeObjectURL(previewObjectUrl);
+    }
+
     const localPreview = URL.createObjectURL(file);
+    setSelectedAvatarFile(file);
+    setPreviewObjectUrl(localPreview);
     setAvatarPreview(localPreview);
-    setIsUploadingAvatar(true);
+    event.target.value = '';
+  };
+
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
 
     try {
-      const response = await uploadDashboardAvatar(file);
-      const uploadedAvatarUrl = getAvatarUrlFromResponse(response);
+      if (selectedAvatarFile) {
+        const response = await uploadDashboardAvatar(selectedAvatarFile);
+        const uploadedAvatarUrl = getAvatarUrlFromResponse(response);
 
-      if (uploadedAvatarUrl) {
-        setAvatarPreview(uploadedAvatarUrl);
+        if (uploadedAvatarUrl) {
+          setAvatarPreview(uploadedAvatarUrl);
+        }
       }
 
       await refreshCurrentUser();
-      showToast('Фото профиля обновлено');
+      setSelectedAvatarFile(null);
+
+      if (previewObjectUrl) {
+        URL.revokeObjectURL(previewObjectUrl);
+        setPreviewObjectUrl('');
+      }
+
+      showToast(selectedAvatarFile ? 'Фото профиля обновлено' : 'Профиль сохранён');
     } catch (caughtError) {
       setAvatarPreview(currentUser.avatarUrl || '');
       const message = caughtError instanceof ApiError
         ? caughtError.message
-        : 'Не удалось загрузить фото профиля.';
+        : 'Не удалось сохранить профиль.';
       showToast(message, 'error');
     } finally {
-      URL.revokeObjectURL(localPreview);
-      setIsUploadingAvatar(false);
-      event.target.value = '';
+      setIsSavingProfile(false);
     }
   };
 
@@ -72,10 +99,12 @@ export default function Profile() {
         </div>
         <button
           type="button"
-          className="inline-flex items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-6 py-3 text-xs font-extrabold uppercase tracking-[0.16em] text-white shadow-[0_18px_38px_rgba(11,23,18,0.16)]"
+          disabled={isSavingProfile}
+          onClick={() => void handleSaveProfile()}
+          className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-6 py-3 text-xs font-extrabold uppercase tracking-[0.16em] text-white shadow-[0_18px_38px_rgba(11,23,18,0.16)] transition-colors hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Save className="h-4 w-4" />
-          Сохранить
+          {isSavingProfile ? 'Сохраняем...' : 'Сохранить'}
         </button>
       </section>
 
@@ -99,11 +128,11 @@ export default function Profile() {
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 className="sr-only"
-                onChange={(event) => void handleAvatarChange(event)}
+                onChange={handleAvatarChange}
               />
               <button
                 type="button"
-                disabled={isUploadingAvatar}
+                disabled={isSavingProfile}
                 onClick={() => fileInputRef.current?.click()}
                 className="absolute bottom-0 right-0 flex h-11 w-11 cursor-pointer items-center justify-center rounded-full border-4 border-white bg-safi-cream text-safi-green shadow-sm transition-colors hover:bg-safi-green hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
                 aria-label="Загрузить фото профиля"

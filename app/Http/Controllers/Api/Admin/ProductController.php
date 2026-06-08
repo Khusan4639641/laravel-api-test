@@ -86,7 +86,7 @@ class ProductController extends Controller
             'category' => ['nullable', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
             'price' => [$product ? 'sometimes' : 'required', 'numeric', 'min:0'],
-            'pv' => [$product ? 'sometimes' : 'required', 'numeric', 'min:0'],
+            'pv' => ['nullable', 'numeric', 'min:0'],
             'stock_quantity' => ['nullable', 'integer', 'min:0'],
             'reserved_quantity' => ['nullable', 'integer', 'min:0'],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
@@ -102,7 +102,7 @@ class ProductController extends Controller
 
     private function productData(array $validated, ?Product $product = null): array
     {
-        unset($validated['image'], $validated['remove_image']);
+        unset($validated['image'], $validated['remove_image'], $validated['pv']);
 
         $metadata = $validated['metadata'] ?? null;
 
@@ -117,6 +117,10 @@ class ProductController extends Controller
         }
 
         unset($validated['category']);
+
+        if (array_key_exists('price', $validated)) {
+            $validated['pv'] = Product::priceToTurnoverPv($validated['price']);
+        }
 
         if (is_array($metadata)) {
             $validated['metadata'] = $metadata;

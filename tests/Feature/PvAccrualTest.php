@@ -103,7 +103,7 @@ class PvAccrualTest extends TestCase
         $root = User::factory()->create();
         $directParent = User::factory()->create();
         $buyer = User::factory()->create();
-        $product = $this->createProduct('Safi Test Product', 10000, 20);
+        $product = $this->createProduct('Safi Test Product', 10000, 999);
 
         $treeService->placeUser($root);
         $treeService->placeUser($directParent, $root, 'L');

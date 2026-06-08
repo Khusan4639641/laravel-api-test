@@ -64,7 +64,7 @@ class ProductOrderApiTest extends TestCase
             ->assertJsonPath('order.payment_status', 'pending')
             ->assertJsonPath('order.subtotal_amount', '9500.00')
             ->assertJsonPath('order.total_amount', '9500.00')
-            ->assertJsonPath('order.total_pv', '4000.00')
+            ->assertJsonPath('order.total_pv', '19.00')
             ->assertJsonPath('order.recipient_name', 'Dana Client')
             ->assertJsonPath('order.phone', '+77011112233')
             ->assertJsonPath('order.city', 'Tashkent')
@@ -77,7 +77,7 @@ class ProductOrderApiTest extends TestCase
 
         $this->assertSame($user->id, $order->user_id);
         $this->assertSame('9500.00', $order->total_amount);
-        $this->assertSame('4000.00', $order->total_pv);
+        $this->assertSame('19.00', $order->total_pv);
         $this->assertSame('Dana Client', $order->recipient_name);
         $this->assertSame('+77011112233', $order->phone);
         $this->assertSame('Tashkent', $order->city);

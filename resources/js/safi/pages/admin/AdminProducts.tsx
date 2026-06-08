@@ -21,7 +21,6 @@ interface ProductFormState {
   category: string;
   description: string;
   price: string;
-  pv: string;
   stock: string;
   status: string;
   imagePreview: string;
@@ -33,7 +32,6 @@ const emptyForm: ProductFormState = {
   category: 'Safi Life',
   description: '',
   price: '',
-  pv: '',
   stock: '0',
   status: 'active',
   imagePreview: productImagePlaceholder,
@@ -83,7 +81,6 @@ export default function AdminProducts() {
       category: product.category || 'Safi Life',
       description: product.description || product.shortDescription || '',
       price: String(product.price || ''),
-      pv: String(product.pv || ''),
       stock: String(product.stock ?? 0),
       status: product.status || 'active',
       imagePreview: product.image || productImagePlaceholder,
@@ -132,7 +129,6 @@ export default function AdminProducts() {
     payload.append('name', form.name);
     payload.append('description', form.description);
     payload.append('price', String(Number(form.price)));
-    payload.append('pv', String(Number(form.pv)));
     payload.append('stock_quantity', String(Number(form.stock || 0)));
     payload.append('status', form.status);
     payload.append('category', form.category);
@@ -235,7 +231,6 @@ export default function AdminProducts() {
               <Field label={adminText('a_0J3QsNC30LLQ')} value={form.name} onChange={(value) => setForm({ ...form, name: value })} required />
               <Field label={adminText('a_0JrQsNGC0LXQ')} value={form.category} onChange={(value) => setForm({ ...form, category: value })} />
               <Field label={adminText('a_0KbQtdC90LA')} type="number" value={form.price} onChange={(value) => setForm({ ...form, price: value })} required />
-              <Field label="PV" type="number" value={form.pv} onChange={(value) => setForm({ ...form, pv: value })} required />
               <Field label={adminText('a_0J7RgdGC0LDR')} type="number" value={form.stock} onChange={(value) => setForm({ ...form, stock: value })} />
               <div>
                 <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KHRgtCw0YLR')}</label>

@@ -137,7 +137,15 @@
     "bonus3_title": "Matching bonus",
     "bonus3_desc": "Earn a percentage from binary bonuses of your personally invited partners.",
     "bonus4_title": "Cashback 20%",
-    "bonus4_desc": "Receive 20% back from repeat personal product purchases from 35 PV."
+    "bonus4_desc": "Receive 20% back from repeat personal product purchases from 35 PV.",
+    "calculatorPersonalSales": "Personal / referral sales, ₸",
+    "calculatorLeftVolume": "Left branch volume, ₸",
+    "calculatorRightVolume": "Right branch volume, ₸",
+    "calculatorReferralBonus": "Referral bonus ({{percent}}%)",
+    "calculatorBinaryBonus": "Binary bonus ({{percent}}% of weak leg)",
+    "calculatorLeftPv": "Left branch PV",
+    "calculatorRightPv": "Right branch PV",
+    "calculatorDisclaimer": "The calculation is a preliminary example and is not a guarantee of accruals."
   },
   "howToStart": {
     "title1": "How",

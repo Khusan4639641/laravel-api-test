@@ -81,6 +81,9 @@ class PackageService
                 (string) $package->price,
                 'package_activation',
                 'package_activation',
+                null,
+                null,
+                $turnoverPv,
             );
 
             $this->checkMissedStatusBonusesForElite($user->refresh());
@@ -133,6 +136,7 @@ class PackageService
                     'admin_package_assignment',
                     $currentPackage,
                     $actor,
+                    bcadd($pvEffects['bonusable_turnover_pv'], $pvEffects['non_bonusable_turnover_pv'], 2),
                 );
             }
 
@@ -263,6 +267,8 @@ class PackageService
                     'package_upgrade',
                     'package_upgrade',
                     $currentPackage,
+                    null,
+                    $additionalPv,
                 );
             }
 
@@ -379,6 +385,7 @@ class PackageService
         string $source,
         ?Package $fromPackage = null,
         ?User $actor = null,
+        ?string $operationTurnoverPv = null,
     ): ?WalletTransaction {
         if (bccomp($amount, '0', 2) <= 0) {
             return null;
@@ -396,8 +403,9 @@ class PackageService
             'package_code' => $package->code,
             'package_name' => $package->name,
             'package_price' => (string) $package->price,
+            'transaction_amount' => $amount,
             'activity_pv' => $package->activityPv(),
-            'turnover_pv' => $package->turnoverPv(),
+            'turnover_pv' => $operationTurnoverPv ?? $package->turnoverPv(),
             'affects_balance' => false,
             'source' => $source,
         ];
@@ -407,6 +415,8 @@ class PackageService
             $metadata['from_package_code'] = $fromPackage->code;
             $metadata['from_activity_pv'] = $fromPackage->activityPv();
             $metadata['from_package_price'] = (string) $fromPackage->price;
+            $metadata['upgrade_from'] = $fromPackage->code;
+            $metadata['upgrade_to'] = $package->code;
         }
 
         if ($actor) {

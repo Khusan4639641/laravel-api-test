@@ -59,7 +59,6 @@ class DirectAccessPermissionTest extends TestCase
             'name' => 'Super Product',
             'sku' => 'SUPER-001',
             'price' => 100,
-            'pv' => 10,
             'status' => 'active',
         ])->assertCreated();
     }

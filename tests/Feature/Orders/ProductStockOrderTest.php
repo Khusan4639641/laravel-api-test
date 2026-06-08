@@ -41,11 +41,31 @@ class ProductStockOrderTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('order.status', 'pending')
             ->assertJsonPath('order.total_amount', '36000.00')
-            ->assertJsonPath('order.total_pv', '60.00')
+            ->assertJsonPath('order.total_pv', '72.00')
             ->assertJsonCount(1, 'order.items');
 
         $this->assertSame(8, $product->refresh()->stock_quantity);
         $this->assertDatabaseCount('order_items', 1);
+    }
+
+    public function test_product_order_calculates_pv_from_price_rate(): void
+    {
+        $user = User::factory()->create(['role' => 'user']);
+        $product = $this->product(price: 12500, pv: 999, stock: 10);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))
+            ->assertCreated()
+            ->assertJsonPath('order.total_pv', '25.00')
+            ->assertJsonPath('order.items.0.unit_pv', '25.00');
+
+        $item = OrderItem::query()->firstOrFail();
+
+        $this->assertSame('25.00', $item->unit_pv);
+        $this->assertSame('25.00', $item->total_pv);
     }
 
     public function test_order_requires_delivery_fields(): void
@@ -136,12 +156,13 @@ class ProductStockOrderTest extends TestCase
         $this->assertSame(2, $item->quantity);
         $this->assertSame('18000.00', $item->unit_price);
         $this->assertSame('36000.00', $item->total_price);
-        $this->assertSame('30.00', $item->unit_pv);
-        $this->assertSame('60.00', $item->total_pv);
+        $this->assertSame('36.00', $item->unit_pv);
+        $this->assertSame('72.00', $item->total_pv);
         $this->assertSame('Safi Serum', $item->item_snapshot['name']);
         $this->assertSame($product->sku, $item->item_snapshot['sku']);
         $this->assertSame('18000.00', $item->item_snapshot['price']);
-        $this->assertSame('30.00', $item->item_snapshot['pv']);
+        $this->assertSame('36.00', $item->item_snapshot['pv']);
+        $this->assertSame(500, $item->item_snapshot['pv_money_rate']);
     }
 
     public function test_order_item_snapshot_stores_product_image_path_and_url(): void

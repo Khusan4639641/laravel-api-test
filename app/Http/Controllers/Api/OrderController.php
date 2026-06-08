@@ -90,8 +90,9 @@ class OrderController extends Controller
                 $product = $products->get($item['product_id']);
 
                 $quantity = (int) $item['quantity'];
+                $unitPv = $product->turnoverPv();
                 $totalPrice = bcmul((string) $product->price, (string) $quantity, 2);
-                $itemPv = bcmul((string) $product->pv, (string) $quantity, 2);
+                $itemPv = bcmul($unitPv, (string) $quantity, 2);
                 $subtotal = bcadd($subtotal, $totalPrice, 2);
                 $totalPv = bcadd($totalPv, $itemPv, 2);
 
@@ -100,7 +101,7 @@ class OrderController extends Controller
                     'quantity' => $quantity,
                     'unit_price' => $product->price,
                     'total_price' => $totalPrice,
-                    'unit_pv' => $product->pv,
+                    'unit_pv' => $unitPv,
                     'total_pv' => $itemPv,
                 ];
             }
@@ -139,7 +140,8 @@ class OrderController extends Controller
                         'name' => $product->name,
                         'sku' => $product->sku,
                         'price' => (string) $product->price,
-                        'pv' => (string) $product->pv,
+                        'pv' => $preparedItem['unit_pv'],
+                        'pv_money_rate' => Product::PV_MONEY_RATE,
                         'image_path' => $product->image_path,
                         'image_url' => $this->productImageUrl($product),
                     ],

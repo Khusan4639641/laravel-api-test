@@ -6,6 +6,15 @@ import { Button } from '../components/ui/Button';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
 import { getApiErrorState, getPublicPackages, getPublicStatuses, Package, Status } from '../lib/api';
 
+const CALCULATOR_MAX_AMOUNT = 250_000_000;
+const CALCULATOR_STEP = 50_000;
+const PV_MONEY_RATE = 500;
+const PACKAGE_PERCENT_MATRIX: Record<string, { referral: number; binary: number }> = {
+  START: { referral: 10, binary: 7 },
+  VIP: { referral: 10, binary: 8 },
+  ELITE: { referral: 10, binary: 10 },
+};
+
 export default function MarketingPlanPage() {
   const { t } = useTranslation();
   const [packages, setPackages] = useState<Package[]>([]);
@@ -60,13 +69,17 @@ export default function MarketingPlanPage() {
     [packages, selectedPackage]
   );
 
-  const safePersonalSales = clampMoney(personalSales, 1000000);
-  const safeLeftVol = clampMoney(leftVol, 5000000);
-  const safeRightVol = clampMoney(rightVol, 5000000);
-  const estimatedReferral = activePackage ? (safePersonalSales * activePackage.referralBonus) / 100 : 0;
+  const safePersonalSales = clampMoney(personalSales, CALCULATOR_MAX_AMOUNT);
+  const safeLeftVol = clampMoney(leftVol, CALCULATOR_MAX_AMOUNT);
+  const safeRightVol = clampMoney(rightVol, CALCULATOR_MAX_AMOUNT);
+  const referralPercent = packageReferralPercent(activePackage);
+  const binaryPercent = packageBinaryPercent(activePackage);
+  const estimatedReferral = (safePersonalSales * referralPercent) / 100;
   const lesserBranch = Math.min(safeLeftVol, safeRightVol);
-  const estimatedBinary = activePackage?.binaryBonus ? (lesserBranch * activePackage.binaryBonus) / 100 : 0;
+  const estimatedBinary = (lesserBranch * binaryPercent) / 100;
   const totalEstimated = estimatedReferral + estimatedBinary;
+  const leftPv = safeLeftVol / PV_MONEY_RATE;
+  const rightPv = safeRightVol / PV_MONEY_RATE;
 
   return (
     <div className="py-20 bg-gray-50">
@@ -150,24 +163,24 @@ export default function MarketingPlanPage() {
               </div>
 
               <RangeField
-                label="Личные продажи (Рефералы), ₸"
+                label={t('marketing.calculatorPersonalSales', 'Личные продажи / реферальные продажи, ₸')}
                 value={personalSales}
-                max={1000000}
-                step={10000}
+                max={CALCULATOR_MAX_AMOUNT}
+                step={CALCULATOR_STEP}
                 onChange={setPersonalSales}
               />
               <RangeField
-                label="Объем Левой ветки, ₸"
+                label={t('marketing.calculatorLeftVolume', 'Объём левой ветки, ₸')}
                 value={leftVol}
-                max={5000000}
-                step={50000}
+                max={CALCULATOR_MAX_AMOUNT}
+                step={CALCULATOR_STEP}
                 onChange={setLeftVol}
               />
               <RangeField
-                label="Объем Правой ветки, ₸"
+                label={t('marketing.calculatorRightVolume', 'Объём правой ветки, ₸')}
                 value={rightVol}
-                max={5000000}
-                step={50000}
+                max={CALCULATOR_MAX_AMOUNT}
+                step={CALCULATOR_STEP}
                 onChange={setRightVol}
               />
             </div>
@@ -176,12 +189,22 @@ export default function MarketingPlanPage() {
               <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full blur-2xl z-0"></div>
               <div className="space-y-6 mb-8 relative z-10">
                 <div className="flex justify-between items-center pb-4 border-b border-white/10 gap-6">
-                  <span className="text-white/80 text-sm">Ориентировочный реферальный бонус</span>
+                  <span className="text-white/80 text-sm">{t('marketing.calculatorReferralBonus', { percent: referralPercent, defaultValue: 'Реферальный бонус ({{percent}}%)' })}</span>
                   <span className="font-bold text-safi-gold shrink-0">{estimatedReferral.toLocaleString('ru-RU')} ₸</span>
                 </div>
                 <div className="flex justify-between items-center pb-4 border-b border-white/10 gap-6">
-                  <span className="text-white/80 text-sm">Ориентировочный бинарный бонус</span>
+                  <span className="text-white/80 text-sm">{t('marketing.calculatorBinaryBonus', { percent: binaryPercent, defaultValue: 'Бинарный бонус ({{percent}}% от меньшей ветки)' })}</span>
                   <span className="font-bold text-safi-gold shrink-0">{estimatedBinary.toLocaleString('ru-RU')} ₸</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs text-white/70">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-white/45">{t('marketing.calculatorLeftPv', 'Левая ветка PV')}</div>
+                    <div className="mt-1 font-bold text-white">{leftPv.toLocaleString('ru-RU')} PV</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-3">
+                    <div className="text-[9px] font-bold uppercase tracking-widest text-white/45">{t('marketing.calculatorRightPv', 'Правая ветка PV')}</div>
+                    <div className="mt-1 font-bold text-white">{rightPv.toLocaleString('ru-RU')} PV</div>
+                  </div>
                 </div>
               </div>
               <div className="relative z-10">
@@ -189,7 +212,7 @@ export default function MarketingPlanPage() {
                 <div className="text-4xl md:text-5xl font-serif font-bold text-white">{totalEstimated.toLocaleString('ru-RU')} ₸</div>
               </div>
               <p className="text-[10px] opacity-50 mt-8 text-center relative z-10">
-                Расчёт является предварительным примером и не является гарантией начислений.
+                {t('marketing.calculatorDisclaimer', 'Расчёт является предварительным примером и не является гарантией начислений.')}
               </p>
             </div>
           </div>
@@ -283,4 +306,28 @@ function clampMoney(value: number, max: number) {
   }
 
   return Math.min(Math.max(0, value), max);
+}
+
+function packageCode(pkg?: Package) {
+  return String(pkg?.code || pkg?.name || '').trim().toUpperCase();
+}
+
+function packageReferralPercent(pkg?: Package) {
+  const configured = pkg?.referralBonus;
+
+  if (typeof configured === 'number' && configured > 0) {
+    return configured;
+  }
+
+  return PACKAGE_PERCENT_MATRIX[packageCode(pkg)]?.referral ?? 10;
+}
+
+function packageBinaryPercent(pkg?: Package) {
+  const configured = pkg?.binaryBonus;
+
+  if (typeof configured === 'number' && configured > 0) {
+    return configured;
+  }
+
+  return PACKAGE_PERCENT_MATRIX[packageCode(pkg)]?.binary ?? 7;
 }

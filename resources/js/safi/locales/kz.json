@@ -137,7 +137,15 @@
     "bonus3_title": "Матчинг бонус",
     "bonus3_desc": "Жеке шақырған серіктестеріңіздің бинарлық бонусынан пайыз алыңыз.",
     "bonus4_title": "Кэшбэк 20%",
-    "bonus4_desc": "Қайталама жеке сатып алулар сомасынан 20% қайтарыңыз (35 PV бастап)."
+    "bonus4_desc": "Қайталама жеке сатып алулар сомасынан 20% қайтарыңыз (35 PV бастап).",
+    "calculatorPersonalSales": "Жеке сатылымдар / рефералдық сатылымдар, ₸",
+    "calculatorLeftVolume": "Сол тармақ көлемі, ₸",
+    "calculatorRightVolume": "Оң тармақ көлемі, ₸",
+    "calculatorReferralBonus": "Рефералдық бонус ({{percent}}%)",
+    "calculatorBinaryBonus": "Бинарлық бонус (кіші тармақтың {{percent}}%-ы)",
+    "calculatorLeftPv": "Сол тармақ PV",
+    "calculatorRightPv": "Оң тармақ PV",
+    "calculatorDisclaimer": "Есеп алдын ала мысал ғана және есептеулер кепілдігі емес."
   },
   "howToStart": {
     "title1": "Қалай",
