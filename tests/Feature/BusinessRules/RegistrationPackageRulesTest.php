@@ -101,6 +101,7 @@ class RegistrationPackageRulesTest extends TestCase
             'name' => "Business Rule {$suffix}",
             'login' => $suffix,
             'email' => "{$suffix}@safilife.test",
+            'phone' => '+7700'.str_pad((string) crc32($suffix), 10, '0', STR_PAD_LEFT),
             'password' => 'password',
             'password_confirmation' => 'password',
             ...$overrides,

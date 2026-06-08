@@ -121,6 +121,9 @@ class OrderController extends Controller
                 'city' => $validated['city'] ?? null,
                 'delivery_address' => $validated['delivery_address'],
                 'comment' => $validated['comment'] ?? null,
+                'metadata' => [
+                    'delivery_snapshot' => $this->shippingAddress($validated),
+                ],
             ]);
 
             foreach ($preparedItems as $preparedItem) {

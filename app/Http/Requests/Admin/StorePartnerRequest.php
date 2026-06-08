@@ -25,7 +25,7 @@ class StorePartnerRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'login' => ['required', 'string', 'max:255', Rule::unique('users', 'login')],
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'phone' => ['nullable', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'min:6', 'max:32'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'sponsor_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'branch' => ['nullable', 'string', Rule::in(['left', 'right', 'L', 'R'])],

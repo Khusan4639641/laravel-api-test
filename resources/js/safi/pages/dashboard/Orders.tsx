@@ -90,7 +90,7 @@ export default function Orders() {
           ) : (
             <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
               <div className="hidden overflow-x-auto md:block">
-                <table className="safi-numeric w-full min-w-[900px] text-left">
+                <table className="safi-numeric w-full min-w-[1050px] text-left">
                   <thead className="bg-safi-cream text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
                     <tr>
                       <th className="px-7 py-4">{t('orders.orderId')}</th>
@@ -99,6 +99,7 @@ export default function Orders() {
                       <th className="px-7 py-4">{t('orders.amount')}</th>
                       <th className="px-7 py-4">{t('orders.pv')}</th>
                       <th className="px-7 py-4">{t('orders.status')}</th>
+                      <th className="px-7 py-4">{t('orders.deliveryInfo')}</th>
                       <th className="px-7 py-4 text-right">{t('orders.actions')}</th>
                     </tr>
                   </thead>
@@ -116,6 +117,11 @@ export default function Orders() {
                         <td className="px-7 py-5 font-extrabold text-safi-green">{formatCurrency(order.totalAmount)}</td>
                         <td className="px-7 py-5 font-extrabold text-safi-gold">{order.totalPv.toLocaleString('ru-RU')} PV</td>
                         <td className="px-7 py-5"><OrderStatusBadge status={order.status} /></td>
+                        <td className="px-7 py-5">
+                          <div className="font-bold text-safi-green">{order.city || '-'}</div>
+                          <div className="mt-1 text-xs text-safi-muted">{order.phone || '-'}</div>
+                          <div className="mt-1 max-w-[220px] truncate text-xs text-safi-muted">{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</div>
+                        </td>
                         <td className="px-7 py-5 text-right">
                           <Link to={`/dashboard/orders/${order.id}`} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white">
                             <Eye className="h-4 w-4" />
@@ -145,6 +151,9 @@ export default function Orders() {
                       <Metric label={t('orders.items')} value={order.itemsCount.toLocaleString('ru-RU')} />
                       <Metric label={t('orders.amount')} value={formatCurrency(order.totalAmount)} />
                       <Metric label={t('orders.pv')} value={`${order.totalPv.toLocaleString('ru-RU')} PV`} />
+                      <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
+                      <Metric label={t('orders.deliveryPhone')} value={order.phone || '-'} />
+                      <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
                     </div>
                     <Link to={`/dashboard/orders/${order.id}`} className="mt-5 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white">
                       <Eye className="h-4 w-4" />

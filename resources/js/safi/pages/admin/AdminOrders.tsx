@@ -167,7 +167,7 @@ export default function AdminOrders() {
                   <div className="text-sm font-bold text-safi-green">{order.user?.login || '-'}</div>
                   <div className="mt-1 text-xs text-safi-text/60">{order.user?.email || '-'}</div>
                   <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-gold">{order.city || '-'}</div>
-                  <div className="mt-1 text-xs text-safi-text/60">{order.phone || '-'}</div>
+                  <div className="mt-1 text-xs text-safi-text/60">{order.phone || order.user?.phone || '-'}</div>
                 </td>
                 <td className="px-6 py-4 font-bold text-safi-green">{order.itemsCount.toLocaleString('ru-RU')}</td>
                 <td className="px-6 py-4 font-bold text-safi-green">{formatCurrency(order.totalAmount)}</td>
@@ -209,9 +209,9 @@ export default function AdminOrders() {
                         <h3 className="font-serif text-xl font-semibold text-safi-green">{t('orders.deliveryInfo')}</h3>
                         <div className="mt-4 grid gap-3 text-sm">
                           <Metric label={t('orders.recipientName')} value={order.recipientName || order.user?.name || '-'} />
-                          <Metric label={t('orders.deliveryPhone')} value={order.phone || '-'} />
+                          <Metric label={t('orders.deliveryPhone')} value={order.phone || order.user?.phone || '-'} />
                           <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
-                          <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || '-'} />
+                          <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
                           {order.comment && <Metric label={t('orders.deliveryComment')} value={order.comment} />}
                         </div>
                       </section>

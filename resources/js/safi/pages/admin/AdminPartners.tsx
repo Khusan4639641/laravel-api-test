@@ -566,6 +566,7 @@ function CreatePartnerModal({
                   onChange={(event) => onChange('phone', event.target.value)}
                   className={modalInputClass}
                   autoComplete="tel"
+                  required
                 />
               </ModalField>
               <ModalField label={adminText('a_0J_QsNGA0L7Q_2')} error={fieldErrors.password?.[0]}>

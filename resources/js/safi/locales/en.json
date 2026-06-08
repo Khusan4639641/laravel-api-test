@@ -230,7 +230,11 @@
     "regAccount": "account",
     "regAction": "Register",
     "loginInstead": "Already have an account? Log in",
-    "regInstead": "No account? Register"
+    "regInstead": "No account? Register",
+    "loginLabel": "Login",
+    "phoneLabel": "Phone",
+    "phonePlaceholder": "+7 700 000 00 00",
+    "phoneRequired": "Enter phone number"
   },
   "cart": {
     "title": "Cart",
@@ -264,7 +268,9 @@
     "deliveryCity": "City",
     "deliveryAddress": "Delivery address",
     "deliveryComment": "Comment",
-    "deliveryRequired": "Enter recipient, phone, city and delivery address."
+    "deliveryRequired": "Enter recipient, phone, city and delivery address.",
+    "phoneRequired": "Phone is required",
+    "addressRequired": "Enter delivery address"
   },
   "earningsSummary": {
     "kicker": "Earnings",
@@ -350,6 +356,7 @@
     "deliveryCity": "City",
     "deliveryAddress": "Delivery address",
     "deliveryComment": "Comment",
+    "addressNotProvided": "Address not provided",
     "statusLabels": {
       "pending": "Pending confirmation",
       "confirmed": "Confirmed",

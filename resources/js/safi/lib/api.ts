@@ -38,6 +38,7 @@ export interface RegisterPayload {
   name: string;
   login: string;
   email: string;
+  phone: string;
   password: string;
   password_confirmation: string;
   sponsor_id?: string;
@@ -52,7 +53,7 @@ export interface AdminPartnerPayload {
   name: string;
   login: string;
   email: string;
-  phone?: string;
+  phone: string;
   password: string;
   password_confirmation: string;
   sponsor_id?: string;

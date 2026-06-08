@@ -80,7 +80,7 @@ export default function OrderDetail() {
           <InfoCard compact label={t('orders.recipientName')} value={order.recipientName || '-'} />
           <InfoCard compact label={t('orders.deliveryPhone')} value={order.phone || '-'} />
           <InfoCard compact label={t('orders.deliveryCity')} value={order.city || '-'} />
-          <InfoCard compact label={t('orders.deliveryAddress')} value={order.deliveryAddress || '-'} />
+          <InfoCard compact label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
           {order.comment && <InfoCard compact label={t('orders.deliveryComment')} value={order.comment} />}
         </div>
       </section>

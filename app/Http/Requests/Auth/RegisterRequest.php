@@ -70,6 +70,7 @@ class RegisterRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'login' => ['required', 'string', 'alpha_dash', 'max:255', 'unique:users,login'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email'],
+            'phone' => ['required', 'string', 'min:6', 'max:32'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'sponsor_id' => ['nullable', 'integer', 'exists:users,id'],
             'referral_code' => ['nullable', 'string', 'max:255'],

@@ -57,6 +57,7 @@ export default function AdminPartnersBulkCreate() {
   const [results, setResults] = useState<BulkResult[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [invalidPhoneRowIds, setInvalidPhoneRowIds] = useState<number[]>([]);
   const canCreate = currentUser.role === 'super_admin';
 
   const createdResults = useMemo(() => results.filter((result) => result.status === 'created'), [results]);
@@ -92,6 +93,10 @@ export default function AdminPartnersBulkCreate() {
 
   const updateRow = (localId: number, field: keyof BulkRow, value: string) => {
     setRows((current) => current.map((row) => row.localId === localId ? { ...row, [field]: value } : row));
+
+    if (field === 'phone' && value.trim() !== '') {
+      setInvalidPhoneRowIds((current) => current.filter((rowId) => rowId !== localId));
+    }
   };
 
   const addRow = () => {
@@ -117,8 +122,17 @@ export default function AdminPartnersBulkCreate() {
   };
 
   const submitRows = async () => {
+    const rowsWithoutPhone = rows.filter((row) => row.phone.trim() === '').map((row) => row.localId);
+
+    if (rowsWithoutPhone.length > 0) {
+      setInvalidPhoneRowIds(rowsWithoutPhone);
+      showToast('Заполните телефон для каждой строки.', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
     setResults([]);
+    setInvalidPhoneRowIds([]);
 
     try {
       const response = await bulkCreateAdminPartners({
@@ -219,7 +233,18 @@ export default function AdminPartnersBulkCreate() {
                   <td className="px-4 py-3"><BulkInput value={row.name} onChange={(event) => updateRow(row.localId, 'name', event.target.value)} /></td>
                   <td className="px-4 py-3"><BulkInput value={row.login} onChange={(event) => updateRow(row.localId, 'login', event.target.value)} /></td>
                   <td className="px-4 py-3"><BulkInput type="email" value={row.email} onChange={(event) => updateRow(row.localId, 'email', event.target.value)} /></td>
-                  <td className="px-4 py-3"><BulkInput value={row.phone} onChange={(event) => updateRow(row.localId, 'phone', event.target.value)} /></td>
+                  <td className="px-4 py-3">
+                    <BulkInput
+                      type="tel"
+                      value={row.phone}
+                      onChange={(event) => updateRow(row.localId, 'phone', event.target.value)}
+                      required
+                      invalid={invalidPhoneRowIds.includes(row.localId)}
+                    />
+                    {invalidPhoneRowIds.includes(row.localId) && (
+                      <div className="mt-1 text-[10px] font-bold text-red-600">Телефон обязателен</div>
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <BulkInput value={row.password} onChange={(event) => {
@@ -313,8 +338,20 @@ export default function AdminPartnersBulkCreate() {
   );
 }
 
-function BulkInput({ value, onChange, type = 'text' }: { value: string; onChange: (event: ChangeEvent<HTMLInputElement>) => void; type?: string }) {
-  return <input type={type} value={value} onChange={onChange} className={inputClass} />;
+function BulkInput({
+  value,
+  onChange,
+  type = 'text',
+  required = false,
+  invalid = false,
+}: {
+  value: string;
+  onChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  type?: string;
+  required?: boolean;
+  invalid?: boolean;
+}) {
+  return <input type={type} value={value} onChange={onChange} required={required} className={`${inputClass} ${invalid ? 'border-red-400 bg-red-50' : ''}`} />;
 }
 
 function normalizeResults(response: unknown, rows: BulkRow[]): BulkResult[] {

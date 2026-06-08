@@ -230,7 +230,11 @@
     "regAccount": "аккаунт",
     "regAction": "Зарегистрироваться",
     "loginInstead": "Уже есть аккаунт? Войти",
-    "regInstead": "Нет аккаунта? Зарегистрироваться"
+    "regInstead": "Нет аккаунта? Зарегистрироваться",
+    "loginLabel": "Логин",
+    "phoneLabel": "Телефон",
+    "phonePlaceholder": "+7 700 000 00 00",
+    "phoneRequired": "Заполните телефон"
   },
   "cart": {
     "title": "Корзина",
@@ -264,7 +268,9 @@
     "deliveryCity": "Город",
     "deliveryAddress": "Адрес доставки",
     "deliveryComment": "Комментарий",
-    "deliveryRequired": "Укажите получателя, телефон, город и адрес доставки."
+    "deliveryRequired": "Укажите получателя, телефон, город и адрес доставки.",
+    "phoneRequired": "Телефон обязателен",
+    "addressRequired": "Заполните адрес доставки"
   },
   "earningsSummary": {
     "kicker": "Доходы",
@@ -350,6 +356,7 @@
     "deliveryCity": "Город",
     "deliveryAddress": "Адрес доставки",
     "deliveryComment": "Комментарий",
+    "addressNotProvided": "Адрес не указан",
     "statusLabels": {
       "pending": "Ожидает подтверждения",
       "confirmed": "Подтверждено",

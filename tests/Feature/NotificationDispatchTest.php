@@ -26,6 +26,7 @@ class NotificationDispatchTest extends TestCase
             'name' => 'Notify User',
             'login' => 'notify_user',
             'email' => 'notify@example.com',
+            'phone' => '+77000000999',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ])->assertCreated();

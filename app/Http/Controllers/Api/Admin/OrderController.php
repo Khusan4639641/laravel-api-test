@@ -31,10 +31,18 @@ class OrderController extends Controller
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $nested) use ($search): void {
                     $nested->where('order_number', 'like', "%{$search}%")
+                        ->orWhere('recipient_name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('city', 'like', "%{$search}%")
+                        ->orWhere('delivery_address', 'like', "%{$search}%")
                         ->orWhereHas('user', function (Builder $userQuery) use ($search): void {
                             $userQuery->where('name', 'like', "%{$search}%")
                                 ->orWhere('login', 'like', "%{$search}%")
-                                ->orWhere('email', 'like', "%{$search}%");
+                                ->orWhere('email', 'like', "%{$search}%")
+                                ->orWhereHas('profile', function (Builder $profileQuery) use ($search): void {
+                                    $profileQuery->where('phone', 'like', "%{$search}%")
+                                        ->orWhere('city', 'like', "%{$search}%");
+                                });
                         });
 
                     if (ctype_digit($search)) {

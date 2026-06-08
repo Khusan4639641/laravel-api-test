@@ -47,6 +47,7 @@ export default function RegisterPage() {
     name: '',
     login: '',
     email: '',
+    phone: '',
     password: '',
     password_confirmation: '',
     referral_code: '',
@@ -93,6 +94,7 @@ export default function RegisterPage() {
         name: form.name,
         login: form.login,
         email: form.email,
+        phone: form.phone,
         password: form.password,
         password_confirmation: form.password_confirmation,
         package_id: form.package_id,
@@ -150,30 +152,43 @@ export default function RegisterPage() {
                   required
                 />
               </FormField>
-              <FormField label="Телефон / логин" error={fieldErrors.login?.[0]}>
+              <FormField label={t('auth.loginLabel', 'Логин')} error={fieldErrors.login?.[0]}>
                 <input
                   type="text"
                   value={form.login}
                   onChange={(event) => updateField('login', event.target.value)}
                   className={inputClass}
-                  placeholder="+7 (___) ___-__-__"
+                  placeholder="partner_login"
                   autoComplete="username"
                   required
                 />
               </FormField>
             </div>
 
-            <FormField label="Email" error={fieldErrors.email?.[0]}>
-              <input
-                type="email"
-                value={form.email}
-                onChange={(event) => updateField('email', event.target.value)}
-                className={inputClass}
-                placeholder="mail@example.com"
-                autoComplete="email"
-                required
-              />
-            </FormField>
+            <div className="grid sm:grid-cols-2 gap-6">
+              <FormField label="Email" error={fieldErrors.email?.[0]}>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={(event) => updateField('email', event.target.value)}
+                  className={inputClass}
+                  placeholder="mail@example.com"
+                  autoComplete="email"
+                  required
+                />
+              </FormField>
+              <FormField label={t('auth.phoneLabel', 'Телефон')} error={fieldErrors.phone?.[0]}>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={(event) => updateField('phone', event.target.value)}
+                  className={inputClass}
+                  placeholder={t('auth.phonePlaceholder', '+7 700 000 00 00')}
+                  autoComplete="tel"
+                  required
+                />
+              </FormField>
+            </div>
 
             <div className="grid sm:grid-cols-2 gap-6">
               <FormField label="Пароль" error={fieldErrors.password?.[0]}>

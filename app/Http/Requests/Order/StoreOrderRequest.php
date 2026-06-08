@@ -42,10 +42,10 @@ class StoreOrderRequest extends FormRequest
             'items.*.quantity' => ['required', 'integer', 'gt:0'],
             'shipping_address' => ['nullable', 'array'],
             'recipient_name' => ['required', 'string', 'max:255'],
-            'phone' => ['required', 'string', 'max:255'],
-            'city' => ['required', 'string', 'max:255'],
-            'delivery_address' => ['required', 'string', 'max:1000'],
-            'comment' => ['nullable', 'string', 'max:2000'],
+            'phone' => ['required', 'string', 'min:6', 'max:32'],
+            'city' => ['required', 'string', 'max:120'],
+            'delivery_address' => ['required', 'string', 'min:5', 'max:500'],
+            'comment' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

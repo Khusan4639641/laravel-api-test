@@ -55,7 +55,9 @@ class AuthController extends Controller
                 'status' => 'user',
             ]);
 
-            $user->profile()->create();
+            $user->profile()->create([
+                'phone' => $validated['phone'],
+            ]);
             $this->walletService->createUserWallets($user);
 
             if ($sponsor && isset($validated['branch'])) {

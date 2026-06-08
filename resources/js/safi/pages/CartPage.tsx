@@ -5,7 +5,7 @@ import { ArrowLeft, Minus, Plus, ShieldCheck, ShoppingBag, Trash2 } from 'lucide
 import { Button } from '../components/ui/Button';
 import { Container } from '../components/ui/Container';
 import { ToastItem, ToastStack, ToastType } from '../components/ui/Toast';
-import { ApiError, createOrder, getApiErrorState, getAuthToken, getPublicProducts } from '../lib/api';
+import { ApiError, createOrder, getApiErrorState, getAuthToken, getPublicProducts, getString, me, unwrapRecord } from '../lib/api';
 import { getAvailableStock, isProductOrderable, useCart } from '../context/CartContext';
 
 const formatCurrency = (value: number) => `${value.toLocaleString('ru-RU')} ₸`;
@@ -62,6 +62,30 @@ export default function CartPage() {
 
   useEffect(() => {
     void refreshProducts();
+  }, []);
+
+  useEffect(() => {
+    if (!getAuthToken()) {
+      return;
+    }
+
+    void me()
+      .then((response) => {
+        const user = unwrapRecord(response, ['user']);
+        const profile = user.profile && typeof user.profile === 'object' && !Array.isArray(user.profile)
+          ? user.profile as Record<string, unknown>
+          : undefined;
+
+        setDeliveryForm((current) => ({
+          ...current,
+          recipientName: current.recipientName || getString(user, ['name']) || '',
+          phone: current.phone || getString(user, ['phone']) || getString(profile, ['phone']) || '',
+          city: current.city || getString(user, ['city']) || getString(profile, ['city']) || '',
+        }));
+      })
+      .catch(() => {
+        // Checkout validation still requires delivery fields if the profile cannot be loaded.
+      });
   }, []);
 
   const invalidItems = useMemo(() => items.filter((item) => !isProductOrderable(item.product) || item.quantity > getAvailableStock(item.product)), [items]);

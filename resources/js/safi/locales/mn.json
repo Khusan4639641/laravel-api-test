@@ -230,7 +230,11 @@
     "regAccount": "данс",
     "regAction": "Бүртгүүлэх",
     "loginInstead": "Данс байгаа юу? Нэвтрэх",
-    "regInstead": "Данс байхгүй юу? Бүртгүүлэх"
+    "regInstead": "Данс байхгүй юу? Бүртгүүлэх",
+    "loginLabel": "Логин",
+    "phoneLabel": "Утас",
+    "phonePlaceholder": "+7 700 000 00 00",
+    "phoneRequired": "Утасны дугаараа оруулна уу"
   },
   "cart": {
     "title": "Сагс",
@@ -264,7 +268,9 @@
     "deliveryCity": "Хот",
     "deliveryAddress": "Хүргэлтийн хаяг",
     "deliveryComment": "Тайлбар",
-    "deliveryRequired": "Хүлээн авагч, утас, хот болон хүргэлтийн хаягаа оруулна уу."
+    "deliveryRequired": "Хүлээн авагч, утас, хот болон хүргэлтийн хаягаа оруулна уу.",
+    "phoneRequired": "Утас шаардлагатай",
+    "addressRequired": "Хүргэлтийн хаягаа оруулна уу"
   },
   "earningsSummary": {
     "kicker": "Орлого",
@@ -350,6 +356,7 @@
     "deliveryCity": "Хот",
     "deliveryAddress": "Хүргэлтийн хаяг",
     "deliveryComment": "Тайлбар",
+    "addressNotProvided": "Хаяг оруулаагүй",
     "statusLabels": {
       "pending": "Баталгаажуулалт хүлээгдэж байна",
       "confirmed": "Баталгаажсан",
