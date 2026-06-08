@@ -1,5 +1,5 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AdminBadge } from '../../components/admin/ui';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
@@ -20,19 +20,23 @@ import {
   Network,
   Phone,
   Shuffle,
+  Trash2,
   Unlock,
   User,
   X,
 } from 'lucide-react';
 import {
   ApiError,
+  AdminPartnerDeletePreview,
   blockAdminPartner,
   calculateAdminPartnerBinaryBonus,
   changeAdminPartnerPackage,
   changeAdminPartnerPassword,
   changeAdminPartnerStatus,
+  deleteAdminPartner,
   getAdminPackages,
   getAdminPartner,
+  getAdminPartnerDeletePreview,
   getAdminPartnerTransactions,
   getApiErrorState,
   getArray,
@@ -141,6 +145,7 @@ const inputClass = 'w-full rounded-xl border border-safi-green/10 bg-[#F5F5F0] p
 
 export default function AdminPartnerDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { currentUser } = useAdminContext();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +158,12 @@ export default function AdminPartnerDetail() {
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [packageModalOpen, setPackageModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletePreview, setDeletePreview] = useState<AdminPartnerDeletePreview | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleteUnderstood, setDeleteUnderstood] = useState(false);
+  const [deleteSubtree, setDeleteSubtree] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [passwordForm, setPasswordForm] = useState({ password: '', password_confirmation: '' });
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string[]>>({});
   const [credentials, setCredentials] = useState<Credentials | null>(null);
@@ -162,6 +173,7 @@ export default function AdminPartnerDetail() {
   const [applyStatusBonusEffects, setApplyStatusBonusEffects] = useState(false);
   const isBlocked = partner.accountStatus === 'blocked';
   const canCalculateBinary = ['admin', 'super_admin'].includes(currentUser.role.toLowerCase());
+  const canDeletePartner = currentUser.role.toLowerCase() === 'super_admin';
 
   const weakBranch = useMemo(() => (partner.leftPV < partner.rightPV ? adminText('a_0JvQtdCy0LDR') : adminText('a_0J_RgNCw0LLQ')), [partner.leftPV, partner.rightPV]);
 
@@ -331,6 +343,75 @@ export default function AdminPartnerDetail() {
     }
   };
 
+  const openDeleteModal = async () => {
+    if (!partner.id) {
+      return;
+    }
+
+    setActionLoading('delete-preview');
+    setDeleteError(null);
+    setDeleteReason('');
+    setDeleteUnderstood(false);
+    setDeleteSubtree(false);
+
+    try {
+      const preview = await getAdminPartnerDeletePreview(partner.id, false);
+      setDeletePreview(preview);
+      setDeleteModalOpen(true);
+    } catch (caughtError) {
+      showToast(getApiErrorState(caughtError).error || 'Не удалось загрузить preview удаления', 'error');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const refreshDeletePreview = async (withSubtree: boolean) => {
+    if (!partner.id) {
+      return;
+    }
+
+    setActionLoading('delete-preview');
+    setDeleteError(null);
+
+    try {
+      setDeletePreview(await getAdminPartnerDeletePreview(partner.id, withSubtree));
+    } catch (caughtError) {
+      setDeleteError(getApiErrorState(caughtError).error || 'Не удалось обновить preview удаления');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const submitDeletePartner = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!deleteReason.trim() || !deleteUnderstood) {
+      return;
+    }
+
+    if (deletePreview?.has_children && !deleteSubtree) {
+      setDeleteError('У партнёра есть структура. Выберите удаление вместе с поддеревом.');
+      return;
+    }
+
+    setActionLoading('delete');
+    setDeleteError(null);
+
+    try {
+      await deleteAdminPartner(partner.id, {
+        delete_subtree: deleteSubtree,
+        reason: deleteReason.trim(),
+      });
+      showToast('Партнёр удалён, перерасчёт выполнен');
+      setDeleteModalOpen(false);
+      window.setTimeout(() => navigate('/admin/partners'), 600);
+    } catch (caughtError) {
+      setDeleteError(getApiErrorState(caughtError).error || 'Не удалось удалить партнёра');
+    } finally {
+      setActionLoading('');
+    }
+  };
+
   const copyCredentials = async () => {
     if (!credentials) {
       return;
@@ -396,6 +477,17 @@ export default function AdminPartnerDetail() {
             >
               <Calculator className="w-4 h-4" />
               {actionLoading === 'binary' ? adminText('a_0KHQvtGF0YDQ_2') : 'Рассчитать бинар'}
+            </button>
+          )}
+          {canDeletePartner && (
+            <button
+              type="button"
+              onClick={openDeleteModal}
+              disabled={!partner.id || isLoading || actionLoading === 'delete-preview'}
+              className="flex cursor-pointer items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Trash2 className="w-4 h-4" />
+              {actionLoading === 'delete-preview' ? 'Загрузка...' : 'Удалить партнёра'}
             </button>
           )}
         </div>
@@ -678,6 +770,101 @@ export default function AdminPartnerDetail() {
           </form>
         </Modal>
       )}
+
+      {deleteModalOpen && (
+        <Modal title="Удалить партнёра" onClose={() => actionLoading !== 'delete' && setDeleteModalOpen(false)}>
+          <form className="space-y-5" onSubmit={submitDeletePartner}>
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
+              Пользователь будет архивирован через soft delete. История транзакций сохранится, бонусы будут reversed/voided, структура и PV пересчитаны по активным пользователям.
+            </div>
+
+            {deletePreview && (
+              <div className="grid gap-3 rounded-2xl border border-safi-green/10 bg-[#F5F5F0] p-4 text-sm">
+                <PreviewRow label="ID" value={deletePreview.user?.id || partner.id} />
+                <PreviewRow label="Имя" value={deletePreview.user?.name || partner.fullName} />
+                <PreviewRow label="Email" value={deletePreview.user?.email || partner.email} />
+                <PreviewRow label="Есть дети" value={deletePreview.has_children ? 'Да' : 'Нет'} />
+                <PreviewRow label="Descendants" value={deletePreview.descendants_count ?? 0} />
+                <PreviewRow label="Affected uplines" value={deletePreview.affected_uplines_count ?? 0} />
+                <PreviewRow label="Транзакции" value={deletePreview.transactions_count ?? 0} />
+                <PreviewRow label="Заказы" value={deletePreview.orders_count ?? 0} />
+                <PreviewRow label="Заявки на вывод" value={deletePreview.withdrawals_count ?? 0} />
+                <PreviewRow label="Баланс кошелька" value={`${Number(deletePreview.wallet_balance ?? 0).toLocaleString('ru-RU')} ₸`} />
+                <PreviewRow label="PV к пересчёту" value={formatPv(deletePreview.pv_to_recalculate ?? 0)} />
+              </div>
+            )}
+
+            {deletePreview?.warning && (
+              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-bold leading-6 text-amber-800">
+                {deletePreview.warning}
+              </div>
+            )}
+
+            <FormField label="Причина удаления">
+              <textarea
+                value={deleteReason}
+                onChange={(event) => setDeleteReason(event.target.value)}
+                className={`${inputClass} min-h-[96px] resize-none`}
+                placeholder="Например: тестовый пользователь"
+                required
+              />
+            </FormField>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-safi-green/10 bg-[#F5F5F0] p-4 text-sm text-safi-green">
+              <input
+                type="checkbox"
+                checked={deleteUnderstood}
+                onChange={(event) => setDeleteUnderstood(event.target.checked)}
+                className="mt-1 h-4 w-4 cursor-pointer rounded border-safi-green/30 text-safi-green focus:ring-safi-green"
+              />
+              <span className="font-bold">Я понимаю, что будет выполнен перерасчёт</span>
+            </label>
+
+            {deletePreview?.has_children && (
+              <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                <input
+                  type="checkbox"
+                  checked={deleteSubtree}
+                  onChange={(event) => {
+                    const nextValue = event.target.checked;
+                    setDeleteSubtree(nextValue);
+                    void refreshDeletePreview(nextValue);
+                  }}
+                  className="mt-1 h-4 w-4 cursor-pointer rounded border-red-300 text-red-600 focus:ring-red-600"
+                />
+                <span>
+                  <span className="block font-bold">Удалить вместе с поддеревом</span>
+                  <span className="mt-1 block text-xs leading-5">Будут архивированы выбранный партнёр и все descendants. Перепривязка детей не выполняется.</span>
+                </span>
+              </label>
+            )}
+
+            {deleteError && (
+              <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setDeleteModalOpen(false)}
+                disabled={actionLoading === 'delete'}
+                className="inline-flex cursor-pointer items-center justify-center rounded-xl border border-safi-border bg-[#F5F5F0] px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                disabled={actionLoading === 'delete' || actionLoading === 'delete-preview' || !deleteReason.trim() || !deleteUnderstood || Boolean(deletePreview?.has_children && !deleteSubtree)}
+                className="inline-flex flex-1 cursor-pointer items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionLoading === 'delete' ? 'Удаление...' : 'Удалить партнёра'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
     </div>
   );
 }
@@ -685,7 +872,7 @@ export default function AdminPartnerDetail() {
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/35 px-4 py-6 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-[28px] border border-safi-border bg-white p-6 shadow-[0_24px_70px_rgba(11,23,18,0.2)]">
+      <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-safi-border bg-white p-6 shadow-[0_24px_70px_rgba(11,23,18,0.2)]">
         <div className="mb-6 flex items-center justify-between gap-4">
           <h2 className="font-serif text-3xl font-semibold text-safi-green">{title}</h2>
           <button
@@ -699,6 +886,15 @@ function Modal({ title, children, onClose }: { title: string; children: ReactNod
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+function PreviewRow({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{label}</span>
+      <span className="text-right font-bold text-safi-green">{value}</span>
     </div>
   );
 }

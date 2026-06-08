@@ -26,6 +26,7 @@ class StructureController extends Controller
         $rootChildren = $rootNode
             ? BinaryNode::query()
                 ->where('parent_id', $rootNode->id)
+                ->where('is_active', true)
                 ->pluck('position', 'user_id')
             : collect();
 
@@ -101,7 +102,7 @@ class StructureController extends Controller
     {
         return BinaryNode::query()->when(
             $path,
-            fn ($query) => $query->where('path', 'like', $path.'.%'),
+            fn ($query) => $query->where('path', 'like', $path.'.%')->where('is_active', true),
             fn ($query) => $query->whereRaw('1 = 0'),
         );
     }

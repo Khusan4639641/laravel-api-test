@@ -54,7 +54,7 @@ class PvService
 
         $this->recordTurnoverAudit($sourceOrder, $pv, $source, $meta, $isBonusable);
 
-        $node = $buyer->binaryNode()->first();
+        $node = $buyer->binaryNode()->where('is_active', true)->first();
 
         while ($node?->parent_id) {
             /** @var BinaryNode $currentNode */

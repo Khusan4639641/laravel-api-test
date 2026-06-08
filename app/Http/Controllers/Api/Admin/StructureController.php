@@ -32,10 +32,11 @@ class StructureController extends Controller
                 throw new NotFoundHttpException('Selected user was not found.');
             }
 
-            $rootNode = $selectedUser->binaryNode()->first();
+            $rootNode = $selectedUser->binaryNode()->where('is_active', true)->first();
         } else {
             $rootNode = BinaryNode::query()
                 ->whereNull('parent_id')
+                ->where('is_active', true)
                 ->orderBy('id')
                 ->first();
 
@@ -92,6 +93,7 @@ class StructureController extends Controller
                 $query->where('id', $rootNode->id)
                     ->orWhere('path', 'like', $rootNode->path.'.%');
             })
+            ->where('is_active', true)
             ->where('depth', '<=', $rootNode->depth + $maxDepth)
             ->orderBy('depth')
             ->orderBy('id')
@@ -113,6 +115,7 @@ class StructureController extends Controller
                 $query->where('id', $rootNode->id)
                     ->orWhere('path', 'like', $rootNode->path.'.%');
             })
+            ->where('is_active', true)
             ->orderBy('depth')
             ->orderBy('id')
             ->get();
@@ -269,6 +272,7 @@ class StructureController extends Controller
 
         return BinaryNode::query()
             ->where('path', 'like', $rootNode->path.'.%')
+            ->where('is_active', true)
             ->count();
     }
 
@@ -281,6 +285,7 @@ class StructureController extends Controller
         $branchRoot = BinaryNode::query()
             ->where('parent_id', $rootNode->id)
             ->where('position', $position)
+            ->where('is_active', true)
             ->first();
 
         if (! $branchRoot) {
@@ -289,6 +294,7 @@ class StructureController extends Controller
 
         return 1 + BinaryNode::query()
             ->where('path', 'like', $branchRoot->path.'.%')
+            ->where('is_active', true)
             ->count();
     }
 
@@ -304,6 +310,7 @@ class StructureController extends Controller
         return BinaryNode::query()
             ->with(['user.currentPackage', 'user.sponsor', 'user.wallets'])
             ->where('path', 'like', $rootNode->path.'.%')
+            ->where('is_active', true)
             ->orderBy('depth')
             ->orderBy('id')
             ->get()

@@ -11,7 +11,7 @@ class BinaryTreeService
 {
     public function placeUser(User $user, ?User $sponsor = null, ?string $preferredPosition = null): BinaryNode
     {
-        if ($user->binaryNode()->exists()) {
+        if ($user->binaryNode()->where('is_active', true)->exists()) {
             throw new InvalidArgumentException('User is already placed in the binary tree.');
         }
 
@@ -24,10 +24,11 @@ class BinaryTreeService
                 'position' => null,
                 'depth' => 0,
                 'path' => (string) $user->id,
+                'is_active' => true,
             ]);
         }
 
-        $sponsorNode = $sponsor->binaryNode()->first();
+        $sponsorNode = $sponsor->binaryNode()->where('is_active', true)->first();
 
         if (! $sponsorNode) {
             $sponsorNode = BinaryNode::query()->create([
@@ -36,6 +37,7 @@ class BinaryTreeService
                 'position' => null,
                 'depth' => 0,
                 'path' => (string) $sponsor->id,
+                'is_active' => true,
             ]);
         }
 
@@ -53,13 +55,14 @@ class BinaryTreeService
             'position' => $childPosition,
             'depth' => $parentNode->depth + 1,
             'path' => trim($parentNode->path.'.'.$user->id, '.'),
+            'is_active' => true,
         ]);
     }
 
     public function findSpilloverPosition(User $sponsor, ?string $preferredPosition = null): ?BinaryNode
     {
         $position = $this->normalizePosition($preferredPosition);
-        $sponsorNode = $sponsor->binaryNode()->first();
+        $sponsorNode = $sponsor->binaryNode()->where('is_active', true)->first();
 
         if (! $sponsorNode) {
             return null;
@@ -87,6 +90,7 @@ class BinaryTreeService
             }
 
             $children = $node->children()
+                ->where('is_active', true)
                 ->orderByRaw("case position when 'L' then 0 when 'R' then 1 else 2 end")
                 ->get();
 
@@ -124,7 +128,7 @@ class BinaryTreeService
 
     private function childAt(BinaryNode $node, string $position): ?BinaryNode
     {
-        return $node->children()->where('position', $position)->first();
+        return $node->children()->where('position', $position)->where('is_active', true)->first();
     }
 
     private function normalizePosition(?string $position): string

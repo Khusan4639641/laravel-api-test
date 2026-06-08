@@ -7,6 +7,7 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -31,12 +32,15 @@ use Laravel\Sanctum\HasApiTokens;
     'remaining_left_pv',
     'remaining_right_pv',
     'total_pv',
+    'deleted_by',
+    'deleted_reason',
+    'deleted_meta',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
     public const ROLE_USER = 'user';
 
@@ -62,6 +66,8 @@ class User extends Authenticatable
             'remaining_left_pv' => 'decimal:2',
             'remaining_right_pv' => 'decimal:2',
             'total_pv' => 'decimal:2',
+            'deleted_at' => 'datetime',
+            'deleted_meta' => 'array',
         ];
     }
 

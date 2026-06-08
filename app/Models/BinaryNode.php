@@ -4,13 +4,16 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
-#[Fillable(['user_id', 'parent_id', 'position', 'depth', 'path'])]
+#[Fillable(['user_id', 'parent_id', 'position', 'depth', 'path', 'is_active', 'deleted_by', 'deleted_reason', 'deleted_meta'])]
 class BinaryNode extends Model
 {
+    use SoftDeletes;
+
     /**
      * @return array<string, string>
      */
@@ -18,6 +21,9 @@ class BinaryNode extends Model
     {
         return [
             'depth' => 'integer',
+            'is_active' => 'boolean',
+            'deleted_at' => 'datetime',
+            'deleted_meta' => 'array',
         ];
     }
 

@@ -117,7 +117,7 @@ class OverviewController extends Controller
     {
         return BinaryNode::query()->when(
             $path,
-            fn ($query) => $query->where('path', 'like', $path.'.%'),
+            fn ($query) => $query->where('path', 'like', $path.'.%')->where('is_active', true),
             fn ($query) => $query->whereRaw('1 = 0'),
         );
     }

@@ -198,7 +198,7 @@ class SeedDemoTreeCommand extends Command
         string $hashedPassword,
         WalletService $walletService,
     ): User {
-        $user = User::query()->updateOrCreate(
+        $user = User::withTrashed()->updateOrCreate(
             ['email' => $email],
             [
                 'name' => $name,
@@ -214,8 +214,15 @@ class SeedDemoTreeCommand extends Command
                 'remaining_left_pv' => 0,
                 'remaining_right_pv' => 0,
                 'total_pv' => 0,
+                'deleted_by' => null,
+                'deleted_reason' => null,
+                'deleted_meta' => null,
             ],
         );
+
+        if ($user->trashed()) {
+            $user->restore();
+        }
 
         UserProfile::query()->updateOrCreate(
             ['user_id' => $user->id],
@@ -251,18 +258,18 @@ class SeedDemoTreeCommand extends Command
 
     private function deleteDemoUsers(): void
     {
-        $demoUserIds = $this->demoUsersQuery()->pluck('id');
+        $demoUserIds = $this->allDemoUsersQuery()->pluck('id');
 
         if ($demoUserIds->isEmpty()) {
             return;
         }
 
-        BinaryNode::query()
+        BinaryNode::withTrashed()
             ->whereIn('user_id', $demoUserIds)
             ->orderByDesc('depth')
             ->get()
             ->each
-            ->delete();
+            ->forceDelete();
 
         if (Schema::hasTable('support_ticket_messages')) {
             DB::table('support_ticket_messages')
@@ -281,12 +288,18 @@ class SeedDemoTreeCommand extends Command
             $ticketsQuery->delete();
         }
 
-        User::query()->whereIn('id', $demoUserIds)->delete();
+        User::withTrashed()->whereIn('id', $demoUserIds)->get()->each->delete();
     }
 
     private function demoUsersQuery()
     {
         return User::query()
+            ->where('email', 'like', 'demo_%@safilife.test');
+    }
+
+    private function allDemoUsersQuery()
+    {
+        return User::withTrashed()
             ->where('email', 'like', 'demo_%@safilife.test');
     }
 }

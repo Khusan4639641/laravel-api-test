@@ -67,6 +67,24 @@ export interface AdminPartnerBulkPayload {
   partners: AdminPartnerPayload[];
 }
 
+export interface AdminPartnerDeletePreview {
+  user?: {
+    id?: string | number;
+    name?: string;
+    email?: string;
+  };
+  can_delete_leaf?: boolean;
+  has_children?: boolean;
+  descendants_count?: number;
+  affected_uplines_count?: number;
+  transactions_count?: number;
+  orders_count?: number;
+  withdrawals_count?: number;
+  wallet_balance?: string | number;
+  pv_to_recalculate?: string | number;
+  warning?: string;
+}
+
 export interface OrderPayload {
   product_id?: string | number;
   quantity?: number;
@@ -752,6 +770,27 @@ export async function getAdminPartnerTransactions<T = unknown>(userId: string | 
 export async function calculateAdminPartnerBinaryBonus<T = unknown>(userId: string | number) {
   return apiRequest<T>(endpoints.admin.partnerBinaryBonusCalculate(userId), {
     method: 'POST',
+    auth: true,
+  });
+}
+
+export async function getAdminPartnerDeletePreview(userId: string | number, deleteSubtree = false) {
+  return apiRequest<AdminPartnerDeletePreview>(
+    buildEndpointWithParams(endpoints.admin.partnerDeletePreview(userId), { delete_subtree: deleteSubtree ? 1 : 0 }),
+    {
+      method: 'GET',
+      auth: true,
+    },
+  );
+}
+
+export async function deleteAdminPartner<T = unknown>(
+  userId: string | number,
+  payload: { delete_subtree?: boolean; reason: string },
+) {
+  return apiRequest<T>(endpoints.admin.partner(userId), {
+    method: 'DELETE',
+    body: payload,
     auth: true,
   });
 }

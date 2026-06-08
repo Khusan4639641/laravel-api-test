@@ -64,6 +64,7 @@ export const endpoints = {
     partnerTransactions: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/transactions`,
     partnerBinaryBonusCalculate: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/binary-bonus/calculate`,
     partnerTree: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/tree`,
+    partnerDeletePreview: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/delete-preview`,
     structure: '/admin/structure',
     users: '/admin/users',
     user: (user: EndpointId) => `/admin/users/${encodeEndpointId(user)}`,

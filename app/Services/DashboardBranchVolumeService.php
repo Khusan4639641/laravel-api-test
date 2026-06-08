@@ -160,6 +160,7 @@ class DashboardBranchVolumeService
         $rootSegments = explode('.', $rootNode->path);
         $rootChildren = BinaryNode::query()
             ->where('parent_id', $rootNode->id)
+            ->where('is_active', true)
             ->pluck('position', 'user_id');
         $volumes = ['left_pv' => '0.00', 'right_pv' => '0.00'];
 
@@ -205,6 +206,7 @@ class DashboardBranchVolumeService
         $rootSegments = explode('.', $rootNode->path);
         $rootChildren = BinaryNode::query()
             ->where('parent_id', $rootNode->id)
+            ->where('is_active', true)
             ->pluck('position', 'user_id');
         $counts = ['left_count' => 0, 'right_count' => 0];
 
@@ -242,6 +244,7 @@ class DashboardBranchVolumeService
         PvTransaction::query()
             ->selectRaw('branch, COALESCE(SUM(pv), 0) as total_pv')
             ->where('upline_id', $user->id)
+            ->whereNull('voided_at')
             ->whereHas('buyer', fn ($query) => $query->where('role', User::ROLE_USER))
             ->groupBy('branch')
             ->get()
@@ -279,6 +282,7 @@ class DashboardBranchVolumeService
         PvTransaction::query()
             ->selectRaw('upline_id, branch, COALESCE(SUM(pv), 0) as total_pv')
             ->whereIn('upline_id', $userIds)
+            ->whereNull('voided_at')
             ->whereHas('buyer', fn ($query) => $query->where('role', User::ROLE_USER))
             ->groupBy('upline_id', 'branch')
             ->get()
@@ -370,7 +374,7 @@ class DashboardBranchVolumeService
     {
         return BinaryNode::query()->when(
             $path,
-            fn ($query) => $query->where('path', 'like', $path.'.%'),
+            fn ($query) => $query->where('path', 'like', $path.'.%')->where('is_active', true),
             fn ($query) => $query->whereRaw('1 = 0'),
         );
     }

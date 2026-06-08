@@ -169,6 +169,7 @@ class X2BonusService
         return BinaryNode::query()
             ->where('parent_id', $sponsorNode->id)
             ->where('user_id', $branchRootUserId)
+            ->where('is_active', true)
             ->value('position');
     }
 

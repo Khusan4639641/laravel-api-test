@@ -41,16 +41,20 @@ class UnsafeMlmActionsTest extends TestCase
         $this->assertDatabaseHas('users', ['id' => $partner->id]);
     }
 
-    public function test_super_admin_partner_delete_route_is_not_implemented(): void
+    public function test_super_admin_partner_delete_route_soft_deletes_partner(): void
     {
         $partner = User::factory()->create(['role' => User::ROLE_USER]);
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
 
-        $response = $this->deleteJson("/api/admin/partners/{$partner->id}");
+        $this->deleteJson("/api/admin/partners/{$partner->id}", [
+            'delete_subtree' => false,
+            'reason' => 'Safety test',
+        ])
+            ->assertOk()
+            ->assertJsonPath('deleted_users_count', 1);
 
-        $this->assertContains($response->getStatusCode(), [404, 405]);
-        $this->assertDatabaseHas('users', ['id' => $partner->id]);
+        $this->assertSoftDeleted('users', ['id' => $partner->id]);
     }
 
     public function test_income_calculator_api_route_is_not_added(): void

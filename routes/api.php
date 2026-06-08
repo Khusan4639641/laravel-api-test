@@ -188,6 +188,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         Route::middleware('role_permission:admin.read')->group(function (): void {
             Route::get('/partners', [AdminUserController::class, 'index']);
             Route::get('/partners/search', [AdminUserController::class, 'search']);
+            Route::get('/partners/{user}/delete-preview', [AdminPartnerController::class, 'deletePreview']);
             Route::get('/partners/{user}', [AdminPartnerController::class, 'show']);
             Route::get('/partners/{user}/transactions', [AdminPartnerController::class, 'transactions']);
             Route::get('/partners/{user}/tree', [AdminPartnerController::class, 'tree']);
@@ -201,6 +202,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
             Route::patch('/partners/{user}/unblock', [AdminPartnerController::class, 'unblock']);
             Route::patch('/partners/{user}/note', [AdminPartnerController::class, 'note']);
             Route::post('/partners/{user}/change-password', [AdminPartnerController::class, 'changePassword']);
+            Route::delete('/partners/{user}', [AdminPartnerController::class, 'destroy']);
         });
 
         Route::middleware('role_permission:admin.reports')->group(function (): void {

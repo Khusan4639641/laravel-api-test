@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'branch',
     'pv',
     'is_bonusable',
+    'voided_at',
+    'voided_by',
     'metadata',
 ])]
 class PvTransaction extends Model
@@ -26,6 +28,7 @@ class PvTransaction extends Model
         return [
             'pv' => 'decimal:2',
             'is_bonusable' => 'boolean',
+            'voided_at' => 'datetime',
             'metadata' => 'array',
         ];
     }
@@ -38,6 +41,11 @@ class PvTransaction extends Model
     public function upline(): BelongsTo
     {
         return $this->belongsTo(User::class, 'upline_id');
+    }
+
+    public function voidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'voided_by');
     }
 
     public function sourceOrder(): BelongsTo

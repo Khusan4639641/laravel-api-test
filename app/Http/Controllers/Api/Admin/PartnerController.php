@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Services\BonusService;
 use App\Services\PackageService;
+use App\Services\PartnerDeletionService;
 use App\Services\PartnerRegistrationService;
 use App\Services\StatusBonusService;
 use Illuminate\Http\JsonResponse;
@@ -42,6 +43,7 @@ class PartnerController extends Controller
         private readonly BonusService $bonusService,
         private readonly StatusBonusService $statusBonusService,
         private readonly PartnerRegistrationService $partnerRegistrationService,
+        private readonly PartnerDeletionService $partnerDeletionService,
     ) {
     }
 
@@ -233,6 +235,38 @@ class PartnerController extends Controller
         ]);
     }
 
+    public function deletePreview(Request $request, User $user): JsonResponse
+    {
+        $this->ensureSuperAdmin($request);
+
+        return response()->json($this->partnerDeletionService->previewDelete(
+            $user,
+            $request->boolean('delete_subtree', false),
+        ));
+    }
+
+    public function destroy(Request $request, User $user): JsonResponse
+    {
+        $this->ensureSuperAdmin($request);
+
+        $validated = $request->validate([
+            'delete_subtree' => ['sometimes', 'boolean'],
+            'reason' => ['required', 'string', 'min:3', 'max:2000'],
+        ]);
+
+        $result = $this->partnerDeletionService->deletePartner(
+            $user,
+            $request->user(),
+            (bool) ($validated['delete_subtree'] ?? false),
+            $validated['reason'],
+        );
+
+        return response()->json([
+            'message' => 'Партнёр удалён, перерасчёт выполнен',
+            ...$result->toArray(),
+        ]);
+    }
+
     public function calculateBinaryBonus(User $user): JsonResponse
     {
         $bonusTransaction = $this->bonusService->calculateBinaryBonus($user);
@@ -257,7 +291,7 @@ class PartnerController extends Controller
 
     public function tree(User $user): JsonResponse
     {
-        $rootNode = $user->binaryNode()->first();
+        $rootNode = $user->binaryNode()->where('is_active', true)->first();
 
         $nodes = BinaryNode::query()
             ->with(['user.profile', 'user.currentPackage'])
@@ -266,6 +300,7 @@ class PartnerController extends Controller
                 $query->where('id', $rootNode->id)
                     ->orWhere('path', 'like', $rootNode->path.'.%');
             })
+            ->where('is_active', true)
             ->orderBy('depth')
             ->orderBy('id')
             ->get();
@@ -337,6 +372,11 @@ class PartnerController extends Controller
     private function shouldPayReferralBonus(array $validated): bool
     {
         return filter_var($validated['pay_referral_bonus'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function ensureSuperAdmin(Request $request): void
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403, 'Only super admin can delete partners.');
     }
 
     /**
