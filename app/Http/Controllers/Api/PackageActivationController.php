@@ -21,6 +21,12 @@ class PackageActivationController extends Controller
     {
         $user = $request->user();
 
+        if (! config('safi.user_package_changes_enabled', false)) {
+            return response()->json([
+                'message' => 'Смена пакета временно доступна только через администратора',
+            ], 403);
+        }
+
         if (! $package->is_active || $package->status !== 'active') {
             throw ValidationException::withMessages([
                 'package' => 'Package is inactive.',

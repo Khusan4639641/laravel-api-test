@@ -1,21 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowUpRight, CheckCircle2, Lock, Trophy } from 'lucide-react';
+import { CheckCircle2, Lock, Trophy } from 'lucide-react';
 import { Badge, ProgressBar } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { activatePackage, ApiError, getApiErrorState, getDashboardOverview, getDashboardPackages, getNumber, getPublicStatuses, Package, Status, upgradePackage } from '../../lib/api';
+import { getApiErrorState, getDashboardOverview, getDashboardPackages, getNumber, getPublicStatuses, Package, Status } from '../../lib/api';
 import { cn } from '../../lib/utils';
 
 export default function PackageStatus() {
-  const { currentUser, refreshCurrentUser } = useDashboardContext();
+  const { currentUser } = useDashboardContext();
   const [packages, setPackages] = useState<Package[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [statusProgress, setStatusProgress] = useState({ leftPV: 0, rightPV: 0, weakLegPV: 0 });
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pendingPackage, setPendingPackage] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   const currentPackageCode = normalizePackageCode(currentUser.packageCode || currentUser.packageName);
   const displayPackages = packages.filter((pkg) => {
     const packageCode = normalizePackageCode(pkg.code || pkg.name);
@@ -65,31 +62,6 @@ export default function PackageStatus() {
     void loadPackageData();
   }, [loadPackageData]);
 
-  const handlePackageAction = async (packageId: string, action: 'activate' | 'upgrade') => {
-    setPendingPackage(packageId);
-    setMessage('');
-    setError('');
-
-    try {
-      if (action === 'activate') {
-        await activatePackage(packageId);
-      } else {
-        await upgradePackage(packageId);
-      }
-
-      setMessage(action === 'activate' ? 'Пакет отправлен на активацию.' : 'Апгрейд пакета отправлен.');
-      await refreshCurrentUser();
-    } catch (caughtError) {
-      if (caughtError instanceof ApiError) {
-        setError(caughtError.message);
-      } else {
-        setError('Не удалось выполнить действие. Попробуйте позже.');
-      }
-    } finally {
-      setPendingPackage('');
-    }
-  };
-
   return (
     <div className="space-y-10">
       <section className="rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:p-8">
@@ -100,18 +72,15 @@ export default function PackageStatus() {
             <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
               Управление стартовым пакетом, апгрейдом и прогрессом по PV.
             </p>
+            <p className="mt-3 max-w-2xl rounded-2xl border border-safi-gold/30 bg-safi-cream px-4 py-3 text-sm font-bold leading-6 text-safi-green">
+              Смена пакета временно доступна только через администратора.
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="gold">Пакет: {currentUser.packageName}</Badge>
             <Badge variant="default">Статус: {currentUser.status}</Badge>
           </div>
         </div>
-
-        {(message || error) && (
-          <div className={`mt-6 rounded-2xl border px-4 py-3 text-sm font-bold ${error ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
-            {error || message}
-          </div>
-        )}
       </section>
 
       {isLoading && (
@@ -135,9 +104,6 @@ export default function PackageStatus() {
 
         {displayPackages.map((pkg, index) => {
           const isCurrent = index === currentPackageIndex;
-          const isLower = currentPackageIndex >= 0 && index < currentPackageIndex;
-          const isLockedUpgrade = currentPackageIndex >= 0 && index > currentPackageIndex + 1;
-          const action: 'activate' | 'upgrade' = currentPackageIndex === -1 ? 'activate' : 'upgrade';
 
           return (
             <article
@@ -169,15 +135,9 @@ export default function PackageStatus() {
                   Текущий пакет
                 </div>
               ) : (
-                <button
-                  type="button"
-                  disabled={isLower || isLockedUpgrade || pendingPackage === pkg.id}
-                  onClick={() => handlePackageAction(pkg.id, action)}
-                  className="mt-8 inline-flex items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white disabled:cursor-not-allowed disabled:opacity-45"
-                >
-                  <ArrowUpRight className="h-4 w-4" />
-                  {pendingPackage === pkg.id ? 'Отправляем...' : isLower ? 'Пройден' : isLockedUpgrade ? 'По очереди' : currentPackageIndex === -1 ? 'Активировать' : 'Апгрейд'}
-                </button>
+                <div className="mt-8 rounded-full border border-safi-border bg-safi-cream px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
+                  Через администратора
+                </div>
               )}
             </article>
           );

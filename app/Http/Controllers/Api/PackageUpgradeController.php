@@ -19,6 +19,12 @@ class PackageUpgradeController extends Controller
 
     public function __invoke(Request $request, Package $package): JsonResponse
     {
+        if (! config('safi.user_package_changes_enabled', false)) {
+            return response()->json([
+                'message' => 'Смена пакета временно доступна только через администратора',
+            ], 403);
+        }
+
         if (! $package->is_active || $package->status !== 'active' || ! $package->is_upgradeable) {
             throw ValidationException::withMessages([
                 'package' => 'Package is inactive.',
