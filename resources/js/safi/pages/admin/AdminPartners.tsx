@@ -4,7 +4,7 @@ import { Copy, Eye, Filter, Network, Plus, Search, X } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState } from '../../lib/api';
+import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState, getRegistrationPackages, Package } from '../../lib/api';
 import { formatPv } from '../../lib/format';
 import { adminText } from '../../i18n/adminText';
 import { features } from '../../config/features';
@@ -68,6 +68,8 @@ const initialCreateForm = {
   password_confirmation: '',
   sponsor_id: '',
   branch: '',
+  package_id: '',
+  pay_referral_bonus: false,
   role: 'user',
 };
 
@@ -106,6 +108,7 @@ export default function AdminPartners() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
   const [copyStatus, setCopyStatus] = useState('');
+  const [registrationPackages, setRegistrationPackages] = useState<Package[]>([]);
 
   const loadUsers = async (searchQuery = searchTerm, pageLimit = limit, pageOffset = offset) => {
     setIsLoading(true);
@@ -148,6 +151,12 @@ export default function AdminPartners() {
   useEffect(() => {
     void loadUsers(searchTerm, limit, offset);
   }, [searchTerm, limit, offset]);
+
+  useEffect(() => {
+    void getRegistrationPackages()
+      .then((packages) => setRegistrationPackages(packages.filter((pkg) => isStarterPackage(pkg))))
+      .catch(() => setRegistrationPackages([]));
+  }, []);
 
   const openCreateModal = () => {
     setCreateForm(initialCreateForm);
@@ -465,6 +474,7 @@ export default function AdminPartners() {
         <CreatePartnerModal
           form={createForm}
           partners={partners}
+          packages={registrationPackages}
           fieldErrors={fieldErrors}
           error={createError}
           isCreating={isCreating}
@@ -483,6 +493,7 @@ export default function AdminPartners() {
 function CreatePartnerModal({
   form,
   partners,
+  packages,
   fieldErrors,
   error,
   isCreating,
@@ -495,6 +506,7 @@ function CreatePartnerModal({
 }: {
   form: typeof initialCreateForm;
   partners: AdminPartnerRow[];
+  packages: Package[];
   fieldErrors: FieldErrors;
   error: string | null;
   isCreating: boolean;
@@ -503,7 +515,7 @@ function CreatePartnerModal({
   onClose: () => void;
   onCopy: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onChange: (field: keyof typeof initialCreateForm, value: string) => void;
+  onChange: (field: keyof typeof initialCreateForm, value: string | boolean) => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/35 px-4 py-6 backdrop-blur-sm">
@@ -627,7 +639,37 @@ function CreatePartnerModal({
                   <option value="admin">admin</option>
                 </select>
               </ModalField>
+              <ModalField label="Стартовый пакет" error={fieldErrors.package_id?.[0]}>
+                <select
+                  value={form.package_id}
+                  onChange={(event) => onChange('package_id', event.target.value)}
+                  className={modalInputClass}
+                >
+                  <option value="">Без пакета</option>
+                  {packages.map((pkg) => (
+                    <option key={pkg.id} value={pkg.id}>
+                      {pkg.label || pkg.name} — {pkg.price.toLocaleString('ru-RU')} ₸
+                    </option>
+                  ))}
+                </select>
+              </ModalField>
             </div>
+
+            <label className="flex items-start gap-3 rounded-2xl border border-safi-border bg-safi-cream px-4 py-3">
+              <input
+                type="checkbox"
+                checked={form.pay_referral_bonus}
+                onChange={(event) => onChange('pay_referral_bonus', event.target.checked)}
+                disabled={!form.sponsor_id || !form.package_id}
+                className="mt-1 h-4 w-4 cursor-pointer rounded border-safi-border text-safi-green focus:ring-safi-green disabled:cursor-not-allowed disabled:opacity-60"
+              />
+              <span className="text-sm font-bold leading-6 text-safi-green">
+                Начислить реферальный бонус спонсору
+                <span className="mt-1 block text-xs font-medium text-safi-muted">
+                  По умолчанию ручное создание не начисляет бонус. При включении START даст 5 000 ₸, VIP даст 15 000 ₸.
+                </span>
+              </span>
+            </label>
 
             <div className="flex flex-col gap-3 border-t border-safi-border pt-5 sm:flex-row sm:justify-end">
               <button
@@ -668,6 +710,12 @@ function CreatePartnerModal({
       </div>
     </div>
   );
+}
+
+function isStarterPackage(pkg: Package) {
+  const code = String(pkg.code || pkg.name || '').trim().toUpperCase();
+
+  return code === 'START' || code === 'VIP';
 }
 
 function ModalField({ label, error, children }: { label: string; error?: string; children: ReactNode }) {

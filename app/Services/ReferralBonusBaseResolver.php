@@ -7,7 +7,7 @@ use App\Models\Package;
 
 class ReferralBonusBaseResolver
 {
-    private const VIP_ACTIVATION_REFERRAL_EXCLUDED_AMOUNT = '45000';
+    private const PV_MONEY_RATE = '500';
 
     /**
      * @param  array<string, mixed>  $context
@@ -15,8 +15,7 @@ class ReferralBonusBaseResolver
     public function resolveForPackageActivation(Package $package, array $context = []): string
     {
         return match ($package->code) {
-            'START' => (string) $package->price,
-            'VIP' => $this->positiveOrZero(bcsub((string) $package->price, self::VIP_ACTIVATION_REFERRAL_EXCLUDED_AMOUNT, 2)),
+            'START', 'VIP' => $this->positiveOrZero(bcmul($package->activityPv(), self::PV_MONEY_RATE, 2)),
             default => '0.00',
         };
     }

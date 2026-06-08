@@ -12,14 +12,12 @@ use App\Models\BinaryNode;
 use App\Models\Package;
 use App\Models\User;
 use App\Models\WalletTransaction;
-use App\Services\BinaryTreeService;
 use App\Services\BonusService;
 use App\Services\PackageService;
+use App\Services\PartnerRegistrationService;
 use App\Services\StatusBonusService;
-use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -40,11 +38,10 @@ class PartnerController extends Controller
     ];
 
     public function __construct(
-        private readonly BinaryTreeService $binaryTreeService,
         private readonly PackageService $packageService,
-        private readonly WalletService $walletService,
         private readonly BonusService $bonusService,
         private readonly StatusBonusService $statusBonusService,
+        private readonly PartnerRegistrationService $partnerRegistrationService,
     ) {
     }
 
@@ -52,7 +49,7 @@ class PartnerController extends Controller
     {
         $validated = $request->validated();
         $plainPassword = $validated['password'];
-        $user = DB::transaction(fn (): User => $this->createPartner($validated, $plainPassword));
+        $user = $this->createPartner($validated, $plainPassword, $request->user(), 'admin_partner_create');
 
         return response()->json([
             'user' => UserResource::make($user),
@@ -85,7 +82,7 @@ class PartnerController extends Controller
             $plainPassword = $validated['password'];
 
             try {
-                $user = DB::transaction(fn (): User => $this->createPartner($validated, $plainPassword));
+                $user = $this->createPartner($validated, $plainPassword, $request->user(), 'admin_partner_bulk_create');
                 $created[] = [
                     'row' => $index,
                     'user' => UserResource::make($user),
@@ -281,39 +278,14 @@ class PartnerController extends Controller
     /**
      * @param  array<string, mixed>  $validated
      */
-    private function createPartner(array $validated, string $plainPassword): User
+    private function createPartner(array $validated, string $plainPassword, ?User $actor, string $source): User
     {
-        $sponsor = ! empty($validated['sponsor_id'])
-            ? User::query()->findOrFail((int) $validated['sponsor_id'])
-            : null;
-
-        $user = User::query()->create([
-            'name' => $validated['name'],
-            'login' => $validated['login'],
-            'email' => $validated['email'],
-            'password' => Hash::make($plainPassword),
-            'sponsor_id' => $sponsor?->id,
-            'current_package_id' => null,
-            'status' => 'user',
-            'account_status' => 'active',
-            'role' => $validated['role'] ?? User::ROLE_USER,
-        ]);
-
-        $nameParts = explode(' ', trim($validated['name']), 2);
-        $user->profile()->create([
-            'first_name' => $nameParts[0] ?? null,
-            'last_name' => $nameParts[1] ?? null,
-            'phone' => $validated['phone'] ?? null,
-            'country' => 'Казахстан',
-        ]);
-
-        $this->walletService->createUserWallets($user);
-
-        if ($sponsor) {
-            $this->binaryTreeService->placeUser($user, $sponsor, $validated['branch'] ?? null);
-        }
-
-        return $this->loadPartner($user);
+        return $this->partnerRegistrationService->register(
+            data: $validated,
+            actor: $actor,
+            payReferralBonus: $this->shouldPayReferralBonus($validated),
+            source: $source,
+        );
     }
 
     private function loadPartner(User $user): User
@@ -347,6 +319,8 @@ class PartnerController extends Controller
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'sponsor_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'branch' => ['nullable', 'string', Rule::in(['left', 'right', 'L', 'R'])],
+            'package_id' => ['nullable', 'integer', Rule::exists('packages', 'id')],
+            'pay_referral_bonus' => ['sometimes', 'boolean'],
             'role' => ['nullable', 'string', Rule::in($roles ?: [
                 User::ROLE_USER,
                 User::ROLE_SUPPORT,
@@ -355,6 +329,14 @@ class PartnerController extends Controller
                 User::ROLE_SUPER_ADMIN,
             ])],
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function shouldPayReferralBonus(array $validated): bool
+    {
+        return filter_var($validated['pay_referral_bonus'] ?? false, FILTER_VALIDATE_BOOLEAN);
     }
 
     /**

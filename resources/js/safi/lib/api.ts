@@ -58,6 +58,8 @@ export interface AdminPartnerPayload {
   password_confirmation: string;
   sponsor_id?: string;
   branch?: string;
+  package_id?: string;
+  pay_referral_bonus?: boolean;
   role?: string;
 }
 

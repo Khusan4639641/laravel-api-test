@@ -54,9 +54,9 @@ class ReferralBonusRulesTest extends TestCase
         $bonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
         $walletTransaction = WalletTransaction::query()->where('type', 'referral_bonus')->firstOrFail();
 
-        $this->assertSame('6000.00', $bonus->amount);
-        $this->assertSame('60000.00', $bonus->metadata['base_amount']);
-        $this->assertSame('6000.00', $walletTransaction->amount);
+        $this->assertSame('5000.00', $bonus->amount);
+        $this->assertSame('50000.00', $bonus->metadata['base_amount']);
+        $this->assertSame('5000.00', $walletTransaction->amount);
         Notification::assertSentTo($sponsor, BonusAccruedNotification::class);
     }
 
@@ -79,9 +79,9 @@ class ReferralBonusRulesTest extends TestCase
         $bonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
         $walletTransaction = WalletTransaction::query()->where('type', 'referral_bonus')->firstOrFail();
 
-        $this->assertSame('13500.00', $bonus->amount);
-        $this->assertSame('135000.00', $bonus->metadata['base_amount']);
-        $this->assertSame('13500.00', $walletTransaction->amount);
+        $this->assertSame('15000.00', $bonus->amount);
+        $this->assertSame('150000.00', $bonus->metadata['base_amount']);
+        $this->assertSame('15000.00', $walletTransaction->amount);
         $this->assertNotSame('18000.00', $bonus->amount);
     }
 
@@ -106,7 +106,7 @@ class ReferralBonusRulesTest extends TestCase
         $sponsorWallet = $sponsor->wallets()->where('type', 'main')->firstOrFail();
         $buyerWallet = $buyer->wallets()->where('type', 'main')->firstOrFail();
 
-        $this->assertSame('6000.00', $sponsorWallet->refresh()->balance);
+        $this->assertSame('5000.00', $sponsorWallet->refresh()->balance);
         $this->assertSame('0.00', $buyerWallet->refresh()->balance);
         $this->assertSame(1, WalletTransaction::query()->where('user_id', $sponsor->id)->where('type', 'referral_bonus')->count());
         $this->assertSame(0, WalletTransaction::query()->where('user_id', $buyer->id)->where('type', 'referral_bonus')->count());
@@ -153,8 +153,8 @@ class ReferralBonusRulesTest extends TestCase
         ]);
         $resolver = app(ReferralBonusBaseResolver::class);
 
-        $this->assertSame('60000.00', $resolver->resolveForPackageActivation($start));
-        $this->assertSame('135000.00', $resolver->resolveForPackageActivation($vip));
+        $this->assertSame('50000.00', $resolver->resolveForPackageActivation($start));
+        $this->assertSame('150000.00', $resolver->resolveForPackageActivation($vip));
         $this->assertSame('120000.00', $resolver->resolveForPackageUpgrade($start, $vip));
         $this->assertSame('0.00', $resolver->resolveForPackageUpgrade($vip, $elite));
         $this->assertSame('10000.00', $resolver->resolveForProductOrder($order));
@@ -179,9 +179,9 @@ class ReferralBonusRulesTest extends TestCase
         );
 
         $this->assertNotNull($bonus);
-        $this->assertSame('135000.00', $resolvedBase);
-        $this->assertSame('13500.00', $bonus->amount);
-        $this->assertSame('135000.00', $bonus->metadata['base_amount']);
+        $this->assertSame('150000.00', $resolvedBase);
+        $this->assertSame('15000.00', $bonus->amount);
+        $this->assertSame('150000.00', $bonus->metadata['base_amount']);
     }
 
     public function test_referral_bonus_is_idempotent_for_same_source_key(): void

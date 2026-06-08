@@ -29,6 +29,8 @@ class StorePartnerRequest extends FormRequest
             'password' => ['required', 'string', 'min:8', 'confirmed'],
             'sponsor_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'branch' => ['nullable', 'string', Rule::in(['left', 'right', 'L', 'R'])],
+            'package_id' => ['nullable', 'integer', Rule::exists('packages', 'id')],
+            'pay_referral_bonus' => ['sometimes', 'boolean'],
             'role' => ['nullable', 'string', Rule::in($roles ?: [
                 User::ROLE_USER,
                 User::ROLE_SUPPORT,

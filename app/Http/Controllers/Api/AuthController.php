@@ -6,31 +6,27 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Http\Resources\UserResource;
-use App\Models\Package;
 use App\Models\User;
-use App\Notifications\UserRegisteredNotification;
-use App\Services\BinaryTreeService;
-use App\Services\WalletService;
+use App\Services\PartnerRegistrationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
     public function __construct(
-        private readonly WalletService $walletService,
-        private readonly BinaryTreeService $binaryTreeService,
+        private readonly PartnerRegistrationService $partnerRegistrationService,
     ) {
     }
 
     public function register(RegisterRequest $request): JsonResponse
     {
         $validated = $request->validated();
-        $sponsor = $this->resolveSponsor($validated);
-        $this->validateStarterPackageChoice($validated);
+        $sponsor = $this->partnerRegistrationService->resolveSponsorByReferralCode(
+            $validated['referral_code'] ?? null,
+            isset($validated['sponsor_id']) ? (int) $validated['sponsor_id'] : null,
+        );
 
         if (! empty($validated['referral_code']) && ! $sponsor) {
             throw ValidationException::withMessages([
@@ -44,30 +40,12 @@ class AuthController extends Controller
             ]);
         }
 
-        $user = DB::transaction(function () use ($validated, $sponsor): User {
-            $user = User::query()->create([
-                'name' => $validated['name'],
-                'login' => $validated['login'],
-                'email' => $validated['email'],
-                'password' => Hash::make($validated['password']),
-                'sponsor_id' => $sponsor?->id,
-                'current_package_id' => null,
-                'status' => 'user',
-            ]);
-
-            $user->profile()->create([
-                'phone' => $validated['phone'],
-            ]);
-            $this->walletService->createUserWallets($user);
-
-            if ($sponsor && isset($validated['branch'])) {
-                $this->binaryTreeService->placeUser($user, $sponsor, $validated['branch']);
-            }
-
-            $user->notify(new UserRegisteredNotification());
-
-            return $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])->loadCount('referrals');
-        });
+        $user = $this->partnerRegistrationService->register(
+            data: $validated,
+            payReferralBonus: true,
+            source: $sponsor ? 'public_referral_registration' : 'public_registration',
+            notifyRegisteredUser: true,
+        );
 
         return response()->json([
             'user' => UserResource::make($user),
@@ -115,59 +93,5 @@ class AuthController extends Controller
         return response()->json([
             'user' => UserResource::make($request->user()?->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])->loadCount('referrals')),
         ]);
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     */
-    private function resolveSponsor(array $validated): ?User
-    {
-        if (! empty($validated['sponsor_id'])) {
-            return User::query()->find((int) $validated['sponsor_id']);
-        }
-
-        $referralCode = trim((string) ($validated['referral_code'] ?? ''));
-
-        if ($referralCode === '') {
-            return null;
-        }
-
-        $normalizedCode = strtolower($referralCode);
-        $optionalCodeColumns = array_filter(
-            ['referral_code', 'partner_id', 'code'],
-            fn (string $column): bool => Schema::hasColumn('users', $column),
-        );
-
-        return User::query()
-            ->where(function ($query) use ($referralCode, $normalizedCode, $optionalCodeColumns): void {
-                $query->whereRaw('LOWER(login) = ?', [$normalizedCode]);
-
-                if (ctype_digit($referralCode)) {
-                    $query->orWhere('id', (int) $referralCode);
-                }
-
-                foreach ($optionalCodeColumns as $column) {
-                    $query->orWhereRaw("LOWER({$column}) = ?", [$normalizedCode]);
-                }
-            })
-            ->first();
-    }
-
-    /**
-     * @param  array<string, mixed>  $validated
-     */
-    private function validateStarterPackageChoice(array $validated): void
-    {
-        if (empty($validated['package_id'])) {
-            return;
-        }
-
-        $package = Package::query()->find((int) $validated['package_id']);
-
-        if (! $package || ! $package->is_active || $package->status !== 'active' || ! in_array($package->code, Package::STARTER_CODES, true)) {
-            throw ValidationException::withMessages([
-                'package_id' => ['Selected package is not available for first registration.'],
-            ]);
-        }
     }
 }

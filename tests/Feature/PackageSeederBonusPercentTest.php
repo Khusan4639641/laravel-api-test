@@ -75,8 +75,8 @@ class PackageSeederBonusPercentTest extends TestCase
         $bonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
         $wallet = $sponsor->wallets()->where('type', 'main')->firstOrFail();
 
-        $this->assertSame('6000.00', $bonus->amount);
-        $this->assertSame('6000.00', $wallet->balance);
+        $this->assertSame('5000.00', $bonus->amount);
+        $this->assertSame('5000.00', $wallet->balance);
     }
 
     public function test_seeded_package_binary_bonus_is_non_zero(): void
