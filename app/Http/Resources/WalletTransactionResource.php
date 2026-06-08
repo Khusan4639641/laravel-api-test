@@ -25,6 +25,10 @@ class WalletTransactionResource extends JsonResource
             'balance_after' => $this->balance_after,
             'status' => $this->status,
             'status_label' => SystemLabel::transactionStatus($this->status),
+            'affects_balance' => (bool) ($this->affects_balance ?? true),
+            'affects_balance_label' => ($this->affects_balance ?? true)
+                ? SystemLabel::label('transaction_effects', 'affects_balance')
+                : SystemLabel::label('transaction_effects', 'does_not_affect_balance'),
             'source_type' => $this->source_type,
             'source_id' => $this->source_id,
             'description' => $this->description,

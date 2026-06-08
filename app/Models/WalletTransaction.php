@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
     'balance_before',
     'balance_after',
     'status',
+    'affects_balance',
     'source_type',
     'source_id',
     'description',
@@ -32,6 +33,7 @@ class WalletTransaction extends Model
             'amount' => 'decimal:2',
             'balance_before' => 'decimal:2',
             'balance_after' => 'decimal:2',
+            'affects_balance' => 'boolean',
             'metadata' => 'array',
         ];
     }

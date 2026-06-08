@@ -63,8 +63,10 @@ class PackageActivationTest extends TestCase
         $this->assertSame('0.00', $sponsor->right_pv);
         $this->assertDatabaseHas('wallet_transactions', [
             'user_id' => $user->id,
-            'type' => 'package_activation_credit',
-            'amount' => '50000.00',
+            'type' => 'package_activation',
+            'direction' => 'neutral',
+            'amount' => '60000.00',
+            'affects_balance' => false,
         ]);
     }
 
@@ -99,8 +101,10 @@ class PackageActivationTest extends TestCase
         $this->assertSame('300.00', $sponsor->remaining_right_pv);
         $this->assertDatabaseHas('wallet_transactions', [
             'user_id' => $user->id,
-            'type' => 'package_activation_credit',
-            'amount' => '150000.00',
+            'type' => 'package_activation',
+            'direction' => 'neutral',
+            'amount' => '180000.00',
+            'affects_balance' => false,
         ]);
     }
 
@@ -130,7 +134,7 @@ class PackageActivationTest extends TestCase
         $this->assertSame($sponsor->id, $bonus->user_id);
         $this->assertSame(1, WalletTransaction::query()
             ->where('user_id', $user->id)
-            ->where('type', 'package_activation_credit')
+            ->where('type', 'package_activation')
             ->count());
     }
 

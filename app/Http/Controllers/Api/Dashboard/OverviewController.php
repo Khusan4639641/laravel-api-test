@@ -59,6 +59,7 @@ class OverviewController extends Controller
                 'total_earned' => (string) WalletTransaction::query()
                     ->where('user_id', $user->id)
                     ->where('direction', 'credit')
+                    ->where('affects_balance', true)
                     ->sum('amount'),
                 'pending_withdrawals' => (string) WithdrawalRequest::query()
                     ->where('user_id', $user->id)

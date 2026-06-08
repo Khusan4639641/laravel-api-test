@@ -14,9 +14,27 @@ type TransactionRow = {
   partnerName: string;
   type: string;
   amount: string;
+  affectsBalance: boolean;
+  affectsBalanceLabel: string;
   statusCode: string;
   status: string;
   comment: string;
+};
+
+type TransactionSummary = {
+  operationTurnover: number;
+  totalCredited: number;
+  totalPaid: number;
+  pending: number;
+  deferredDeposit: number;
+};
+
+const emptySummary: TransactionSummary = {
+  operationTurnover: 0,
+  totalCredited: 0,
+  totalPaid: 0,
+  pending: 0,
+  deferredDeposit: 0,
 };
 
 export default function AdminTransactions() {
@@ -26,14 +44,16 @@ export default function AdminTransactions() {
   const [search, setSearch] = useState(searchParam);
   const [debouncedSearch, setDebouncedSearch] = useState(search.trim());
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [summary, setSummary] = useState<TransactionSummary>(emptySummary);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasSearch = debouncedSearch.trim() !== '';
-  const summary = [
-    { label: adminText('a_0JLRgdC10LPQ_5'), value: transactions.filter((trx) => trx.amount.startsWith('+')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
-    { label: adminText('a_0JLRgdC10LPQ_6'), value: transactions.filter((trx) => trx.amount.startsWith('-')).reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
-    { label: adminText('a_0JIg0L7QsdGA'), value: transactions.filter((trx) => trx.statusCode === 'pending').reduce((sum, trx) => sum + amountValue(trx.amount), 0) },
-    { label: adminText('a_0J7RgtC70L7Q'), value: 0 },
+  const summaryCards = [
+    { label: adminText('Оборот операций'), value: summary.operationTurnover },
+    { label: adminText('a_0JLRgdC10LPQ_5'), value: summary.totalCredited },
+    { label: adminText('a_0JLRgdC10LPQ_6'), value: summary.totalPaid },
+    { label: adminText('a_0JIg0L7QsdGA'), value: summary.pending },
+    { label: adminText('Отложено / Депозит'), value: summary.deferredDeposit },
   ];
 
   const loadTransactions = async () => {
@@ -44,6 +64,17 @@ export default function AdminTransactions() {
       const response = await getAdminTransactions({
         user_id: userIdFilter,
         search: debouncedSearch.trim() || undefined,
+      });
+      const summaryRecord = response && typeof response === 'object' && 'summary' in response
+        ? (response as Record<string, unknown>).summary
+        : {};
+      const summaryData = summaryRecord && typeof summaryRecord === 'object' ? summaryRecord as Record<string, unknown> : {};
+      setSummary({
+        operationTurnover: getNumber(summaryData, ['operation_turnover', 'operationTurnover']) ?? 0,
+        totalCredited: getNumber(summaryData, ['total_credited', 'totalCredited']) ?? 0,
+        totalPaid: getNumber(summaryData, ['total_paid', 'totalPaid']) ?? 0,
+        pending: getNumber(summaryData, ['pending']) ?? 0,
+        deferredDeposit: getNumber(summaryData, ['deferred_deposit', 'deferredDeposit']) ?? 0,
       });
       setTransactions(getArray(response, ['transactions']).map((item, index) => {
         const trx = item && typeof item === 'object' ? item as Record<string, unknown> : {};
@@ -59,6 +90,8 @@ export default function AdminTransactions() {
           partnerName: getString(user, ['name']) || '-',
           type: transactionTypeLabel(rawType, getString(trx, ['type_label', 'typeLabel']) || rawType),
           amount: formatTransactionAmount(direction, amount),
+          affectsBalance: trx.affects_balance !== false && trx.affectsBalance !== false,
+          affectsBalanceLabel: getString(trx, ['affects_balance_label', 'affectsBalanceLabel']) || adminText('Не влияет на баланс'),
           statusCode,
           status: transactionStatusLabel(statusCode, getString(trx, ['status_label', 'statusLabel']) || statusCode),
           comment: getString(trx, ['description']) || '-',
@@ -66,6 +99,7 @@ export default function AdminTransactions() {
       }));
     } catch (caughtError) {
       setTransactions([]);
+      setSummary(emptySummary);
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_32'));
     } finally {
       setIsLoading(false);
@@ -100,8 +134,8 @@ export default function AdminTransactions() {
           <Download className="w-4 h-4" />{adminText('a_0K3QutGB0L_Q_3')}</button>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-         {summary.map((item, i) => (
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+         {summaryCards.map((item, i) => (
            <div key={i} className="bg-white p-6 rounded-2xl border border-safi-green/5 shadow-sm text-center">
              <div className="text-[10px] uppercase font-bold tracking-widest text-safi-text/50 mb-2">{item.label}</div>
              <div className="text-xl font-bold text-safi-green">{item.value.toLocaleString('ru-RU')} ₸</div>
@@ -147,9 +181,14 @@ export default function AdminTransactions() {
               </td>
               <td className="px-6 py-4">
                 <div className="text-sm font-bold">{trx.type}</div>
+                {!trx.affectsBalance && (
+                  <div className="mt-1 inline-flex rounded-full bg-[#F5F5F0] px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-safi-text/50">
+                    {trx.affectsBalanceLabel}
+                  </div>
+                )}
               </td>
               <td className="px-6 py-4">
-                <div className={`font-bold ${trx.amount.startsWith('+') ? 'text-green-600' : 'text-red-500'}`}>
+                <div className={`font-bold ${trx.amount.startsWith('+') ? 'text-green-600' : trx.amount.startsWith('-') ? 'text-red-500' : 'text-safi-text'}`}>
                   {trx.amount}
                 </div>
               </td>
@@ -168,11 +207,6 @@ export default function AdminTransactions() {
       
     </div>
   );
-}
-
-function amountValue(value: string) {
-  const parsed = Number(value.replace(/[^\d.-]/g, ''));
-  return Number.isFinite(parsed) ? Math.abs(parsed) : 0;
 }
 
 function formatTransactionAmount(direction: string, amount: number) {

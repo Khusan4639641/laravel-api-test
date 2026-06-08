@@ -65,8 +65,10 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame('100.00', $sponsor->remaining_left_pv);
         $this->assertDatabaseHas('wallet_transactions', [
             'user_id' => $partner->id,
-            'type' => 'admin_package_assignment_credit',
-            'amount' => '50000.00',
+            'type' => 'package_assignment',
+            'direction' => 'neutral',
+            'amount' => '60000.00',
+            'affects_balance' => false,
         ]);
         $this->assertNoPackageActivityCredit($partner);
     }
@@ -102,8 +104,10 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame('300.00', $sponsor->remaining_right_pv);
         $this->assertDatabaseHas('wallet_transactions', [
             'user_id' => $partner->id,
-            'type' => 'admin_package_assignment_credit',
-            'amount' => '150000.00',
+            'type' => 'package_assignment',
+            'direction' => 'neutral',
+            'amount' => '180000.00',
+            'affects_balance' => false,
         ]);
         $this->assertNoPackageActivityCredit($partner);
     }
@@ -144,8 +148,10 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'binary')->count());
         $this->assertDatabaseHas('wallet_transactions', [
             'user_id' => $partner->id,
-            'type' => 'admin_package_assignment_credit',
-            'amount' => '250000.00',
+            'type' => 'package_assignment',
+            'direction' => 'neutral',
+            'amount' => '300000.00',
+            'affects_balance' => false,
         ]);
         $this->assertNoPackageActivityCredit($partner);
     }
@@ -235,7 +241,7 @@ class AdminManualPackageAssignmentTest extends TestCase
         $this->assertSame(0, WalletTransaction::query()->where('user_id', $partner->id)->count());
     }
 
-    public function test_manual_package_assignment_credits_buyer_balance_from_activity_pv(): void
+    public function test_manual_package_assignment_records_package_transaction_without_crediting_buyer_balance(): void
     {
         $admin = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
         $partner = User::factory()->create(['total_pv' => 0]);
@@ -250,23 +256,21 @@ class AdminManualPackageAssignmentTest extends TestCase
             'apply_business_effects' => true,
         ])
             ->assertOk()
-            ->assertJsonPath('user.balance', 50000)
-            ->assertJsonPath('user.available_balance', 50000)
-            ->assertJsonPath('user.total_earned', 50000)
+            ->assertJsonPath('user.balance', 0)
+            ->assertJsonPath('user.available_balance', 0)
+            ->assertJsonPath('user.total_earned', 0)
             ->assertJsonPath('user.package_activity_pv', 100)
             ->assertJsonPath('user.package_activity_amount', 50000);
 
         $mainWallet = $partner->wallets()->where('type', 'main')->firstOrFail();
 
-        $this->assertSame('50000.00', $mainWallet->refresh()->balance);
-        $this->assertDatabaseMissing('wallet_transactions', [
-            'user_id' => $partner->id,
-            'amount' => '60000.00',
-        ]);
+        $this->assertSame('0.00', $mainWallet->refresh()->balance);
         $this->assertDatabaseHas('wallet_transactions', [
             'user_id' => $partner->id,
-            'type' => 'admin_package_assignment_credit',
-            'amount' => '50000.00',
+            'type' => 'package_assignment',
+            'direction' => 'neutral',
+            'amount' => '60000.00',
+            'affects_balance' => false,
         ]);
         $this->assertDatabaseMissing('wallet_transactions', [
             'user_id' => $partner->id,

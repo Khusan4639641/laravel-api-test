@@ -42,7 +42,7 @@ class PackageUpgradeTest extends TestCase
             ->assertJsonPath('user.current_package.id', $vip->id)
             ->assertJsonPath('payment_amount', '120000.00')
             ->assertJsonPath('additional_pv', '200.00')
-            ->assertJsonPath('credit_amount', '100000.00')
+            ->assertJsonPath('transaction_amount', '120000.00')
             ->assertJsonPath('cashback_amount', '0.00');
 
         $user->refresh();
@@ -60,8 +60,10 @@ class PackageUpgradeTest extends TestCase
         $this->assertSame('12000.00', $sponsorMainWallet->balance);
         $this->assertDatabaseHas('wallet_transactions', [
             'user_id' => $user->id,
-            'type' => 'package_upgrade_credit',
-            'amount' => '100000.00',
+            'type' => 'package_upgrade',
+            'direction' => 'neutral',
+            'amount' => '120000.00',
+            'affects_balance' => false,
         ]);
         $this->assertDatabaseMissing('wallet_transactions', [
             'type' => 'package_upgrade_cashback',
@@ -105,7 +107,7 @@ class PackageUpgradeTest extends TestCase
             ->assertOk()
             ->assertJsonPath('payment_amount', '120000.00')
             ->assertJsonPath('additional_pv', '200.00')
-            ->assertJsonPath('credit_amount', '100000.00')
+            ->assertJsonPath('transaction_amount', '120000.00')
             ->assertJsonPath('cashback_amount', '0.00');
 
         $user->refresh();
@@ -119,8 +121,10 @@ class PackageUpgradeTest extends TestCase
         $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'binary')->count());
         $this->assertDatabaseHas('wallet_transactions', [
             'user_id' => $user->id,
-            'type' => 'package_upgrade_credit',
-            'amount' => '100000.00',
+            'type' => 'package_upgrade',
+            'direction' => 'neutral',
+            'amount' => '120000.00',
+            'affects_balance' => false,
         ]);
     }
 

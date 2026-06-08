@@ -67,6 +67,7 @@ class WithdrawalService
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'status' => 'completed',
+                'affects_balance' => true,
                 'metadata' => [
                     'hold_balance_after' => $holdBalanceAfter,
                 ],
@@ -122,6 +123,7 @@ class WithdrawalService
                 'balance_before' => $wallet->balance,
                 'balance_after' => $wallet->balance,
                 'status' => 'completed',
+                'affects_balance' => false,
                 'description' => 'Withdrawal approved from held funds',
                 'metadata' => [
                     'hold_balance_before' => $holdBefore,
@@ -180,6 +182,7 @@ class WithdrawalService
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'status' => 'completed',
+                'affects_balance' => true,
                 'description' => 'Withdrawal rejected and held funds returned',
                 'metadata' => [
                     'hold_balance_before' => $holdBefore,

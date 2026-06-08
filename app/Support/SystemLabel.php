@@ -75,6 +75,7 @@ final class SystemLabel
         'wallet_directions' => [
             'credit' => ['ru' => 'Начисление', 'kz' => 'Есептеу', 'kg' => 'Чегерүү', 'en' => 'Credit', 'mn' => 'Нэмэгдэл'],
             'debit' => ['ru' => 'Списание', 'kz' => 'Шегеру', 'kg' => 'Кемитүү', 'en' => 'Debit', 'mn' => 'Хасалт'],
+            'neutral' => ['ru' => 'Операция', 'kz' => 'Операция', 'kg' => 'Операция', 'en' => 'Operation', 'mn' => 'Үйлдэл'],
         ],
         'transaction_types' => [
             'withdrawal_hold' => ['ru' => 'Вывод: сумма в холде', 'kz' => 'Шығару: сома холдта', 'kg' => 'Чыгаруу: сумма холддо', 'en' => 'Withdrawal: amount on hold', 'mn' => 'Таталт: дүн түгжигдсэн'],
@@ -86,13 +87,17 @@ final class SystemLabel
             'binary_bonus_main' => ['ru' => 'Бинарный бонус: основной кошелёк', 'kz' => 'Бинарлық бонус: негізгі әмиян', 'kg' => 'Бинардык бонус: негизги капчык', 'en' => 'Binary bonus: main wallet', 'mn' => 'Хоёртын бонус: үндсэн хэтэвч'],
             'binary_bonus_deposit' => ['ru' => 'Бинарный бонус: депозит', 'kz' => 'Бинарлық бонус: депозит', 'kg' => 'Бинардык бонус: депозит', 'en' => 'Binary bonus: deposit', 'mn' => 'Хоёртын бонус: депозит'],
             'referral_bonus' => ['ru' => 'Реферальный бонус', 'kz' => 'Рефералдық бонус', 'kg' => 'Рефералдык бонус', 'en' => 'Referral bonus', 'mn' => 'Урилгын бонус'],
-            'package_activation_credit' => ['ru' => 'Начисление за покупку пакета', 'kz' => 'Пакет сатып алу үшін есептеу', 'kg' => 'Пакет сатып алуу үчүн чегерүү', 'en' => 'Package purchase credit', 'mn' => 'Багц худалдан авалтын нэмэгдэл'],
-            'package_upgrade_credit' => ['ru' => 'Начисление за upgrade пакета', 'kz' => 'Пакет upgrade үшін есептеу', 'kg' => 'Пакет upgrade үчүн чегерүү', 'en' => 'Package upgrade credit', 'mn' => 'Багц upgrade нэмэгдэл'],
-            'admin_package_assignment_credit' => ['ru' => 'Начисление за назначение пакета', 'kz' => 'Пакет тағайындау үшін есептеу', 'kg' => 'Пакет дайындоо үчүн чегерүү', 'en' => 'Admin package assignment credit', 'mn' => 'Багц оноолтын нэмэгдэл'],
+            'package_assignment' => ['ru' => 'Назначение пакета', 'kz' => 'Пакет тағайындау', 'kg' => 'Пакет дайындоо', 'en' => 'Package assignment', 'mn' => 'Багц оноолт'],
+            'package_activation' => ['ru' => 'Покупка пакета', 'kz' => 'Пакет сатып алу', 'kg' => 'Пакет сатып алуу', 'en' => 'Package purchase', 'mn' => 'Багц худалдан авалт'],
+            'package_upgrade' => ['ru' => 'Upgrade пакета', 'kz' => 'Пакет upgrade', 'kg' => 'Пакет upgrade', 'en' => 'Package upgrade', 'mn' => 'Багц upgrade'],
             'status_bonus' => ['ru' => 'Статусный бонус', 'kz' => 'Статус бонусы', 'kg' => 'Статус бонусу', 'en' => 'Status bonus', 'mn' => 'Статусын бонус'],
             'bonus_x2' => ['ru' => 'Bonus X2', 'kz' => 'Bonus X2', 'kg' => 'Bonus X2', 'en' => 'Bonus X2', 'mn' => 'Bonus X2'],
             'cashback' => ['ru' => 'Кэшбэк', 'kz' => 'Кэшбэк', 'kg' => 'Кэшбэк', 'en' => 'Cashback', 'mn' => 'Кэшбэк'],
             'deposit_purchase' => ['ru' => 'Покупка с депозитного кошелька', 'kz' => 'Депозит әмиянынан сатып алу', 'kg' => 'Депозит капчыктан сатып алуу', 'en' => 'Deposit wallet purchase', 'mn' => 'Депозит хэтэвчээр худалдан авалт'],
+        ],
+        'transaction_effects' => [
+            'affects_balance' => ['ru' => 'Влияет на баланс', 'kz' => 'Балансқа әсер етеді', 'kg' => 'Балансқа таасир этет', 'en' => 'Affects balance', 'mn' => 'Үлдэгдэлд нөлөөлнө'],
+            'does_not_affect_balance' => ['ru' => 'Не влияет на баланс', 'kz' => 'Балансқа әсер етпейді', 'kg' => 'Балансқа таасир этпейт', 'en' => 'Does not affect balance', 'mn' => 'Үлдэгдэлд нөлөөлөхгүй'],
         ],
     ];
 

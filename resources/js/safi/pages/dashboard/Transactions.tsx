@@ -12,12 +12,14 @@ export default function Transactions() {
   const [filter, setFilter] = useState('Все');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<Array<{ id: string; date: string; typeCode: string; type: string; amount: string; statusCode: string; status: string; source: string; comment: string }>>([]);
-  const balance = useMemo(() => {
-    const totalEarned = transactions.filter((transaction) => transaction.amount.startsWith('+')).reduce((sum, transaction) => sum + Number(transaction.amount.replace(/[^\d.-]/g, '')), 0);
-    const withdrawn = transactions.filter((transaction) => transaction.amount.startsWith('-')).reduce((sum, transaction) => sum + Math.abs(Number(transaction.amount.replace(/[^\d.-]/g, ''))), 0);
-    return { totalEarned, available: Math.max(totalEarned - withdrawn, 0), pending: 0, withdrawn };
-  }, [transactions]);
+  const [transactions, setTransactions] = useState<Array<{ id: string; date: string; typeCode: string; type: string; amount: string; affectsBalance: boolean; affectsBalanceLabel: string; statusCode: string; status: string; source: string; comment: string }>>([]);
+  const [dashboardSummary, setDashboardSummary] = useState({
+    totalEarned: 0,
+    available: 0,
+    pending: 0,
+    withdrawn: 0,
+  });
+  const balance = useMemo(() => dashboardSummary, [dashboardSummary]);
 
   const loadTransactions = useCallback(async () => {
     setIsLoading(true);
@@ -25,6 +27,16 @@ export default function Transactions() {
 
     try {
       const response = await getDashboardTransactions();
+      const summaryRecord = response && typeof response === 'object' && 'summary' in response
+        ? (response as Record<string, unknown>).summary
+        : {};
+      const summary = summaryRecord && typeof summaryRecord === 'object' ? summaryRecord as Record<string, unknown> : {};
+      setDashboardSummary({
+        totalEarned: getNumber(summary, ['total_earned', 'totalEarned']) ?? 0,
+        available: getNumber(summary, ['available']) ?? 0,
+        pending: getNumber(summary, ['pending']) ?? 0,
+        withdrawn: getNumber(summary, ['withdrawn']) ?? 0,
+      });
       setTransactions(getArray(response, ['transactions']).map((item, index) => {
         const record = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const direction = getString(record, ['direction']) || 'credit';
@@ -37,6 +49,8 @@ export default function Transactions() {
           typeCode: rawType,
           type: transactionTypeLabel(rawType, getString(record, ['type_label', 'typeLabel']) || rawType),
           amount: formatTransactionAmount(direction, amount),
+          affectsBalance: record.affects_balance !== false && record.affectsBalance !== false,
+          affectsBalanceLabel: getString(record, ['affects_balance_label', 'affectsBalanceLabel']) || 'Не влияет на баланс',
           statusCode,
           status: transactionStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel']) || statusCode),
           source: getString(record, ['description']) || 'Система',
@@ -45,6 +59,7 @@ export default function Transactions() {
       }));
     } catch (caughtError) {
       setTransactions([]);
+      setDashboardSummary({ totalEarned: 0, available: 0, pending: 0, withdrawn: 0 });
       setError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
@@ -61,7 +76,7 @@ export default function Transactions() {
     }
 
     if (filter === 'Начисления') {
-      return transactions.filter((transaction) => transaction.amount.startsWith('+'));
+      return transactions.filter((transaction) => transaction.affectsBalance && transaction.amount.startsWith('+'));
     }
 
     if (filter === 'Выводы') {
@@ -170,6 +185,11 @@ export default function Transactions() {
                   <td className="px-7 py-5">
                     <div className="font-bold text-safi-green">{transaction.source}</div>
                     <div className="mt-1 text-xs text-safi-muted">{transaction.comment}</div>
+                    {!transaction.affectsBalance && (
+                      <div className="mt-2 inline-flex rounded-full bg-safi-cream px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+                        {transaction.affectsBalanceLabel}
+                      </div>
+                    )}
                   </td>
                   <td className="px-7 py-5">
                     <Badge variant={transactionStatusVariant(transaction.statusCode)}>
@@ -177,7 +197,7 @@ export default function Transactions() {
                     </Badge>
                   </td>
                   <td className="px-7 py-5 text-right">
-                    <span className={cn('font-extrabold', transaction.amount.startsWith('+') ? 'text-green-700' : 'text-safi-muted')}>
+                    <span className={cn('font-extrabold', transaction.amount.startsWith('+') ? 'text-green-700' : transaction.amount.startsWith('-') ? 'text-red-600' : 'text-safi-muted')}>
                       {transaction.amount}
                     </span>
                   </td>
@@ -205,12 +225,15 @@ export default function Transactions() {
                   <h2 className="font-extrabold text-safi-green">{transaction.type}</h2>
                   <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{transaction.date} / {transaction.id}</p>
                 </div>
-                <span className={cn('font-extrabold', transaction.amount.startsWith('+') ? 'text-green-700' : 'text-safi-muted')}>
+                <span className={cn('font-extrabold', transaction.amount.startsWith('+') ? 'text-green-700' : transaction.amount.startsWith('-') ? 'text-red-600' : 'text-safi-muted')}>
                   {transaction.amount}
                 </span>
               </div>
               <div className="mt-4 flex items-end justify-between gap-4">
                 <p className="text-xs leading-6 text-safi-muted">{transaction.source}</p>
+                {!transaction.affectsBalance && (
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">{transaction.affectsBalanceLabel}</p>
+                )}
                 <Badge variant={transactionStatusVariant(transaction.statusCode)}>
                   {transaction.status}
                 </Badge>

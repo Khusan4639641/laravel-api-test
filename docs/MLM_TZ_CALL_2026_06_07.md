@@ -11,31 +11,31 @@ This document records the latest business decisions from the 2026-06-07 call.
 If older project documents or implementation notes conflict with this file, this file has priority for the next implementation stage.
 
 Important conflict to resolve:
-- 2026-06-08 business update supersedes the 2026-06-07 package balance rule.
-- Current rule: buying, upgrading or assigning a package with business effects credits the buyer's main wallet by credited activity PV * 500 KZT.
+- 2026-06-08 final business update supersedes earlier package balance notes.
+- Current rule: buying, upgrading or assigning a package creates a package operation transaction, but does not credit buyer wallet balance.
 
 ## 1. Package Purchase And Assignment
 
-Buying, upgrading or assigning a package with business effects credits the buyer's main wallet.
-The credit is calculated from activity PV, not from package price:
+Buying, upgrading or assigning a package with business effects records a transaction for the package operation amount.
+This transaction is history/turnover only and does not affect wallet balance:
 
 ```text
-credit_amount = credited_activity_pv * 500 KZT
+affects_balance = false
 ```
 
-| Package | personal/package PV | first activation/admin assignment credit |
-|---|---:|---:|
-| START | 100 PV | 50 000 KZT |
-| VIP | 300 PV | 150 000 KZT |
-| ELITE | 500 PV | 250 000 KZT |
+| Package | personal/package PV | package transaction amount | buyer balance credit |
+|---|---:|---:|---:|
+| START | 100 PV | 60 000 KZT | 0 KZT |
+| VIP | 300 PV | 180 000 KZT | 0 KZT |
+| ELITE | 500 PV | 300 000 KZT | 0 KZT |
 
 Required behavior:
-- START purchase or assignment gives `personal/package PV = 100 PV` and credits `50 000 KZT`.
-- VIP purchase or assignment gives `personal/package PV = 300 PV` and credits `150 000 KZT`.
-- ELITE admin assignment gives `personal/package PV = 500 PV` and credits `250 000 KZT`; ELITE remains unavailable as a first user activation unless separately allowed.
-- Upgrade credits only delta PV * 500: START -> VIP credits `100 000 KZT`, VIP -> ELITE credits `100 000 KZT`.
-- `apply_business_effects=false` for admin assignment changes only the package and does not credit money or apply PV effects.
-- Create package credit wallet transactions: `package_activation_credit`, `package_upgrade_credit` or `admin_package_assignment_credit`.
+- START purchase or assignment gives `personal/package PV = 100 PV`, creates package transaction `60 000 KZT`, and leaves balance `0 KZT`.
+- VIP purchase or assignment gives `personal/package PV = 300 PV`, creates package transaction `180 000 KZT`, and leaves balance `0 KZT`.
+- ELITE admin assignment gives `personal/package PV = 500 PV`, creates package transaction `300 000 KZT`, and leaves balance `0 KZT`; ELITE remains unavailable as a first user activation unless separately allowed.
+- Upgrade creates transaction for price difference: START -> VIP `120 000 KZT`, VIP -> ELITE `120 000 KZT`.
+- `apply_business_effects=false` for admin assignment changes only the package and does not create transaction or apply PV effects.
+- Create package operation wallet transactions: `package_activation`, `package_upgrade` or `package_assignment`.
 
 ## 2. PV And Balance Must Be Separate
 
@@ -43,12 +43,12 @@ PV and wallet balance are different entities and must not be mixed.
 
 Definitions:
 - `PV` is a turnover/activity metric.
-- `balance` is real wallet money, including package credits and bonuses.
+- `balance` is real wallet money from balance-affecting income only.
 
 Implementation implication:
 - Package PV can affect personal activity, upline turnover, statuses and binary calculation inputs.
-- Wallet balance can change through package credits, bonus payouts, approved financial operations, cashback or other explicitly monetary flows.
-- UI cards must display actual wallet credits, but must not treat package price as PV or money.
+- Wallet balance can change through bonus payouts, approved financial operations, cashback or other explicitly monetary flows.
+- UI cards must not display package operation amount as available money or earned money.
 
 ## 3. Package And Product PV Accrual
 
@@ -56,7 +56,7 @@ PV from a package or product purchase must be propagated to uplines, not to the 
 
 Required behavior:
 - Buyer receives own personal/package PV where applicable.
-- Buyer receives package money credit where applicable.
+- Buyer receives package operation transaction where applicable, but not wallet money.
 - Buyer does not receive the purchase PV into their own `left_pv` or `right_pv`.
 - Upline partners receive the purchase PV in the correct left/right branch according to binary placement.
 - The same separation applies to package purchases, package assignments with business effects, and product orders that carry PV.

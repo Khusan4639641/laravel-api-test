@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Api\Concerns\RespondsWithPagination;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\WalletTransactionResource;
+use App\Models\BinaryBonusRun;
 use App\Models\WalletTransaction;
+use App\Models\WithdrawalRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -17,8 +19,22 @@ class TransactionController extends Controller
     {
         $search = trim((string) $request->query('search', ''));
 
-        $transactions = WalletTransaction::query()
+        $baseQuery = $this->transactionsQuery($request, $search);
+        $summary = $this->summary($request, $baseQuery);
+
+        $transactions = (clone $baseQuery)
             ->with(['user.profile', 'wallet'])
+            ->latest()
+            ->paginate($this->perPage($request));
+
+        return $this->paginated($transactions, WalletTransactionResource::class, 'transactions', $request, [
+            'summary' => $summary,
+        ]);
+    }
+
+    private function transactionsQuery(Request $request, string $search)
+    {
+        return WalletTransaction::query()
             ->when($request->filled('user_id'), fn ($query) => $query->where('user_id', (int) $request->integer('user_id')))
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
@@ -43,10 +59,79 @@ class TransactionController extends Controller
                             ->orWhere('email', 'like', "%{$search}%");
                     });
                 });
-            })
-            ->latest()
-            ->paginate($this->perPage($request));
+            });
+    }
 
-        return $this->paginated($transactions, WalletTransactionResource::class, 'transactions', $request);
+    /**
+     * @return array<string, string>
+     */
+    private function summary(Request $request, $baseQuery): array
+    {
+        $userId = $request->filled('user_id') ? (int) $request->integer('user_id') : null;
+
+        $operationTurnover = (string) (clone $baseQuery)
+            ->where('status', 'completed')
+            ->sum('amount');
+        $totalCredited = (string) (clone $baseQuery)
+            ->where('status', 'completed')
+            ->where('affects_balance', true)
+            ->where('direction', 'credit')
+            ->whereIn('type', $this->incomeTypes())
+            ->sum('amount');
+        $totalPaid = (string) (clone $baseQuery)
+            ->where('status', 'completed')
+            ->whereIn('type', ['withdrawal_approved', 'payout_completed'])
+            ->sum('amount');
+        $deferredDeposit = (string) (clone $baseQuery)
+            ->where('status', 'completed')
+            ->where(function ($query): void {
+                $query->whereIn('type', ['binary_bonus_deposit'])
+                    ->orWhereHas('wallet', fn ($walletQuery) => $walletQuery->where('type', 'deposit'));
+            })
+            ->sum('amount');
+
+        $pendingWithdrawals = WithdrawalRequest::query()
+            ->when($userId, fn ($query) => $query->where('user_id', $userId))
+            ->where('status', 'pending')
+            ->sum('amount');
+        $pendingBinary = BinaryBonusRun::query()
+            ->when($userId, fn ($query) => $query->where('user_id', $userId))
+            ->where('status', 'pending')
+            ->sum('pending_amount');
+
+        return [
+            'operation_turnover' => $this->decimal($operationTurnover),
+            'total_credited' => $this->decimal($totalCredited),
+            'total_paid' => $this->decimal($totalPaid),
+            'pending' => $this->decimal(bcadd((string) $pendingWithdrawals, (string) $pendingBinary, 2)),
+            'deferred_deposit' => $this->decimal($deferredDeposit),
+        ];
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function incomeTypes(): array
+    {
+        return [
+            'referral_bonus',
+            'binary_bonus_main',
+            'status_bonus',
+            'x2_bonus',
+            'bonus_x2',
+            'cashback',
+            'deposit_purchase_cashback',
+            'manual_credit',
+            'manual_adjustment',
+        ];
+    }
+
+    private function decimal(string $value): string
+    {
+        if (str_contains($value, '.')) {
+            $value = rtrim(rtrim($value, '0'), '.');
+        }
+
+        return $value === '' ? '0' : $value;
     }
 }

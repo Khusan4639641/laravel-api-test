@@ -14,34 +14,34 @@ class AdminPartnerDetailBalanceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_start_package_assignment_sets_personal_pv_and_partner_balance_credit(): void
+    public function test_start_package_assignment_sets_personal_pv_without_partner_balance_credit(): void
     {
         [$partner, $payload] = $this->assignPackageAndGetPartnerPayload('START');
 
-        $this->assertPackagePayload($payload, 100, 50000);
+        $this->assertPackagePayload($payload, 100, 0);
         $this->assertSame('100.00', $partner->refresh()->total_pv);
         $this->assertSame(1, WalletTransaction::query()->where('user_id', $partner->id)->count());
     }
 
-    public function test_vip_package_assignment_sets_personal_pv_and_partner_balance_credit(): void
+    public function test_vip_package_assignment_sets_personal_pv_without_partner_balance_credit(): void
     {
         [$partner, $payload] = $this->assignPackageAndGetPartnerPayload('VIP');
 
-        $this->assertPackagePayload($payload, 300, 150000);
+        $this->assertPackagePayload($payload, 300, 0);
         $this->assertSame('300.00', $partner->refresh()->total_pv);
         $this->assertSame(1, WalletTransaction::query()->where('user_id', $partner->id)->count());
     }
 
-    public function test_elite_package_assignment_sets_personal_pv_and_partner_balance_credit(): void
+    public function test_elite_package_assignment_sets_personal_pv_without_partner_balance_credit(): void
     {
         [$partner, $payload] = $this->assignPackageAndGetPartnerPayload('ELITE');
 
-        $this->assertPackagePayload($payload, 500, 250000);
+        $this->assertPackagePayload($payload, 500, 0);
         $this->assertSame('500.00', $partner->refresh()->total_pv);
         $this->assertSame(1, WalletTransaction::query()->where('user_id', $partner->id)->count());
     }
 
-    public function test_package_activity_amount_is_used_as_wallet_balance_not_package_price(): void
+    public function test_package_activity_amount_is_not_used_as_wallet_balance(): void
     {
         [, $payload] = $this->assignPackageAndGetPartnerPayload('START');
 
@@ -49,26 +49,26 @@ class AdminPartnerDetailBalanceTest extends TestCase
         $this->assertEquals(100, $payload['package_activity_pv']);
         $this->assertEquals(50000, $payload['package_activity_amount']);
         $this->assertEquals(50000, $payload['pv_amount']);
-        $this->assertEquals(50000, $payload['wallet_balance']);
-        $this->assertEquals(50000, $payload['available_balance']);
-        $this->assertEquals(50000, $payload['total_balance']);
-        $this->assertEquals(50000, $payload['total_earned']);
+        $this->assertEquals(0, $payload['wallet_balance']);
+        $this->assertEquals(0, $payload['available_balance']);
+        $this->assertEquals(0, $payload['total_balance']);
+        $this->assertEquals(0, $payload['total_earned']);
         $this->assertNotEquals(60000, $payload['available_balance']);
     }
 
-    public function test_existing_real_wallet_balance_is_preserved_with_package_activity_credit(): void
+    public function test_existing_real_wallet_balance_is_preserved_without_package_balance_credit(): void
     {
         [, $payload] = $this->assignPackageAndGetPartnerPayload('START', walletBalance: 10000);
 
-        $this->assertEquals(60000, $payload['wallet_balance']);
-        $this->assertEquals(60000, $payload['available_balance']);
-        $this->assertEquals(60000, $payload['total_balance']);
-        $this->assertEquals(50000, $payload['total_earned']);
+        $this->assertEquals(10000, $payload['wallet_balance']);
+        $this->assertEquals(10000, $payload['available_balance']);
+        $this->assertEquals(10000, $payload['total_balance']);
+        $this->assertEquals(10000, $payload['total_earned']);
         $this->assertEquals(100, $payload['package_activity_pv']);
         $this->assertEquals(50000, $payload['package_activity_amount']);
     }
 
-    public function test_partner_detail_returns_admin_package_assignment_credit_transaction(): void
+    public function test_partner_detail_returns_package_assignment_transaction(): void
     {
         [$partner] = $this->assignPackageAndGetPartnerPayload('START');
 
@@ -79,8 +79,9 @@ class AdminPartnerDetailBalanceTest extends TestCase
 
         $transaction = $response->json('recent_transactions.0');
 
-        $this->assertSame('admin_package_assignment_credit', $transaction['type']);
-        $this->assertSame('50000.00', $transaction['amount']);
+        $this->assertSame('package_assignment', $transaction['type']);
+        $this->assertSame('60000.00', $transaction['amount']);
+        $this->assertFalse($transaction['affects_balance']);
         $this->assertDatabaseMissing('wallet_transactions', [
             'user_id' => $partner->id,
             'type' => 'package_activity_credit',
