@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 class PartnerRegistrationService
 {
@@ -43,6 +44,12 @@ class PartnerRegistrationService
             if ($this->hasSponsorInput($referralCode, $data['sponsor_id'] ?? null) && ! $sponsor) {
                 throw ValidationException::withMessages([
                     'referral_code' => ['Пригласитель не найден или недоступен'],
+                ]);
+            }
+
+            if ($sponsor && ! $this->hasExplicitBranch($data['branch'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'branch' => ['Выберите левую или правую ветку для выбранного спонсора.'],
                 ]);
             }
 
@@ -101,6 +108,11 @@ class PartnerRegistrationService
             || (is_numeric($sponsorId) && (int) $sponsorId > 0);
     }
 
+    private function hasExplicitBranch(mixed $branch): bool
+    {
+        return is_string($branch) && trim($branch) !== '';
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */
@@ -135,7 +147,22 @@ class PartnerRegistrationService
             return;
         }
 
-        $this->binaryTreeService->placeUser($user, $sponsor, is_string($branch) ? $branch : null);
+        try {
+            $this->binaryTreeService->placeUser($user, $sponsor, is_string($branch) ? $branch : null);
+        } catch (InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'branch' => [$this->placementErrorMessage($exception)],
+            ]);
+        }
+    }
+
+    private function placementErrorMessage(InvalidArgumentException $exception): string
+    {
+        return match ($exception->getMessage()) {
+            'Binary position must be L or R.' => 'Ветка должна быть left или right.',
+            'Sponsor is not available.' => 'Пригласитель не найден или недоступен',
+            default => 'Не удалось найти свободное место в выбранной ветке.',
+        };
     }
 
     public function assignInitialPackage(

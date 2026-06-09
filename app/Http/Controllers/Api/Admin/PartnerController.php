@@ -57,6 +57,7 @@ class PartnerController extends Controller
         return response()->json([
             'user' => UserResource::make($user),
             'credentials' => $this->credentialsFor($user, $plainPassword),
+            ...$this->placementPayload($user),
         ], 201);
     }
 
@@ -70,7 +71,7 @@ class PartnerController extends Controller
         $failed = [];
 
         foreach ($request->input('partners', []) as $index => $partnerData) {
-            $validator = Validator::make((array) $partnerData, $this->createRules());
+            $validator = Validator::make((array) $partnerData, $this->createRules(), $this->createMessages());
 
             if ($validator->fails()) {
                 $failed[] = [
@@ -90,6 +91,7 @@ class PartnerController extends Controller
                     'row' => $index,
                     'user' => UserResource::make($user),
                     'credentials' => $this->credentialsFor($user, $plainPassword),
+                    ...$this->placementPayload($user),
                 ];
             } catch (\Throwable $exception) {
                 report($exception);
@@ -362,7 +364,7 @@ class PartnerController extends Controller
                     ->where('account_status', 'active')
                     ->whereIn('role', [User::ROLE_USER, User::ROLE_SUPER_ADMIN]),
             ],
-            'branch' => ['nullable', 'string', Rule::in(['left', 'right', 'L', 'R'])],
+            'branch' => ['nullable', 'required_with:sponsor_id', 'string', Rule::in(['left', 'right', 'L', 'R'])],
             'package_id' => ['nullable', 'integer', Rule::exists('packages', 'id')],
             'pay_referral_bonus' => ['sometimes', 'boolean'],
             'role' => ['nullable', 'string', Rule::in($roles ?: [
@@ -372,6 +374,17 @@ class PartnerController extends Controller
                 User::ROLE_ACCOUNTANT,
                 User::ROLE_SUPER_ADMIN,
             ])],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function createMessages(): array
+    {
+        return [
+            'branch.required_with' => 'Выберите левую или правую ветку для выбранного спонсора.',
+            'branch.in' => 'Ветка должна быть left или right.',
         ];
     }
 
@@ -425,5 +438,61 @@ class PartnerController extends Controller
             'password' => $plainPassword,
             'login_url' => 'https://safilife.kz/login',
         ];
+    }
+
+    /**
+     * @return array{placement_parent_id: int|null, placement_branch: string|null, root_branch: string|null}
+     */
+    private function placementPayload(User $user): array
+    {
+        $node = $user->binaryNode()
+            ->where('is_active', true)
+            ->with('parent')
+            ->first();
+
+        return [
+            'placement_parent_id' => $node?->parent?->user_id,
+            'placement_branch' => $this->positionToBranch($node?->position),
+            'root_branch' => $this->rootBranchFor($user, $node),
+        ];
+    }
+
+    private function rootBranchFor(User $user, ?BinaryNode $node): ?string
+    {
+        if (! $node || ! $user->sponsor_id) {
+            return null;
+        }
+
+        $sponsorNode = BinaryNode::query()
+            ->where('user_id', $user->sponsor_id)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $sponsorNode) {
+            return null;
+        }
+
+        $current = $node;
+
+        while ($current && (int) $current->parent_id !== (int) $sponsorNode->id) {
+            if ((int) $current->id === (int) $sponsorNode->id) {
+                return null;
+            }
+
+            $current = $current->parent()
+                ->where('is_active', true)
+                ->first();
+        }
+
+        return $this->positionToBranch($current?->position);
+    }
+
+    private function positionToBranch(?string $position): ?string
+    {
+        return match ($position) {
+            'L' => 'left',
+            'R' => 'right',
+            default => null,
+        };
     }
 }

@@ -15,8 +15,6 @@ class BinaryTreeService
             throw new InvalidArgumentException('User is already placed in the binary tree.');
         }
 
-        $position = $this->normalizePosition($preferredPosition);
-
         if (! $sponsor) {
             return BinaryNode::query()->create([
                 'user_id' => $user->id,
@@ -27,6 +25,8 @@ class BinaryTreeService
                 'is_active' => true,
             ]);
         }
+
+        $position = $this->normalizeRequiredPosition($preferredPosition);
 
         if ($sponsor->trashed() || $sponsor->account_status !== 'active' || ! in_array($sponsor->role, [User::ROLE_USER, User::ROLE_SUPER_ADMIN], true)) {
             throw new InvalidArgumentException('Sponsor is not available.');
@@ -69,7 +69,7 @@ class BinaryTreeService
             return null;
         }
 
-        $position = $this->normalizePosition($preferredPosition);
+        $position = $this->normalizeRequiredPosition($preferredPosition);
         $sponsorNode = $sponsor->binaryNode()->where('is_active', true)->first();
 
         if (! $sponsorNode) {
@@ -83,7 +83,7 @@ class BinaryTreeService
         $branchRoot = $this->childAt($sponsorNode, $position);
 
         if (! $branchRoot) {
-            return $sponsorNode;
+            return null;
         }
 
         /** @var Collection<int, BinaryNode> $queue */
@@ -99,6 +99,7 @@ class BinaryTreeService
 
             $children = $node->children()
                 ->where('is_active', true)
+                ->whereHas('user', fn ($query) => $query->activeAccount())
                 ->orderByRaw("case position when 'L' then 0 when 'R' then 1 else 2 end")
                 ->get();
 
@@ -111,10 +112,15 @@ class BinaryTreeService
     public function hasFreePosition(BinaryNode $node, ?string $position = null): bool
     {
         if ($position !== null) {
-            return $this->childAt($node, $this->normalizePosition($position)) === null;
+            return $this->slotIsFree($node, $this->normalizePosition($position));
         }
 
-        return $this->childAt($node, 'L') === null || $this->childAt($node, 'R') === null;
+        return $this->slotIsFree($node, 'L') || $this->slotIsFree($node, 'R');
+    }
+
+    public function findFirstAvailableSlotInBranch(User $sponsor, string $branch): ?BinaryNode
+    {
+        return $this->findSpilloverPosition($sponsor, $branch);
     }
 
     private function resolveFreeChildPosition(BinaryNode $node, string $preferredPosition): string
@@ -143,10 +149,18 @@ class BinaryTreeService
             ->first();
     }
 
+    private function slotIsFree(BinaryNode $node, string $position): bool
+    {
+        return ! BinaryNode::withTrashed()
+            ->where('parent_id', $node->id)
+            ->where('position', $position)
+            ->exists();
+    }
+
     private function normalizePosition(?string $position): string
     {
         if ($position === null || trim($position) === '') {
-            return 'L';
+            throw new InvalidArgumentException('Binary position must be L or R.');
         }
 
         $position = strtoupper($position);
@@ -156,5 +170,10 @@ class BinaryTreeService
             'R', 'RIGHT' => 'R',
             default => throw new InvalidArgumentException('Binary position must be L or R.'),
         };
+    }
+
+    private function normalizeRequiredPosition(?string $position): string
+    {
+        return $this->normalizePosition($position);
     }
 }

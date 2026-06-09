@@ -36,7 +36,7 @@ class StorePartnerRequest extends FormRequest
                     ->where('account_status', 'active')
                     ->whereIn('role', [User::ROLE_USER, User::ROLE_SUPER_ADMIN]),
             ],
-            'branch' => ['nullable', 'string', Rule::in(['left', 'right', 'L', 'R'])],
+            'branch' => ['nullable', 'required_with:sponsor_id', 'string', Rule::in(['left', 'right', 'L', 'R'])],
             'package_id' => ['nullable', 'integer', Rule::exists('packages', 'id')],
             'pay_referral_bonus' => ['sometimes', 'boolean'],
             'role' => ['nullable', 'string', Rule::in($roles ?: [
@@ -46,6 +46,17 @@ class StorePartnerRequest extends FormRequest
                 User::ROLE_ACCOUNTANT,
                 User::ROLE_SUPER_ADMIN,
             ])],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'branch.required_with' => 'Выберите левую или правую ветку для выбранного спонсора.',
+            'branch.in' => 'Ветка должна быть left или right.',
         ];
     }
 

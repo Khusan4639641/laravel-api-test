@@ -58,6 +58,7 @@ export default function AdminPartnersBulkCreate() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [invalidPhoneRowIds, setInvalidPhoneRowIds] = useState<number[]>([]);
+  const [invalidBranchRowIds, setInvalidBranchRowIds] = useState<number[]>([]);
   const canCreate = currentUser.role === 'super_admin';
 
   const createdResults = useMemo(() => results.filter((result) => result.status === 'created'), [results]);
@@ -92,10 +93,26 @@ export default function AdminPartnersBulkCreate() {
   }, []);
 
   const updateRow = (localId: number, field: keyof BulkRow, value: string) => {
-    setRows((current) => current.map((row) => row.localId === localId ? { ...row, [field]: value } : row));
+    setRows((current) => current.map((row) => {
+      if (row.localId !== localId) {
+        return row;
+      }
+
+      const updated = { ...row, [field]: value };
+
+      if (field === 'sponsor_id' && value.trim() === '') {
+        updated.branch = '';
+      }
+
+      return updated;
+    }));
 
     if (field === 'phone' && value.trim() !== '') {
       setInvalidPhoneRowIds((current) => current.filter((rowId) => rowId !== localId));
+    }
+
+    if ((field === 'branch' && value.trim() !== '') || (field === 'sponsor_id' && value.trim() === '')) {
+      setInvalidBranchRowIds((current) => current.filter((rowId) => rowId !== localId));
     }
   };
 
@@ -130,9 +147,20 @@ export default function AdminPartnersBulkCreate() {
       return;
     }
 
+    const rowsWithoutBranch = rows
+      .filter((row) => row.sponsor_id.trim() !== '' && row.branch.trim() === '')
+      .map((row) => row.localId);
+
+    if (rowsWithoutBranch.length > 0) {
+      setInvalidBranchRowIds(rowsWithoutBranch);
+      showToast('Выберите ветку для каждой строки со спонсором.', 'error');
+      return;
+    }
+
     setIsSubmitting(true);
     setResults([]);
     setInvalidPhoneRowIds([]);
+    setInvalidBranchRowIds([]);
 
     try {
       const response = await bulkCreateAdminPartners({
@@ -268,11 +296,20 @@ export default function AdminPartnersBulkCreate() {
                     </select>
                   </td>
                   <td className="px-4 py-3">
-                    <select value={row.branch} onChange={(event) => updateRow(row.localId, 'branch', event.target.value)} className={inputClass} disabled={!row.sponsor_id}>
-                      <option value="">{adminText('a_0JDQstGC0L4')}</option>
-                      <option value="left">left</option>
-                      <option value="right">right</option>
+                    <select
+                      value={row.branch}
+                      onChange={(event) => updateRow(row.localId, 'branch', event.target.value)}
+                      className={`${inputClass} ${invalidBranchRowIds.includes(row.localId) ? 'border-red-400 bg-red-50' : ''}`}
+                      disabled={!row.sponsor_id}
+                      required={Boolean(row.sponsor_id)}
+                    >
+                      <option value="">Выберите ветку</option>
+                      <option value="left">Левая ветка</option>
+                      <option value="right">Правая ветка</option>
                     </select>
+                    {invalidBranchRowIds.includes(row.localId) && (
+                      <div className="mt-1 text-[10px] font-bold text-red-600">Ветка обязательна</div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <select value={row.role} onChange={(event) => updateRow(row.localId, 'role', event.target.value)} className={inputClass}>

@@ -483,7 +483,11 @@ export default function AdminPartners() {
           onClose={closeCreateModal}
           onCopy={copyCredentials}
           onSubmit={submitCreatePartner}
-          onChange={(field, value) => setCreateForm((current) => ({ ...current, [field]: value }))}
+          onChange={(field, value) => setCreateForm((current) => ({
+            ...current,
+            [field]: value,
+            ...(field === 'sponsor_id' && !value ? { branch: '' } : {}),
+          }))}
         />
       )}
     </div>
@@ -621,10 +625,11 @@ function CreatePartnerModal({
                   onChange={(event) => onChange('branch', event.target.value)}
                   className={modalInputClass}
                   disabled={!form.sponsor_id}
+                  required={Boolean(form.sponsor_id)}
                 >
-                  <option value="">{adminText('a_0JDQstGC0L7Q')}</option>
-                  <option value="left">left</option>
-                  <option value="right">right</option>
+                  <option value="">Выберите ветку</option>
+                  <option value="left">Левая ветка</option>
+                  <option value="right">Правая ветка</option>
                 </select>
               </ModalField>
               <ModalField label={adminText('a_0KDQvtC70Yw')} error={fieldErrors.role?.[0]}>
