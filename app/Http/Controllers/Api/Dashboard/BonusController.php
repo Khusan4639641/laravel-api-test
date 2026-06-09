@@ -23,6 +23,7 @@ class BonusController extends Controller
         $user = $request->user();
         $bonuses = $user->bonusTransactions()
             ->with(['sourceUser', 'sourceOrder', 'walletTransaction'])
+            ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
             ->latest()
             ->paginate($this->perPage($request));
 

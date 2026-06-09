@@ -26,6 +26,7 @@ class RecalculateBranchPvCommand extends Command
 
         User::query()
             ->where('role', User::ROLE_USER)
+            ->activeAccount()
             ->with('binaryNode')
             ->orderBy('id')
             ->chunkById($chunkSize, function ($users) use (&$processed, &$changed, $branchVolumeService): void {

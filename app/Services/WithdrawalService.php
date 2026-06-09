@@ -86,6 +86,7 @@ class WithdrawalService
         DB::transaction(function () use ($withdrawalRequest): void {
             /** @var WithdrawalRequest $withdrawalRequest */
             $withdrawalRequest = WithdrawalRequest::query()
+                ->whereHas('user', fn ($query) => $query->activeAccount())
                 ->lockForUpdate()
                 ->findOrFail($withdrawalRequest->id);
 
@@ -141,6 +142,7 @@ class WithdrawalService
         DB::transaction(function () use ($withdrawalRequest, $reason): void {
             /** @var WithdrawalRequest $withdrawalRequest */
             $withdrawalRequest = WithdrawalRequest::query()
+                ->whereHas('user', fn ($query) => $query->activeAccount())
                 ->lockForUpdate()
                 ->findOrFail($withdrawalRequest->id);
 

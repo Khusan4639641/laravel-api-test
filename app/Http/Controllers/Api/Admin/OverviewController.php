@@ -93,12 +93,20 @@ class OverviewController extends Controller
 
     private function partnerOrders(): Builder
     {
-        return Order::query()->whereHas('user', $this->partnerRoleFilter());
+        return Order::query()
+            ->where('status', '!=', 'voided')
+            ->whereHas('user', $this->partnerRoleFilter());
     }
 
     private function partnerBonuses(): Builder
     {
-        return BonusTransaction::query()->whereHas('user', $this->partnerRoleFilter());
+        return BonusTransaction::query()
+            ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
+            ->whereHas('user', $this->partnerRoleFilter())
+            ->where(function (Builder $query): void {
+                $query->whereNull('source_user_id')
+                    ->orWhereHas('sourceUser', $this->partnerRoleFilter());
+            });
     }
 
     private function partnerWithdrawals(): Builder
@@ -108,7 +116,9 @@ class OverviewController extends Controller
 
     private function partnerWalletTransactions(): Builder
     {
-        return WalletTransaction::query()->whereHas('user', $this->partnerRoleFilter());
+        return WalletTransaction::query()
+            ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
+            ->whereHas('user', $this->partnerRoleFilter());
     }
 
     private function partnerRoleFilter(): callable

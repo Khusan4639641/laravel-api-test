@@ -121,6 +121,10 @@ class StatusService
 
     public function recalculate(User $user): User
     {
+        if ($user->trashed() || $user->account_status !== 'active') {
+            return $user;
+        }
+
         $weakLegPv = $this->weakLegPv($user);
         $status = $this->statusForPv($weakLegPv);
 
@@ -141,7 +145,7 @@ class StatusService
         app(StatusBonusService::class)->awardEligible($user);
 
         if ($user->sponsor_id) {
-            $sponsor = $user->sponsor()->first();
+            $sponsor = $user->sponsor()->activeAccount()->first();
 
             if ($sponsor) {
                 app(X2BonusService::class)->awardEligible($sponsor);
@@ -156,6 +160,7 @@ class StatusService
         $count = 0;
 
         User::query()
+            ->activeAccount()
             ->orderBy('id')
             ->chunkById($chunkSize, function ($users) use (&$count): void {
                 foreach ($users as $user) {

@@ -15,7 +15,7 @@ class EnsureAccountActive
     {
         $user = $request->user();
 
-        if ($user && in_array($user->account_status, ['blocked', 'inactive'], true)) {
+        if ($user && ($user->trashed() || in_array($user->account_status, ['blocked', 'inactive', 'deleted', 'archived'], true))) {
             abort(403, 'Account is blocked.');
         }
 

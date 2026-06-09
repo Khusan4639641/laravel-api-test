@@ -29,7 +29,9 @@ class SafiRecalculateMlmCommand extends Command
             return self::FAILURE;
         }
 
-        $user = User::query()->find((int) $userId);
+        $user = User::query()
+            ->activeAccount()
+            ->find((int) $userId);
 
         if (! $user) {
             $this->error('Active user not found.');

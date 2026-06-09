@@ -27,6 +27,7 @@ class X2BonusService
         return DB::transaction(function () use ($user): Collection {
             $user = User::query()
                 ->with('binaryNode')
+                ->activeAccount()
                 ->lockForUpdate()
                 ->findOrFail($user->id);
             $created = collect();
@@ -104,6 +105,7 @@ class X2BonusService
 
         $user->referrals()
             ->with('binaryNode')
+            ->activeAccount()
             ->get(['id', 'sponsor_id', 'status'])
             ->each(function (User $referral) use ($user, $requiredRank, &$leftCount, &$rightCount, &$qualifiedUserIds): void {
                 if ($this->statusService->rankForStatus($referral->status) < $requiredRank) {

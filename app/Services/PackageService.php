@@ -51,7 +51,9 @@ class PackageService
             );
 
             if ($user->sponsor_id) {
-                $sponsor = User::query()->find($user->sponsor_id);
+                $sponsor = User::query()
+                    ->eligibleSponsor()
+                    ->find($user->sponsor_id);
 
                 if ($sponsor) {
                     $eligibleReferralAmount = $this->referralBonusBaseResolver->resolveForPackageActivation($package, [
@@ -171,7 +173,9 @@ class PackageService
             }
 
             if ($user->sponsor_id) {
-                $sponsor = User::query()->find($user->sponsor_id);
+                $sponsor = User::query()
+                    ->eligibleSponsor()
+                    ->find($user->sponsor_id);
 
                 if ($sponsor) {
                     $eligibleReferralAmount = $this->eligibleReferralAmountForManualAssignment($pvEffects);
@@ -275,7 +279,9 @@ class PackageService
             $cashbackAmount = '0.00';
 
             if ($user->sponsor_id) {
-                $sponsor = User::query()->find($user->sponsor_id);
+                $sponsor = User::query()
+                    ->eligibleSponsor()
+                    ->find($user->sponsor_id);
 
                 if ($sponsor) {
                     $eligibleReferralAmount = $this->referralBonusBaseResolver->resolveForPackageUpgrade($currentPackage, $targetPackage, [

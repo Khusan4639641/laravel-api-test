@@ -158,7 +158,7 @@ class AdminPartnerCreateParityTest extends TestCase
             'name' => "Admin {$login}",
             'login' => $login,
             'email' => "{$login}@example.test",
-            'phone' => '+77000000002',
+            'phone' => '+7700'.str_pad((string) (abs(crc32($login)) % 10000000), 7, '0', STR_PAD_LEFT),
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role' => User::ROLE_USER,

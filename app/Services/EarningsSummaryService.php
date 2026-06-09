@@ -25,6 +25,7 @@ class EarningsSummaryService
         $cashbackTotal = $this->decimal($bonusTotals->get('cashback', '0'));
         $totalEarned = $this->decimal(BonusTransaction::query()
             ->where('user_id', $user->id)
+            ->where('status', 'completed')
             ->sum('amount'));
 
         $availableToWithdraw = $this->decimal(Wallet::query()
@@ -80,6 +81,7 @@ class EarningsSummaryService
         return BonusTransaction::query()
             ->select('bonus_type', DB::raw('sum(amount) as total'))
             ->where('user_id', $user->id)
+            ->where('status', 'completed')
             ->groupBy('bonus_type')
             ->pluck('total', 'bonus_type')
             ->map(fn (mixed $value): string => $this->decimal($value));

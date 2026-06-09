@@ -775,7 +775,7 @@ export default function AdminPartnerDetail() {
         <Modal title="Удалить партнёра" onClose={() => actionLoading !== 'delete' && setDeleteModalOpen(false)}>
           <form className="space-y-5" onSubmit={submitDeletePartner}>
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
-              Пользователь будет архивирован через soft delete. История транзакций сохранится, бонусы будут reversed/voided, структура и PV пересчитаны по активным пользователям.
+              Пользователь будет архивирован через soft delete. Логин, email и телефон будут освобождены для повторной регистрации. Пользователь будет исключён из статистики и расчётов, история транзакций сохранится, бонусы будут reversed/voided, структура и PV пересчитаны по активным пользователям.
             </div>
 
             {deletePreview && (

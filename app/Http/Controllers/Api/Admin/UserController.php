@@ -67,6 +67,7 @@ class UserController extends Controller
 
         $usersQuery = User::query()
             ->where('role', User::ROLE_USER)
+            ->activeAccount()
             ->with(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
             ->withCount(['referrals', 'invitedUsers as invited_count'])
             ->latest();

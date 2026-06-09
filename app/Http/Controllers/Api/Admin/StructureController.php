@@ -25,6 +25,7 @@ class StructureController extends Controller
 
         if ($request->filled('user_id')) {
             $selectedUser = User::query()
+                ->activeAccount()
                 ->with(['currentPackage', 'sponsor', 'wallets'])
                 ->find((int) $request->integer('user_id'));
 
@@ -37,11 +38,12 @@ class StructureController extends Controller
             $rootNode = BinaryNode::query()
                 ->whereNull('parent_id')
                 ->where('is_active', true)
+                ->whereHas('user', fn ($query) => $query->activeAccount())
                 ->orderBy('id')
                 ->first();
 
             $selectedUser = $rootNode?->user()->with(['currentPackage', 'sponsor', 'wallets'])->first()
-                ?: User::query()->with(['currentPackage', 'sponsor', 'wallets'])->orderBy('id')->first();
+                ?: User::query()->activeAccount()->with(['currentPackage', 'sponsor', 'wallets'])->orderBy('id')->first();
         }
 
         if (! $selectedUser) {
@@ -94,6 +96,7 @@ class StructureController extends Controller
                     ->orWhere('path', 'like', $rootNode->path.'.%');
             })
             ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->where('depth', '<=', $rootNode->depth + $maxDepth)
             ->orderBy('depth')
             ->orderBy('id')
@@ -116,6 +119,7 @@ class StructureController extends Controller
                     ->orWhere('path', 'like', $rootNode->path.'.%');
             })
             ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->orderBy('depth')
             ->orderBy('id')
             ->get();
@@ -248,6 +252,7 @@ class StructureController extends Controller
             'direct_invited_count' => User::query()
                 ->where('sponsor_id', $rootUser->id)
                 ->where('role', User::ROLE_USER)
+                ->activeAccount()
                 ->count(),
             'total_downline_count' => $totalCount,
             'total_structure_count' => $totalCount,
@@ -273,6 +278,7 @@ class StructureController extends Controller
         return BinaryNode::query()
             ->where('path', 'like', $rootNode->path.'.%')
             ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->count();
     }
 
@@ -286,6 +292,7 @@ class StructureController extends Controller
             ->where('parent_id', $rootNode->id)
             ->where('position', $position)
             ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->first();
 
         if (! $branchRoot) {
@@ -295,6 +302,7 @@ class StructureController extends Controller
         return 1 + BinaryNode::query()
             ->where('path', 'like', $branchRoot->path.'.%')
             ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->count();
     }
 
@@ -311,6 +319,7 @@ class StructureController extends Controller
             ->with(['user.currentPackage', 'user.sponsor', 'user.wallets'])
             ->where('path', 'like', $rootNode->path.'.%')
             ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->orderBy('depth')
             ->orderBy('id')
             ->get()

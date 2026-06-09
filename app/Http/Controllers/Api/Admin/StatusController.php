@@ -18,7 +18,11 @@ class StatusController extends Controller
     {
         $statuses = collect($this->statusService->publicStatuses())
             ->map(function (array $status): array {
-                $status['partners_count'] = User::query()->where('status', $status['id'])->count();
+                $status['partners_count'] = User::query()
+                    ->where('status', $status['id'])
+                    ->where('role', User::ROLE_USER)
+                    ->activeAccount()
+                    ->count();
 
                 return $status;
             })

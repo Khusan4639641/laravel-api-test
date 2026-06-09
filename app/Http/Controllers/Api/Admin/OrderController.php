@@ -27,6 +27,8 @@ class OrderController extends Controller
         $orders = Order::query()
             ->with(['user.profile', 'items.product', 'items.package'])
             ->withSum('items as items_count', 'quantity')
+            ->where('status', '!=', 'voided')
+            ->whereHas('user', fn (Builder $query) => $query->activeAccount())
             ->when($status !== '', fn (Builder $query) => $query->where('status', $status))
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $nested) use ($search): void {
@@ -59,6 +61,8 @@ class OrderController extends Controller
 
     public function show(Order $order): JsonResponse
     {
+        abort_if($order->status === 'voided' || ! $order->user()->activeAccount()->exists(), 404);
+
         return response()->json([
             'order' => OrderResource::make($order->load(['user.profile', 'items.product', 'items.package'])),
         ]);

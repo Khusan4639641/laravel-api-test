@@ -25,6 +25,7 @@ class ReferralController extends Controller
         }
 
         $sponsor = User::query()
+            ->eligibleSponsor()
             ->with('binaryNode')
             ->find($userId);
 

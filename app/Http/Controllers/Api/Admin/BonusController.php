@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\BonusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class BonusController extends Controller
 {
@@ -24,6 +25,12 @@ class BonusController extends Controller
     {
         $bonuses = BonusTransaction::query()
             ->with(['user.profile', 'sourceUser.profile', 'sourceOrder', 'walletTransaction'])
+            ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
+            ->whereHas('user', fn ($query) => $query->activeAccount())
+            ->where(function ($query): void {
+                $query->whereNull('source_user_id')
+                    ->orWhereHas('sourceUser', fn ($sourceUserQuery) => $sourceUserQuery->activeAccount());
+            })
             ->latest()
             ->paginate($this->perPage($request));
 
@@ -33,7 +40,13 @@ class BonusController extends Controller
     public function calculateBinary(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'user_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')
+                    ->whereNull('deleted_at')
+                    ->where('account_status', 'active'),
+            ],
         ]);
 
         if (empty($validated['user_id'])) {
@@ -41,6 +54,7 @@ class BonusController extends Controller
 
             User::query()
                 ->where('role', User::ROLE_USER)
+                ->activeAccount()
                 ->whereHas('currentPackage')
                 ->where(function ($query): void {
                     $query->where('remaining_left_pv', '>', 0)
@@ -64,7 +78,7 @@ class BonusController extends Controller
             ]);
         }
 
-        $user = User::query()->findOrFail($validated['user_id']);
+        $user = User::query()->activeAccount()->findOrFail($validated['user_id']);
         $bonusTransaction = $this->bonusService->calculateBinaryBonus($user);
 
         if (! $bonusTransaction) {

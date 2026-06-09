@@ -33,11 +33,18 @@ class PartnerRegistrationService
         bool $notifyRegisteredUser = false,
     ): User {
         return DB::transaction(function () use ($data, $actor, $payReferralBonus, $source, $notifyRegisteredUser): User {
+            $referralCode = $data['referral_code'] ?? $data['ref'] ?? $data['sponsor_code'] ?? null;
             $sponsor = $this->resolveSponsorByReferralCode(
-                $data['referral_code'] ?? $data['ref'] ?? $data['sponsor_code'] ?? null,
+                $referralCode,
                 isset($data['sponsor_id']) ? (int) $data['sponsor_id'] : null,
             );
             $package = $this->resolveInitialPackage($data['package_id'] ?? null);
+
+            if ($this->hasSponsorInput($referralCode, $data['sponsor_id'] ?? null) && ! $sponsor) {
+                throw ValidationException::withMessages([
+                    'referral_code' => ['Пригласитель не найден или недоступен'],
+                ]);
+            }
 
             $user = $this->createUser($data, $sponsor, (string) $data['password']);
             $this->walletService->createUserWallets($user);
@@ -55,7 +62,9 @@ class PartnerRegistrationService
     public function resolveSponsorByReferralCode(mixed $referralCode = null, ?int $sponsorId = null): ?User
     {
         if ($sponsorId) {
-            return User::query()->find($sponsorId);
+            return User::query()
+                ->eligibleSponsor()
+                ->find($sponsorId);
         }
 
         $referralCode = trim((string) ($referralCode ?? ''));
@@ -71,6 +80,7 @@ class PartnerRegistrationService
         );
 
         return User::query()
+            ->eligibleSponsor()
             ->where(function ($query) use ($referralCode, $normalizedCode, $optionalCodeColumns): void {
                 $query->whereRaw('LOWER(login) = ?', [$normalizedCode]);
 
@@ -83,6 +93,12 @@ class PartnerRegistrationService
                 }
             })
             ->first();
+    }
+
+    private function hasSponsorInput(mixed $referralCode, mixed $sponsorId): bool
+    {
+        return trim((string) ($referralCode ?? '')) !== ''
+            || (is_numeric($sponsorId) && (int) $sponsorId > 0);
     }
 
     /**
@@ -216,7 +232,9 @@ class PartnerRegistrationService
             return;
         }
 
-        $sponsor = User::query()->find($user->sponsor_id);
+        $sponsor = User::query()
+            ->eligibleSponsor()
+            ->find($user->sponsor_id);
 
         if (! $sponsor) {
             return;

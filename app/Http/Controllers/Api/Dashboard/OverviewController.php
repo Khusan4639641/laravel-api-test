@@ -28,12 +28,14 @@ class OverviewController extends Controller
         $user->setAttribute('total_pv', $branchVolumes['total_pv']);
         $recentTransactions = WalletTransaction::query()
             ->where('user_id', $user->id)
+            ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
             ->latest()
             ->limit(6)
             ->get();
         $bonusTotals = BonusTransaction::query()
             ->select('bonus_type', DB::raw('sum(amount) as total'))
             ->where('user_id', $user->id)
+            ->where('status', 'completed')
             ->groupBy('bonus_type')
             ->pluck('total', 'bonus_type');
         $mainWalletBalance = (string) $user->wallets
@@ -45,7 +47,7 @@ class OverviewController extends Controller
             ->where('status', 'pending')
             ->sum('pending_amount');
         $teamCount = $this->descendantsQuery($user->binaryNode?->path)
-            ->whereHas('user', fn ($query) => $query->where('role', 'user'))
+            ->whereHas('user', fn ($query) => $query->where('role', 'user')->activeAccount())
             ->count();
 
         return response()->json([
@@ -59,6 +61,7 @@ class OverviewController extends Controller
                 'total_earned' => (string) WalletTransaction::query()
                     ->where('user_id', $user->id)
                     ->where('direction', 'credit')
+                    ->where('status', 'completed')
                     ->where('affects_balance', true)
                     ->sum('amount'),
                 'pending_withdrawals' => (string) WithdrawalRequest::query()
@@ -87,16 +90,19 @@ class OverviewController extends Controller
             'weak_leg_pv' => $branchVolumes['weak_leg_pv'],
             'bonuses' => $bonusTotals,
             'bonuses_summary' => [
-                'total' => (string) BonusTransaction::query()->where('user_id', $user->id)->sum('amount'),
+                'total' => (string) BonusTransaction::query()
+                    ->where('user_id', $user->id)
+                    ->where('status', 'completed')
+                    ->sum('amount'),
                 'by_type' => $bonusTotals,
                 'pending_binary' => $pendingBinaryAmount,
             ],
             'orders_summary' => [
-                'total' => Order::query()->where('user_id', $user->id)->count(),
+                'total' => Order::query()->where('user_id', $user->id)->where('status', '!=', 'voided')->count(),
                 'completed' => Order::query()->where('user_id', $user->id)->where('status', 'completed')->count(),
                 'pending' => Order::query()->where('user_id', $user->id)->whereIn('status', ['pending', 'new', 'processing'])->count(),
-                'total_amount' => (string) Order::query()->where('user_id', $user->id)->sum('total_amount'),
-                'total_pv' => (string) Order::query()->where('user_id', $user->id)->sum('total_pv'),
+                'total_amount' => (string) Order::query()->where('user_id', $user->id)->where('status', '!=', 'voided')->sum('total_amount'),
+                'total_pv' => (string) Order::query()->where('user_id', $user->id)->where('status', '!=', 'voided')->sum('total_pv'),
             ],
             'withdrawals_summary' => [
                 'total' => WithdrawalRequest::query()->where('user_id', $user->id)->count(),

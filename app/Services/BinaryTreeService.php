@@ -28,6 +28,10 @@ class BinaryTreeService
             ]);
         }
 
+        if ($sponsor->trashed() || $sponsor->account_status !== 'active' || ! in_array($sponsor->role, [User::ROLE_USER, User::ROLE_SUPER_ADMIN], true)) {
+            throw new InvalidArgumentException('Sponsor is not available.');
+        }
+
         $sponsorNode = $sponsor->binaryNode()->where('is_active', true)->first();
 
         if (! $sponsorNode) {
@@ -61,6 +65,10 @@ class BinaryTreeService
 
     public function findSpilloverPosition(User $sponsor, ?string $preferredPosition = null): ?BinaryNode
     {
+        if ($sponsor->trashed() || $sponsor->account_status !== 'active') {
+            return null;
+        }
+
         $position = $this->normalizePosition($preferredPosition);
         $sponsorNode = $sponsor->binaryNode()->where('is_active', true)->first();
 
@@ -128,7 +136,11 @@ class BinaryTreeService
 
     private function childAt(BinaryNode $node, string $position): ?BinaryNode
     {
-        return $node->children()->where('position', $position)->where('is_active', true)->first();
+        return $node->children()
+            ->where('position', $position)
+            ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
+            ->first();
     }
 
     private function normalizePosition(?string $position): string

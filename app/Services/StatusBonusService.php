@@ -33,6 +33,7 @@ class StatusBonusService
         return DB::transaction(function () use ($user): Collection {
             $user = User::query()
                 ->with('currentPackage')
+                ->activeAccount()
                 ->lockForUpdate()
                 ->findOrFail($user->id);
             $created = collect();
@@ -98,6 +99,7 @@ class StatusBonusService
         return DB::transaction(function () use ($user, $statusCode): ?UserStatusBonus {
             $user = User::query()
                 ->with('currentPackage')
+                ->activeAccount()
                 ->lockForUpdate()
                 ->findOrFail($user->id);
 

@@ -11,6 +11,7 @@ use App\Http\Resources\WalletTransactionResource;
 use App\Models\BinaryNode;
 use App\Models\Package;
 use App\Models\User;
+use App\Models\UserProfile;
 use App\Models\WalletTransaction;
 use App\Services\BonusService;
 use App\Services\PackageService;
@@ -122,9 +123,9 @@ class PartnerController extends Controller
     {
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'login' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('users', 'login')->ignore($user->id)],
-            'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-            'phone' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'login' => ['sometimes', 'required', 'string', 'max:255', Rule::unique('users', 'login')->whereNull('deleted_at')->ignore($user->id)],
+            'email' => ['sometimes', 'required', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')->ignore($user->id)],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:255', $this->uniqueActivePhoneRule($user->id)],
         ]);
 
         $user->forceFill(collect($validated)->only(['name', 'login', 'email'])->all())->save();
@@ -301,6 +302,7 @@ class PartnerController extends Controller
                     ->orWhere('path', 'like', $rootNode->path.'.%');
             })
             ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->orderBy('depth')
             ->orderBy('id')
             ->get();
@@ -348,11 +350,18 @@ class PartnerController extends Controller
 
         return [
             'name' => ['required', 'string', 'max:255'],
-            'login' => ['required', 'string', 'max:255', Rule::unique('users', 'login')],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')],
-            'phone' => ['required', 'string', 'min:6', 'max:32'],
+            'login' => ['required', 'string', 'max:255', Rule::unique('users', 'login')->whereNull('deleted_at')],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')],
+            'phone' => ['required', 'string', 'min:6', 'max:32', $this->uniqueActivePhoneRule()],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
-            'sponsor_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
+            'sponsor_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('users', 'id')
+                    ->whereNull('deleted_at')
+                    ->where('account_status', 'active')
+                    ->whereIn('role', [User::ROLE_USER, User::ROLE_SUPER_ADMIN]),
+            ],
             'branch' => ['nullable', 'string', Rule::in(['left', 'right', 'L', 'R'])],
             'package_id' => ['nullable', 'integer', Rule::exists('packages', 'id')],
             'pay_referral_bonus' => ['sometimes', 'boolean'],
@@ -377,6 +386,32 @@ class PartnerController extends Controller
     private function ensureSuperAdmin(Request $request): void
     {
         abort_unless($request->user()?->isSuperAdmin(), 403, 'Only super admin can delete partners.');
+    }
+
+    private function uniqueActivePhoneRule(?int $ignoreUserId = null): \Closure
+    {
+        return function (string $attribute, mixed $value, \Closure $fail) use ($ignoreUserId): void {
+            $phone = trim((string) $value);
+
+            if ($phone === '') {
+                return;
+            }
+
+            $exists = UserProfile::query()
+                ->where('phone', $phone)
+                ->whereHas('user', function ($query) use ($ignoreUserId): void {
+                    $query->activeAccount();
+
+                    if ($ignoreUserId !== null) {
+                        $query->whereKeyNot($ignoreUserId);
+                    }
+                })
+                ->exists();
+
+            if ($exists) {
+                $fail('The phone has already been taken.');
+            }
+        };
     }
 
     /**

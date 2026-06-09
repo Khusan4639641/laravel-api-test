@@ -23,6 +23,7 @@ class WithdrawalController extends Controller
     {
         $withdrawals = WithdrawalRequest::query()
             ->with(['user.profile', 'wallet'])
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->latest()
             ->paginate($this->perPage($request));
 

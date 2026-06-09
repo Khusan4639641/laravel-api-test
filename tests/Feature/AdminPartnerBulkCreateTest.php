@@ -91,7 +91,7 @@ class AdminPartnerBulkCreateTest extends TestCase
             'name' => "Partner {$login}",
             'login' => $login,
             'email' => "{$login}@example.test",
-            'phone' => '+7 700 000 00 00',
+            'phone' => '+7 700 '.str_pad((string) (abs(crc32($login)) % 10000000), 7, '0', STR_PAD_LEFT),
             'password' => 'password123',
             'password_confirmation' => 'password123',
             'role' => 'user',

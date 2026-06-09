@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -51,6 +52,35 @@ class User extends Authenticatable
     public const ROLE_ACCOUNTANT = 'accountant';
 
     public const ROLE_SUPER_ADMIN = 'super_admin';
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopeActiveAccount(Builder $query): Builder
+    {
+        return $query->where('account_status', 'active');
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopePartnerAccount(Builder $query): Builder
+    {
+        return $query->where('role', self::ROLE_USER);
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopeEligibleSponsor(Builder $query): Builder
+    {
+        return $query
+            ->activeAccount()
+            ->whereIn('role', [self::ROLE_USER, self::ROLE_SUPER_ADMIN]);
+    }
 
     /**
      * @return array<string, string>

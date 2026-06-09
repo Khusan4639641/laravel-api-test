@@ -65,7 +65,10 @@ class PvService
                 break;
             }
 
-            $parentUser = $parentNode->user()->lockForUpdate()->first();
+            $parentUser = $parentNode->user()
+                ->activeAccount()
+                ->lockForUpdate()
+                ->first();
 
             if ($parentUser) {
                 $this->addBranchPv($parentUser, $currentNode->position, $pv, $isBonusable);

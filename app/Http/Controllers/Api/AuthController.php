@@ -30,7 +30,13 @@ class AuthController extends Controller
 
         if (! empty($validated['referral_code']) && ! $sponsor) {
             throw ValidationException::withMessages([
-                'referral_code' => ['Некорректная реферальная ссылка'],
+                'referral_code' => ['Пригласитель не найден или недоступен'],
+            ]);
+        }
+
+        if (! empty($validated['sponsor_id']) && ! $sponsor) {
+            throw ValidationException::withMessages([
+                'sponsor_id' => ['Пригласитель не найден или недоступен'],
             ]);
         }
 
@@ -56,10 +62,18 @@ class AuthController extends Controller
     public function login(LoginRequest $request): JsonResponse
     {
         $validated = $request->validated();
-        $identifier = $validated['login'] ?? $validated['email'];
+        $identifier = trim((string) ($validated['login'] ?? $validated['email']));
         $field = isset($validated['login']) ? 'login' : 'email';
 
-        $user = User::query()->where($field, $identifier)->first();
+        $user = User::query()
+            ->when($field === 'email', fn ($query) => $query->where('email', $identifier))
+            ->when($field === 'login', function ($query) use ($identifier): void {
+                $query->where(function ($query) use ($identifier): void {
+                    $query->where('login', $identifier)
+                        ->orWhereHas('profile', fn ($profileQuery) => $profileQuery->where('phone', $identifier));
+                });
+            })
+            ->first();
 
         if (! $user || ! Hash::check($validated['password'], $user->password)) {
             throw ValidationException::withMessages([
@@ -67,7 +81,7 @@ class AuthController extends Controller
             ]);
         }
 
-        if (in_array($user->account_status, ['blocked', 'inactive'], true)) {
+        if (in_array($user->account_status, ['blocked', 'inactive', 'deleted', 'archived'], true)) {
             throw ValidationException::withMessages([
                 $field => ['Аккаунт заблокирован'],
             ]);

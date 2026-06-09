@@ -14,7 +14,9 @@ use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Models\WithdrawalRequest;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -112,6 +114,106 @@ class PartnerDeletionService
         });
     }
 
+    public function releaseDeletedUserIdentity(User $user): bool
+    {
+        /** @var User|null $user */
+        $user = User::withTrashed()
+            ->with('profile')
+            ->find($user->id);
+
+        if (! $user || ! $this->isArchivedOrSoftDeletedUser($user)) {
+            return false;
+        }
+
+        $meta = is_array($user->deleted_meta) ? $user->deleted_meta : [];
+
+        if (! empty($meta['identity_released_at'])) {
+            return false;
+        }
+
+        $timestamp = now()->format('YmdHis');
+        $technicalValue = "deleted_{$user->id}_{$timestamp}";
+        $technicalEmail = "deleted+{$user->id}+{$timestamp}@safilife.deleted";
+        $originalPhone = $this->currentUserPhone($user);
+        $originalReferralCode = $this->currentReferralCode($user);
+
+        $meta['original_login'] ??= $user->login;
+        $meta['original_email'] ??= $user->email;
+        $meta['original_phone'] ??= $originalPhone;
+        $meta['original_referral_code'] ??= $originalReferralCode;
+        $meta['identity_released_at'] = now()->toDateTimeString();
+
+        $updates = [
+            'login' => $this->uniqueDeletedUserValue('login', $technicalValue, $user),
+            'email' => $this->uniqueDeletedUserValue('email', $technicalEmail, $user),
+            'deleted_meta' => $meta,
+        ];
+
+        if (Schema::hasColumn('users', 'phone')) {
+            $updates['phone'] = $this->uniqueDeletedUserValue('phone', $technicalValue, $user);
+        }
+
+        if (Schema::hasColumn('users', 'referral_code')) {
+            $updates['referral_code'] = $this->uniqueDeletedUserValue('referral_code', $technicalValue, $user);
+        }
+
+        $user->forceFill($updates)->save();
+
+        if ($user->profile) {
+            $user->profile->forceFill([
+                'phone' => $technicalValue,
+            ])->save();
+        }
+
+        return true;
+    }
+
+    /**
+     * @param  array<int, int|string>  $affectedUplineIds
+     */
+    public function recalculateAfterDelete(array $affectedUplineIds): void
+    {
+        $this->recalculateAffectedUplines($affectedUplineIds);
+    }
+
+    /**
+     * @param  SupportCollection<int, User>  $users
+     */
+    public function voidDeletedUserOperationalData(SupportCollection $users): void
+    {
+        $users = User::withTrashed()
+            ->whereIn('id', $users->pluck('id')->filter()->all() ?: [0])
+            ->get();
+
+        $userIds = $users
+            ->filter(fn (User $user): bool => $this->isArchivedOrSoftDeletedUser($user))
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->values()
+            ->all();
+
+        if ($userIds === []) {
+            return;
+        }
+
+        $admin = $this->systemCleanupActor($users);
+        $reason = 'Cleanup deleted user effects';
+        $affectedUplineIds = $this->affectedUplineIdsForDeletedUserIds($userIds);
+
+        $this->voidPvTransactions($userIds, $admin, $reason);
+        $this->reverseBonuses($userIds, $affectedUplineIds, $admin, $reason);
+        $this->voidPackageTransactions($userIds, $admin, $reason);
+        $this->cancelPendingWithdrawals($userIds, $admin, $reason);
+        $this->cancelActiveOrders($userIds, $admin, $reason);
+        $this->archiveBinaryNodes($userIds, $admin, $reason);
+        $this->closeDeletedUserWallets($userIds, $admin, $reason);
+
+        $users->each(function (User $user): void {
+            $this->releaseDeletedUserIdentity($user);
+        });
+        $this->recalculateAffectedUplines($affectedUplineIds);
+    }
+
     /**
      * Rebuild cached branch PV for active uplines from non-voided PV transactions of non-deleted buyers.
      *
@@ -132,6 +234,7 @@ class PartnerDeletionService
         User::query()
             ->whereIn('id', $ids)
             ->where('role', User::ROLE_USER)
+            ->activeAccount()
             ->with('currentPackage')
             ->orderBy('id')
             ->get()
@@ -159,6 +262,7 @@ class PartnerDeletionService
     {
         $ids = User::query()
             ->where('role', User::ROLE_USER)
+            ->activeAccount()
             ->orderBy('id')
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
@@ -654,6 +758,7 @@ class PartnerDeletionService
                 'deleted_meta' => $meta,
             ])->save();
             $user->delete();
+            $this->releaseDeletedUserIdentity($user);
         });
     }
 
@@ -668,7 +773,7 @@ class PartnerDeletionService
             ->selectRaw('branch, COALESCE(SUM(pv), 0) as total_pv')
             ->where('upline_id', $upline->id)
             ->whereNull('voided_at')
-            ->whereHas('buyer', fn ($query) => $query->where('role', User::ROLE_USER))
+            ->whereHas('buyer', fn ($query) => $query->where('role', User::ROLE_USER)->activeAccount())
             ->groupBy('branch')
             ->get()
             ->each(function (PvTransaction $row) use (&$volumes): void {
@@ -682,6 +787,121 @@ class PartnerDeletionService
             });
 
         return $volumes;
+    }
+
+    private function isArchivedOrSoftDeletedUser(User $user): bool
+    {
+        return $user->trashed() || in_array((string) $user->account_status, ['deleted', 'archived'], true);
+    }
+
+    private function currentUserPhone(User $user): ?string
+    {
+        if (Schema::hasColumn('users', 'phone') && is_string($user->getAttribute('phone'))) {
+            return $user->getAttribute('phone');
+        }
+
+        $user->loadMissing('profile');
+
+        return $user->profile?->phone;
+    }
+
+    private function currentReferralCode(User $user): ?string
+    {
+        if (Schema::hasColumn('users', 'referral_code') && is_string($user->getAttribute('referral_code'))) {
+            return $user->getAttribute('referral_code');
+        }
+
+        return $user->login ?: (string) $user->id;
+    }
+
+    private function uniqueDeletedUserValue(string $column, string $baseValue, User $user): string
+    {
+        if (! Schema::hasColumn('users', $column)) {
+            return $baseValue;
+        }
+
+        $value = $baseValue;
+        $attempt = 0;
+
+        while (User::withTrashed()
+            ->where($column, $value)
+            ->whereKeyNot($user->id)
+            ->exists()
+        ) {
+            $attempt++;
+            $value = "{$baseValue}_{$attempt}";
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param  array<int, int>  $deletedUserIds
+     * @return array<int, int>
+     */
+    private function affectedUplineIdsForDeletedUserIds(array $deletedUserIds): array
+    {
+        $uplineIds = [];
+
+        User::withTrashed()
+            ->whereIn('id', $deletedUserIds ?: [0])
+            ->get()
+            ->each(function (User $user) use (&$uplineIds): void {
+                $meta = is_array($user->deleted_meta) ? $user->deleted_meta : [];
+                $uplineIds = [
+                    ...$uplineIds,
+                    ...collect($meta['affected_upline_ids'] ?? [])
+                        ->map(fn ($id): int => (int) $id)
+                        ->filter(fn (int $id): bool => $id > 0)
+                        ->all(),
+                ];
+            });
+
+        BinaryNode::withTrashed()
+            ->whereIn('user_id', $deletedUserIds ?: [0])
+            ->get(['user_id', 'path'])
+            ->each(function (BinaryNode $node) use (&$uplineIds, $deletedUserIds): void {
+                if (! $node->path) {
+                    return;
+                }
+
+                $uplineIds = [
+                    ...$uplineIds,
+                    ...collect(explode('.', $node->path))
+                        ->map(fn (string $id): int => (int) $id)
+                        ->filter(fn (int $id): bool => $id > 0 && ! in_array($id, $deletedUserIds, true))
+                        ->all(),
+                ];
+            });
+
+        return collect($uplineIds)
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  SupportCollection<int, User>  $fallbackUsers
+     */
+    private function systemCleanupActor(SupportCollection $fallbackUsers): User
+    {
+        $actor = User::query()
+            ->where('role', User::ROLE_SUPER_ADMIN)
+            ->orderBy('id')
+            ->first()
+            ?? User::withTrashed()
+                ->where('role', User::ROLE_SUPER_ADMIN)
+                ->orderBy('id')
+                ->first()
+            ?? $fallbackUsers->first();
+
+        if (! $actor) {
+            throw ValidationException::withMessages([
+                'admin' => ['Не найден пользователь для audit cleanup.'],
+            ]);
+        }
+
+        return $actor;
     }
 
     /**

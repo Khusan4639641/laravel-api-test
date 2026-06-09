@@ -37,6 +37,10 @@ class BonusService
     ): ?BonusTransaction
     {
         return DB::transaction(function () use ($sponsor, $referral, $baseAmount, $metadata, $idempotencyKey): ?BonusTransaction {
+            if ($sponsor->trashed() || $referral->trashed() || $sponsor->account_status !== 'active' || $referral->account_status !== 'active') {
+                return null;
+            }
+
             if ($idempotencyKey !== null) {
                 $existingBonus = $this->findExistingReferralBonus($sponsor, $referral, $idempotencyKey);
 
@@ -124,6 +128,7 @@ class BonusService
         return DB::transaction(function () use ($user): ?BonusTransaction {
             $user = User::query()
                 ->with('currentPackage')
+                ->activeAccount()
                 ->lockForUpdate()
                 ->findOrFail($user->id);
 
@@ -300,6 +305,10 @@ class BonusService
         ?WalletTransaction $sourceTransaction = null,
     ): ?BonusTransaction {
         return DB::transaction(function () use ($user, $purchaseAmount, $sourceTransaction): ?BonusTransaction {
+            if ($user->trashed() || $user->account_status !== 'active') {
+                return null;
+            }
+
             $purchaseAmount = (string) $purchaseAmount;
             $amount = bcdiv(bcmul($purchaseAmount, self::DEPOSIT_CASHBACK_PERCENT, 2), '100', 2);
 

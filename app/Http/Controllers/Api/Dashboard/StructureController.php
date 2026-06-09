@@ -27,6 +27,7 @@ class StructureController extends Controller
             ? BinaryNode::query()
                 ->where('parent_id', $rootNode->id)
                 ->where('is_active', true)
+                ->whereHas('user', fn ($query) => $query->activeAccount())
                 ->pluck('position', 'user_id')
             : collect();
 
@@ -47,7 +48,11 @@ class StructureController extends Controller
         $branchVolumes = $branchVolumeService->getBranchVolumes($user);
         $summary = [
             'total_partners' => $partnerRows->count(),
-            'direct_invited' => User::query()->where('sponsor_id', $user->id)->count(),
+            'direct_invited' => User::query()
+                ->where('sponsor_id', $user->id)
+                ->where('role', User::ROLE_USER)
+                ->activeAccount()
+                ->count(),
             'left_count' => $branchCounts['left'],
             'right_count' => $branchCounts['right'],
             'left_partners' => $branchCounts['left'],
@@ -102,7 +107,10 @@ class StructureController extends Controller
     {
         return BinaryNode::query()->when(
             $path,
-            fn ($query) => $query->where('path', 'like', $path.'.%')->where('is_active', true),
+            fn ($query) => $query
+                ->where('path', 'like', $path.'.%')
+                ->where('is_active', true)
+                ->whereHas('user', fn ($userQuery) => $userQuery->activeAccount()),
             fn ($query) => $query->whereRaw('1 = 0'),
         );
     }
@@ -124,7 +132,7 @@ class StructureController extends Controller
     private function partnerRows(Collection $descendantNodes): Collection
     {
         return $descendantNodes
-            ->filter(fn (BinaryNode $node): bool => $node->user !== null && $node->user->role === User::ROLE_USER)
+            ->filter(fn (BinaryNode $node): bool => $node->user !== null && $node->user->role === User::ROLE_USER && $node->user->account_status === 'active')
             ->map(fn (BinaryNode $node): array => $this->partnerRow($node->user, $node))
             ->unique('id')
             ->values();

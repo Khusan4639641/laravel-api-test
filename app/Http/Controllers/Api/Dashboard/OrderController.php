@@ -18,6 +18,7 @@ class OrderController extends Controller
             ->orders()
             ->with('items.product')
             ->withSum('items as items_count', 'quantity')
+            ->where('status', '!=', 'voided')
             ->latest()
             ->paginate($this->perPage($request));
 

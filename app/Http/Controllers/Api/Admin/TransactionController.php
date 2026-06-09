@@ -35,6 +35,8 @@ class TransactionController extends Controller
     private function transactionsQuery(Request $request, string $search)
     {
         return WalletTransaction::query()
+            ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->when($request->filled('user_id'), fn ($query) => $query->where('user_id', (int) $request->integer('user_id')))
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
@@ -92,10 +94,12 @@ class TransactionController extends Controller
 
         $pendingWithdrawals = WithdrawalRequest::query()
             ->when($userId, fn ($query) => $query->where('user_id', $userId))
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->where('status', 'pending')
             ->sum('amount');
         $pendingBinary = BinaryBonusRun::query()
             ->when($userId, fn ($query) => $query->where('user_id', $userId))
+            ->whereHas('user', fn ($query) => $query->activeAccount())
             ->where('status', 'pending')
             ->sum('pending_amount');
 

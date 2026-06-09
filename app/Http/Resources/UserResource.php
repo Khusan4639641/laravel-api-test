@@ -19,6 +19,7 @@ class UserResource extends JsonResource
         $totalWalletBalance = $mainBalance + $bonusBalance + $depositBalance;
         $totalEarned = (float) $this->resource->walletTransactions()
             ->where('direction', 'credit')
+            ->where('status', 'completed')
             ->where('affects_balance', true)
             ->sum('amount');
         $totalEarned = $totalEarned > 0 ? $totalEarned : $totalWalletBalance;
