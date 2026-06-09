@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\BinaryNode;
 use App\Models\User;
-use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
 class BinaryTreeService
@@ -63,50 +62,42 @@ class BinaryTreeService
         ]);
     }
 
+    public function placeUnderSponsor(User $newUser, User $sponsor, string $branch): BinaryNode
+    {
+        return $this->placeUser($newUser, $sponsor, $branch);
+    }
+
     public function findSpilloverPosition(User $sponsor, ?string $preferredPosition = null): ?BinaryNode
+    {
+        return $this->findDeepestSlotBySelectedSide($sponsor, (string) $preferredPosition);
+    }
+
+    public function findDeepestSlotBySelectedSide(User $sponsor, string $branch): ?BinaryNode
     {
         if ($sponsor->trashed() || $sponsor->account_status !== 'active') {
             return null;
         }
 
-        $position = $this->normalizeRequiredPosition($preferredPosition);
-        $sponsorNode = $sponsor->binaryNode()->where('is_active', true)->first();
+        $position = $this->normalizeRequiredPosition($branch);
+        $currentNode = $sponsor->binaryNode()->where('is_active', true)->first();
 
-        if (! $sponsorNode) {
+        if (! $currentNode) {
             return null;
         }
 
-        if ($this->hasFreePosition($sponsorNode, $position)) {
-            return $sponsorNode;
-        }
-
-        $branchRoot = $this->childAt($sponsorNode, $position);
-
-        if (! $branchRoot) {
-            return null;
-        }
-
-        /** @var Collection<int, BinaryNode> $queue */
-        $queue = collect([$branchRoot]);
-
-        while ($queue->isNotEmpty()) {
-            /** @var BinaryNode $node */
-            $node = $queue->shift();
-
-            if ($this->hasFreePosition($node)) {
-                return $node;
+        while (true) {
+            if ($this->slotIsFree($currentNode, $position)) {
+                return $currentNode;
             }
 
-            $children = $node->children()
-                ->where('is_active', true)
-                ->whereHas('user', fn ($query) => $query->activeAccount())
-                ->orderByRaw("case position when 'L' then 0 when 'R' then 1 else 2 end")
-                ->get();
+            $nextNode = $this->childAt($currentNode, $position);
 
-            $queue = $queue->merge($children);
+            if (! $nextNode) {
+                return null;
+            }
+
+            $currentNode = $nextNode;
         }
-
-        return null;
     }
 
     public function hasFreePosition(BinaryNode $node, ?string $position = null): bool
@@ -120,7 +111,7 @@ class BinaryTreeService
 
     public function findFirstAvailableSlotInBranch(User $sponsor, string $branch): ?BinaryNode
     {
-        return $this->findSpilloverPosition($sponsor, $branch);
+        return $this->findDeepestSlotBySelectedSide($sponsor, $branch);
     }
 
     private function resolveFreeChildPosition(BinaryNode $node, string $preferredPosition): string
@@ -129,15 +120,7 @@ class BinaryTreeService
             return $preferredPosition;
         }
 
-        if ($this->hasFreePosition($node, 'L')) {
-            return 'L';
-        }
-
-        if ($this->hasFreePosition($node, 'R')) {
-            return 'R';
-        }
-
-        throw new InvalidArgumentException('Binary node has no free child position.');
+        throw new InvalidArgumentException('Selected side-chain has no free child position.');
     }
 
     private function childAt(BinaryNode $node, string $position): ?BinaryNode

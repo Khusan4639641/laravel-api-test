@@ -53,11 +53,13 @@ class PartnerController extends Controller
         $validated = $request->validated();
         $plainPassword = $validated['password'];
         $user = $this->createPartner($validated, $plainPassword, $request->user(), 'admin_partner_create');
+        $placement = $this->placementPayload($user);
 
         return response()->json([
             'user' => UserResource::make($user),
             'credentials' => $this->credentialsFor($user, $plainPassword),
-            ...$this->placementPayload($user),
+            'placement' => $placement,
+            ...$placement,
         ], 201);
     }
 
@@ -87,11 +89,13 @@ class PartnerController extends Controller
 
             try {
                 $user = $this->createPartner($validated, $plainPassword, $request->user(), 'admin_partner_bulk_create');
+                $placement = $this->placementPayload($user);
                 $created[] = [
                     'row' => $index,
                     'user' => UserResource::make($user),
                     'credentials' => $this->credentialsFor($user, $plainPassword),
-                    ...$this->placementPayload($user),
+                    'placement' => $placement,
+                    ...$placement,
                 ];
             } catch (\Throwable $exception) {
                 report($exception);

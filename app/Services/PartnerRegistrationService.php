@@ -148,7 +148,7 @@ class PartnerRegistrationService
         }
 
         try {
-            $this->binaryTreeService->placeUser($user, $sponsor, is_string($branch) ? $branch : null);
+            $this->binaryTreeService->placeUnderSponsor($user, $sponsor, is_string($branch) ? $branch : '');
         } catch (InvalidArgumentException $exception) {
             throw ValidationException::withMessages([
                 'branch' => [$this->placementErrorMessage($exception)],
