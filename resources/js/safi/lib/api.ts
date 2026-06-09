@@ -208,6 +208,40 @@ export interface Status {
   partnersCount?: number;
 }
 
+export interface LegalSettings {
+  company_legal_name: string;
+  company_bin: string;
+  legal_address: string;
+  actual_address: string;
+  bank_name: string;
+  iban: string;
+  bik: string;
+  kbe: string;
+  support_phone: string;
+  support_email: string;
+  dispute_email: string;
+  website_url: string;
+  director_name: string;
+  privacy_email: string;
+}
+
+export const fallbackLegalSettings: LegalSettings = {
+  company_legal_name: 'ТОО "Safi Life Kazakhstan"',
+  company_bin: '000000000000',
+  legal_address: 'Республика Казахстан, г. Алматы, адрес компании уточняется в настройках',
+  actual_address: 'Республика Казахстан, г. Алматы, офис компании уточняется в настройках',
+  bank_name: 'Банк компании',
+  iban: 'KZ000000000000000000',
+  bik: 'XXXXKZKX',
+  kbe: '17',
+  support_phone: '+7 (700) 000-00-00',
+  support_email: 'support@safilife.kz',
+  dispute_email: 'dispute@safilife.kz',
+  website_url: 'https://safilife.kz',
+  director_name: 'Директор Safi Life',
+  privacy_email: 'privacy@safilife.kz',
+};
+
 export interface EarningsSummary {
   totalEarned: number;
   availableToWithdraw: number;
@@ -422,6 +456,11 @@ export async function getPublicFaqs() {
 export async function getPublicStatuses() {
   const response = await apiRequest(endpoints.public.statuses, { method: 'GET', auth: false });
   return normalizeStatuses(response);
+}
+
+export async function getPublicLegalSettings() {
+  const response = await apiRequest(endpoints.public.legalSettings, { method: 'GET', auth: false });
+  return normalizeLegalSettings(response);
 }
 
 export async function getProducts<T = unknown>() {
@@ -1506,6 +1545,21 @@ export function normalizeStatuses(response: unknown): Status[] {
       partnersCount: getNumber(record, ['partnersCount', 'partners_count']) ?? undefined,
     };
   });
+}
+
+export function normalizeLegalSettings(response: unknown): LegalSettings {
+  const values = unwrapRecord(response, ['settings', 'legal_settings', 'legalSettings']);
+  const normalized = { ...fallbackLegalSettings };
+
+  (Object.keys(normalized) as Array<keyof LegalSettings>).forEach((key) => {
+    const value = getString(values, [key]);
+
+    if (value) {
+      normalized[key] = value;
+    }
+  });
+
+  return normalized;
 }
 
 export function normalizeEarningsSummary(response: unknown): EarningsSummary {

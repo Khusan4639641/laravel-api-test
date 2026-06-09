@@ -312,7 +312,9 @@ function formatAmount(value: unknown) {
   }
 
   if (typeof value === 'string' && value.trim() !== '') {
-    return value.includes(adminText('a_0YLQsw')) || value.includes('₸') ? value : `${value} ${adminText('currency_kzt_short')}`;
+    const normalizedValue = value.replace(/\s?тг/gi, ` ${adminText('currency_kzt_short')}`).trim();
+
+    return normalizedValue.includes(adminText('currency_kzt_short')) ? normalizedValue : `${normalizedValue} ${adminText('currency_kzt_short')}`;
   }
 
   return adminText('a_MCDRgtCz');

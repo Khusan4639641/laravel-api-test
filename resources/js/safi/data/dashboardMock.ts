@@ -34,16 +34,16 @@ export const bonuses = {
 };
 
 export const transactions = [
-  { id: "TRX-101", date: "25.04.2026 14:30", type: "Реферальный бонус", amount: "+18 000 тг", status: "Начислено", source: "Партнёр: Айдар", comment: "10% от пакета VIP" },
-  { id: "TRX-102", date: "24.04.2026 10:15", type: "Бинарный бонус", amount: "+45 000 тг", status: "Начислено", source: "Левая ветка", comment: "8% от 562.5 PV" },
-  { id: "TRX-103", date: "22.04.2026 09:00", type: "Кэшбэк 20%", amount: "+4 200 тг", status: "Начислено", source: "Личная покупка", comment: "Safi Face Serum" },
-  { id: "TRX-104", date: "20.04.2026 16:45", type: "Вывод средств", amount: "-150 000 тг", status: "Выплачено", source: "Вывод на карту", comment: "Заявка #W-55" },
-  { id: "TRX-105", date: "18.04.2026 11:20", type: "Реферальный бонус", amount: "+6 000 тг", status: "Начислено", source: "Партнёр: Елена", comment: "10% от пакета START" },
-  { id: "TRX-106", date: "15.04.2026 14:00", type: "Статусный бонус", amount: "+250 000 тг", status: "Начислено", source: "Достижение статуса Лидер", comment: "Единоразовая премия" },
-  { id: "TRX-107", date: "14.04.2026 09:30", type: "Вывод средств", amount: "-200 000 тг", status: "Выплачено", source: "Счёт ИП", comment: "Заявка #W-42" },
-  { id: "TRX-108", date: "12.04.2026 18:15", type: "Бинарный бонус", amount: "+32 000 тг", status: "Начислено", source: "Правая ветка", comment: "8% от 400 PV" },
-  { id: "TRX-109", date: "10.04.2026 12:00", type: "Депозит 10%", amount: "+3 200 тг", status: "Начислено", source: "Бинарный бонус", comment: "Накопительный счет" },
-  { id: "TRX-110", date: "05.04.2026 15:45", type: "Реферальный бонус", amount: "+6 000 тг", status: "Начислено", source: "Партнёр: Серик", comment: "10% от пакета START" },
+  { id: "TRX-101", date: "25.04.2026 14:30", type: "Реферальный бонус", amount: "+18 000 ₸", status: "Начислено", source: "Партнёр: Айдар", comment: "10% от пакета VIP" },
+  { id: "TRX-102", date: "24.04.2026 10:15", type: "Бинарный бонус", amount: "+45 000 ₸", status: "Начислено", source: "Левая ветка", comment: "8% от 562.5 PV" },
+  { id: "TRX-103", date: "22.04.2026 09:00", type: "Кэшбэк 20%", amount: "+4 200 ₸", status: "Начислено", source: "Личная покупка", comment: "Safi Face Serum" },
+  { id: "TRX-104", date: "20.04.2026 16:45", type: "Вывод средств", amount: "-150 000 ₸", status: "Выплачено", source: "Вывод на карту", comment: "Заявка #W-55" },
+  { id: "TRX-105", date: "18.04.2026 11:20", type: "Реферальный бонус", amount: "+6 000 ₸", status: "Начислено", source: "Партнёр: Елена", comment: "10% от пакета START" },
+  { id: "TRX-106", date: "15.04.2026 14:00", type: "Статусный бонус", amount: "+250 000 ₸", status: "Начислено", source: "Достижение статуса Лидер", comment: "Единоразовая премия" },
+  { id: "TRX-107", date: "14.04.2026 09:30", type: "Вывод средств", amount: "-200 000 ₸", status: "Выплачено", source: "Счёт ИП", comment: "Заявка #W-42" },
+  { id: "TRX-108", date: "12.04.2026 18:15", type: "Бинарный бонус", amount: "+32 000 ₸", status: "Начислено", source: "Правая ветка", comment: "8% от 400 PV" },
+  { id: "TRX-109", date: "10.04.2026 12:00", type: "Депозит 10%", amount: "+3 200 ₸", status: "Начислено", source: "Бинарный бонус", comment: "Накопительный счет" },
+  { id: "TRX-110", date: "05.04.2026 15:45", type: "Реферальный бонус", amount: "+6 000 ₸", status: "Начислено", source: "Партнёр: Серик", comment: "10% от пакета START" },
 ];
 
 export const partners = [
@@ -62,11 +62,11 @@ export const partners = [
 ];
 
 export const withdrawals = [
-  { id: "W-55", date: "20.04.2026", amount: "150 000 тг", method: "Карта партнёра", status: "Выплачено", paymentDate: "22.04.2026", comment: "Успешный перевод" },
-  { id: "W-42", date: "14.04.2026", amount: "200 000 тг", method: "Счёт ИП", status: "Выплачено", paymentDate: "16.04.2026", comment: "Успешный перевод" },
-  { id: "W-30", date: "30.03.2026", amount: "105 000 тг", method: "Карта партнёра", status: "Выплачено", paymentDate: "02.04.2026", comment: "Успешный перевод" },
-  { id: "W-15", date: "15.03.2026", amount: "55 000 тг", method: "Карта партнёра", status: "Выплачено", paymentDate: "17.03.2026", comment: "Успешный перевод" },
-  { id: "W-05", date: "05.03.2026", amount: "20 000 тг", method: "Карта партнёра", status: "Отклонено", paymentDate: "-", comment: "Ошибка реквизитов" }
+  { id: "W-55", date: "20.04.2026", amount: "150 000 ₸", method: "Карта партнёра", status: "Выплачено", paymentDate: "22.04.2026", comment: "Успешный перевод" },
+  { id: "W-42", date: "14.04.2026", amount: "200 000 ₸", method: "Счёт ИП", status: "Выплачено", paymentDate: "16.04.2026", comment: "Успешный перевод" },
+  { id: "W-30", date: "30.03.2026", amount: "105 000 ₸", method: "Карта партнёра", status: "Выплачено", paymentDate: "02.04.2026", comment: "Успешный перевод" },
+  { id: "W-15", date: "15.03.2026", amount: "55 000 ₸", method: "Карта партнёра", status: "Выплачено", paymentDate: "17.03.2026", comment: "Успешный перевод" },
+  { id: "W-05", date: "05.03.2026", amount: "20 000 ₸", method: "Карта партнёра", status: "Отклонено", paymentDate: "-", comment: "Ошибка реквизитов" }
 ];
 
 export const supportTickets = [

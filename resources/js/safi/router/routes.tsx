@@ -19,6 +19,7 @@ const RegisterPage = React.lazy(() => import('../pages/RegisterPage'));
 const LoginPage = React.lazy(() => import('../pages/LoginPage'));
 const AdminPreviewPage = React.lazy(() => import('../pages/AdminPreviewPage'));
 const LegalPage = React.lazy(() => import('../pages/LegalPage'));
+const LegalInfoPage = React.lazy(() => import('../pages/LegalInfoPage'));
 
 // Dashboard Pages
 const Overview = React.lazy(() => import('../pages/dashboard/Overview'));
@@ -73,6 +74,16 @@ export function AppRouter() {
             <Route path="register-ref-branch" element={<RegisterPage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="legal" element={<LegalPage />} />
+            <Route path="payment" element={<LegalInfoPage type="payment" />} />
+            <Route path="legal/offer" element={<LegalInfoPage type="offer" />} />
+            <Route path="legal/privacy" element={<LegalInfoPage type="privacy" />} />
+            <Route path="legal/delivery" element={<LegalInfoPage type="delivery" />} />
+            <Route path="legal/refund" element={<LegalInfoPage type="refund" />} />
+            <Route path="legal/requisites" element={<LegalInfoPage type="requisites" />} />
+            <Route path="offer" element={<Navigate to="/legal/offer" replace />} />
+            <Route path="privacy" element={<Navigate to="/legal/privacy" replace />} />
+            <Route path="refund" element={<Navigate to="/legal/refund" replace />} />
+            <Route path="requisites" element={<Navigate to="/legal/requisites" replace />} />
           </Route>
           
           {/* Dashboard Routes */}

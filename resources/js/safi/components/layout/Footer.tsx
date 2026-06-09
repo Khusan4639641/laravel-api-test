@@ -13,53 +13,63 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
           <div>
             <Link to="/" className="flex items-center mb-6">
-              <img 
-                alt="Safi Life" 
-                className="w-[120px] h-auto object-contain brightness-0 invert opacity-90 hover:opacity-100 transition-opacity" 
-                src="https://napaxiong.wordpress.com/wp-content/uploads/2026/04/safi-life.png" 
+              <img
+                alt="Safi Life"
+                className="w-[120px] h-auto object-contain brightness-0 invert opacity-90 hover:opacity-100 transition-opacity"
+                src="https://napaxiong.wordpress.com/wp-content/uploads/2026/04/safi-life.png"
               />
             </Link>
             <p className="text-sm text-safi-bg/70 mb-6 max-w-xs leading-relaxed">
               Натуральная продукция из Казахстана для здоровья и красоты. Ваш надежный партнер в развитии бизнеса.
             </p>
           </div>
-          
+
           <div>
             <h3 className="text-safi-gold font-bold uppercase tracking-widest text-xs mb-6">Компания</h3>
             <ul className="space-y-3 text-sm">
-              <li><Link to="/about" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.about', 'О нас')}</Link></li>
-              <li><Link to="/products" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.products', 'Продукты')}</Link></li>
-              <li><Link to="/faq" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.faq', 'FAQ')}</Link></li>
-              <li><Link to="/contacts" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.contacts', 'Контакты')}</Link></li>
-              <li><Link to="/legal" className="text-safi-bg/70 hover:text-white transition-colors">Правовая информация</Link></li>
+              <li><FooterLink to="/about">{t('nav.about', 'О нас')}</FooterLink></li>
+              <li><FooterLink to="/products">{t('nav.products', 'Продукты')}</FooterLink></li>
+              <li><FooterLink to="/faq">{t('nav.faq', 'FAQ')}</FooterLink></li>
+              <li><FooterLink to="/contacts">{t('legal.contacts', 'Контакты')}</FooterLink></li>
+              <li><FooterLink to="/legal">{t('legal.title1', 'Правовая')} {t('legal.title2', 'информация')}</FooterLink></li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-safi-gold font-bold uppercase tracking-widest text-xs mb-6">Партнёрам</h3>
+            <h3 className="text-safi-gold font-bold uppercase tracking-widest text-xs mb-6">Документы</h3>
             <ul className="space-y-3 text-sm">
-              <li><Link to="/business" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.business', 'Возможность')}</Link></li>
-              <li><Link to="/marketing" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.marketing', 'Маркетинг-план')}</Link></li>
-              <li><Link to="/how-to-start" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.howToStart', 'Как начать')}</Link></li>
-              <li><Link to="/login" className="text-safi-bg/70 hover:text-white transition-colors">{t('nav.login', 'Вход в кабинет')}</Link></li>
+              <li><FooterLink to="/payment">{t('legal.payment', 'Онлайн-оплата')}</FooterLink></li>
+              <li><FooterLink to="/legal/offer">{t('legal.offer', 'Договор оферты')}</FooterLink></li>
+              <li><FooterLink to="/legal/privacy">{t('legal.privacy', 'Политика конфиденциальности')}</FooterLink></li>
+              <li><FooterLink to="/legal/delivery">{t('legal.delivery', 'Доставка')}</FooterLink></li>
+              <li><FooterLink to="/legal/refund">{t('legal.refund', 'Возврат')}</FooterLink></li>
+              <li><FooterLink to="/legal/requisites">{t('legal.requisites', 'Реквизиты')}</FooterLink></li>
             </ul>
           </div>
 
           <div>
-            <h3 className="text-safi-gold font-bold uppercase tracking-widest text-xs mb-6">{t('nav.contacts', 'Контакты')}</h3>
-            <ul className="space-y-3 text-sm text-safi-bg/70">
-              <li className="flex flex-col">
+            <h3 className="text-safi-gold font-bold uppercase tracking-widest text-xs mb-6">Партнерам</h3>
+            <ul className="space-y-3 text-sm">
+              <li><FooterLink to="/business">{t('nav.business', 'Возможность')}</FooterLink></li>
+              <li><FooterLink to="/marketing">{t('nav.marketing', 'Маркетинг-план')}</FooterLink></li>
+              <li><FooterLink to="/how-to-start">{t('nav.howToStart', 'Как начать')}</FooterLink></li>
+              <li><FooterLink to="/login">{t('nav.login', 'Вход в кабинет')}</FooterLink></li>
+              <li><FooterLink to="/register">{t('nav.register', 'Регистрация')}</FooterLink></li>
+            </ul>
+
+            <div className="mt-8 space-y-3 text-sm text-safi-bg/70">
+              <div className="flex flex-col">
                 <span className="text-[10px] text-safi-gold uppercase tracking-wider mb-1">Офис</span>
                 <span>Республика Казахстан, г. Алматы</span>
-              </li>
-              <li className="flex flex-col mt-4">
+              </div>
+              <div className="flex flex-col">
                 <span className="text-[10px] text-safi-gold uppercase tracking-wider mb-1">Связь</span>
                 <a href="mailto:info@safilife.kz" className="hover:text-white transition-colors">info@safilife.kz</a>
-              </li>
-            </ul>
+              </div>
+            </div>
           </div>
         </div>
-        
+
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-safi-bg/50">
           <p>© {new Date().getFullYear()} Safi Life. {t('footer.rights', 'Все права защищены.')}</p>
           <div className="mt-4 md:mt-0 max-w-xl text-center md:text-right">
@@ -68,5 +78,13 @@ export function Footer() {
         </div>
       </Container>
     </footer>
+  );
+}
+
+function FooterLink({ to, children }: { to: string; children: React.ReactNode }) {
+  return (
+    <Link to={to} className="text-safi-bg/70 hover:text-white transition-colors">
+      {children}
+    </Link>
   );
 }

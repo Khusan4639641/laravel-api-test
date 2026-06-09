@@ -38,7 +38,7 @@ export const transactions = Array.from({ length: 20 }).map((_, i) => ({
   partnerId: `SAFI-${10000 + i}`,
   partnerName: partners[i].fullName,
   type: ['Реферальный бонус', 'Бинарный бонус', 'Кэшбэк 20%', 'Вывод средств'][i % 4],
-  amount: (i % 2 === 0 ? '+' : '-') + `${Math.floor(Math.random() * 50000)} тг`,
+  amount: (i % 2 === 0 ? '+' : '-') + `${Math.floor(Math.random() * 50000)} ₸`,
   status: ['Начислено', 'Выплачено', 'В обработке', 'Отклонено'][i % 4],
   source: 'Система',
   comment: 'Автоматическое начисление',
@@ -50,7 +50,7 @@ export const withdrawals = Array.from({ length: 15 }).map((_, i) => ({
   date: `24.04.2026`,
   partnerId: `SAFI-${10001 + i}`,
   partnerName: partners[i].fullName,
-  amount: `${Math.floor(Math.random() * 200000) + 10000} тг`,
+  amount: `${Math.floor(Math.random() * 200000) + 10000} ₸`,
   method: i % 2 === 0 ? 'Карта партнёра' : 'Счёт ИП',
   reqs: i % 2 === 0 ? '4400 **** **** 1234' : 'KZ1234567890',
   bank: 'Kaspi Bank',
@@ -67,7 +67,7 @@ export const bonuses = Array.from({ length: 20 }).map((_, i) => ({
   type: ['Реферальный бонус', 'Бинарный бонус', 'Статусный бонус', 'Bonus X2'][i % 4],
   basis: 'Активация VIP',
   percentage: '10%',
-  amount: `${Math.floor(Math.random() * 100000)} тг`,
+  amount: `${Math.floor(Math.random() * 100000)} ₸`,
   status: 'Начислено',
   comment: ''
 }));

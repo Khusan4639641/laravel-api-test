@@ -38,6 +38,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PublicApi\FaqController as PublicFaqController;
+use App\Http\Controllers\Api\PublicApi\LegalSettingsController as PublicLegalSettingsController;
 use App\Http\Controllers\Api\PublicApi\NewsController as PublicNewsController;
 use App\Http\Controllers\Api\PublicApi\PackageController as PublicPackageController;
 use App\Http\Controllers\Api\PublicApi\ProductController as PublicProductController;
@@ -55,6 +56,7 @@ Route::prefix('public')->group(function (): void {
     Route::get('/news/{news}', [PublicNewsController::class, 'show']);
     Route::get('/faqs', [PublicFaqController::class, 'index']);
     Route::get('/statuses', [PublicStatusController::class, 'index']);
+    Route::get('/legal-settings', PublicLegalSettingsController::class);
 });
 
 Route::get('/ref/{user_id}/{branch}', [ReferralController::class, 'show']);

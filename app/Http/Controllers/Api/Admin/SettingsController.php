@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\SystemSettingResource;
 use App\Models\SystemSetting;
+use App\Support\LegalSettings;
 use App\Support\LocalizedValue;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,7 +49,7 @@ class SettingsController extends Controller
                 [
                     'value' => $value,
                     'type' => $this->typeFor($value),
-                    'group' => str_contains($key, '.') ? str($key)->before('.')->toString() : 'general',
+                    'group' => LegalSettings::groupForKey($key),
                 ]
             );
         }
@@ -64,7 +65,7 @@ class SettingsController extends Controller
                 [
                     'value' => $value,
                     'type' => $this->typeFor($value),
-                    'group' => str_contains($key, '.') ? str($key)->before('.')->toString() : 'general',
+                    'group' => LegalSettings::groupForKey($key),
                 ]
             );
         }
@@ -83,9 +84,9 @@ class SettingsController extends Controller
             'withdrawals.methods.ip_account' => true,
             'withdrawals.methods.usdt' => false,
             'contacts.public' => 'Алматы, Казахстан',
-            'support.email' => 'support@safilife.test',
+            'support.email' => 'support@safilife.kz',
             'support.phone' => '+7 700 000 00 00',
-        ];
+        ] + LegalSettings::defaults();
     }
 
     private function typeFor(mixed $value): string

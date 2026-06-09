@@ -198,7 +198,21 @@
     "title2": "information",
     "date": "Last updated: May 1, 2024",
     "termsBtn": "Terms of use",
-    "privacyBtn": "Privacy policy"
+    "privacyBtn": "Privacy policy",
+    "payment": "Online payment",
+    "offer": "Public offer agreement",
+    "privacy": "Privacy policy",
+    "delivery": "Delivery",
+    "refund": "Refund",
+    "requisites": "Requisites",
+    "contacts": "Contacts",
+    "cardPayment": "Bank card payment",
+    "cardDataNotStored": "Card data is not stored on the Safi Life website.",
+    "refundMoney": "Refund of funds",
+    "legalEntity": "Legal entity",
+    "offerAgreement": "Public offer agreement",
+    "privacyPolicy": "Privacy policy",
+    "deliveryRules": "Delivery rules"
   },
   "faq": {
     "title1": "Frequently asked",

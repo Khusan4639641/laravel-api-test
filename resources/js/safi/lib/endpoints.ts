@@ -23,6 +23,7 @@ export const endpoints = {
     newsItem: (news: EndpointId) => `/public/news/${encodeEndpointId(news)}`,
     faqs: '/public/faqs',
     statuses: '/public/statuses',
+    legalSettings: '/public/legal-settings',
   },
   dashboard: {
     overview: '/dashboard/overview',

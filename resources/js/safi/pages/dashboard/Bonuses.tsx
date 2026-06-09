@@ -476,14 +476,16 @@ function getArray(response: unknown) {
 
 function formatAmount(value: unknown) {
   if (typeof value === 'number') {
-    return `${value.toLocaleString('ru-RU')} тг`;
+    return `${value.toLocaleString('ru-RU')} ₸`;
   }
 
   if (typeof value === 'string' && value.trim() !== '') {
-    return value.includes('тг') || value.includes('₸') ? value : `${value} тг`;
+    const normalizedValue = value.replace(/\s?тг/gi, ' ₸').trim();
+
+    return normalizedValue.includes('₸') ? normalizedValue : `${normalizedValue} ₸`;
   }
 
-  return '0 тг';
+  return '0 ₸';
 }
 
 function methodLabel(method?: string) {

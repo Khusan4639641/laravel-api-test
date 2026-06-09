@@ -198,7 +198,21 @@
     "title2": "ақпарат",
     "date": "Соңғы жаңарту күні: 2024 жылғы 1 мамыр",
     "termsBtn": "Қолдану шарттары",
-    "privacyBtn": "Құпиялық саясаты"
+    "privacyBtn": "Құпиялық саясаты",
+    "payment": "Онлайн төлем",
+    "offer": "Жария оферта шарты",
+    "privacy": "Құпиялық саясаты",
+    "delivery": "Жеткізу",
+    "refund": "Қайтару",
+    "requisites": "Деректемелер",
+    "contacts": "Байланыстар",
+    "cardPayment": "Банк картасымен төлеу",
+    "cardDataNotStored": "Карта деректері Safi Life сайтында сақталмайды.",
+    "refundMoney": "Ақшаны қайтару",
+    "legalEntity": "Заңды тұлға",
+    "offerAgreement": "Жария оферта шарты",
+    "privacyPolicy": "Құпиялық саясаты",
+    "deliveryRules": "Жеткізу ережелері"
   },
   "faq": {
     "title1": "Жиі",
