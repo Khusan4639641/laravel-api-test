@@ -52,6 +52,7 @@ const AdminSupport = React.lazy(() => import('../pages/admin/AdminSupport'));
 const AdminProfile = React.lazy(() => import('../pages/admin/AdminProfile'));
 const AdminReports = React.lazy(() => import('../pages/admin/AdminReports'));
 const AdminSettings = React.lazy(() => import('../pages/admin/AdminSettings'));
+const AdminPaymentReadiness = React.lazy(() => import('../pages/admin/AdminPaymentReadiness'));
 const AdminNews = React.lazy(() => import('../pages/admin/AdminNews'));
 const AdminLayoutComponent = React.lazy(() => import('../components/admin/AdminLayout').then(module => ({ default: module.AdminLayout })));
 
@@ -123,6 +124,7 @@ export function AppRouter() {
             <Route path="support" element={features.support ? <AdminSupport /> : <Navigate to="/admin" replace />} />
             <Route path="reports" element={<AdminReports />} />
             <Route path="settings" element={<AdminSettings />} />
+            <Route path="payment-readiness" element={<AdminPaymentReadiness />} />
           </Route>
 
           {/* Support Routes */}

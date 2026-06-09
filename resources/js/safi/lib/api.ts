@@ -253,6 +253,29 @@ export interface LegalSettings {
   privacy_email: string;
 }
 
+export interface PaymentReadinessLegalPage {
+  path: string;
+  available: boolean;
+}
+
+export interface PaymentReadiness {
+  appUrl: string;
+  httpsEnabled: boolean;
+  tiptopEnabled: boolean;
+  publicTerminalIdSet: boolean;
+  currency: string;
+  legalPages: PaymentReadinessLegalPage[];
+  requisitesFilled: boolean;
+  requisitesMissing: string[];
+  productsActiveCount: number;
+  productsWithoutImageCount: number;
+  productsWithoutStockCount: number;
+  ordersPaymentStatusSupport: boolean;
+  webhookRoutesWork: boolean;
+  webhookRoutes: Record<string, boolean>;
+  checkoutRequiresDeliveryFields: boolean;
+}
+
 export const fallbackLegalSettings: LegalSettings = {
   company_legal_name: 'ТОО "Safi Life Kazakhstan"',
   company_bin: '000000000000',
@@ -965,6 +988,15 @@ export async function getAdminOrders(params: Record<string, string | number | un
   };
 }
 
+export async function getAdminPaymentReadiness() {
+  const response = await apiRequest(endpoints.admin.paymentReadiness, {
+    method: 'GET',
+    auth: true,
+  });
+
+  return normalizePaymentReadiness(response);
+}
+
 export async function getAdminOrder(orderId: string | number) {
   const response = await apiRequest(endpoints.admin.order(orderId), {
     method: 'GET',
@@ -1464,6 +1496,36 @@ function normalizeTipTopPayPaymentIntent(response: unknown): TipTopPayPaymentInt
       };
     }),
     metadata,
+  };
+}
+
+function normalizePaymentReadiness(response: unknown): PaymentReadiness {
+  const record = unwrapRecord(response);
+  const webhookRoutes = isRecord(record.webhook_routes) ? record.webhook_routes : {};
+
+  return {
+    appUrl: getString(record, ['app_url', 'appUrl']) || '',
+    httpsEnabled: Boolean(record.https_enabled ?? record.httpsEnabled),
+    tiptopEnabled: Boolean(record.tiptop_enabled ?? record.tiptopEnabled),
+    publicTerminalIdSet: Boolean(record.public_terminal_id_set ?? record.publicTerminalIdSet),
+    currency: getString(record, ['currency']) || 'KZT',
+    legalPages: getArray(record.legal_pages ?? record.legalPages).map((page) => {
+      const pageRecord = isRecord(page) ? page : {};
+
+      return {
+        path: getString(pageRecord, ['path']) || '-',
+        available: Boolean(pageRecord.available),
+      };
+    }),
+    requisitesFilled: Boolean(record.requisites_filled ?? record.requisitesFilled),
+    requisitesMissing: getStringArray(record, ['requisites_missing', 'requisitesMissing']) || [],
+    productsActiveCount: getNumber(record, ['products_active_count', 'productsActiveCount']) ?? 0,
+    productsWithoutImageCount: getNumber(record, ['products_without_image_count', 'productsWithoutImageCount']) ?? 0,
+    productsWithoutStockCount: getNumber(record, ['products_without_stock_count', 'productsWithoutStockCount']) ?? 0,
+    ordersPaymentStatusSupport: Boolean(record.orders_payment_status_support ?? record.ordersPaymentStatusSupport),
+    webhookRoutesWork: Boolean(record.webhook_routes_work ?? record.webhookRoutesWork),
+    webhookRoutes: Object.fromEntries(Object.entries(webhookRoutes).map(([key, value]) => [key, Boolean(value)])),
+    checkoutRequiresDeliveryFields: Boolean(record.checkout_requires_delivery_fields ?? record.checkoutRequiresDeliveryFields),
   };
 }
 

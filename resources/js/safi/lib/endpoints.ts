@@ -94,6 +94,7 @@ export const endpoints = {
     closeSupportTicket: (ticket: EndpointId) => `/admin/support-tickets/${encodeEndpointId(ticket)}/close`,
     reportsSummary: '/admin/reports/summary',
     settings: '/admin/settings',
+    paymentReadiness: '/admin/payment-readiness',
     statuses: '/admin/statuses',
   },
 } as const;

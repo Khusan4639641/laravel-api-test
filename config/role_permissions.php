@@ -121,6 +121,7 @@ return [
                 '/admin/support',
                 '/admin/reports',
                 '/admin/settings',
+                '/admin/payment-readiness',
             ],
             'menu' => [
                 ['path' => '/admin', 'label' => 'Обзор', 'icon' => 'bar-chart'],

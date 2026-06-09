@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\Admin\BonusController as AdminBonusController;
 use App\Http\Controllers\Api\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Api\Admin\NewsController as AdminNewsController;
 use App\Http\Controllers\Api\Admin\OrderController as AdminOrderController;
+use App\Http\Controllers\Api\Admin\PaymentReadinessController as AdminPaymentReadinessController;
 use App\Http\Controllers\Api\Admin\OverviewController as AdminOverviewController;
 use App\Http\Controllers\Api\Admin\PackageController as AdminPackageController;
 use App\Http\Controllers\Api\Admin\PartnerController as AdminPartnerController;
@@ -225,6 +226,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         Route::middleware('role_permission:admin.settings')->group(function (): void {
             Route::get('/settings', [AdminSettingsController::class, 'index']);
             Route::put('/settings', [AdminSettingsController::class, 'update']);
+            Route::get('/payment-readiness', AdminPaymentReadinessController::class);
         });
     });
 });
