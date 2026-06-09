@@ -110,7 +110,7 @@ class OrderController extends Controller
                 'user_id' => $user->id,
                 'order_number' => $this->makeOrderNumber(),
                 'status' => 'pending',
-                'payment_status' => 'pending',
+                'payment_status' => 'unpaid',
                 'subtotal_amount' => $subtotal,
                 'discount_amount' => 0,
                 'total_amount' => $subtotal,

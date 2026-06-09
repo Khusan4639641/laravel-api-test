@@ -377,6 +377,28 @@
       "cancelled": "Cancelled",
       "completed": "Completed",
       "shipped": "Shipped"
+    },
+    "paymentStatus": "Payment status",
+    "paymentStatusFilter": "Payment status filter",
+    "allPaymentStatuses": "All payment statuses",
+    "paymentInfo": "Payment",
+    "paymentProvider": "Payment provider",
+    "paymentExternalId": "External ID",
+    "paymentTransactionId": "Transaction ID",
+    "paidAt": "Paid at",
+    "payOnline": "Pay online",
+    "openingPayment": "Opening payment...",
+    "paymentSubmitted": "Payment was sent for verification",
+    "paymentFailed": "Payment failed.",
+    "paymentStartError": "Could not start online payment.",
+    "notPaid": "Not paid",
+    "paymentStatusLabels": {
+      "unpaid": "Not paid",
+      "pending": "Awaiting payment",
+      "paid": "Paid",
+      "failed": "Payment failed",
+      "refunded": "Refunded",
+      "cancelled": "Cancelled"
     }
   }
 }

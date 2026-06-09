@@ -377,6 +377,28 @@
       "cancelled": "Цуцлагдсан",
       "completed": "Дууссан",
       "shipped": "Илгээгдсэн"
+    },
+    "paymentStatus": "Төлбөрийн төлөв",
+    "paymentStatusFilter": "Төлбөрийн төлөвөөр шүүх",
+    "allPaymentStatuses": "Бүх төлбөрийн төлөв",
+    "paymentInfo": "Төлбөр",
+    "paymentProvider": "Төлбөрийн үйлчилгээ",
+    "paymentExternalId": "External ID",
+    "paymentTransactionId": "Transaction ID",
+    "paidAt": "Төлсөн огноо",
+    "payOnline": "Онлайнаар төлөх",
+    "openingPayment": "Төлбөр нээгдэж байна...",
+    "paymentSubmitted": "Төлбөр баталгаажуулалт руу илгээгдлээ",
+    "paymentFailed": "Төлбөр амжилтгүй.",
+    "paymentStartError": "Онлайн төлбөр эхлүүлэх боломжгүй.",
+    "notPaid": "Төлөөгүй",
+    "paymentStatusLabels": {
+      "unpaid": "Төлөөгүй",
+      "pending": "Төлбөр хүлээгдэж байна",
+      "paid": "Төлсөн",
+      "failed": "Төлбөрийн алдаа",
+      "refunded": "Буцаагдсан",
+      "cancelled": "Цуцлагдсан"
     }
   }
 }

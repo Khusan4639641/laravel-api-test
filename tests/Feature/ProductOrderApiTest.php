@@ -61,7 +61,7 @@ class ProductOrderApiTest extends TestCase
         $response
             ->assertCreated()
             ->assertJsonPath('order.status', 'pending')
-            ->assertJsonPath('order.payment_status', 'pending')
+            ->assertJsonPath('order.payment_status', 'unpaid')
             ->assertJsonPath('order.subtotal_amount', '9500.00')
             ->assertJsonPath('order.total_amount', '9500.00')
             ->assertJsonPath('order.total_pv', '19.00')

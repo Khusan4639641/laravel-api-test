@@ -233,5 +233,29 @@
     "regAction": "Тіркелу",
     "loginInstead": "Аккаунтыңыз бар ма? Кіру",
     "regInstead": "Аккаунтыңыз жоқ па? Тіркелу"
+  },
+  "orders": {
+    "paymentStatus": "Төлем мәртебесі",
+    "paymentStatusFilter": "Төлем бойынша сүзгі",
+    "allPaymentStatuses": "Барлық төлем мәртебелері",
+    "paymentInfo": "Төлем",
+    "paymentProvider": "Төлем провайдері",
+    "paymentExternalId": "External ID",
+    "paymentTransactionId": "Transaction ID",
+    "paidAt": "Төленген күні",
+    "payOnline": "Онлайн төлеу",
+    "openingPayment": "Төлем ашылуда...",
+    "paymentSubmitted": "Төлем тексеруге жіберілді",
+    "paymentFailed": "Төлем орындалмады.",
+    "paymentStartError": "Онлайн төлемді бастау мүмкін болмады.",
+    "notPaid": "Төленбеген",
+    "paymentStatusLabels": {
+      "unpaid": "Төленбеген",
+      "pending": "Төлем күтілуде",
+      "paid": "Төленді",
+      "failed": "Төлем қатесі",
+      "refunded": "Қайтарылды",
+      "cancelled": "Бас тартылды"
+    }
   }
 }

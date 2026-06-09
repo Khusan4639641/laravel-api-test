@@ -45,6 +45,7 @@ export const endpoints = {
     productCatalog: '/products',
     orderCheckout: '/orders',
     order: (order: EndpointId) => `/orders/${encodeEndpointId(order)}`,
+    orderTipTopPayIntent: (order: EndpointId) => `/orders/${encodeEndpointId(order)}/payment/tiptoppay/intent`,
     withdrawalRequests: '/withdrawals',
     activatePackage: (pkg: EndpointId) => `/packages/${encodeEndpointId(pkg)}/activate`,
     upgradePackage: (pkg: EndpointId) => `/packages/${encodeEndpointId(pkg)}/upgrade`,

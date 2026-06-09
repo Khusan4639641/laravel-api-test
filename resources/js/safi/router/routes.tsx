@@ -20,6 +20,7 @@ const LoginPage = React.lazy(() => import('../pages/LoginPage'));
 const AdminPreviewPage = React.lazy(() => import('../pages/AdminPreviewPage'));
 const LegalPage = React.lazy(() => import('../pages/LegalPage'));
 const LegalInfoPage = React.lazy(() => import('../pages/LegalInfoPage'));
+const PaymentResultPage = React.lazy(() => import('../pages/PaymentResultPage'));
 
 // Dashboard Pages
 const Overview = React.lazy(() => import('../pages/dashboard/Overview'));
@@ -75,6 +76,8 @@ export function AppRouter() {
             <Route path="login" element={<LoginPage />} />
             <Route path="legal" element={<LegalPage />} />
             <Route path="payment" element={<LegalInfoPage type="payment" />} />
+            <Route path="payment/success" element={<PaymentResultPage result="success" />} />
+            <Route path="payment/fail" element={<PaymentResultPage result="fail" />} />
             <Route path="legal/offer" element={<LegalInfoPage type="offer" />} />
             <Route path="legal/privacy" element={<LegalInfoPage type="privacy" />} />
             <Route path="legal/delivery" element={<LegalInfoPage type="delivery" />} />

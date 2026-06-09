@@ -36,6 +36,8 @@ use App\Http\Controllers\Api\PackageActivationController;
 use App\Http\Controllers\Api\PackageUpgradeController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PermissionController;
+use App\Http\Controllers\Api\Payments\TipTopPayIntentController;
+use App\Http\Controllers\Api\Payments\TipTopPayWebhookController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\PublicApi\FaqController as PublicFaqController;
 use App\Http\Controllers\Api\PublicApi\LegalSettingsController as PublicLegalSettingsController;
@@ -65,6 +67,14 @@ Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
+Route::prefix('payments/tiptoppay')->group(function (): void {
+    Route::post('/check', [TipTopPayWebhookController::class, 'check']);
+    Route::post('/pay', [TipTopPayWebhookController::class, 'pay']);
+    Route::post('/fail', [TipTopPayWebhookController::class, 'fail']);
+    Route::post('/refund', [TipTopPayWebhookController::class, 'refund']);
+    Route::post('/cancel', [TipTopPayWebhookController::class, 'cancel']);
+});
+
 Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
     Route::middleware('role_permission:admin.bonuses.manage')->post('/bonuses/binary/calculate', BinaryBonusController::class);
     Route::post('/deposits/purchase', DepositPurchaseController::class);
@@ -75,6 +85,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
+    Route::post('/orders/{order}/payment/tiptoppay/intent', TipTopPayIntentController::class);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/me/permissions', PermissionController::class);

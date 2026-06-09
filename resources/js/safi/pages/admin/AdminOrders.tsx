@@ -8,6 +8,7 @@ import { getAdminOrders, getApiErrorState, Order, updateAdminOrderStatus } from 
 import { useAdminContext } from '../../components/admin/AdminLayout';
 
 const orderStatuses = ['pending', 'confirmed', 'shipped', 'completed', 'cancelled'] as const;
+const paymentStatuses = ['unpaid', 'pending', 'paid', 'failed', 'refunded', 'cancelled'] as const;
 
 export default function AdminOrders() {
   const { t, i18n } = useTranslation();
@@ -16,6 +17,7 @@ export default function AdminOrders() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [paymentStatus, setPaymentStatus] = useState('');
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,6 +40,7 @@ export default function AdminOrders() {
       const response = await getAdminOrders({
         search: debouncedSearch || undefined,
         status: status || undefined,
+        payment_status: paymentStatus || undefined,
         per_page: 50,
       });
       setOrders(response.orders);
@@ -47,7 +50,7 @@ export default function AdminOrders() {
     } finally {
       setIsLoading(false);
     }
-  }, [debouncedSearch, status, t]);
+  }, [debouncedSearch, paymentStatus, status, t]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -63,6 +66,7 @@ export default function AdminOrders() {
     amount: orders.reduce((sum, order) => sum + order.totalAmount, 0),
     pv: orders.reduce((sum, order) => sum + order.totalPv, 0),
     pending: orders.filter((order) => order.status === 'pending').length,
+    paid: orders.filter((order) => order.paymentStatus === 'paid').length,
   }), [orders]);
 
   const handleStatusChange = async (order: Order, nextStatus: string) => {
@@ -106,7 +110,7 @@ export default function AdminOrders() {
         <AdminStatCard title={t('orders.orders')} value={summary.total.toLocaleString('ru-RU')} icon={ShoppingBag} />
         <AdminStatCard title={t('orders.totalAmount')} value={formatCurrency(summary.amount)} icon={ShoppingBag} />
         <AdminStatCard title={t('orders.totalPv')} value={`${summary.pv.toLocaleString('ru-RU')} PV`} icon={ShoppingBag} />
-        <AdminStatCard title={t('orders.statusLabels.pending')} value={summary.pending.toLocaleString('ru-RU')} icon={ShoppingBag} />
+        <AdminStatCard title={t('orders.paymentStatusLabels.paid')} value={summary.paid.toLocaleString('ru-RU')} icon={ShoppingBag} />
       </section>
 
       <section className="flex flex-col gap-4 rounded-[24px] border border-safi-green/5 bg-white p-4 shadow-sm md:flex-row">
@@ -134,6 +138,20 @@ export default function AdminOrders() {
             ))}
           </select>
         </label>
+        <label className="relative md:w-64">
+          <Filter className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-safi-text/40" />
+          <select
+            value={paymentStatus}
+            onChange={(event) => setPaymentStatus(event.target.value)}
+            className="w-full cursor-pointer appearance-none rounded-xl bg-[#F5F5F0] py-3 pl-12 pr-4 text-sm font-bold text-safi-green outline-none focus:ring-2 focus:ring-safi-green/20"
+            aria-label={t('orders.paymentStatusFilter')}
+          >
+            <option value="">{t('orders.allPaymentStatuses')}</option>
+            {paymentStatuses.map((item) => (
+              <option key={item} value={item}>{t(`orders.paymentStatusLabels.${item}`)}</option>
+            ))}
+          </select>
+        </label>
       </section>
 
       {isLoading && <LoadingState title={t('orders.loading')} />}
@@ -149,6 +167,7 @@ export default function AdminOrders() {
           t('orders.amount'),
           t('orders.pv'),
           t('orders.status'),
+          t('orders.paymentStatus'),
           t('orders.date'),
           t('orders.actions'),
         ]}>
@@ -189,6 +208,9 @@ export default function AdminOrders() {
                     <OrderStatusBadge status={order.status} />
                   )}
                 </td>
+                <td className="px-6 py-4">
+                  <PaymentStatusBadge status={order.paymentStatus || 'unpaid'} />
+                </td>
                 <td className="px-6 py-4 text-xs text-safi-text/70">{formatDate(order.createdAt, language)}</td>
                 <td className="px-6 py-4 text-right">
                   <button
@@ -203,18 +225,30 @@ export default function AdminOrders() {
               </tr>
               {expandedOrderId === order.id && (
                 <tr className="bg-safi-cream/60">
-                  <td colSpan={9} className="px-6 py-5">
+                  <td colSpan={10} className="px-6 py-5">
                     <div className="grid gap-5 xl:grid-cols-[0.34fr_0.66fr]">
-                      <section className="rounded-2xl border border-safi-border bg-white p-5">
-                        <h3 className="font-serif text-xl font-semibold text-safi-green">{t('orders.deliveryInfo')}</h3>
-                        <div className="mt-4 grid gap-3 text-sm">
-                          <Metric label={t('orders.recipientName')} value={order.recipientName || order.user?.name || '-'} />
-                          <Metric label={t('orders.deliveryPhone')} value={order.phone || order.user?.phone || '-'} />
-                          <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
-                          <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
-                          {order.comment && <Metric label={t('orders.deliveryComment')} value={order.comment} />}
-                        </div>
-                      </section>
+                      <div className="grid gap-5">
+                        <section className="rounded-2xl border border-safi-border bg-white p-5">
+                          <h3 className="font-serif text-xl font-semibold text-safi-green">{t('orders.deliveryInfo')}</h3>
+                          <div className="mt-4 grid gap-3 text-sm">
+                            <Metric label={t('orders.recipientName')} value={order.recipientName || order.user?.name || '-'} />
+                            <Metric label={t('orders.deliveryPhone')} value={order.phone || order.user?.phone || '-'} />
+                            <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
+                            <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
+                            {order.comment && <Metric label={t('orders.deliveryComment')} value={order.comment} />}
+                          </div>
+                        </section>
+                        <section className="rounded-2xl border border-safi-border bg-white p-5">
+                          <h3 className="font-serif text-xl font-semibold text-safi-green">{t('orders.paymentInfo')}</h3>
+                          <div className="mt-4 grid gap-3 text-sm">
+                            <Metric label={t('orders.paymentProvider')} value={order.paymentProvider || '-'} />
+                            <Metric label={t('orders.paymentStatus')} value={t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: order.paymentStatus || 'unpaid' })} />
+                            <Metric label={t('orders.paymentExternalId')} value={order.paymentExternalId || '-'} />
+                            <Metric label={t('orders.paymentTransactionId')} value={order.paymentTransactionId || '-'} />
+                            <Metric label={t('orders.paidAt')} value={formatDateTime(order.paidAt, language)} />
+                          </div>
+                        </section>
+                      </div>
                       <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                         {order.items.map((item) => (
                           <div key={item.id} className="rounded-2xl border border-safi-border bg-white p-4">
@@ -247,6 +281,13 @@ function OrderStatusBadge({ status }: { status: string }) {
   const variant = status === 'cancelled' ? 'danger' : status === 'pending' ? 'warning' : 'success';
 
   return <AdminBadge variant={variant}>{t(`orders.statusLabels.${status}`, { defaultValue: status })}</AdminBadge>;
+}
+
+function PaymentStatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation();
+  const variant = ['failed', 'cancelled', 'refunded'].includes(status) ? 'danger' : status === 'paid' ? 'success' : 'warning';
+
+  return <AdminBadge variant={variant}>{t(`orders.paymentStatusLabels.${status}`, { defaultValue: status })}</AdminBadge>;
 }
 
 function ProductImage({ image, alt }: { image?: string; alt: string }) {
@@ -286,4 +327,18 @@ function formatDate(value: string, language: string) {
   }
 
   return new Date(value).toLocaleDateString(language, { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function formatDateTime(value: string | undefined, language: string) {
+  if (!value) {
+    return '-';
+  }
+
+  return new Date(value).toLocaleString(language, {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }

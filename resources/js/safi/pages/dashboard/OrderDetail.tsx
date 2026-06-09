@@ -1,18 +1,30 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, PackageCheck } from 'lucide-react';
+import { ArrowLeft, CreditCard, PackageCheck } from 'lucide-react';
 import { Badge } from '../../components/dashboard/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { getApiErrorState, getOrder, Order } from '../../lib/api';
+import { ToastItem, ToastStack } from '../../components/ui/Toast';
+import { ApiError, createTipTopPayPaymentIntent, getApiErrorState, getOrder, Order } from '../../lib/api';
+import { useTipTopPayWidget } from '../../hooks/useTipTopPayWidget';
 
 export default function OrderDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const [order, setOrder] = useState<Order | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStartingPayment, setIsStartingPayment] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const { isWidgetLoading, startPayment } = useTipTopPayWidget();
   const language = i18n.resolvedLanguage || i18n.language;
+
+  const showToast = useCallback((message: string, type: ToastItem['type'] = 'success') => {
+    const toastId = Date.now() + Math.floor(Math.random() * 1000);
+    setToasts((current) => [...current, { id: toastId, message, type }]);
+    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== toastId)), 3200);
+  }, []);
 
   const loadOrder = useCallback(async () => {
     if (!id) {
@@ -50,8 +62,48 @@ export default function OrderDetail() {
     return <EmptyState title={t('orders.notFound')} />;
   }
 
+  const canPayOnline = !['paid', 'refunded', 'cancelled'].includes(order.paymentStatus || '')
+    && !['cancelled', 'completed', 'voided'].includes(order.status)
+    && order.items.length > 0
+    && order.totalAmount > 0;
+
+  const handleOnlinePayment = async () => {
+    if (!order) {
+      return;
+    }
+
+    setIsStartingPayment(true);
+
+    try {
+      const intent = await createTipTopPayPaymentIntent(order.id);
+
+      await startPayment(intent, {
+        onSuccess: async () => {
+          showToast(t('orders.paymentSubmitted'));
+          await loadOrder();
+          navigate(`/payment/success?order=${encodeURIComponent(order.id)}`);
+        },
+        onFail: (caughtError) => {
+          const message = caughtError instanceof Error ? caughtError.message : t('orders.paymentFailed');
+          showToast(message, 'error');
+          navigate(`/payment/fail?order=${encodeURIComponent(order.id)}`);
+        },
+      });
+    } catch (caughtError) {
+      const message = caughtError instanceof ApiError
+        ? caughtError.message
+        : caughtError instanceof Error
+          ? caughtError.message
+          : getApiErrorState(caughtError).error;
+      showToast(message || t('orders.paymentStartError'), 'error');
+    } finally {
+      setIsStartingPayment(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
+      <ToastStack toasts={toasts} onDismiss={(toastId) => setToasts((current) => current.filter((toast) => toast.id !== toastId))} />
       <section className="rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:p-8">
         <Link to="/dashboard/orders" className="mb-5 inline-flex cursor-pointer items-center gap-2 text-xs font-bold uppercase tracking-widest text-safi-green/60 transition-colors hover:text-safi-gold">
           <ArrowLeft className="h-4 w-4" />
@@ -63,15 +115,29 @@ export default function OrderDetail() {
             <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">#{order.id}</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">{t('orders.detailSubtitle')}</p>
           </div>
-          <OrderStatusBadge status={order.status} />
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            {canPayOnline && (
+              <button
+                type="button"
+                onClick={() => void handleOnlinePayment()}
+                disabled={isStartingPayment || isWidgetLoading}
+                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-safi-green px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <CreditCard className="h-4 w-4" />
+                {isStartingPayment || isWidgetLoading ? t('orders.openingPayment') : t('orders.payOnline')}
+              </button>
+            )}
+            <OrderStatusBadge status={order.status} />
+          </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-5">
         <InfoCard label={t('orders.orderDate')} value={formatDate(order.createdAt, language)} />
         <InfoCard label={t('orders.items')} value={order.itemsCount.toLocaleString('ru-RU')} />
         <InfoCard label={t('orders.totalAmount')} value={formatCurrency(order.totalAmount)} />
         <InfoCard label={t('orders.totalPv')} value={`${order.totalPv.toLocaleString('ru-RU')} PV`} />
+        <InfoCard label={t('orders.paymentInfo')} value={order.paymentStatusLabel || t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: t('orders.notPaid') })} />
       </section>
 
       <section className="rounded-[32px] border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-7">

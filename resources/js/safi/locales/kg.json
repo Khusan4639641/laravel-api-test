@@ -377,6 +377,28 @@
       "cancelled": "Жокко чыгарылды",
       "completed": "Аткарылды",
       "shipped": "Жөнөтүлдү"
+    },
+    "paymentStatus": "Төлөм статусу",
+    "paymentStatusFilter": "Төлөм боюнча чыпка",
+    "allPaymentStatuses": "Бардык төлөм статустары",
+    "paymentInfo": "Төлөм",
+    "paymentProvider": "Төлөм провайдери",
+    "paymentExternalId": "External ID",
+    "paymentTransactionId": "Transaction ID",
+    "paidAt": "Төлөнгөн күнү",
+    "payOnline": "Онлайн төлөө",
+    "openingPayment": "Төлөм ачылууда...",
+    "paymentSubmitted": "Төлөм текшерүүгө жөнөтүлдү",
+    "paymentFailed": "Төлөм аткарылган жок.",
+    "paymentStartError": "Онлайн төлөмдү баштоо мүмкүн болбоду.",
+    "notPaid": "Төлөнгөн эмес",
+    "paymentStatusLabels": {
+      "unpaid": "Төлөнгөн эмес",
+      "pending": "Төлөм күтүлүүдө",
+      "paid": "Төлөндү",
+      "failed": "Төлөм катасы",
+      "refunded": "Кайтарылды",
+      "cancelled": "Жокко чыгарылды"
     }
   }
 }

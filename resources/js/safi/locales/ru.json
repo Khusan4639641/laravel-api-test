@@ -377,6 +377,28 @@
       "cancelled": "Отменён",
       "completed": "Выполнен",
       "shipped": "Отправлен"
+    },
+    "paymentStatus": "Статус оплаты",
+    "paymentStatusFilter": "Фильтр по оплате",
+    "allPaymentStatuses": "Все статусы оплаты",
+    "paymentInfo": "Оплата",
+    "paymentProvider": "Платёжный провайдер",
+    "paymentExternalId": "External ID",
+    "paymentTransactionId": "Transaction ID",
+    "paidAt": "Дата оплаты",
+    "payOnline": "Оплатить онлайн",
+    "openingPayment": "Открываем оплату...",
+    "paymentSubmitted": "Оплата успешно отправлена на проверку",
+    "paymentFailed": "Платёж не выполнен.",
+    "paymentStartError": "Не удалось запустить онлайн-оплату.",
+    "notPaid": "Не оплачено",
+    "paymentStatusLabels": {
+      "unpaid": "Не оплачено",
+      "pending": "Ожидает оплаты",
+      "paid": "Оплачено",
+      "failed": "Ошибка оплаты",
+      "refunded": "Возвращено",
+      "cancelled": "Отменено"
     }
   }
 }

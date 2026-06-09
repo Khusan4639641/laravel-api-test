@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Eye, PackageCheck, ShoppingBag } from 'lucide-react';
+import { CreditCard, Eye, PackageCheck, ShoppingBag } from 'lucide-react';
 import { Badge, StatCard } from '../../components/dashboard/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ToastItem, ToastStack } from '../../components/ui/Toast';
-import { getApiErrorState, getOrders, Order } from '../../lib/api';
+import { ApiError, createTipTopPayPaymentIntent, getApiErrorState, getOrders, Order } from '../../lib/api';
+import { useTipTopPayWidget } from '../../hooks/useTipTopPayWidget';
 
 export default function Orders() {
   const { t, i18n } = useTranslation();
   const location = useLocation();
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [payingOrderId, setPayingOrderId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const { isWidgetLoading, startPayment } = useTipTopPayWidget();
   const language = i18n.resolvedLanguage || i18n.language;
 
   const showToast = useCallback((message: string, type: ToastItem['type'] = 'success') => {
@@ -52,6 +56,36 @@ export default function Orders() {
     amount: orders.reduce((sum, order) => sum + order.totalAmount, 0),
     pv: orders.reduce((sum, order) => sum + order.totalPv, 0),
   }), [orders]);
+
+  const handleOnlinePayment = async (order: Order) => {
+    setPayingOrderId(order.id);
+
+    try {
+      const intent = await createTipTopPayPaymentIntent(order.id);
+
+      await startPayment(intent, {
+        onSuccess: async () => {
+          showToast(t('orders.paymentSubmitted'));
+          await loadOrders();
+          navigate(`/payment/success?order=${encodeURIComponent(order.id)}`);
+        },
+        onFail: (caughtError) => {
+          const message = caughtError instanceof Error ? caughtError.message : t('orders.paymentFailed');
+          showToast(message, 'error');
+          navigate(`/payment/fail?order=${encodeURIComponent(order.id)}`);
+        },
+      });
+    } catch (caughtError) {
+      const message = caughtError instanceof ApiError
+        ? caughtError.message
+        : caughtError instanceof Error
+          ? caughtError.message
+          : getApiErrorState(caughtError).error;
+      showToast(message || t('orders.paymentStartError'), 'error');
+    } finally {
+      setPayingOrderId(null);
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -99,6 +133,7 @@ export default function Orders() {
                       <th className="px-7 py-4">{t('orders.amount')}</th>
                       <th className="px-7 py-4">{t('orders.pv')}</th>
                       <th className="px-7 py-4">{t('orders.status')}</th>
+                      <th className="px-7 py-4">{t('orders.paymentStatus')}</th>
                       <th className="px-7 py-4">{t('orders.deliveryInfo')}</th>
                       <th className="px-7 py-4 text-right">{t('orders.actions')}</th>
                     </tr>
@@ -117,16 +152,30 @@ export default function Orders() {
                         <td className="px-7 py-5 font-extrabold text-safi-green">{formatCurrency(order.totalAmount)}</td>
                         <td className="px-7 py-5 font-extrabold text-safi-gold">{order.totalPv.toLocaleString('ru-RU')} PV</td>
                         <td className="px-7 py-5"><OrderStatusBadge status={order.status} /></td>
+                        <td className="px-7 py-5"><PaymentStatusBadge status={order.paymentStatus || 'unpaid'} /></td>
                         <td className="px-7 py-5">
                           <div className="font-bold text-safi-green">{order.city || '-'}</div>
                           <div className="mt-1 text-xs text-safi-muted">{order.phone || '-'}</div>
                           <div className="mt-1 max-w-[220px] truncate text-xs text-safi-muted">{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</div>
                         </td>
                         <td className="px-7 py-5 text-right">
-                          <Link to={`/dashboard/orders/${order.id}`} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white">
-                            <Eye className="h-4 w-4" />
-                            {t('orders.details')}
-                          </Link>
+                          <div className="flex flex-col items-end gap-2">
+                            {canPayOrderOnline(order) && (
+                              <button
+                                type="button"
+                                onClick={() => void handleOnlinePayment(order)}
+                                disabled={payingOrderId === order.id || isWidgetLoading}
+                                className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full bg-safi-green px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white transition-colors hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                <CreditCard className="h-4 w-4" />
+                                {payingOrderId === order.id || isWidgetLoading ? t('orders.openingPayment') : t('orders.payOnline')}
+                              </button>
+                            )}
+                            <Link to={`/dashboard/orders/${order.id}`} className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white">
+                              <Eye className="h-4 w-4" />
+                              {t('orders.details')}
+                            </Link>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -151,14 +200,28 @@ export default function Orders() {
                       <Metric label={t('orders.items')} value={order.itemsCount.toLocaleString('ru-RU')} />
                       <Metric label={t('orders.amount')} value={formatCurrency(order.totalAmount)} />
                       <Metric label={t('orders.pv')} value={`${order.totalPv.toLocaleString('ru-RU')} PV`} />
+                      <Metric label={t('orders.paymentStatus')} value={t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: order.paymentStatus || 'unpaid' })} />
                       <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
                       <Metric label={t('orders.deliveryPhone')} value={order.phone || '-'} />
                       <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
                     </div>
-                    <Link to={`/dashboard/orders/${order.id}`} className="mt-5 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white">
-                      <Eye className="h-4 w-4" />
-                      {t('orders.details')}
-                    </Link>
+                    <div className="mt-5 grid gap-3">
+                      {canPayOrderOnline(order) && (
+                        <button
+                          type="button"
+                          onClick={() => void handleOnlinePayment(order)}
+                          disabled={payingOrderId === order.id || isWidgetLoading}
+                          className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-safi-green px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-white transition-colors hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <CreditCard className="h-4 w-4" />
+                          {payingOrderId === order.id || isWidgetLoading ? t('orders.openingPayment') : t('orders.payOnline')}
+                        </button>
+                      )}
+                      <Link to={`/dashboard/orders/${order.id}`} className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white">
+                        <Eye className="h-4 w-4" />
+                        {t('orders.details')}
+                      </Link>
+                    </div>
                   </article>
                 ))}
               </div>
@@ -213,6 +276,20 @@ function OrderStatusBadge({ status }: { status: string }) {
   const variant = status === 'cancelled' ? 'danger' : status === 'pending' ? 'warning' : 'success';
 
   return <Badge variant={variant}>{t(`orders.statusLabels.${status}`, { defaultValue: status })}</Badge>;
+}
+
+function PaymentStatusBadge({ status }: { status: string }) {
+  const { t } = useTranslation();
+  const variant = ['failed', 'cancelled', 'refunded'].includes(status) ? 'danger' : status === 'paid' ? 'success' : 'warning';
+
+  return <Badge variant={variant}>{t(`orders.paymentStatusLabels.${status}`, { defaultValue: status })}</Badge>;
+}
+
+function canPayOrderOnline(order: Order) {
+  return !['paid', 'refunded', 'cancelled'].includes(order.paymentStatus || '')
+    && !['cancelled', 'completed', 'voided'].includes(order.status)
+    && order.items.length > 0
+    && order.totalAmount > 0;
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

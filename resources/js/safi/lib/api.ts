@@ -156,6 +156,10 @@ export interface Order {
   statusLabel?: string;
   paymentStatus?: string;
   paymentStatusLabel?: string;
+  paymentProvider?: string;
+  paymentExternalId?: string;
+  paymentTransactionId?: string;
+  paidAt?: string;
   recipientName?: string;
   phone?: string;
   city?: string;
@@ -167,6 +171,30 @@ export interface Order {
   items: OrderItem[];
   createdAt: string;
   updatedAt?: string;
+}
+
+export interface TipTopPayPaymentIntent {
+  publicTerminalId: string;
+  description: string;
+  paymentSchema: 'Single' | 'Dual' | string;
+  currency: 'KZT' | string;
+  amount: number;
+  externalId: string;
+  successRedirectUrl: string;
+  failRedirectUrl: string;
+  userInfo: Record<string, string | number | undefined>;
+  items: Array<{
+    id: string;
+    name: string;
+    count: number;
+    price: number;
+  }>;
+  metadata: {
+    order_id?: string | number;
+    order_number?: string;
+    user_id?: string | number;
+    [key: string]: unknown;
+  };
 }
 
 export interface Package {
@@ -618,12 +646,23 @@ export async function getOrders(params: Record<string, string | number | undefin
   return normalizeOrders(response);
 }
 
-export async function createOrder<T = unknown>(payload: OrderPayload) {
-  return apiRequest<T>(endpoints.dashboard.orderCheckout, {
+export async function createOrder(payload: OrderPayload) {
+  const response = await apiRequest(endpoints.dashboard.orderCheckout, {
     method: 'POST',
     body: payload,
     auth: true,
   });
+
+  return normalizeOrder(unwrapRecord(response, ['order']));
+}
+
+export async function createTipTopPayPaymentIntent(orderId: string | number) {
+  const response = await apiRequest(endpoints.dashboard.orderTipTopPayIntent(orderId), {
+    method: 'POST',
+    auth: true,
+  });
+
+  return normalizeTipTopPayPaymentIntent(response);
 }
 
 export async function getOrder(orderId: string | number) {
@@ -1340,6 +1379,10 @@ export function normalizeOrder(item: unknown, index = 0): Order {
     statusLabel: orderStatusLabel(status, getString(record, ['status_label', 'statusLabel'])),
     paymentStatus: getString(record, ['payment_status', 'paymentStatus']),
     paymentStatusLabel: getString(record, ['payment_status_label', 'paymentStatusLabel']),
+    paymentProvider: getString(record, ['payment_provider', 'paymentProvider']),
+    paymentExternalId: getString(record, ['payment_external_id', 'paymentExternalId']),
+    paymentTransactionId: getString(record, ['payment_transaction_id', 'paymentTransactionId']),
+    paidAt: getString(record, ['paid_at', 'paidAt']),
     recipientName: getString(record, ['recipient_name', 'recipientName'])
       || getString(delivery, ['recipient_name', 'recipientName'])
       || getString(shippingAddress, ['recipient_name', 'recipientName', 'recipient']),
@@ -1392,6 +1435,35 @@ function normalizeOrderUser(user: Record<string, unknown>): OrderUser {
     login: getString(user, ['login', 'username']),
     email: getString(user, ['email']),
     phone: getString(user, ['phone']),
+  };
+}
+
+function normalizeTipTopPayPaymentIntent(response: unknown): TipTopPayPaymentIntent {
+  const intent = unwrapRecord(response, ['intent']);
+  const userInfo = isRecord(intent.userInfo) ? intent.userInfo : {};
+  const metadata = isRecord(intent.metadata) ? intent.metadata : {};
+
+  return {
+    publicTerminalId: getString(intent, ['publicTerminalId', 'public_terminal_id']) || '',
+    description: getString(intent, ['description']) || '',
+    paymentSchema: getString(intent, ['paymentSchema', 'payment_schema']) || 'Single',
+    currency: getString(intent, ['currency']) || 'KZT',
+    amount: getNumber(intent, ['amount']) ?? 0,
+    externalId: getString(intent, ['externalId', 'external_id']) || '',
+    successRedirectUrl: getString(intent, ['successRedirectUrl', 'success_redirect_url']) || '',
+    failRedirectUrl: getString(intent, ['failRedirectUrl', 'fail_redirect_url']) || '',
+    userInfo: Object.fromEntries(Object.entries(userInfo).filter(([, value]) => value !== null && value !== undefined)) as TipTopPayPaymentIntent['userInfo'],
+    items: getArray(intent.items).map((item, index) => {
+      const record = isRecord(item) ? item : {};
+
+      return {
+        id: getString(record, ['id']) || String(index + 1),
+        name: getString(record, ['name']) || `Safi Life item ${index + 1}`,
+        count: getNumber(record, ['count', 'quantity']) ?? 1,
+        price: getNumber(record, ['price']) ?? 0,
+      };
+    }),
+    metadata,
   };
 }
 

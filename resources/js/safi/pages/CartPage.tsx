@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Minus, Plus, ShieldCheck, ShoppingBag, Trash2 } from 'lucide-react';
+import { ArrowLeft, CreditCard, Minus, Plus, ShieldCheck, ShoppingBag, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/Button';
 import { Container } from '../components/ui/Container';
 import { ToastItem, ToastStack, ToastType } from '../components/ui/Toast';
-import { ApiError, createOrder, getApiErrorState, getAuthToken, getPublicProducts, getString, me, unwrapRecord } from '../lib/api';
+import { ApiError, createOrder, createTipTopPayPaymentIntent, getApiErrorState, getAuthToken, getPublicProducts, getString, me, OrderPayload, unwrapRecord } from '../lib/api';
 import { getAvailableStock, isProductOrderable, useCart } from '../context/CartContext';
+import { useTipTopPayWidget } from '../hooks/useTipTopPayWidget';
 
 const formatCurrency = (value: number) => `${value.toLocaleString('ru-RU')} ₸`;
 const emptyDeliveryForm = {
@@ -33,10 +34,12 @@ export default function CartPage() {
   } = useCart();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isStartingOnlinePayment, setIsStartingOnlinePayment] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
   const [deliveryForm, setDeliveryForm] = useState(emptyDeliveryForm);
+  const { isWidgetLoading, startPayment } = useTipTopPayWidget();
 
   const showToast = useCallback((message: string, type: ToastType = 'success') => {
     const id = Date.now() + Math.floor(Math.random() * 1000);
@@ -93,7 +96,8 @@ export default function CartPage() {
     && deliveryForm.phone.trim() !== ''
     && deliveryForm.city.trim() !== ''
     && deliveryForm.deliveryAddress.trim() !== '';
-  const canCheckout = items.length > 0 && invalidItems.length === 0 && hasDeliveryRequiredFields && !isCheckingOut;
+  const isCheckoutBusy = isCheckingOut || isStartingOnlinePayment || isWidgetLoading;
+  const canCheckout = items.length > 0 && invalidItems.length === 0 && hasDeliveryRequiredFields && !isCheckoutBusy;
 
   const handleIncrease = (productId: string) => {
     const item = items.find((cartItem) => String(cartItem.product.id) === String(productId));
@@ -111,44 +115,54 @@ export default function CartPage() {
     }
   };
 
-  const handleCheckout = async () => {
+  const buildOrderPayload = (): OrderPayload => ({
+    items: items.map((item) => ({
+      product_id: item.product.id,
+      quantity: item.quantity,
+    })),
+    recipient_name: deliveryForm.recipientName.trim(),
+    phone: deliveryForm.phone.trim(),
+    city: deliveryForm.city.trim(),
+    delivery_address: deliveryForm.deliveryAddress.trim(),
+    comment: deliveryForm.comment.trim(),
+  });
+
+  const validateCheckout = () => {
     setCheckoutMessage('');
     setCheckoutError('');
 
     if (items.length === 0) {
       setCheckoutError(t('cart.emptyTitle', 'Корзина пуста'));
-      return;
+      return false;
     }
 
     if (!getAuthToken()) {
       navigate('/login?redirect=/cart');
-      return;
+      return false;
     }
 
     if (invalidItems.length > 0) {
       setCheckoutError(t('cart.invalidStockWarning', 'В корзине есть товары, которых нет в нужном количестве.'));
-      return;
+      return false;
     }
 
     if (!hasDeliveryRequiredFields) {
       setCheckoutError(t('cart.deliveryRequired', 'Укажите телефон и адрес доставки.'));
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleCheckout = async () => {
+    if (!validateCheckout()) {
       return;
     }
 
     setIsCheckingOut(true);
 
     try {
-      await createOrder({
-        items: items.map((item) => ({
-          product_id: item.product.id,
-          quantity: item.quantity,
-        })),
-        recipient_name: deliveryForm.recipientName.trim(),
-        phone: deliveryForm.phone.trim(),
-        city: deliveryForm.city.trim(),
-        delivery_address: deliveryForm.deliveryAddress.trim(),
-        comment: deliveryForm.comment.trim(),
-      });
+      await createOrder(buildOrderPayload());
 
       clearCart();
       setDeliveryForm(emptyDeliveryForm);
@@ -164,6 +178,48 @@ export default function CartPage() {
       await refreshProducts();
     } finally {
       setIsCheckingOut(false);
+    }
+  };
+
+  const handleOnlinePayment = async () => {
+    if (!validateCheckout()) {
+      return;
+    }
+
+    setIsStartingOnlinePayment(true);
+
+    try {
+      const order = await createOrder(buildOrderPayload());
+      clearCart();
+      setDeliveryForm(emptyDeliveryForm);
+      showToast(t('orders.orderCreated'));
+
+      const intent = await createTipTopPayPaymentIntent(order.id);
+
+      await startPayment(intent, {
+        onSuccess: () => {
+          showToast(t('orders.paymentSubmitted'));
+          navigate(`/payment/success?order=${encodeURIComponent(order.id)}`);
+        },
+        onFail: (error) => {
+          const message = error instanceof Error
+            ? error.message
+            : t('orders.paymentFailed');
+          showToast(message, 'error');
+          navigate(`/payment/fail?order=${encodeURIComponent(order.id)}`);
+        },
+      });
+    } catch (caughtError) {
+      const message = caughtError instanceof ApiError
+        ? caughtError.message
+        : caughtError instanceof Error
+          ? caughtError.message
+          : getApiErrorState(caughtError).error;
+      setCheckoutError(message || t('orders.paymentStartError'));
+      showToast(message || t('orders.paymentStartError'), 'error');
+      await refreshProducts();
+    } finally {
+      setIsStartingOnlinePayment(false);
     }
   };
 
@@ -364,6 +420,16 @@ export default function CartPage() {
               className="mt-8 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-safi-gold bg-safi-gold px-8 py-4 text-sm font-bold uppercase tracking-widest text-safi-green shadow-lg transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isCheckingOut ? t('cart.checkoutLoading', 'Оформляем...') : t('cart.checkout', 'Оформить заказ')}
+            </button>
+
+            <button
+              type="button"
+              disabled={!canCheckout || isSyncing}
+              onClick={() => void handleOnlinePayment()}
+              className="mt-3 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/15 bg-white px-8 py-4 text-sm font-bold uppercase tracking-widest text-safi-green shadow-lg transition-all hover:bg-safi-cream disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <CreditCard className="h-4 w-4" />
+              {isStartingOnlinePayment || isWidgetLoading ? t('orders.openingPayment') : t('orders.payOnline')}
             </button>
 
             <div className="mt-5 flex items-start gap-3 rounded-2xl bg-white/5 p-4 text-xs leading-relaxed text-white/60">

@@ -18,11 +18,13 @@ class OrderController extends Controller
     use RespondsWithPagination;
 
     private const ORDER_STATUSES = ['pending', 'confirmed', 'cancelled', 'completed', 'shipped'];
+    private const PAYMENT_STATUSES = ['unpaid', 'pending', 'paid', 'failed', 'refunded', 'cancelled'];
 
     public function index(Request $request): JsonResponse
     {
         $search = trim((string) $request->query('search', ''));
         $status = trim((string) $request->query('status', ''));
+        $paymentStatus = trim((string) $request->query('payment_status', ''));
 
         $orders = Order::query()
             ->with(['user.profile', 'items.product', 'items.package'])
@@ -30,6 +32,7 @@ class OrderController extends Controller
             ->where('status', '!=', 'voided')
             ->whereHas('user', fn (Builder $query) => $query->activeAccount())
             ->when($status !== '', fn (Builder $query) => $query->where('status', $status))
+            ->when($paymentStatus !== '' && in_array($paymentStatus, self::PAYMENT_STATUSES, true), fn (Builder $query) => $query->where('payment_status', $paymentStatus))
             ->when($search !== '', function (Builder $query) use ($search): void {
                 $query->where(function (Builder $nested) use ($search): void {
                     $nested->where('order_number', 'like', "%{$search}%")
