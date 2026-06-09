@@ -46,6 +46,11 @@ interface StructureStats {
   weakLegPV: number;
 }
 
+interface StructureDepthInfo {
+  hasDeeperNodes: boolean;
+  hiddenNodesCount: number;
+}
+
 interface PartnerSearchResult {
   id: string;
   name: string;
@@ -68,12 +73,13 @@ export default function AdminStructure() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const selectedUserId = searchParams.get('user_id') || '';
-  const selectedDepth = searchParams.get('depth') || '5';
+  const selectedDepth = searchParams.get('depth') || '10';
   const [view, setView] = useState<'tree' | 'list'>('tree');
   const [query, setQuery] = useState(selectedUserId);
   const [rootNode, setRootNode] = useState<StructureNode | null>(null);
   const [nodes, setNodes] = useState<StructureNode[]>([]);
   const [stats, setStats] = useState<StructureStats>(emptyStats);
+  const [depthInfo, setDepthInfo] = useState<StructureDepthInfo>({ hasDeeperNodes: false, hiddenNodesCount: 0 });
   const [searchResults, setSearchResults] = useState<PartnerSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState('');
@@ -86,6 +92,7 @@ export default function AdminStructure() {
     setRootNode(null);
     setNodes([]);
     setStats(emptyStats);
+    setDepthInfo({ hasDeeperNodes: false, hiddenNodesCount: 0 });
 
     try {
       const response = await getAdminStructure({
@@ -97,11 +104,13 @@ export default function AdminStructure() {
 
       setRootNode(root);
       setStats(normalizeStats(response));
+      setDepthInfo(normalizeDepthInfo(response));
       setNodes(normalizeFlatNodes(response, root));
     } catch (caughtError) {
       setRootNode(null);
       setNodes([]);
       setStats(emptyStats);
+      setDepthInfo({ hasDeeperNodes: false, hiddenNodesCount: 0 });
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_26'));
     } finally {
       setIsLoading(false);
@@ -155,7 +164,7 @@ export default function AdminStructure() {
   }, [nodes, query]);
 
   const hasChildren = Boolean(rootNode?.children.left || rootNode?.children.right);
-  const treeCanvasWidth = useMemo(() => `${Math.max(1400, (Number(selectedDepth) || 5) * 360)}px`, [selectedDepth]);
+  const treeCanvasWidth = useMemo(() => `${Math.max(1400, (Number(selectedDepth) || 10) * 360)}px`, [selectedDepth]);
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -288,6 +297,11 @@ export default function AdminStructure() {
             </div>
             <span>{adminText('a_0JTQsNC90L3R_4')}{selectedDepth}</span>
           </div>
+          {depthInfo.hasDeeperNodes && (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
+              Есть ещё партнёры глубже текущей глубины дерева: {depthInfo.hiddenNodesCount.toLocaleString('ru-RU')}. Увеличьте depth в URL до 10 или откройте список.
+            </div>
+          )}
 
           <div className="relative max-h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-auto rounded-[24px] border border-safi-border bg-white">
             {!hasChildren && (
@@ -460,6 +474,15 @@ function normalizeStats(response: unknown): StructureStats {
     leftPV,
     rightPV,
     weakLegPV: getNumber(stats, ['weak_leg_pv', 'weakLegPv', 'weak_leg_branch_pv', 'weakLegBranchPv']) ?? Math.min(leftPV, rightPV),
+  };
+}
+
+function normalizeDepthInfo(response: unknown): StructureDepthInfo {
+  const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
+
+  return {
+    hasDeeperNodes: Boolean(record.has_deeper_nodes ?? record.hasDeeperNodes),
+    hiddenNodesCount: getNumber(record, ['hidden_nodes_count', 'hiddenNodesCount']) ?? 0,
   };
 }
 

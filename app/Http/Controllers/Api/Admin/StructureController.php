@@ -20,7 +20,7 @@ class StructureController extends Controller
     {
         $selectedUser = null;
         $rootNode = null;
-        $maxDepth = min(max((int) $request->integer('depth', 5), 0), 10);
+        $maxDepth = min(max((int) $request->integer('depth', 10), 0), 10);
         $includeFlat = $request->boolean('include_flat');
 
         if ($request->filled('user_id')) {
@@ -58,6 +58,7 @@ class StructureController extends Controller
         $nodes = $this->subtreeNodes($rootNode, $maxDepth);
         $volumeNodes = $this->allSubtreeNodes($rootNode);
         $nodeVolumes = $branchVolumeService->calculateNodeBranchVolumes($volumeNodes);
+        $hiddenNodesCount = max(0, $volumeNodes->count() - $nodes->count());
         $loadedRootNode = $rootNode ? $nodes->firstWhere('id', $rootNode->id) : null;
         $rootDepth = $loadedRootNode?->depth ?? 0;
         $root = $loadedRootNode
@@ -71,6 +72,8 @@ class StructureController extends Controller
             'stats' => $stats,
             'nodes' => $this->flattenTree($root),
             'depth' => $maxDepth,
+            'has_deeper_nodes' => $hiddenNodesCount > 0,
+            'hidden_nodes_count' => $hiddenNodesCount,
         ];
 
         if ($includeFlat) {
@@ -193,7 +196,7 @@ class StructureController extends Controller
                 'turnover_pv' => $turnoverPv,
             ] : null,
             'package_code' => $packageCode,
-            'package_label' => SystemLabel::package($packageCode, $package?->name, 'ru'),
+            'package_label' => $package ? SystemLabel::package($packageCode, $package->name, 'ru') : '-',
             'status' => $user->status,
             'status_label' => SystemLabel::mlmStatus($user->status, null, 'ru'),
             'mlm_status' => [
