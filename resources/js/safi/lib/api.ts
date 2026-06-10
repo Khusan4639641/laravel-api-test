@@ -1068,18 +1068,30 @@ export async function getAdminNews() {
   return normalizeNews(response);
 }
 
-export async function createAdminNews<T = unknown>(payload: Record<string, unknown>) {
+export async function createAdminNews<T = unknown>(payload: Record<string, unknown> | FormData) {
   return apiRequest<T>(endpoints.admin.news, {
     method: 'POST',
-    body: payload,
+    body: isFormData(payload) ? payload : compactPayload(payload),
     auth: true,
   });
 }
 
-export async function updateAdminNews<T = unknown>(newsId: string | number, payload: Record<string, unknown>) {
+export async function updateAdminNews<T = unknown>(newsId: string | number, payload: Record<string, unknown> | FormData) {
+  if (isFormData(payload)) {
+    if (!payload.has('_method')) {
+      payload.append('_method', 'PUT');
+    }
+
+    return apiRequest<T>(endpoints.admin.newsItem(newsId), {
+      method: 'POST',
+      body: payload,
+      auth: true,
+    });
+  }
+
   return apiRequest<T>(endpoints.admin.newsItem(newsId), {
     method: 'PUT',
-    body: payload,
+    body: compactPayload(payload),
     auth: true,
   });
 }

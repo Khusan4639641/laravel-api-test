@@ -1,8 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Newspaper, Plus, Edit2, Trash2, Calendar, X } from 'lucide-react';
+import { Newspaper, Plus, Edit2, Trash2, Calendar, X, ImageIcon, Upload } from 'lucide-react';
 import { AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { createAdminNews, deleteAdminNews, getAdminNews, getApiErrorState, NewsArticle, updateAdminNews } from '../../lib/api';
+import { ApiError, createAdminNews, deleteAdminNews, getAdminNews, getApiErrorState, NewsArticle, updateAdminNews } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 
 interface NewsFormState {
@@ -12,8 +12,12 @@ interface NewsFormState {
   excerpt: string;
   content: string;
   imageUrl: string;
+  imagePreview: string;
+  removeImage: boolean;
   status: string;
 }
+
+type FieldErrors = Record<string, string[]>;
 
 const emptyForm: NewsFormState = {
   id: '',
@@ -22,8 +26,13 @@ const emptyForm: NewsFormState = {
   excerpt: '',
   content: '',
   imageUrl: '',
+  imagePreview: '',
+  removeImage: false,
   status: 'published',
 };
+
+const allowedImageTypes = ['image/jpeg', 'image/png', 'image/webp'];
+const maxImageSize = 5 * 1024 * 1024;
 
 export default function AdminNews() {
   const [articles, setArticles] = useState<NewsArticle[]>([]);
@@ -31,8 +40,10 @@ export default function AdminNews() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [pendingId, setPendingId] = useState('');
   const [formData, setFormData] = useState<NewsFormState>(emptyForm);
+  const [imageFile, setImageFile] = useState<File | null>(null);
 
   const loadNews = async () => {
     setIsLoading(true);
@@ -52,21 +63,83 @@ export default function AdminNews() {
     void loadNews();
   }, []);
 
+  const openCreateForm = () => {
+    setFormData(emptyForm);
+    setImageFile(null);
+    setActionError(null);
+    setFieldErrors({});
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setFormData(emptyForm);
+    setImageFile(null);
+    setActionError(null);
+    setFieldErrors({});
+    setShowForm(false);
+  };
+
+  const handleImageChange = (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    if (!allowedImageTypes.includes(file.type)) {
+      setActionError('Допустимые форматы: JPG, PNG, WEBP до 5MB');
+      return;
+    }
+
+    if (file.size > maxImageSize) {
+      setActionError('Допустимые форматы: JPG, PNG, WEBP до 5MB');
+      return;
+    }
+
+    setImageFile(file);
+    setActionError(null);
+    setFieldErrors((current) => ({ ...current, image: [] }));
+    setFormData((current) => ({
+      ...current,
+      imagePreview: URL.createObjectURL(file),
+      removeImage: false,
+    }));
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    setFormData((current) => ({
+      ...current,
+      imageUrl: '',
+      imagePreview: '',
+      removeImage: Boolean(current.id),
+    }));
+  };
+
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setActionError(null);
+    setFieldErrors({});
 
     try {
       const isPublished = formData.status === 'published';
-      const payload = {
-        title: formData.title,
-        category: formData.category,
-        excerpt: formData.excerpt,
-        content: formData.content,
-        image_url: formData.imageUrl,
-        is_published: isPublished,
-        status: formData.status,
-      };
+      const payload = new FormData();
+      payload.append('title', formData.title);
+      payload.append('category', formData.category);
+      payload.append('excerpt', formData.excerpt);
+      payload.append('content', formData.content);
+      payload.append('status', formData.status);
+      payload.append('is_published', isPublished ? '1' : '0');
+
+      if (imageFile) {
+        payload.append('image', imageFile);
+      }
+
+      if (formData.imageUrl.trim() !== '') {
+        payload.append('image_url', formData.imageUrl.trim());
+      }
+
+      if (formData.removeImage) {
+        payload.append('remove_image', '1');
+      }
 
       if (formData.id) {
         await updateAdminNews(formData.id, payload);
@@ -74,11 +147,16 @@ export default function AdminNews() {
         await createAdminNews(payload);
       }
 
-      setFormData(emptyForm);
-      setShowForm(false);
+      closeForm();
       await loadNews();
     } catch (caughtError) {
-      setActionError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_3'));
+      const errorState = getApiErrorState(caughtError);
+      setFieldErrors(errorState.validationErrors || {});
+      setActionError(
+        caughtError instanceof ApiError && caughtError.status >= 500
+          ? 'Не удалось сохранить новость. Проверьте данные и попробуйте снова.'
+          : errorState.error || 'Не удалось сохранить новость. Проверьте данные и попробуйте снова.'
+      );
     }
   };
 
@@ -104,9 +182,13 @@ export default function AdminNews() {
       excerpt: article.excerpt || '',
       content: article.content || '',
       imageUrl: article.imageUrl || '',
+      imagePreview: article.imageUrl || '',
+      removeImage: false,
       status: article.status || (article.isPublished === false ? 'draft' : 'published'),
     });
+    setImageFile(null);
     setActionError(null);
+    setFieldErrors({});
     setShowForm(true);
   };
 
@@ -120,10 +202,11 @@ export default function AdminNews() {
         <button 
           onClick={() => {
             if (showForm) {
-              setFormData(emptyForm);
-              setActionError(null);
+              closeForm();
+              return;
             }
-            setShowForm(!showForm);
+
+            openCreateForm();
           }}
           className="flex items-center gap-2 px-6 py-3 bg-safi-green text-safi-gold hover:text-white rounded-xl font-bold uppercase tracking-widest text-[10px] transition-colors shadow-lg"
         >
@@ -152,6 +235,7 @@ export default function AdminNews() {
                   required
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green" 
                 />
+                <FieldError error={fieldErrors.title?.[0]} />
              </div>
              <div className="grid gap-4 md:grid-cols-2">
               <div>
@@ -165,6 +249,7 @@ export default function AdminNews() {
                    <option>{adminText('a_0JLQsNC20L3Q')}</option>
                    <option>{adminText('a_0J_RgNC-0LTR')}</option>
                 </select>
+                <FieldError error={fieldErrors.category?.[0]} />
               </div>
               <div>
                 <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KHRgtCw0YLR')}</label>
@@ -175,7 +260,9 @@ export default function AdminNews() {
                 >
                   <option value="published">published</option>
                   <option value="draft">draft</option>
+                  <option value="archived">archived</option>
                 </select>
+                <FieldError error={fieldErrors.status?.[0]} />
               </div>
              </div>
              <div>
@@ -187,6 +274,7 @@ export default function AdminNews() {
                   placeholder={adminText('a_0JrQvtGA0L7R')}
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green resize-none"
                 />
+                <FieldError error={fieldErrors.excerpt?.[0]} />
              </div>
              <div>
                 <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KLQtdC60YHR')}</label>
@@ -198,16 +286,53 @@ export default function AdminNews() {
                   required
                   className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green resize-none"
                 ></textarea>
+                <FieldError error={fieldErrors.content?.[0]} />
              </div>
-             <div>
-                <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0KHRgdGL0LvQ')}</label>
-                <input 
-                  type="text" 
-                  value={formData.imageUrl}
-                  onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
-                  placeholder="https://..." 
-                  className="w-full px-5 py-3.5 bg-[#F5F5F0] rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green" 
-                />
+             <div className="rounded-3xl border border-safi-green/10 bg-[#F5F5F0] p-4">
+                <label className="mb-3 block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest">Фото новости</label>
+                <div className="relative aspect-[16/9] overflow-hidden rounded-2xl bg-white">
+                  {formData.imagePreview || formData.imageUrl ? (
+                    <img src={formData.imagePreview || formData.imageUrl} alt={formData.title || 'Изображение новости'} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-safi-text/40">
+                      <ImageIcon className="h-10 w-10" />
+                      <span className="text-xs font-bold uppercase tracking-widest">Изображение новости</span>
+                    </div>
+                  )}
+                </div>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <label className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green hover:text-white">
+                    <Upload className="h-4 w-4" />
+                    Загрузить фото
+                    <input
+                      key={`${formData.id || 'new'}-${formData.imagePreview || formData.imageUrl}`}
+                      type="file"
+                      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                      className="sr-only"
+                      onChange={(event) => handleImageChange(event.target.files?.[0] ?? null)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="rounded-full border border-safi-green/10 bg-white px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-text/60 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                  >
+                    Удалить фото
+                  </button>
+                </div>
+                <p className="mt-3 text-xs font-medium text-safi-text/50">Допустимые форматы: JPG, PNG, WEBP до 5MB</p>
+                <FieldError error={fieldErrors.image?.[0]} />
+                <div className="mt-4">
+                  <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">Или вставьте ссылку</label>
+                  <input
+                    type="text"
+                    value={formData.imageUrl}
+                    onChange={(e) => setFormData({...formData, imageUrl: e.target.value, imagePreview: e.target.value, removeImage: false})}
+                    placeholder="https://..."
+                    className="w-full px-5 py-3.5 bg-white rounded-xl border-none focus:ring-2 focus:ring-safi-green/20 outline-none text-sm font-medium text-safi-green"
+                  />
+                  <FieldError error={fieldErrors.image_url?.[0]} />
+                </div>
              </div>
              <button 
                 type="submit"
@@ -231,6 +356,15 @@ export default function AdminNews() {
           <div className="space-y-4">
             {articles.map((article) => (
               <div key={article.id} className="flex flex-col md:flex-row items-center justify-between gap-4 p-4 border border-safi-green/10 rounded-2xl hover:bg-safi-green/5 transition-colors">
+                <div className="h-24 w-full overflow-hidden rounded-2xl bg-[#F5F5F0] md:w-36 shrink-0">
+                  {article.imageUrl ? (
+                    <img src={article.imageUrl} alt={article.title} className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-safi-text/35">
+                      <ImageIcon className="h-8 w-8" />
+                    </div>
+                  )}
+                </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <AdminBadge variant={article.category === adminText('a_0JLQsNC20L3Q') ? 'danger' : 'default'}>
@@ -263,4 +397,12 @@ export default function AdminNews() {
       </div>
     </div>
   );
+}
+
+function FieldError({ error }: { error?: string }) {
+  if (!error) {
+    return null;
+  }
+
+  return <div className="mt-2 text-xs font-bold text-red-600">{error}</div>;
 }

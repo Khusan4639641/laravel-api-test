@@ -8,6 +8,7 @@ use App\Http\Resources\NewsResource;
 use App\Models\News;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
@@ -28,13 +29,22 @@ class NewsController extends Controller
     public function store(Request $request): JsonResponse
     {
         $validated = $this->validateNews($request);
-        $validated['slug'] ??= Str::slug($validated['title']);
-        $validated['published_at'] ??= ($validated['is_published'] ?? true) ? now() : null;
+        $newsData = $this->newsData($validated);
 
-        $news = News::query()->create($validated);
+        if ($request->hasFile('image')) {
+            $newsData['image_url'] = $this->storeNewsImage($request);
+        }
+
+        $newsData['slug'] ??= Str::slug($newsData['title']);
+        $newsData['published_at'] ??= ($newsData['is_published'] ?? true) ? now() : null;
+
+        $news = News::query()->create($newsData);
+        $resource = NewsResource::make($news);
 
         return response()->json([
-            'news' => NewsResource::make($news),
+            'message' => 'Новость создана',
+            'data' => $resource,
+            'news' => $resource,
         ], 201);
     }
 
@@ -48,19 +58,33 @@ class NewsController extends Controller
     public function update(Request $request, News $news): JsonResponse
     {
         $validated = $this->validateNews($request, $news);
+        $newsData = $this->newsData($validated, $news);
 
-        if (array_key_exists('title', $validated) && ! array_key_exists('slug', $validated)) {
-            $validated['slug'] = Str::slug($validated['title']);
+        if ($request->boolean('remove_image')) {
+            $this->deleteLocalNewsImage($news);
+            $newsData['image_url'] = null;
         }
 
-        if (($validated['is_published'] ?? false) && ! $news->published_at && ! array_key_exists('published_at', $validated)) {
-            $validated['published_at'] = now();
+        if ($request->hasFile('image')) {
+            $this->deleteLocalNewsImage($news);
+            $newsData['image_url'] = $this->storeNewsImage($request);
         }
 
-        $news->update($validated);
+        if (array_key_exists('title', $newsData) && ! array_key_exists('slug', $newsData)) {
+            $newsData['slug'] = Str::slug($newsData['title']);
+        }
+
+        if (($newsData['is_published'] ?? false) && ! $news->published_at && ! array_key_exists('published_at', $newsData)) {
+            $newsData['published_at'] = now();
+        }
+
+        $news->update($newsData);
+        $resource = NewsResource::make($news->refresh());
 
         return response()->json([
-            'news' => NewsResource::make($news->refresh()),
+            'message' => 'Новость сохранена',
+            'data' => $resource,
+            'news' => $resource,
         ]);
     }
 
@@ -75,18 +99,86 @@ class NewsController extends Controller
 
     private function validateNews(Request $request, ?News $news = null): array
     {
+        $aliases = [];
+
+        if (! $request->has('excerpt') && $request->has('summary')) {
+            $aliases['excerpt'] = $request->input('summary');
+        }
+
+        if (! $request->has('content') && $request->has('body')) {
+            $aliases['content'] = $request->input('body');
+        }
+
+        if ($aliases !== []) {
+            $request->merge($aliases);
+        }
+
         return $request->validate([
             'title' => [$news ? 'sometimes' : 'required', 'string', 'max:255'],
             'slug' => ['nullable', 'string', 'max:255', Rule::unique('news', 'slug')->ignore($news)],
-            'category' => ['nullable', 'string', 'max:255'],
-            'excerpt' => ['nullable', 'string'],
+            'category' => [$news ? 'sometimes' : 'required', 'string', 'max:100'],
+            'excerpt' => ['nullable', 'string', 'max:1000'],
+            'summary' => ['nullable', 'string', 'max:1000'],
             'content' => [$news ? 'sometimes' : 'required', 'string'],
+            'body' => ['nullable', 'string'],
             'image_url' => ['nullable', 'string', 'max:2048'],
-            'status' => ['nullable', 'string', 'max:255'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:5120'],
+            'remove_image' => ['nullable', 'boolean'],
+            'status' => [$news ? 'sometimes' : 'required', 'string', Rule::in(['draft', 'published', 'archived'])],
             'is_published' => ['nullable', 'boolean'],
             'published_at' => ['nullable', 'date'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
             'metadata' => ['nullable', 'array'],
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function newsData(array $validated, ?News $news = null): array
+    {
+        unset($validated['image'], $validated['remove_image'], $validated['summary'], $validated['body']);
+
+        if (array_key_exists('status', $validated)) {
+            $validated['is_published'] = $validated['status'] === 'published';
+
+            if ($validated['status'] !== 'published' && ! array_key_exists('published_at', $validated)) {
+                $validated['published_at'] = null;
+            }
+        } elseif (array_key_exists('is_published', $validated)) {
+            $validated['status'] = $validated['is_published'] ? 'published' : 'draft';
+        } elseif (! $news) {
+            $validated['status'] = 'published';
+            $validated['is_published'] = true;
+        }
+
+        return $validated;
+    }
+
+    private function storeNewsImage(Request $request): string
+    {
+        $path = $request->file('image')->store('news', 'public');
+
+        return Storage::url($path);
+    }
+
+    private function deleteLocalNewsImage(News $news): void
+    {
+        $path = parse_url((string) $news->image_url, PHP_URL_PATH);
+
+        if (! is_string($path) || $path === '') {
+            return;
+        }
+
+        if (str_starts_with($path, '/storage/news/')) {
+            Storage::disk('public')->delete(Str::after($path, '/storage/'));
+
+            return;
+        }
+
+        if (str_starts_with($path, 'news/')) {
+            Storage::disk('public')->delete($path);
+        }
     }
 }

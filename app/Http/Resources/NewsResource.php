@@ -17,6 +17,8 @@ class NewsResource extends JsonResource
             'category' => LocalizedValue::get($this->category_translations, $this->category),
             'excerpt' => LocalizedValue::get($this->excerpt_translations, $this->excerpt),
             'content' => LocalizedValue::get($this->content_translations, $this->content),
+            'summary' => LocalizedValue::get($this->excerpt_translations, $this->excerpt),
+            'body' => LocalizedValue::get($this->content_translations, $this->content),
             'image_url' => $this->image_url,
             'imageUrl' => $this->image_url,
             'status' => $this->status,
