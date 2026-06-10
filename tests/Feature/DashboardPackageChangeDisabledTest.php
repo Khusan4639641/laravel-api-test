@@ -60,16 +60,17 @@ class DashboardPackageChangeDisabledTest extends TestCase
         ]);
     }
 
-    public function test_dashboard_package_page_has_no_active_package_change_buttons(): void
+    public function test_dashboard_package_page_uses_payment_flow_not_free_package_change_buttons(): void
     {
         $source = file_get_contents(resource_path('js/safi/pages/dashboard/PackageStatus.tsx'));
 
         $this->assertStringContainsString('Текущий пакет', $source);
         $this->assertStringContainsString('Смена пакета временно доступна только через администратора', $source);
+        $this->assertStringContainsString('handlePackagePayment', $source);
+        $this->assertStringContainsString('createTipTopPayPackagePaymentIntent', $source);
         $this->assertStringNotContainsString('handlePackageAction', $source);
         $this->assertStringNotContainsString('activatePackage', $source);
         $this->assertStringNotContainsString('upgradePackage', $source);
-        $this->assertStringNotContainsString('onClick={() =>', $source);
     }
 
     private function package(string $code): Package

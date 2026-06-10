@@ -5,7 +5,7 @@ import { ArrowLeft, CreditCard, Minus, Plus, ShieldCheck, ShoppingBag, Trash2 } 
 import { Button } from '../components/ui/Button';
 import { Container } from '../components/ui/Container';
 import { ToastItem, ToastStack, ToastType } from '../components/ui/Toast';
-import { ApiError, createOrder, createTipTopPayPaymentIntent, getApiErrorState, getAuthToken, getPublicProducts, getString, me, OrderPayload, unwrapRecord } from '../lib/api';
+import { ApiError, createOrder, createTipTopPayPaymentIntent, getApiErrorState, getAuthToken, getPublicProducts, getString, getTipTopPayStatus, me, OrderPayload, TipTopPayStatus, unwrapRecord } from '../lib/api';
 import { getAvailableStock, isProductOrderable, useCart } from '../context/CartContext';
 import { useTipTopPayWidget } from '../hooks/useTipTopPayWidget';
 
@@ -37,6 +37,7 @@ export default function CartPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
+  const [tipTopStatus, setTipTopStatus] = useState<TipTopPayStatus | null>(null);
   const [deliveryForm, setDeliveryForm] = useState(emptyDeliveryForm);
   const { isWidgetLoading, startPayment } = useTipTopPayWidget();
 
@@ -64,6 +65,12 @@ export default function CartPage() {
 
   useEffect(() => {
     void refreshProducts();
+  }, []);
+
+  useEffect(() => {
+    void getTipTopPayStatus()
+      .then(setTipTopStatus)
+      .catch(() => setTipTopStatus(null));
   }, []);
 
   useEffect(() => {
@@ -97,6 +104,8 @@ export default function CartPage() {
     && deliveryForm.deliveryAddress.trim() !== '';
   const isCheckoutBusy = isCheckingOut || isStartingOnlinePayment || isWidgetLoading;
   const canCheckout = items.length > 0 && invalidItems.length === 0 && hasDeliveryRequiredFields && !isCheckoutBusy;
+  const isTipTopPayAvailable = tipTopStatus === null || (tipTopStatus.enabled && tipTopStatus.currency === 'KZT' && tipTopStatus.publicTerminalIdSet);
+  const canPayOnline = canCheckout && isTipTopPayAvailable;
 
   const handleIncrease = (productId: string) => {
     const item = items.find((cartItem) => String(cartItem.product.id) === String(productId));
@@ -182,6 +191,13 @@ export default function CartPage() {
 
   const handleOnlinePayment = async () => {
     if (!validateCheckout()) {
+      return;
+    }
+
+    if (!isTipTopPayAvailable) {
+      const message = t('orders.onlinePaymentUnavailable', 'Онлайн-оплата временно недоступна');
+      setCheckoutError(message);
+      showToast(message, 'error');
       return;
     }
 
@@ -418,12 +434,14 @@ export default function CartPage() {
 
             <button
               type="button"
-              disabled={!canCheckout || isSyncing}
+              disabled={!canPayOnline || isSyncing}
               onClick={() => void handleOnlinePayment()}
               className="mt-3 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/15 bg-white px-8 py-4 text-sm font-bold uppercase tracking-widest text-safi-green shadow-lg transition-all hover:bg-safi-cream disabled:cursor-not-allowed disabled:opacity-50"
             >
               <CreditCard className="h-4 w-4" />
-              {isStartingOnlinePayment || isWidgetLoading ? t('orders.openingPayment') : t('orders.payOnline')}
+              {!isTipTopPayAvailable
+                ? t('orders.onlinePaymentUnavailable', 'Онлайн-оплата временно недоступна')
+                : isStartingOnlinePayment || isWidgetLoading ? t('orders.openingPayment') : t('orders.payOnline')}
             </button>
 
             <div className="mt-5 flex items-start gap-3 rounded-2xl bg-white/5 p-4 text-xs leading-relaxed text-white/60">

@@ -9,6 +9,11 @@ use Illuminate\Http\Request;
 
 class TipTopPayWebhookController extends Controller
 {
+    public function status(TipTopPayService $service): JsonResponse
+    {
+        return response()->json($service->publicStatus());
+    }
+
     public function check(Request $request, TipTopPayService $service): JsonResponse
     {
         return response()->json($service->handleCheck($request));
@@ -17,6 +22,11 @@ class TipTopPayWebhookController extends Controller
     public function pay(Request $request, TipTopPayService $service): JsonResponse
     {
         return response()->json($service->handlePay($request));
+    }
+
+    public function confirm(Request $request, TipTopPayService $service): JsonResponse
+    {
+        return response()->json($service->handleConfirm($request));
     }
 
     public function fail(Request $request, TipTopPayService $service): JsonResponse

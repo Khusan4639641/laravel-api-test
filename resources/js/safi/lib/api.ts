@@ -180,6 +180,10 @@ export interface TipTopPayPaymentIntent {
   currency: 'KZT' | string;
   amount: number;
   externalId: string;
+  accountId?: string;
+  receiptEmail?: string;
+  emailBehavior?: string;
+  language?: string;
   successRedirectUrl: string;
   failRedirectUrl: string;
   userInfo: Record<string, string | number | undefined>;
@@ -195,6 +199,13 @@ export interface TipTopPayPaymentIntent {
     user_id?: string | number;
     [key: string]: unknown;
   };
+}
+
+export interface TipTopPayStatus {
+  enabled: boolean;
+  testMode: boolean;
+  currency: string;
+  publicTerminalIdSet: boolean;
 }
 
 export interface Package {
@@ -218,6 +229,7 @@ export interface Package {
   statusLabel?: string;
   codeLabel?: string;
   isActive?: boolean;
+  isUpgradeable?: boolean;
 }
 
 export interface Status {
@@ -682,6 +694,35 @@ export async function createOrder(payload: OrderPayload) {
 export async function createTipTopPayPaymentIntent(orderId: string | number) {
   const response = await apiRequest(endpoints.dashboard.orderTipTopPayIntent(orderId), {
     method: 'POST',
+    auth: true,
+  });
+
+  return normalizeTipTopPayPaymentIntent(response);
+}
+
+export async function getTipTopPayStatus() {
+  const response = await apiRequest(endpoints.dashboard.tipTopPayStatus, {
+    method: 'GET',
+    auth: false,
+  });
+
+  const record = unwrapRecord(response);
+
+  return {
+    enabled: Boolean(record.enabled),
+    testMode: Boolean(record.test_mode ?? record.testMode),
+    currency: getString(record, ['currency']) || 'KZT',
+    publicTerminalIdSet: Boolean(record.public_terminal_id_set ?? record.publicTerminalIdSet),
+  } satisfies TipTopPayStatus;
+}
+
+export async function createTipTopPayPackagePaymentIntent(pkg: string | number, packageCode?: string, upgradeFrom?: string | null) {
+  const response = await apiRequest(endpoints.dashboard.packageTipTopPayIntent(pkg), {
+    method: 'POST',
+    body: compactPayload({
+      package_code: packageCode,
+      upgrade_from: upgradeFrom || undefined,
+    }),
     auth: true,
   });
 
@@ -1509,6 +1550,10 @@ function normalizeTipTopPayPaymentIntent(response: unknown): TipTopPayPaymentInt
     currency: getString(intent, ['currency']) || 'KZT',
     amount: getNumber(intent, ['amount']) ?? 0,
     externalId: getString(intent, ['externalId', 'external_id']) || '',
+    accountId: getString(intent, ['accountId', 'account_id']),
+    receiptEmail: getString(intent, ['receiptEmail', 'receipt_email']),
+    emailBehavior: getString(intent, ['emailBehavior', 'email_behavior']),
+    language: getString(intent, ['language']),
     successRedirectUrl: getString(intent, ['successRedirectUrl', 'success_redirect_url']) || '',
     failRedirectUrl: getString(intent, ['failRedirectUrl', 'fail_redirect_url']) || '',
     userInfo: Object.fromEntries(Object.entries(userInfo).filter(([, value]) => value !== null && value !== undefined)) as TipTopPayPaymentIntent['userInfo'],
@@ -1642,6 +1687,7 @@ export function normalizePackages(response: unknown): Package[] {
       status,
       statusLabel: productStatusLabel(status, getString(record, ['status_label', 'statusLabel'])),
       isActive: Boolean(record.is_active ?? record.isActive ?? true),
+      isUpgradeable: Boolean(record.is_upgradeable ?? record.isUpgradeable ?? true),
     };
   });
 }

@@ -3,7 +3,12 @@
 namespace App\Services\Payments;
 
 use App\Models\Order;
+use App\Models\Package;
+use App\Models\Payment;
 use App\Models\User;
+use App\Models\WalletTransaction;
+use App\Services\PackageService;
+use App\Services\WalletService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -12,87 +17,163 @@ use Illuminate\Validation\ValidationException;
 
 class TipTopPayService
 {
-    private const PROVIDER = 'tiptoppay';
+    private const UPGRADE_CHAIN = [
+        'START' => 'VIP',
+        'VIP' => 'ELITE',
+    ];
+
+    public function __construct(
+        private readonly PackageService $packageService,
+        private readonly WalletService $walletService,
+    ) {
+    }
 
     /**
+     * Backward-compatible order-only intent payload.
+     *
      * @return array<string, mixed>
      */
     public function createIntent(Order $order, User $actor): array
     {
-        $this->assertActorCanPay($order, $actor);
+        return $this->createOrderPaymentIntent($actor, $order)['intent'];
+    }
+
+    /**
+     * @return array{payment_id: int, external_id: string, intent: array<string, mixed>}
+     */
+    public function createOrderPaymentIntent(User $user, Order $order): array
+    {
+        $this->assertActorCanPay($order, $user);
         $this->assertPaymentConfigIsUsable();
 
         $order->loadMissing(['user.profile', 'items.product', 'items.package']);
+        $this->assertOrderPayable($order);
 
-        if ($order->items->isEmpty()) {
-            throw ValidationException::withMessages([
-                'order' => 'В заказе нет товаров для оплаты',
+        return DB::transaction(function () use ($order): array {
+            /** @var Order $lockedOrder */
+            $lockedOrder = Order::query()
+                ->with(['user.profile', 'items.product', 'items.package'])
+                ->whereKey($order->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $this->assertOrderPayable($lockedOrder);
+
+            $externalId = $this->makeExternalId('order-'.$lockedOrder->id);
+            $description = sprintf('Оплата заказа #%s на Safi Life', $lockedOrder->order_number ?: $lockedOrder->id);
+
+            $payment = Payment::query()->create([
+                'user_id' => $lockedOrder->user_id,
+                'payable_type' => Order::class,
+                'payable_id' => $lockedOrder->id,
+                'type' => Payment::TYPE_ORDER,
+                'provider' => Payment::PROVIDER_TIPTOPPAY,
+                'external_id' => $externalId,
+                'amount' => (string) $lockedOrder->total_amount,
+                'currency' => 'KZT',
+                'status' => Payment::STATUS_PENDING,
+                'description' => $description,
+                'payload' => [
+                    'order_id' => $lockedOrder->id,
+                    'order_number' => $lockedOrder->order_number,
+                    'type' => Payment::TYPE_ORDER,
+                ],
             ]);
-        }
 
-        if (bccomp((string) $order->total_amount, '0', 2) <= 0) {
-            throw ValidationException::withMessages([
-                'amount' => 'Сумма заказа должна быть больше нуля',
+            $intent = $this->orderIntent($payment, $lockedOrder);
+            $payment->forceFill(['payload' => array_merge($payment->payload ?? [], ['intent' => $intent])])->save();
+
+            $paymentMeta = is_array($lockedOrder->payment_meta) ? $lockedOrder->payment_meta : [];
+            $paymentMeta['last_intent'] = [
+                'payment_id' => $payment->id,
+                'external_id' => $externalId,
+                'created_at' => now()->toISOString(),
+                'amount' => (string) $lockedOrder->total_amount,
+                'currency' => 'KZT',
+                'payment_schema' => $intent['paymentSchema'],
+            ];
+
+            $lockedOrder->forceFill([
+                'payment_provider' => Payment::PROVIDER_TIPTOPPAY,
+                'payment_status' => 'pending',
+                'payment_external_id' => $externalId,
+                'payment_meta' => $paymentMeta,
+            ])->save();
+
+            return [
+                'payment_id' => $payment->id,
+                'external_id' => $payment->external_id,
+                'intent' => $intent,
+            ];
+        });
+    }
+
+    /**
+     * @return array{payment_id: int, external_id: string, intent: array<string, mixed>}
+     */
+    public function createPackagePaymentIntent(User $user, Package $package, ?string $upgradeFrom = null): array
+    {
+        $this->assertPaymentConfigIsUsable();
+
+        return DB::transaction(function () use ($user, $package, $upgradeFrom): array {
+            /** @var User $lockedUser */
+            $lockedUser = User::query()
+                ->with(['profile', 'currentPackage'])
+                ->whereKey($user->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            /** @var Package $targetPackage */
+            $targetPackage = Package::query()->whereKey($package->id)->lockForUpdate()->firstOrFail();
+            $transition = $this->packageTransition($lockedUser, $targetPackage, $upgradeFrom);
+            $externalId = $this->makeExternalId('package-'.$lockedUser->id.'-'.strtolower($targetPackage->code));
+            $description = $transition['description'];
+
+            $payment = Payment::query()->create([
+                'user_id' => $lockedUser->id,
+                'payable_type' => Package::class,
+                'payable_id' => $targetPackage->id,
+                'type' => Payment::TYPE_PACKAGE,
+                'provider' => Payment::PROVIDER_TIPTOPPAY,
+                'external_id' => $externalId,
+                'amount' => $transition['amount'],
+                'currency' => 'KZT',
+                'status' => Payment::STATUS_PENDING,
+                'description' => $description,
+                'payload' => [
+                    'type' => Payment::TYPE_PACKAGE,
+                    'package_id' => $targetPackage->id,
+                    'package_code' => $targetPackage->code,
+                    'transition' => $transition['transition'],
+                    'upgrade_from' => $transition['upgrade_from'],
+                    'amount' => $transition['amount'],
+                    'final_activity_pv' => $transition['final_activity_pv'],
+                    'turnover_delta_pv' => $transition['turnover_delta_pv'],
+                ],
             ]);
-        }
 
-        if (strtoupper((string) config('tiptoppay.currency', 'KZT')) !== 'KZT') {
-            throw ValidationException::withMessages([
-                'currency' => 'Онлайн-оплата доступна только в KZT',
-            ]);
-        }
+            $intent = $this->packageIntent($payment, $lockedUser, $targetPackage, $transition);
+            $payment->forceFill(['payload' => array_merge($payment->payload ?? [], ['intent' => $intent])])->save();
 
-        if (in_array($order->status, ['cancelled', 'voided', 'completed'], true)) {
-            throw ValidationException::withMessages([
-                'order' => 'Этот заказ нельзя оплатить онлайн',
-            ]);
-        }
+            return [
+                'payment_id' => $payment->id,
+                'external_id' => $payment->external_id,
+                'intent' => $intent,
+            ];
+        });
+    }
 
-        if (in_array($order->payment_status, ['paid', 'refunded', 'cancelled'], true)) {
-            throw ValidationException::withMessages([
-                'payment_status' => 'Этот заказ уже закрыт по оплате',
-            ]);
-        }
-
-        $externalId = sprintf('order-%s-%s', $order->id, (string) Str::uuid());
-        $successUrl = $this->urlWithOrder((string) config('tiptoppay.success_url'), $order, $externalId);
-        $failUrl = $this->urlWithOrder((string) config('tiptoppay.fail_url'), $order, $externalId);
-
-        $intent = [
-            'publicTerminalId' => (string) config('tiptoppay.public_terminal_id'),
-            'description' => sprintf('Оплата заказа #%s на Safi Life', $order->order_number ?: $order->id),
-            'paymentSchema' => $this->paymentSchema(),
-            'currency' => 'KZT',
-            'amount' => $this->numericAmount($order->total_amount),
-            'externalId' => $externalId,
-            'successRedirectUrl' => $successUrl,
-            'failRedirectUrl' => $failUrl,
-            'userInfo' => $this->userInfo($order),
-            'items' => $this->items($order),
-            'metadata' => [
-                'order_id' => $order->id,
-                'order_number' => $order->order_number,
-                'user_id' => $order->user_id,
-            ],
+    /**
+     * @return array<string, bool|string>
+     */
+    public function publicStatus(): array
+    {
+        return [
+            'enabled' => (bool) config('tiptoppay.enabled'),
+            'test_mode' => (bool) config('tiptoppay.test_mode', true),
+            'currency' => strtoupper((string) config('tiptoppay.currency', 'KZT')),
+            'public_terminal_id_set' => trim((string) config('tiptoppay.public_terminal_id')) !== '',
         ];
-
-        $paymentMeta = is_array($order->payment_meta) ? $order->payment_meta : [];
-        $paymentMeta['last_intent'] = [
-            'external_id' => $externalId,
-            'created_at' => now()->toISOString(),
-            'amount' => (string) $order->total_amount,
-            'currency' => 'KZT',
-            'payment_schema' => $intent['paymentSchema'],
-        ];
-
-        $order->forceFill([
-            'payment_provider' => self::PROVIDER,
-            'payment_status' => 'pending',
-            'payment_external_id' => $externalId,
-            'payment_meta' => $paymentMeta,
-        ])->save();
-
-        return $intent;
     }
 
     /**
@@ -104,24 +185,7 @@ class TipTopPayService
             return ['code' => 13];
         }
 
-        $payload = $this->payload($request);
-        $order = $this->findOrder($payload);
-
-        if (! $order) {
-            return ['code' => 10];
-        }
-
-        if (! $this->amountMatches($order, $payload) || ! $this->currencyMatches($payload)) {
-            return ['code' => 12];
-        }
-
-        if (in_array($order->payment_status, ['paid', 'refunded', 'cancelled'], true) || in_array($order->status, ['cancelled', 'voided'], true)) {
-            return ['code' => 13];
-        }
-
-        $this->appendWebhookMeta($order, 'check', $payload);
-
-        return ['code' => 0];
+        return $this->handleCheckWebhook($this->payload($request));
     }
 
     /**
@@ -133,40 +197,19 @@ class TipTopPayService
             return ['code' => 13];
         }
 
-        $payload = $this->payload($request);
-        $order = $this->findOrder($payload);
+        return $this->handlePayWebhook($this->payload($request), 'pay');
+    }
 
-        if (! $order) {
-            return ['code' => 10];
+    /**
+     * @return array<string, mixed>
+     */
+    public function handleConfirm(Request $request): array
+    {
+        if (! $this->validWebhookSignature($request)) {
+            return ['code' => 13];
         }
 
-        if (! $this->amountMatches($order, $payload) || ! $this->currencyMatches($payload)) {
-            return ['code' => 12];
-        }
-
-        DB::transaction(function () use ($order, $payload): void {
-            /** @var Order $lockedOrder */
-            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            $transactionId = $this->transactionId($payload);
-
-            if ($lockedOrder->payment_status === 'paid') {
-                $this->appendWebhookMeta($lockedOrder, 'pay_duplicate', $payload);
-
-                return;
-            }
-
-            $lockedOrder->forceFill([
-                'status' => $lockedOrder->status === 'pending' ? 'confirmed' : $lockedOrder->status,
-                'payment_provider' => self::PROVIDER,
-                'payment_status' => 'paid',
-                'payment_transaction_id' => $transactionId ?: $lockedOrder->payment_transaction_id,
-                'paid_at' => $lockedOrder->paid_at ?: now(),
-            ])->save();
-
-            $this->appendWebhookMeta($lockedOrder, 'pay', $payload);
-        });
-
-        return ['code' => 0];
+        return $this->handlePayWebhook($this->payload($request), 'confirm');
     }
 
     /**
@@ -178,29 +221,7 @@ class TipTopPayService
             return ['code' => 13];
         }
 
-        $payload = $this->payload($request);
-        $order = $this->findOrder($payload);
-
-        if (! $order) {
-            return ['code' => 10];
-        }
-
-        DB::transaction(function () use ($order, $payload): void {
-            /** @var Order $lockedOrder */
-            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-
-            if ($lockedOrder->payment_status !== 'paid') {
-                $lockedOrder->forceFill([
-                    'payment_provider' => self::PROVIDER,
-                    'payment_status' => 'failed',
-                    'payment_transaction_id' => $this->transactionId($payload) ?: $lockedOrder->payment_transaction_id,
-                ])->save();
-            }
-
-            $this->appendWebhookMeta($lockedOrder, 'fail', $payload);
-        });
-
-        return ['code' => 0];
+        return $this->handleFailWebhook($this->payload($request));
     }
 
     /**
@@ -208,7 +229,11 @@ class TipTopPayService
      */
     public function handleRefund(Request $request): array
     {
-        return $this->handleTerminalPaymentStatus($request, 'refunded', 'cancelled', 'refund');
+        if (! $this->validWebhookSignature($request)) {
+            return ['code' => 13];
+        }
+
+        return $this->handleTerminalPaymentStatus($this->payload($request), Payment::STATUS_REFUNDED, 'refunded', 'cancelled', 'refund');
     }
 
     /**
@@ -216,36 +241,217 @@ class TipTopPayService
      */
     public function handleCancel(Request $request): array
     {
-        return $this->handleTerminalPaymentStatus($request, 'cancelled', 'cancelled', 'cancel');
-    }
-
-    private function handleTerminalPaymentStatus(Request $request, string $paymentStatus, string $orderStatus, string $event): array
-    {
         if (! $this->validWebhookSignature($request)) {
             return ['code' => 13];
         }
 
-        $payload = $this->payload($request);
-        $order = $this->findOrder($payload);
+        return $this->handleTerminalPaymentStatus($this->payload($request), Payment::STATUS_CANCELLED, 'cancelled', 'cancelled', 'cancel');
+    }
 
-        if (! $order) {
+    /**
+     * @return array<string, mixed>
+     */
+    public function handleCheckWebhook(array $payload): array
+    {
+        $payment = $this->findPaymentForWebhook($payload);
+
+        if (! $payment) {
             return ['code' => 10];
         }
 
-        DB::transaction(function () use ($order, $payload, $paymentStatus, $orderStatus, $event): void {
-            /** @var Order $lockedOrder */
-            $lockedOrder = Order::query()->whereKey($order->id)->lockForUpdate()->firstOrFail();
-            $lockedOrder->forceFill([
-                'status' => $orderStatus,
-                'payment_provider' => self::PROVIDER,
-                'payment_status' => $paymentStatus,
-                'payment_transaction_id' => $this->transactionId($payload) ?: $lockedOrder->payment_transaction_id,
+        if (! $this->amountMatches($payment, $payload) || ! $this->currencyMatches($payload)) {
+            $this->appendPaymentProviderResponse($payment, 'check_rejected', $payload);
+
+            return ['code' => 12];
+        }
+
+        if (in_array($payment->status, [Payment::STATUS_PAID, Payment::STATUS_REFUNDED, Payment::STATUS_CANCELLED], true)) {
+            $this->appendPaymentProviderResponse($payment, 'check_rejected_status', $payload);
+
+            return ['code' => 13];
+        }
+
+        $this->appendPaymentProviderResponse($payment, 'check', $payload);
+        $this->appendPayableWebhookMeta($payment, 'check', $payload);
+
+        return ['code' => 0];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function handlePayWebhook(array $payload, string $event = 'pay'): array
+    {
+        $payment = $this->findPaymentForWebhook($payload);
+
+        if (! $payment) {
+            return ['code' => 10];
+        }
+
+        if (! $this->amountMatches($payment, $payload) || ! $this->currencyMatches($payload)) {
+            $this->appendPaymentProviderResponse($payment, $event.'_rejected', $payload);
+
+            return ['code' => 12];
+        }
+
+        DB::transaction(function () use ($payment, $payload, $event): void {
+            /** @var Payment $lockedPayment */
+            $lockedPayment = Payment::query()
+                ->whereKey($payment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedPayment->status === Payment::STATUS_PAID) {
+                $duplicateEvent = $event.'_duplicate';
+                $this->appendPaymentProviderResponse($lockedPayment, $duplicateEvent, $payload);
+                $this->appendPayableWebhookMeta($lockedPayment, $duplicateEvent, $payload);
+
+                return;
+            }
+
+            $lockedPayment->forceFill([
+                'status' => Payment::STATUS_PAID,
+                'provider_response' => $this->providerResponseWithEvent($lockedPayment, $event, $payload),
+                'paid_at' => $lockedPayment->paid_at ?: now(),
+                'failed_at' => null,
             ])->save();
 
-            $this->appendWebhookMeta($lockedOrder, $event, $payload);
+            if ($lockedPayment->type === Payment::TYPE_ORDER) {
+                $this->markOrderPaid($lockedPayment, $payload);
+            }
+
+            if ($lockedPayment->type === Payment::TYPE_PACKAGE) {
+                $this->activatePaidPackage($lockedPayment);
+            }
         });
 
         return ['code' => 0];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function handleFailWebhook(array $payload): array
+    {
+        $payment = $this->findPaymentForWebhook($payload);
+
+        if (! $payment) {
+            return ['code' => 10];
+        }
+
+        DB::transaction(function () use ($payment, $payload): void {
+            /** @var Payment $lockedPayment */
+            $lockedPayment = Payment::query()
+                ->whereKey($payment->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($lockedPayment->status !== Payment::STATUS_PAID) {
+                $lockedPayment->forceFill([
+                    'status' => Payment::STATUS_FAILED,
+                    'provider_response' => $this->providerResponseWithEvent($lockedPayment, 'fail', $payload),
+                    'failed_at' => now(),
+                ])->save();
+            } else {
+                $this->appendPaymentProviderResponse($lockedPayment, 'fail_ignored_paid', $payload);
+            }
+
+            $this->markPayableFailed($lockedPayment, $payload);
+        });
+
+        return ['code' => 0];
+    }
+
+    public function findPaymentByExternalId(string $externalId): Payment
+    {
+        return Payment::query()
+            ->where('external_id', $externalId)
+            ->firstOrFail();
+    }
+
+    /**
+     * @return array{transition: string, amount: string, upgrade_from: string|null, description: string, final_activity_pv: string, turnover_delta_pv: string}
+     */
+    private function packageTransition(User $user, Package $targetPackage, ?string $upgradeFrom = null): array
+    {
+        $targetCode = strtoupper((string) $targetPackage->code);
+
+        if (! $targetPackage->is_active || $targetPackage->status !== 'active') {
+            throw ValidationException::withMessages([
+                'package' => 'Package is inactive.',
+            ]);
+        }
+
+        $user->loadMissing('currentPackage');
+        $currentPackage = $user->currentPackage;
+
+        if (! $currentPackage) {
+            if ($targetCode === 'ELITE') {
+                throw ValidationException::withMessages([
+                    'package' => 'ELITE нельзя купить первым пакетом.',
+                ]);
+            }
+
+            if (! in_array($targetCode, Package::STARTER_CODES, true)) {
+                throw ValidationException::withMessages([
+                    'package' => 'Package is not available for activation.',
+                ]);
+            }
+
+            return [
+                'transition' => 'activation',
+                'amount' => $this->decimal((string) $targetPackage->price),
+                'upgrade_from' => null,
+                'description' => sprintf('Оплата пакета %s на Safi Life', $targetCode),
+                'final_activity_pv' => $targetPackage->activityPv(),
+                'turnover_delta_pv' => $targetPackage->turnoverPv(),
+            ];
+        }
+
+        $currentCode = strtoupper((string) $currentPackage->code);
+        $expectedNextCode = self::UPGRADE_CHAIN[$currentCode] ?? null;
+
+        if ((int) $currentPackage->id === (int) $targetPackage->id) {
+            throw ValidationException::withMessages([
+                'package' => 'У пользователя уже активен этот пакет.',
+            ]);
+        }
+
+        if ($currentCode === 'START' && $targetCode === 'ELITE') {
+            throw ValidationException::withMessages([
+                'package' => 'Сначала перейдите на VIP',
+            ]);
+        }
+
+        if (! $targetPackage->is_upgradeable || $expectedNextCode !== $targetCode) {
+            throw ValidationException::withMessages([
+                'package' => 'Invalid package upgrade step.',
+            ]);
+        }
+
+        if ($upgradeFrom !== null && strtoupper($upgradeFrom) !== $currentCode) {
+            throw ValidationException::withMessages([
+                'upgrade_from' => 'Текущий пакет пользователя изменился. Обновите страницу и повторите оплату.',
+            ]);
+        }
+
+        $amount = bcsub((string) $targetPackage->price, (string) $currentPackage->price, 2);
+        $additionalPv = bcsub($targetPackage->activityPv(), $currentPackage->activityPv(), 2);
+
+        if (bccomp($amount, '0', 2) <= 0 || bccomp($additionalPv, '0', 2) <= 0) {
+            throw ValidationException::withMessages([
+                'package' => 'Target package price must be greater than current package price.',
+            ]);
+        }
+
+        return [
+            'transition' => 'upgrade',
+            'amount' => $this->decimal($amount),
+            'upgrade_from' => $currentCode,
+            'description' => sprintf('Upgrade пакета %s -> %s на Safi Life', $currentCode, $targetCode),
+            'final_activity_pv' => $targetPackage->activityPv(),
+            'turnover_delta_pv' => $this->decimal($additionalPv),
+        ];
     }
 
     private function assertActorCanPay(Order $order, User $actor): void
@@ -274,6 +480,119 @@ class TipTopPayService
                 'publicTerminalId' => 'Публичный терминал TipTop Pay не настроен',
             ]);
         }
+
+        if (strtoupper((string) config('tiptoppay.currency', 'KZT')) !== 'KZT') {
+            throw ValidationException::withMessages([
+                'currency' => 'Онлайн-оплата доступна только в KZT',
+            ]);
+        }
+    }
+
+    private function assertOrderPayable(Order $order): void
+    {
+        if ($order->items->isEmpty()) {
+            throw ValidationException::withMessages([
+                'order' => 'В заказе нет товаров для оплаты',
+            ]);
+        }
+
+        if (bccomp((string) $order->total_amount, '0', 2) <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => 'Сумма заказа должна быть больше нуля',
+            ]);
+        }
+
+        if (in_array($order->status, ['cancelled', 'voided', 'completed'], true)) {
+            throw ValidationException::withMessages([
+                'order' => 'Этот заказ нельзя оплатить онлайн',
+            ]);
+        }
+
+        if (in_array($order->payment_status, ['paid', 'refunded', 'cancelled'], true)) {
+            throw ValidationException::withMessages([
+                'payment_status' => 'Этот заказ уже закрыт по оплате',
+            ]);
+        }
+
+        foreach (['recipient_name', 'phone', 'city', 'delivery_address'] as $field) {
+            if (trim((string) $this->orderDeliveryValue($order, $field)) === '') {
+                throw ValidationException::withMessages([
+                    $field => 'Заполните данные доставки перед оплатой.',
+                ]);
+            }
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function orderIntent(Payment $payment, Order $order): array
+    {
+        $intent = [
+            'publicTerminalId' => (string) config('tiptoppay.public_terminal_id'),
+            'description' => (string) $payment->description,
+            'paymentSchema' => $this->paymentSchema(),
+            'currency' => 'KZT',
+            'amount' => $this->numericAmount($payment->amount),
+            'externalId' => $payment->external_id,
+            'accountId' => 'user-'.$order->user_id,
+            'receiptEmail' => $order->user?->email,
+            'emailBehavior' => 'Optional',
+            'language' => 'ru-RU',
+            'successRedirectUrl' => $this->urlWithPayment((string) config('tiptoppay.success_url'), $payment, ['order' => $order->id]),
+            'failRedirectUrl' => $this->urlWithPayment((string) config('tiptoppay.fail_url'), $payment, ['order' => $order->id]),
+            'userInfo' => $this->orderUserInfo($order),
+            'items' => $this->orderItems($order),
+            'metadata' => [
+                'payment_id' => $payment->id,
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'user_id' => $order->user_id,
+                'type' => Payment::TYPE_ORDER,
+            ],
+        ];
+
+        return $this->compactIntent($intent);
+    }
+
+    /**
+     * @param  array<string, string|null>  $transition
+     * @return array<string, mixed>
+     */
+    private function packageIntent(Payment $payment, User $user, Package $package, array $transition): array
+    {
+        $intent = [
+            'publicTerminalId' => (string) config('tiptoppay.public_terminal_id'),
+            'description' => (string) $payment->description,
+            'paymentSchema' => $this->paymentSchema(),
+            'currency' => 'KZT',
+            'amount' => $this->numericAmount($payment->amount),
+            'externalId' => $payment->external_id,
+            'accountId' => 'user-'.$user->id,
+            'receiptEmail' => $user->email,
+            'emailBehavior' => 'Optional',
+            'language' => 'ru-RU',
+            'successRedirectUrl' => $this->urlWithPayment((string) config('tiptoppay.success_url'), $payment, ['package' => $package->code]),
+            'failRedirectUrl' => $this->urlWithPayment((string) config('tiptoppay.fail_url'), $payment, ['package' => $package->code]),
+            'userInfo' => $this->packageUserInfo($user),
+            'items' => [[
+                'id' => 'package-'.strtolower((string) $package->code),
+                'count' => 1,
+                'name' => 'Пакет '.$package->code,
+                'price' => $this->numericAmount($payment->amount),
+            ]],
+            'metadata' => array_filter([
+                'payment_id' => $payment->id,
+                'user_id' => $user->id,
+                'type' => Payment::TYPE_PACKAGE,
+                'package_id' => $package->id,
+                'package_code' => $package->code,
+                'transition' => $transition['transition'],
+                'upgrade_from' => $transition['upgrade_from'],
+            ], fn (mixed $value): bool => $value !== null && $value !== ''),
+        ];
+
+        return $this->compactIntent($intent);
     }
 
     private function paymentSchema(): string
@@ -283,44 +602,64 @@ class TipTopPayService
         return in_array($schema, ['Single', 'Dual'], true) ? $schema : 'Single';
     }
 
-    private function urlWithOrder(string $baseUrl, Order $order, string $externalId): string
+    /**
+     * @param  array<string, mixed>  $extra
+     */
+    private function urlWithPayment(string $baseUrl, Payment $payment, array $extra = []): string
     {
         $separator = str_contains($baseUrl, '?') ? '&' : '?';
 
-        return $baseUrl.$separator.http_build_query([
-            'order' => $order->id,
-            'external_id' => $externalId,
-        ]);
+        return $baseUrl.$separator.http_build_query(array_filter([
+            ...$extra,
+            'payment_id' => $payment->id,
+            'external_id' => $payment->external_id,
+        ], fn (mixed $value): bool => $value !== null && $value !== ''));
     }
 
     /**
      * @return array<string, mixed>
      */
-    private function userInfo(Order $order): array
+    private function orderUserInfo(Order $order): array
     {
         $user = $order->user;
         $profile = $user?->profile;
 
         return array_filter([
-            'accountId' => (string) $order->user_id,
-            'fullName' => $order->recipient_name ?: $user?->name,
-            'phone' => $order->phone ?: $user?->phone ?: $profile?->phone,
+            'accountId' => 'user-'.$order->user_id,
+            'fullName' => $this->orderDeliveryValue($order, 'recipient_name') ?: $user?->name,
+            'phone' => $this->orderDeliveryValue($order, 'phone') ?: $user?->phone ?: $profile?->phone,
             'email' => $user?->email,
-            'city' => $order->city ?: $profile?->city,
-            'address' => $order->delivery_address,
+            'city' => $this->orderDeliveryValue($order, 'city') ?: $profile?->city,
+            'address' => $this->orderDeliveryValue($order, 'delivery_address'),
+        ], fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function packageUserInfo(User $user): array
+    {
+        $user->loadMissing('profile');
+
+        return array_filter([
+            'accountId' => 'user-'.$user->id,
+            'fullName' => $user->name,
+            'phone' => $user->phone ?: $user->profile?->phone,
+            'email' => $user->email,
         ], fn (mixed $value): bool => $value !== null && $value !== '');
     }
 
     /**
      * @return array<int, array<string, mixed>>
      */
-    private function items(Order $order): array
+    private function orderItems(Order $order): array
     {
         return $order->items->map(function ($item): array {
             $snapshot = is_array($item->item_snapshot) ? $item->item_snapshot : [];
+            $productId = $item->product_id ?: $item->id;
 
             return [
-                'id' => (string) ($item->product_id ?: $item->id),
+                'id' => 'product-'.$productId,
                 'name' => $item->product_name ?: ($snapshot['name'] ?? 'Safi Life product'),
                 'count' => (int) $item->quantity,
                 'price' => $this->numericAmount($item->unit_price),
@@ -328,11 +667,34 @@ class TipTopPayService
         })->values()->all();
     }
 
+    /**
+     * @param  array<string, mixed>  $intent
+     * @return array<string, mixed>
+     */
+    private function compactIntent(array $intent): array
+    {
+        return array_filter($intent, fn (mixed $value): bool => $value !== null && $value !== '');
+    }
+
     private function numericAmount(mixed $value): float|int
     {
         $amount = round((float) $value, 2);
 
         return floor($amount) === $amount ? (int) $amount : $amount;
+    }
+
+    private function decimal(string $value): string
+    {
+        return number_format((float) $value, 2, '.', '');
+    }
+
+    private function orderDeliveryValue(Order $order, string $field): mixed
+    {
+        $shippingAddress = is_array($order->shipping_address) ? $order->shipping_address : [];
+
+        return $order->{$field}
+            ?: $shippingAddress[$field]
+            ?? ($field === 'delivery_address' ? ($shippingAddress['address'] ?? null) : null);
     }
 
     /**
@@ -360,6 +722,7 @@ class TipTopPayService
         $secret = (string) config('tiptoppay.webhook_secret', '');
 
         if (trim($secret) === '') {
+            // TODO: Enable strict TipTop Pay webhook auth after cabinet secret is configured.
             return true;
         }
 
@@ -374,23 +737,72 @@ class TipTopPayService
         return hash_equals($expected, $received);
     }
 
-    private function findOrder(array $payload): ?Order
+    private function makeExternalId(string $prefix): string
+    {
+        do {
+            $externalId = $prefix.'-'.(string) Str::uuid();
+        } while (Payment::query()->where('external_id', $externalId)->exists());
+
+        return $externalId;
+    }
+
+    private function findPaymentForWebhook(array $payload): ?Payment
     {
         $externalId = $this->externalId($payload);
 
-        if ($externalId !== '') {
-            $order = Order::query()->where('payment_external_id', $externalId)->first();
-
-            if ($order) {
-                return $order;
-            }
-
-            if (preg_match('/^order-(\d+)-/i', $externalId, $matches)) {
-                return Order::query()->find((int) $matches[1]);
-            }
+        if ($externalId === '') {
+            return null;
         }
 
-        $orderId = Arr::get($payload, 'Data.order_id') ?? Arr::get($payload, 'data.order_id') ?? Arr::get($payload, 'metadata.order_id');
+        $payment = Payment::query()->where('external_id', $externalId)->first();
+
+        if ($payment) {
+            return $payment;
+        }
+
+        $order = $this->findOrderFallback($payload, $externalId);
+
+        if (! $order) {
+            return null;
+        }
+
+        return Payment::query()->firstOrCreate(
+            ['external_id' => $externalId],
+            [
+                'user_id' => $order->user_id,
+                'payable_type' => Order::class,
+                'payable_id' => $order->id,
+                'type' => Payment::TYPE_ORDER,
+                'provider' => Payment::PROVIDER_TIPTOPPAY,
+                'amount' => (string) $order->total_amount,
+                'currency' => 'KZT',
+                'status' => $order->payment_status === 'paid' ? Payment::STATUS_PAID : Payment::STATUS_PENDING,
+                'description' => sprintf('Оплата заказа #%s на Safi Life', $order->order_number ?: $order->id),
+                'payload' => [
+                    'order_id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'type' => Payment::TYPE_ORDER,
+                    'legacy_order_payment' => true,
+                ],
+            ],
+        );
+    }
+
+    private function findOrderFallback(array $payload, string $externalId): ?Order
+    {
+        $order = Order::query()->where('payment_external_id', $externalId)->first();
+
+        if ($order) {
+            return $order;
+        }
+
+        if (preg_match('/^order-(\d+)-/i', $externalId, $matches)) {
+            return Order::query()->find((int) $matches[1]);
+        }
+
+        $orderId = Arr::get($payload, 'Data.order_id')
+            ?? Arr::get($payload, 'data.order_id')
+            ?? Arr::get($payload, 'metadata.order_id');
 
         return is_numeric($orderId) ? Order::query()->find((int) $orderId) : null;
     }
@@ -421,7 +833,7 @@ class TipTopPayService
         return null;
     }
 
-    private function amountMatches(Order $order, array $payload): bool
+    private function amountMatches(Payment $payment, array $payload): bool
     {
         $amount = $payload['Amount'] ?? $payload['amount'] ?? null;
 
@@ -429,7 +841,7 @@ class TipTopPayService
             return true;
         }
 
-        return bccomp((string) $order->total_amount, (string) $amount, 2) === 0;
+        return bccomp((string) $payment->amount, (string) $amount, 2) === 0;
     }
 
     private function currencyMatches(array $payload): bool
@@ -439,20 +851,256 @@ class TipTopPayService
         return $currency === 'KZT';
     }
 
-    private function appendWebhookMeta(Order $order, string $event, array $payload): void
+    private function markOrderPaid(Payment $payment, array $payload): void
+    {
+        /** @var Order|null $order */
+        $order = $payment->payable_type === Order::class
+            ? Order::query()->whereKey($payment->payable_id)->lockForUpdate()->first()
+            : null;
+
+        if (! $order) {
+            return;
+        }
+
+        if ($order->payment_status !== 'paid') {
+            $order->forceFill([
+                'status' => $order->status === 'pending' ? 'confirmed' : $order->status,
+                'payment_provider' => Payment::PROVIDER_TIPTOPPAY,
+                'payment_status' => 'paid',
+                'payment_external_id' => $payment->external_id,
+                'payment_transaction_id' => $this->transactionId($payload) ?: $order->payment_transaction_id,
+                'paid_at' => $order->paid_at ?: ($payment->paid_at ?: now()),
+            ])->save();
+
+            $this->recordOrderPaymentTransaction($payment, $order);
+        }
+
+        $this->appendOrderWebhookMeta($order, 'pay', $payload, $payment);
+    }
+
+    private function markPayableFailed(Payment $payment, array $payload): void
+    {
+        if ($payment->type !== Payment::TYPE_ORDER || $payment->payable_type !== Order::class) {
+            return;
+        }
+
+        /** @var Order|null $order */
+        $order = Order::query()->whereKey($payment->payable_id)->lockForUpdate()->first();
+
+        if (! $order) {
+            return;
+        }
+
+        if ($order->payment_status !== 'paid') {
+            $order->forceFill([
+                'payment_provider' => Payment::PROVIDER_TIPTOPPAY,
+                'payment_status' => 'failed',
+                'payment_external_id' => $payment->external_id,
+                'payment_transaction_id' => $this->transactionId($payload) ?: $order->payment_transaction_id,
+            ])->save();
+        }
+
+        $this->appendOrderWebhookMeta($order, 'fail', $payload, $payment);
+    }
+
+    private function activatePaidPackage(Payment $payment): void
+    {
+        /** @var Package|null $targetPackage */
+        $targetPackage = $payment->payable_type === Package::class
+            ? Package::query()->whereKey($payment->payable_id)->first()
+            : null;
+
+        if (! $targetPackage) {
+            return;
+        }
+
+        /** @var User $user */
+        $user = User::query()->with('currentPackage')->findOrFail($payment->user_id);
+
+        if ((int) $user->current_package_id === (int) $targetPackage->id) {
+            return;
+        }
+
+        if (! $user->currentPackage) {
+            $this->packageService->upgradePackage($user, $targetPackage);
+        } else {
+            $this->packageService->upgradeExistingPackage($user, $targetPackage);
+        }
+
+        $this->attachPaymentToLatestPackageTransaction($payment, $targetPackage);
+    }
+
+    private function attachPaymentToLatestPackageTransaction(Payment $payment, Package $package): void
+    {
+        $transaction = WalletTransaction::query()
+            ->where('user_id', $payment->user_id)
+            ->whereIn('type', ['package_activation', 'package_upgrade'])
+            ->where('source_type', Package::class)
+            ->where('source_id', $package->id)
+            ->latest()
+            ->first();
+
+        if (! $transaction) {
+            return;
+        }
+
+        $metadata = is_array($transaction->metadata) ? $transaction->metadata : [];
+        $metadata['payment_id'] = $payment->id;
+        $metadata['payment_external_id'] = $payment->external_id;
+        $metadata['payment_provider'] = Payment::PROVIDER_TIPTOPPAY;
+
+        $transaction->forceFill(['metadata' => $metadata])->save();
+    }
+
+    private function recordOrderPaymentTransaction(Payment $payment, Order $order): void
+    {
+        $this->walletService->createUserWallets($order->user);
+
+        $wallet = $order->user->wallets()
+            ->where('type', 'main')
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $this->walletService->recordNonBalanceOperation(
+            $wallet,
+            (string) $payment->amount,
+            'order_payment',
+            $payment,
+            [
+                'payment_id' => $payment->id,
+                'payment_external_id' => $payment->external_id,
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'provider' => Payment::PROVIDER_TIPTOPPAY,
+                'affects_balance' => false,
+            ],
+            sprintf('Оплата заказа #%s через TipTop Pay', $order->order_number ?: $order->id),
+            'debit',
+        );
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function handleTerminalPaymentStatus(array $payload, string $paymentStatus, string $orderPaymentStatus, string $orderStatus, string $event): array
+    {
+        $payment = $this->findPaymentForWebhook($payload);
+
+        if (! $payment) {
+            return ['code' => 10];
+        }
+
+        DB::transaction(function () use ($payment, $payload, $paymentStatus, $orderPaymentStatus, $orderStatus, $event): void {
+            /** @var Payment $lockedPayment */
+            $lockedPayment = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
+            $lockedPayment->forceFill([
+                'status' => $paymentStatus,
+                'provider_response' => $this->providerResponseWithEvent($lockedPayment, $event, $payload),
+                'failed_at' => $paymentStatus === Payment::STATUS_CANCELLED ? now() : $lockedPayment->failed_at,
+            ])->save();
+
+            if ($lockedPayment->type === Payment::TYPE_ORDER && $lockedPayment->payable_type === Order::class) {
+                /** @var Order|null $order */
+                $order = Order::query()->whereKey($lockedPayment->payable_id)->lockForUpdate()->first();
+
+                if ($order) {
+                    $order->forceFill([
+                        'status' => $orderStatus,
+                        'payment_provider' => Payment::PROVIDER_TIPTOPPAY,
+                        'payment_status' => $orderPaymentStatus,
+                        'payment_external_id' => $lockedPayment->external_id,
+                        'payment_transaction_id' => $this->transactionId($payload) ?: $order->payment_transaction_id,
+                    ])->save();
+
+                    $this->appendOrderWebhookMeta($order, $event, $payload, $lockedPayment);
+                }
+            }
+        });
+
+        return ['code' => 0];
+    }
+
+    private function appendPaymentProviderResponse(Payment $payment, string $event, array $payload): void
+    {
+        $payment->forceFill([
+            'provider_response' => $this->providerResponseWithEvent($payment, $event, $payload),
+        ])->save();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function providerResponseWithEvent(Payment $payment, string $event, array $payload): array
+    {
+        $response = is_array($payment->provider_response) ? $payment->provider_response : [];
+        $events = is_array($response['webhooks'] ?? null) ? $response['webhooks'] : [];
+        $events[] = $this->webhookEvent($event, $payload);
+        $response['webhooks'] = array_slice($events, -20);
+
+        return $response;
+    }
+
+    private function appendPayableWebhookMeta(Payment $payment, string $event, array $payload): void
+    {
+        if ($payment->type !== Payment::TYPE_ORDER || $payment->payable_type !== Order::class) {
+            return;
+        }
+
+        /** @var Order|null $order */
+        $order = Order::query()->find($payment->payable_id);
+
+        if ($order) {
+            $this->appendOrderWebhookMeta($order, $event, $payload, $payment);
+        }
+    }
+
+    private function appendOrderWebhookMeta(Order $order, string $event, array $payload, ?Payment $payment = null): void
     {
         $meta = is_array($order->payment_meta) ? $order->payment_meta : [];
         $events = is_array($meta['webhooks'] ?? null) ? $meta['webhooks'] : [];
-        $events[] = [
+        $events[] = array_merge($this->webhookEvent($event, $payload), [
+            'payment_id' => $payment?->id,
+            'payment_external_id' => $payment?->external_id,
+        ]);
+
+        $meta['webhooks'] = array_slice($events, -20);
+        $order->forceFill(['payment_meta' => $meta])->save();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function webhookEvent(string $event, array $payload): array
+    {
+        return [
             'event' => $event,
             'received_at' => now()->toISOString(),
             'transaction_id' => $this->transactionId($payload),
             'reason' => $payload['Reason'] ?? $payload['reason'] ?? null,
             'reason_code' => $payload['ReasonCode'] ?? $payload['reasonCode'] ?? null,
-            'raw' => $payload,
+            'raw' => $this->sanitizeWebhookPayload($payload),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function sanitizeWebhookPayload(array $payload): array
+    {
+        $blockedKeys = [
+            'CardCryptogramPacket',
+            'CardFirstSix',
+            'CardLastFour',
+            'CardType',
+            'Token',
+            'Name',
+            'IpAddress',
         ];
 
-        $meta['webhooks'] = array_slice($events, -20);
-        $order->forceFill(['payment_meta' => $meta])->save();
+        foreach ($blockedKeys as $key) {
+            unset($payload[$key], $payload[lcfirst($key)]);
+        }
+
+        return $payload;
     }
 }

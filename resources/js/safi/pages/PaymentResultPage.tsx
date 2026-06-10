@@ -5,6 +5,7 @@ import { Container } from '../components/ui/Container';
 export default function PaymentResultPage({ result }: { result: 'success' | 'fail' }) {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get('order');
+  const packageCode = searchParams.get('package');
   const isSuccess = result === 'success';
   const Icon = isSuccess ? CheckCircle2 : XCircle;
 
@@ -21,8 +22,8 @@ export default function PaymentResultPage({ result }: { result: 'success' | 'fai
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-sm leading-7 text-safi-muted md:text-base">
             {isSuccess
-              ? 'Мы ожидаем подтверждение платежа от TipTop Pay. Финальный статус заказа обновится после backend-уведомления платежной системы.'
-              : 'Виджет TipTop Pay не подтвердил оплату. Деньги не будут зачислены по заказу, пока платежная система не отправит успешное уведомление.'}
+              ? 'Статус обновится после подтверждения платежной системой. Frontend callback не активирует заказ или пакет.'
+              : 'Виджет TipTop Pay не подтвердил оплату. Заказ или пакет не будут активированы, пока платежная система не отправит успешное уведомление.'}
           </p>
 
           {!isSuccess && (
@@ -34,6 +35,7 @@ export default function PaymentResultPage({ result }: { result: 'success' | 'fai
                 <li>Проверьте корректность данных банковской карты.</li>
                 <li>Убедитесь, что карта поддерживает интернет-платежи.</li>
                 <li>Проверьте достаточность средств и лимиты по карте.</li>
+                <li>Проверьте срок действия карты.</li>
                 <li>Если банк отклоняет операцию, обратитесь в банк-эмитент.</li>
                 <li>Повторите оплату из карточки заказа.</li>
               </ul>
@@ -41,8 +43,8 @@ export default function PaymentResultPage({ result }: { result: 'success' | 'fai
           )}
 
           <div className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link to={orderId ? `/dashboard/orders/${orderId}` : '/dashboard/orders'} className="inline-flex items-center justify-center rounded-full bg-safi-green px-7 py-4 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green-hover">
-              {orderId ? 'Открыть заказ' : 'Мои заказы'}
+            <Link to={packageCode ? '/dashboard/package' : orderId ? `/dashboard/orders/${orderId}` : '/dashboard/orders'} className="inline-flex items-center justify-center rounded-full bg-safi-green px-7 py-4 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green-hover">
+              {packageCode ? 'Пакет и статус' : orderId ? 'Открыть заказ' : 'Мои заказы'}
             </Link>
             <Link to="/payment" className="inline-flex items-center justify-center rounded-full border border-safi-green px-7 py-4 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:bg-safi-green hover:text-white">
               Информация об оплате

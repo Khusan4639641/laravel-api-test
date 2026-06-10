@@ -69,9 +69,11 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
 
 Route::prefix('payments/tiptoppay')->group(function (): void {
+    Route::get('/status', [TipTopPayWebhookController::class, 'status']);
     Route::post('/check', [TipTopPayWebhookController::class, 'check']);
     Route::post('/pay', [TipTopPayWebhookController::class, 'pay']);
     Route::post('/fail', [TipTopPayWebhookController::class, 'fail']);
+    Route::post('/confirm', [TipTopPayWebhookController::class, 'confirm']);
     Route::post('/refund', [TipTopPayWebhookController::class, 'refund']);
     Route::post('/cancel', [TipTopPayWebhookController::class, 'cancel']);
 });
@@ -87,6 +89,8 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
     Route::post('/orders', [OrderController::class, 'store']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
     Route::post('/orders/{order}/payment/tiptoppay/intent', TipTopPayIntentController::class);
+    Route::post('/orders/{order}/payments/tiptoppay/intent', TipTopPayIntentController::class);
+    Route::post('/payments/tiptoppay/package-intent', [TipTopPayIntentController::class, 'packageFromPayload']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']);
     Route::get('/me/permissions', PermissionController::class);
@@ -102,6 +106,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         Route::get('/earnings-summary', DashboardEarningsSummaryController::class);
         Route::get('/notifications', [DashboardNotificationController::class, 'index']);
         Route::get('/packages', DashboardPackageController::class);
+        Route::post('/package/{package}/payments/tiptoppay/intent', [TipTopPayIntentController::class, 'package']);
         Route::get('/products', DashboardProductController::class);
         Route::get('/deposit-products', DashboardDepositProductController::class);
         Route::get('/orders', DashboardOrderController::class);

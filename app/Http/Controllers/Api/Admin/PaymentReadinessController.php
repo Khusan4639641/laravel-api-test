@@ -155,7 +155,7 @@ class PaymentReadinessController extends Controller
      */
     private function webhookRoutesStatus(): array
     {
-        return collect(['check', 'pay', 'fail', 'refund', 'cancel'])
+        return collect(['check', 'pay', 'fail', 'confirm', 'refund', 'cancel'])
             ->mapWithKeys(fn (string $action): array => [
                 $action => $this->hasPostRoute("api/payments/tiptoppay/{$action}"),
             ])

@@ -72,6 +72,7 @@ const systemLabels = {
     binary_bonus_main: { ru: 'Бинарный бонус: основной кошелёк', kz: 'Бинарлық бонус: негізгі әмиян', kg: 'Бинардык бонус: негизги капчык', en: 'Binary bonus: main wallet', mn: 'Хоёртын бонус: үндсэн хэтэвч' },
     binary_bonus_deposit: { ru: 'Бинарный бонус: депозит', kz: 'Бинарлық бонус: депозит', kg: 'Бинардык бонус: депозит', en: 'Binary bonus: deposit', mn: 'Хоёртын бонус: депозит' },
     referral_bonus: { ru: 'Реферальный бонус', kz: 'Рефералдық бонус', kg: 'Рефералдык бонус', en: 'Referral bonus', mn: 'Урилгын бонус' },
+    order_payment: { ru: 'Оплата заказа', kz: 'Тапсырыс төлемі', kg: 'Заказ төлөмү', en: 'Order payment', mn: 'Захиалгын төлбөр' },
     package_assignment: { ru: 'Назначение пакета', kz: 'Пакет тағайындау', kg: 'Пакет дайындоо', en: 'Package assignment', mn: 'Багц оноолт' },
     package_activation: { ru: 'Покупка пакета', kz: 'Пакет сатып алу', kg: 'Пакет сатып алуу', en: 'Package purchase', mn: 'Багц худалдан авалт' },
     package_upgrade: { ru: 'Upgrade пакета', kz: 'Пакет upgrade', kg: 'Пакет upgrade', en: 'Package upgrade', mn: 'Багц upgrade' },

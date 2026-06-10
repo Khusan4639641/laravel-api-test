@@ -1,21 +1,8 @@
 import { useCallback, useState } from 'react';
 import { TipTopPayPaymentIntent } from '../lib/api';
+import { loadTipTopPayWidget, startTipTopPayment } from '../lib/tiptoppay';
 
-const TIPTOPPAY_WIDGET_SRC = 'https://widget.tiptoppay.kz/bundles/widget.js';
-let widgetScriptPromise: Promise<void> | null = null;
-
-interface TipTopWidgetInstance {
-  start: (params: TipTopPayPaymentIntent) => Promise<unknown> | unknown;
-  oncomplete?: (result: unknown) => void;
-}
-
-declare global {
-  interface Window {
-    tiptop?: {
-      Widget: new () => TipTopWidgetInstance;
-    };
-  }
-}
+export { loadTipTopPayWidget, startTipTopPayment };
 
 export function useTipTopPayWidget() {
   const [isWidgetLoading, setIsWidgetLoading] = useState(false);
@@ -30,7 +17,7 @@ export function useTipTopPayWidget() {
     setIsWidgetLoading(true);
 
     try {
-      await loadTipTopPayWidgetScript();
+      await loadTipTopPayWidget();
 
       if (!window.tiptop?.Widget) {
         throw new Error('Не удалось загрузить платежный виджет. Попробуйте позже.');
@@ -68,45 +55,4 @@ export function useTipTopPayWidget() {
   }, []);
 
   return { isWidgetLoading, startPayment };
-}
-
-function loadTipTopPayWidgetScript() {
-  if (typeof window === 'undefined') {
-    return Promise.reject(new Error('Платежный виджет доступен только в браузере.'));
-  }
-
-  if (window.tiptop?.Widget) {
-    return Promise.resolve();
-  }
-
-  if (widgetScriptPromise) {
-    return widgetScriptPromise;
-  }
-
-  widgetScriptPromise = new Promise<void>((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${TIPTOPPAY_WIDGET_SRC}"]`);
-
-    if (existingScript) {
-      if (window.tiptop?.Widget || existingScript.dataset.loaded === 'true') {
-        resolve();
-        return;
-      }
-
-      existingScript.addEventListener('load', () => resolve(), { once: true });
-      existingScript.addEventListener('error', () => reject(new Error('Не удалось загрузить платежный виджет. Попробуйте позже.')), { once: true });
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = TIPTOPPAY_WIDGET_SRC;
-    script.async = true;
-    script.onload = () => {
-      script.dataset.loaded = 'true';
-      resolve();
-    };
-    script.onerror = () => reject(new Error('Не удалось загрузить платежный виджет. Попробуйте позже.'));
-    document.head.appendChild(script);
-  });
-
-  return widgetScriptPromise;
 }
