@@ -4,7 +4,7 @@ import { Copy, Eye, Filter, Network, Plus, Search, X } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState, getRegistrationPackages, Package } from '../../lib/api';
+import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState, getRegistrationPackages, Package, searchAdminSponsors } from '../../lib/api';
 import { formatPv } from '../../lib/format';
 import { adminText } from '../../i18n/adminText';
 import { features } from '../../config/features';
@@ -31,6 +31,15 @@ interface AdminPartnerRow {
   registrationDate: string;
   accountStatusCode: string;
   accountStatus: string;
+}
+
+interface SponsorOption {
+  id: string;
+  label: string;
+  login: string;
+  email: string;
+  phone: string;
+  fullName: string;
 }
 
 interface CreatedCredentials {
@@ -109,6 +118,10 @@ export default function AdminPartners() {
   const [createdCredentials, setCreatedCredentials] = useState<CreatedCredentials | null>(null);
   const [copyStatus, setCopyStatus] = useState('');
   const [registrationPackages, setRegistrationPackages] = useState<Package[]>([]);
+  const [sponsorOptions, setSponsorOptions] = useState<SponsorOption[]>([]);
+  const [sponsorQuery, setSponsorQuery] = useState('');
+  const [isSponsorsLoading, setIsSponsorsLoading] = useState(false);
+  const [sponsorSearchError, setSponsorSearchError] = useState<string | null>(null);
 
   const loadUsers = async (searchQuery = searchTerm, pageLimit = limit, pageOffset = offset) => {
     setIsLoading(true);
@@ -158,12 +171,54 @@ export default function AdminPartners() {
       .catch(() => setRegistrationPackages([]));
   }, []);
 
+  useEffect(() => {
+    if (!isCreateOpen) {
+      return undefined;
+    }
+
+    let isCurrent = true;
+    const timeout = window.setTimeout(() => {
+      setIsSponsorsLoading(true);
+      setSponsorSearchError(null);
+
+      void searchAdminSponsors(sponsorQuery.trim(), 30, createForm.sponsor_id || undefined)
+        .then((response) => {
+          if (!isCurrent) {
+            return;
+          }
+
+          const normalizedSponsors = normalizeSponsorOptions(response);
+          setSponsorOptions((current) => mergeSponsorOptions(normalizedSponsors, current, createForm.sponsor_id));
+        })
+        .catch(() => {
+          if (!isCurrent) {
+            return;
+          }
+
+          setSponsorSearchError('Не удалось загрузить список спонсоров');
+        })
+        .finally(() => {
+          if (isCurrent) {
+            setIsSponsorsLoading(false);
+          }
+        });
+    }, sponsorQuery.trim() ? 300 : 0);
+
+    return () => {
+      isCurrent = false;
+      window.clearTimeout(timeout);
+    };
+  }, [isCreateOpen, sponsorQuery, createForm.sponsor_id]);
+
   const openCreateModal = () => {
     setCreateForm(initialCreateForm);
     setCreateError(null);
     setFieldErrors({});
     setCreatedCredentials(null);
     setCopyStatus('');
+    setSponsorOptions([]);
+    setSponsorQuery('');
+    setSponsorSearchError(null);
     setIsCreateOpen(true);
   };
 
@@ -473,7 +528,10 @@ export default function AdminPartners() {
       {isCreateOpen && (
         <CreatePartnerModal
           form={createForm}
-          partners={partners}
+          sponsors={sponsorOptions}
+          sponsorQuery={sponsorQuery}
+          isSponsorsLoading={isSponsorsLoading}
+          sponsorSearchError={sponsorSearchError}
           packages={registrationPackages}
           fieldErrors={fieldErrors}
           error={createError}
@@ -483,6 +541,7 @@ export default function AdminPartners() {
           onClose={closeCreateModal}
           onCopy={copyCredentials}
           onSubmit={submitCreatePartner}
+          onSponsorQueryChange={setSponsorQuery}
           onChange={(field, value) => setCreateForm((current) => ({
             ...current,
             [field]: value,
@@ -496,7 +555,10 @@ export default function AdminPartners() {
 
 function CreatePartnerModal({
   form,
-  partners,
+  sponsors,
+  sponsorQuery,
+  isSponsorsLoading,
+  sponsorSearchError,
   packages,
   fieldErrors,
   error,
@@ -506,10 +568,14 @@ function CreatePartnerModal({
   onClose,
   onCopy,
   onSubmit,
+  onSponsorQueryChange,
   onChange,
 }: {
   form: typeof initialCreateForm;
-  partners: AdminPartnerRow[];
+  sponsors: SponsorOption[];
+  sponsorQuery: string;
+  isSponsorsLoading: boolean;
+  sponsorSearchError: string | null;
   packages: Package[];
   fieldErrors: FieldErrors;
   error: string | null;
@@ -519,6 +585,7 @@ function CreatePartnerModal({
   onClose: () => void;
   onCopy: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onSponsorQueryChange: (value: string) => void;
   onChange: (field: keyof typeof initialCreateForm, value: string | boolean) => void;
 }) {
   return (
@@ -606,18 +673,28 @@ function CreatePartnerModal({
                 />
               </ModalField>
               <ModalField label={adminText('a_0KHQv9C-0L3R_3')} error={fieldErrors.sponsor_id?.[0]}>
+                <input
+                  type="search"
+                  value={sponsorQuery}
+                  onChange={(event) => onSponsorQueryChange(event.target.value)}
+                  className={`${modalInputClass} mb-2`}
+                  placeholder="Поиск по ID, имени, login, email, телефону"
+                  autoComplete="off"
+                />
                 <select
                   value={form.sponsor_id}
                   onChange={(event) => onChange('sponsor_id', event.target.value)}
                   className={modalInputClass}
                 >
                   <option value="">{adminText('a_0JHQtdC3INGB')}</option>
-                  {partners.map((partner) => (
-                    <option key={partner.id} value={partner.id}>
-                      {partner.fullName} ({partner.login || partner.email})
+                  {sponsors.map((sponsor) => (
+                    <option key={sponsor.id} value={sponsor.id}>
+                      {sponsor.label}
                     </option>
                   ))}
                 </select>
+                {isSponsorsLoading && <span className="mt-2 block text-xs font-bold text-safi-muted">Загрузка спонсоров...</span>}
+                {sponsorSearchError && <span className="mt-2 block text-xs font-bold text-red-600">{sponsorSearchError}</span>}
               </ModalField>
               <ModalField label={adminText('a_0JLQtdGC0LrQ')} error={fieldErrors.branch?.[0]}>
                 <select
@@ -627,7 +704,7 @@ function CreatePartnerModal({
                   disabled={!form.sponsor_id}
                   required={Boolean(form.sponsor_id)}
                 >
-                  <option value="">Выберите ветку</option>
+                  <option value="">{form.sponsor_id ? 'Выберите ветку' : 'Сначала выберите спонсора'}</option>
                   <option value="left">Левая ветка</option>
                   <option value="right">Правая ветка</option>
                 </select>
@@ -752,6 +829,50 @@ function normalizeCredentials(response: unknown): CreatedCredentials {
     password: getString(credentials, ['password']) || '-',
     login_url: getString(credentials, ['login_url', 'loginUrl']) || 'https://safilife.kz/login',
   };
+}
+
+function normalizeSponsorOptions(response: unknown): SponsorOption[] {
+  return getArray(response)
+    .map((item, index) => {
+      const record = isRecord(item) ? item : {};
+      const profileRecord = isRecord(record.profile) ? record.profile : undefined;
+      const id = getString(record, ['id', 'partner_id', 'partnerId', 'code']) || '';
+      const fullName = getString(record, ['full_name', 'fullName', 'name']) || `Sponsor ${index + 1}`;
+      const login = getString(record, ['login', 'username']) || '';
+      const email = getString(record, ['email']) || '';
+      const phone = getString(record, ['phone', 'phone_number', 'phoneNumber']) || getString(profileRecord, ['phone']) || '';
+      const details = [
+        `ID ${id}`,
+        login,
+        email,
+        phone,
+      ].filter(Boolean);
+
+      return {
+        id,
+        label: `${fullName}${details.length ? ` (${details.join(' · ')})` : ''}`,
+        login,
+        email,
+        phone,
+        fullName,
+      };
+    })
+    .filter((sponsor) => sponsor.id !== '');
+}
+
+function mergeSponsorOptions(next: SponsorOption[], current: SponsorOption[], selectedId: string): SponsorOption[] {
+  const selected = selectedId
+    ? next.find((sponsor) => sponsor.id === selectedId) || current.find((sponsor) => sponsor.id === selectedId)
+    : undefined;
+  const merged = new Map<string, SponsorOption>();
+
+  if (selected) {
+    merged.set(selected.id, selected);
+  }
+
+  next.forEach((sponsor) => merged.set(sponsor.id, sponsor));
+
+  return Array.from(merged.values());
 }
 
 function normalizePartners(response: unknown): AdminPartnerRow[] {
@@ -897,6 +1018,14 @@ function getArray(response: unknown) {
 
     if (Array.isArray(response.users)) {
       return response.users;
+    }
+
+    if (Array.isArray(response.sponsors)) {
+      return response.sponsors;
+    }
+
+    if (Array.isArray(response.partners)) {
+      return response.partners;
     }
   }
 

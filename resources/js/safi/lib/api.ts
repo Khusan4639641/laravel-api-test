@@ -788,6 +788,21 @@ export async function searchAdminPartners<T = unknown>(q: string, limit = 10) {
   });
 }
 
+export async function searchAdminSponsors<T = unknown>(
+  q = '',
+  limit = 30,
+  selectedId?: string | number,
+) {
+  return apiRequest<T>(buildEndpointWithParams(endpoints.admin.sponsorsSearch, {
+    q,
+    limit,
+    selected_id: selectedId,
+  }), {
+    method: 'GET',
+    auth: true,
+  });
+}
+
 export async function getAdminPartner<T = unknown>(userId: string | number) {
   return apiRequest<T>(endpoints.admin.partner(userId), {
     method: 'GET',

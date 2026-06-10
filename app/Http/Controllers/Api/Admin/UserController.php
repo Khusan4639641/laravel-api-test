@@ -83,6 +83,46 @@ class UserController extends Controller
         ]);
     }
 
+    public function sponsorSearch(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'selected_id' => ['nullable', 'integer'],
+        ]);
+
+        $limit = (int) min(max($request->integer('limit', 30), 1), 50);
+        $sponsorsQuery = User::query()
+            ->eligibleSponsor()
+            ->with(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
+            ->withCount(['referrals', 'invitedUsers as invited_count'])
+            ->latest();
+
+        $this->applySponsorSearch($sponsorsQuery, $validated['q'] ?? '');
+
+        $sponsors = $sponsorsQuery
+            ->limit($limit)
+            ->get();
+
+        $selectedId = (int) ($validated['selected_id'] ?? 0);
+
+        if ($selectedId > 0 && ! $sponsors->contains('id', $selectedId)) {
+            $selectedSponsor = User::query()
+                ->eligibleSponsor()
+                ->with(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
+                ->withCount(['referrals', 'invitedUsers as invited_count'])
+                ->find($selectedId);
+
+            if ($selectedSponsor) {
+                $sponsors->prepend($selectedSponsor);
+            }
+        }
+
+        return response()->json([
+            'sponsors' => UserResource::collection($sponsors->unique('id')->values()),
+        ]);
+    }
+
     public function show(User $user): JsonResponse
     {
         return response()->json([
@@ -209,6 +249,43 @@ class UserController extends Controller
                 $walletQuery
                     ->whereRaw('LOWER(type) LIKE ?', [$like])
                     ->orWhereRaw('LOWER(currency) LIKE ?', [$like]);
+            });
+        });
+    }
+
+    private function applySponsorSearch(Builder $query, mixed $search): void
+    {
+        $search = trim((string) $search);
+        $phoneDigits = preg_replace('/\D+/', '', $search) ?? '';
+
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%'.mb_strtolower($search).'%';
+
+        $query->where(function (Builder $query) use ($search, $phoneDigits, $like): void {
+            $query
+                ->whereRaw('LOWER(name) LIKE ?', [$like])
+                ->orWhereRaw('LOWER(login) LIKE ?', [$like])
+                ->orWhereRaw('LOWER(email) LIKE ?', [$like]);
+
+            if (ctype_digit($search)) {
+                $query->orWhere('id', (int) $search);
+            }
+
+            $query->orWhereHas('profile', function (Builder $profileQuery) use ($like, $phoneDigits): void {
+                $profileQuery
+                    ->whereRaw('LOWER(first_name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(last_name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(phone) LIKE ?', [$like]);
+
+                if ($phoneDigits !== '') {
+                    $profileQuery->orWhereRaw(
+                        "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', ''), '(', ''), ')', '') LIKE ?",
+                        ["%{$phoneDigits}%"]
+                    );
+                }
             });
         });
     }

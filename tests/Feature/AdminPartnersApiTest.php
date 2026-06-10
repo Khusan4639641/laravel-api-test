@@ -399,6 +399,125 @@ class AdminPartnersApiTest extends TestCase
         $this->assertContains($target->id, $ids);
     }
 
+    public function test_admin_sponsor_search_finds_eligible_sponsor_by_supported_fields(): void
+    {
+        $target = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'name' => 'Sponsor Search Alpha',
+            'login' => 'sponsor-alpha-login',
+            'email' => 'sponsor.alpha@safi.test',
+            'account_status' => 'active',
+        ]);
+        UserProfile::query()->create([
+            'user_id' => $target->id,
+            'phone' => '+7 701 555 00 11',
+        ]);
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        foreach ([$target->id, 'Sponsor Search Alpha', 'sponsor-alpha-login', 'sponsor.alpha@safi.test', '7015550011'] as $query) {
+            $ids = collect($this->getJson('/api/admin/sponsors/search?'.http_build_query(['q' => $query]))
+                ->assertOk()
+                ->json('sponsors'))
+                ->pluck('id')
+                ->all();
+
+            $this->assertContains($target->id, $ids, "Sponsor search did not find target by [{$query}].");
+        }
+    }
+
+    public function test_admin_sponsor_search_is_not_limited_to_current_partners_page(): void
+    {
+        $target = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'name' => 'Global Sponsor Target',
+            'login' => 'global-sponsor-target',
+            'email' => 'global-sponsor-target@safi.test',
+            'created_at' => now()->subDays(10),
+        ]);
+        User::factory()->count(30)->create([
+            'role' => User::ROLE_USER,
+            'created_at' => now(),
+        ]);
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
+
+        $ids = collect($this->getJson('/api/admin/sponsors/search?q=global-sponsor-target&limit=5')
+            ->assertOk()
+            ->json('sponsors'))
+            ->pluck('id')
+            ->all();
+
+        $this->assertContains($target->id, $ids);
+    }
+
+    public function test_admin_sponsor_search_excludes_deleted_blocked_and_archived_users(): void
+    {
+        $active = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'login' => 'hidden-sponsor-active',
+            'account_status' => 'active',
+        ]);
+        $blocked = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'login' => 'hidden-sponsor-blocked',
+            'account_status' => 'blocked',
+        ]);
+        $archived = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'login' => 'hidden-sponsor-archived',
+            'account_status' => 'archived',
+        ]);
+        $deleted = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'login' => 'hidden-sponsor-deleted',
+            'account_status' => 'active',
+        ]);
+        $deleted->delete();
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
+
+        $ids = collect($this->getJson('/api/admin/sponsors/search?q=hidden-sponsor')
+            ->assertOk()
+            ->json('sponsors'))
+            ->pluck('id')
+            ->all();
+
+        $this->assertContains($active->id, $ids);
+        $this->assertNotContains($blocked->id, $ids);
+        $this->assertNotContains($archived->id, $ids);
+        $this->assertNotContains($deleted->id, $ids);
+    }
+
+    public function test_admin_sponsor_search_includes_selected_active_sponsor_when_query_changes(): void
+    {
+        $selected = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'login' => 'persisted-selected-sponsor',
+            'account_status' => 'active',
+        ]);
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
+
+        $ids = collect($this->getJson('/api/admin/sponsors/search?'.http_build_query([
+            'q' => 'query-without-match',
+            'selected_id' => $selected->id,
+        ]))->assertOk()->json('sponsors'))
+            ->pluck('id')
+            ->all();
+
+        $this->assertContains($selected->id, $ids);
+    }
+
+    public function test_user_and_support_cannot_use_admin_sponsor_search(): void
+    {
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_USER]));
+        $this->getJson('/api/admin/sponsors/search?q=test')->assertForbidden();
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPPORT]));
+        $this->getJson('/api/admin/sponsors/search?q=test')->assertForbidden();
+    }
+
     public function test_user_and_support_cannot_use_admin_partner_search(): void
     {
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_USER]));

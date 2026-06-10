@@ -55,6 +55,7 @@ export const endpoints = {
     overview: '/admin/overview',
     partners: '/admin/partners',
     partnersSearch: '/admin/partners/search',
+    sponsorsSearch: '/admin/sponsors/search',
     partnersBulkCreate: '/admin/partners/bulk-create',
     partner: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}`,
     partnerStatus: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/status`,

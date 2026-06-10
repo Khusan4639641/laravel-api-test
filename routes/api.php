@@ -202,6 +202,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         Route::middleware('role_permission:admin.read')->group(function (): void {
             Route::get('/partners', [AdminUserController::class, 'index']);
             Route::get('/partners/search', [AdminUserController::class, 'search']);
+            Route::get('/sponsors/search', [AdminUserController::class, 'sponsorSearch']);
             Route::get('/partners/{user}/delete-preview', [AdminPartnerController::class, 'deletePreview']);
             Route::get('/partners/{user}', [AdminPartnerController::class, 'show']);
             Route::get('/partners/{user}/transactions', [AdminPartnerController::class, 'transactions']);
