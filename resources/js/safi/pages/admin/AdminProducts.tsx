@@ -265,7 +265,7 @@ export default function AdminProducts() {
       {!isLoading && !error && products.length === 0 && <EmptyState title={adminText('a_0KLQvtCy0LDR_2')} description={adminText('a_0KHQvtC30LTQ_9')} />}
 
       {!isLoading && !error && products.length > 0 && (
-        <AdminTable headers={[adminText('a_0KLQvtCy0LDR_3'), adminText('a_0JrQsNGC0LXQ'), adminText('a_0KbQtdC90LAg'), adminText('a_0J7RgdGC0LDR'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
+        <AdminTable headers={[adminText('a_0KLQvtCy0LDR_3'), adminText('a_0JrQsNGC0LXQ'), adminText('a_0KbQtdC90LA'), adminText('a_0J7RgdGC0LDR'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
           {products.map((product) => (
             <tr key={product.id} className="hover:bg-safi-green/5 transition-colors group">
               <td className="px-6 py-4">
@@ -284,7 +284,6 @@ export default function AdminProducts() {
               </td>
               <td className="px-6 py-4">
                 <div className="font-bold text-safi-green">{product.price.toLocaleString('ru-RU')} ₸</div>
-                <div className="text-[10px] uppercase font-bold text-safi-gold mt-1 tracking-widest">{product.pv} PV</div>
               </td>
               <td className="px-6 py-4">
                 <div className="text-sm font-bold">{product.stock || 0}{adminText('a_0YjRgg')}</div>

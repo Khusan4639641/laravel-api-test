@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { CheckCircle2, ShoppingCart, Star } from 'lucide-react';
+import { CheckCircle2, ShoppingCart } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ToastItem, ToastStack } from '../../components/ui/Toast';
 import { getAvailableStock, isProductOrderable, useCart } from '../../context/CartContext';
@@ -196,17 +196,10 @@ function ProductCard({
               <h2 className="font-serif text-2xl font-semibold leading-tight text-safi-green">{product.name}</h2>
               <p className="mt-3 flex-1 text-sm leading-6 text-safi-muted">{product.shortDescription}</p>
 
-              <div className="mt-6 space-y-3 border-t border-safi-border pt-5">
+              <div className="mt-6 border-t border-safi-border pt-5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="font-bold text-safi-muted">{labels.price}</span>
                   <span className="font-extrabold text-safi-green">{product.price.toLocaleString('ru-RU')} ₸</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="font-bold text-safi-muted">PV</span>
-                  <span className="inline-flex items-center gap-1 font-extrabold text-safi-gold">
-                    <Star className="h-4 w-4 fill-current" />
-                    {product.pv} PV
-                  </span>
                 </div>
               </div>
 

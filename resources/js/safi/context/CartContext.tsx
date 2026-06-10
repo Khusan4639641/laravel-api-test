@@ -7,7 +7,6 @@ export interface CartItem {
   product: Product;
   quantity: number;
   subtotal: number;
-  pvTotal: number;
 }
 
 export type CartActionResult =
@@ -23,7 +22,6 @@ interface CartContextValue {
   items: CartItem[];
   totalItems: number;
   totalPrice: number;
-  totalPv: number;
   addProduct: (product: Product, quantity?: number) => CartActionResult;
   decrementProduct: (productId: string) => void;
   updateQuantity: (productId: string, quantity: number) => CartActionResult;
@@ -91,13 +89,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     product: item.product,
     quantity: item.quantity,
     subtotal: item.product.price * item.quantity,
-    pvTotal: item.product.pv * item.quantity,
   })), [storedItems]);
 
   const value = useMemo<CartContextValue>(() => {
     const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
     const totalPrice = items.reduce((sum, item) => sum + item.subtotal, 0);
-    const totalPv = items.reduce((sum, item) => sum + item.pvTotal, 0);
 
     const addProduct = (product: Product, quantity = 1): CartActionResult => {
       const productId = String(product.id);
@@ -149,7 +145,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       items,
       totalItems,
       totalPrice,
-      totalPv,
       addProduct,
       decrementProduct: (productId) => {
         const currentItem = storedItems.find((item) => String(item.product.id) === String(productId));
@@ -223,4 +218,3 @@ function upsertItem(items: StoredCartItem[], product: Product, quantity: number)
 
   return items.map((item) => String(item.product.id) === productId ? nextItem : item);
 }
-

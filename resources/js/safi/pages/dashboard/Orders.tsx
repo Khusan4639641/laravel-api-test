@@ -54,7 +54,6 @@ export default function Orders() {
   const summary = useMemo(() => ({
     total: orders.length,
     amount: orders.reduce((sum, order) => sum + order.totalAmount, 0),
-    pv: orders.reduce((sum, order) => sum + order.totalPv, 0),
   }), [orders]);
 
   const handleOnlinePayment = async (order: Order) => {
@@ -116,7 +115,6 @@ export default function Orders() {
           <section className="grid gap-4 md:grid-cols-3">
             <StatCard title={t('orders.orders')} value={summary.total.toLocaleString('ru-RU')} icon={<PackageCheck className="h-5 w-5" />} variant="dark" />
             <StatCard title={t('orders.totalAmount')} value={formatCurrency(summary.amount)} />
-            <StatCard title={t('orders.totalPv')} value={`${summary.pv.toLocaleString('ru-RU')} PV`} />
           </section>
 
           {orders.length === 0 ? (
@@ -131,7 +129,6 @@ export default function Orders() {
                       <th className="px-7 py-4">{t('orders.date')}</th>
                       <th className="px-7 py-4">{t('orders.items')}</th>
                       <th className="px-7 py-4">{t('orders.amount')}</th>
-                      <th className="px-7 py-4">{t('orders.pv')}</th>
                       <th className="px-7 py-4">{t('orders.status')}</th>
                       <th className="px-7 py-4">{t('orders.paymentStatus')}</th>
                       <th className="px-7 py-4">{t('orders.deliveryInfo')}</th>
@@ -150,7 +147,6 @@ export default function Orders() {
                           </div>
                         </td>
                         <td className="px-7 py-5 font-extrabold text-safi-green">{formatCurrency(order.totalAmount)}</td>
-                        <td className="px-7 py-5 font-extrabold text-safi-gold">{order.totalPv.toLocaleString('ru-RU')} PV</td>
                         <td className="px-7 py-5"><OrderStatusBadge status={order.status} /></td>
                         <td className="px-7 py-5"><PaymentStatusBadge status={order.paymentStatus || 'unpaid'} /></td>
                         <td className="px-7 py-5">
@@ -199,7 +195,6 @@ export default function Orders() {
                       </div>
                       <Metric label={t('orders.items')} value={order.itemsCount.toLocaleString('ru-RU')} />
                       <Metric label={t('orders.amount')} value={formatCurrency(order.totalAmount)} />
-                      <Metric label={t('orders.pv')} value={`${order.totalPv.toLocaleString('ru-RU')} PV`} />
                       <Metric label={t('orders.paymentStatus')} value={t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: order.paymentStatus || 'unpaid' })} />
                       <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
                       <Metric label={t('orders.deliveryPhone')} value={order.phone || '-'} />

@@ -64,7 +64,6 @@ export default function AdminOrders() {
   const summary = useMemo(() => ({
     total: orders.length,
     amount: orders.reduce((sum, order) => sum + order.totalAmount, 0),
-    pv: orders.reduce((sum, order) => sum + order.totalPv, 0),
     pending: orders.filter((order) => order.status === 'pending').length,
     paid: orders.filter((order) => order.paymentStatus === 'paid').length,
   }), [orders]);
@@ -109,7 +108,6 @@ export default function AdminOrders() {
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <AdminStatCard title={t('orders.orders')} value={summary.total.toLocaleString('ru-RU')} icon={ShoppingBag} />
         <AdminStatCard title={t('orders.totalAmount')} value={formatCurrency(summary.amount)} icon={ShoppingBag} />
-        <AdminStatCard title={t('orders.totalPv')} value={`${summary.pv.toLocaleString('ru-RU')} PV`} icon={ShoppingBag} />
         <AdminStatCard title={t('orders.paymentStatusLabels.paid')} value={summary.paid.toLocaleString('ru-RU')} icon={ShoppingBag} />
       </section>
 
@@ -165,7 +163,6 @@ export default function AdminOrders() {
           t('orders.contacts'),
           t('orders.items'),
           t('orders.amount'),
-          t('orders.pv'),
           t('orders.status'),
           t('orders.paymentStatus'),
           t('orders.date'),
@@ -190,7 +187,6 @@ export default function AdminOrders() {
                 </td>
                 <td className="px-6 py-4 font-bold text-safi-green">{order.itemsCount.toLocaleString('ru-RU')}</td>
                 <td className="px-6 py-4 font-bold text-safi-green">{formatCurrency(order.totalAmount)}</td>
-                <td className="px-6 py-4 font-bold text-safi-gold">{order.totalPv.toLocaleString('ru-RU')} PV</td>
                 <td className="px-6 py-4">
                   {canManageStatus ? (
                     <select
@@ -225,7 +221,7 @@ export default function AdminOrders() {
               </tr>
               {expandedOrderId === order.id && (
                 <tr className="bg-safi-cream/60">
-                  <td colSpan={10} className="px-6 py-5">
+                  <td colSpan={9} className="px-6 py-5">
                     <div className="grid gap-5 xl:grid-cols-[0.34fr_0.66fr]">
                       <div className="grid gap-5">
                         <section className="rounded-2xl border border-safi-border bg-white p-5">
@@ -259,7 +255,6 @@ export default function AdminOrders() {
                             <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
                               <Metric label={t('orders.quantity')} value={item.quantity.toLocaleString('ru-RU')} />
                               <Metric label={t('orders.amount')} value={formatCurrency(item.totalPrice)} />
-                              <Metric label={t('orders.pv')} value={`${item.totalPv.toLocaleString('ru-RU')} PV`} />
                             </div>
                           </div>
                         ))}

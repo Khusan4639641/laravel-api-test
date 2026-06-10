@@ -485,10 +485,7 @@ function HeroProductCard({
         <p className="mb-4 line-clamp-3 flex-1 text-[11px] text-safi-text opacity-70 sm:text-xs">
           {product.shortDescription || t('productCard.desc', 'Омолаживающая сыворотка с пептидами.')}
         </p>
-        <div className="mt-auto flex items-center justify-between border-t border-safi-green/10 pb-2 pt-3 sm:pt-4">
-          <div className="rounded-md bg-[#F5F5F0] px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-safi-green">
-            {product.pv} PV
-          </div>
+        <div className="mt-auto flex items-center justify-end border-t border-safi-green/10 pb-2 pt-3 sm:pt-4">
           <Button
             variant="ghost"
             size="sm"
@@ -586,10 +583,6 @@ function PopularProductCard({
           alt={product.name}
           className="h-full w-full rounded-2xl object-cover shadow-sm transition-transform duration-700 group-hover:scale-105"
         />
-        <div className="absolute left-4 top-4 flex items-center gap-1 rounded-full border border-safi-green/5 bg-white/90 px-3 py-1.5 text-[10px] font-bold tracking-widest text-safi-green shadow-sm backdrop-blur-md">
-          <span className="h-1.5 w-1.5 rounded-full bg-safi-gold" />
-          {product.pv} PV
-        </div>
       </div>
 
       <div className="z-10 mx-2 -mt-6 mb-2 flex flex-1 flex-col rounded-[24px] bg-white p-6">

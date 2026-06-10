@@ -132,11 +132,10 @@ export default function OrderDetail() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-5">
+      <section className="grid gap-4 md:grid-cols-4">
         <InfoCard label={t('orders.orderDate')} value={formatDate(order.createdAt, language)} />
         <InfoCard label={t('orders.items')} value={order.itemsCount.toLocaleString('ru-RU')} />
         <InfoCard label={t('orders.totalAmount')} value={formatCurrency(order.totalAmount)} />
-        <InfoCard label={t('orders.totalPv')} value={`${order.totalPv.toLocaleString('ru-RU')} PV`} />
         <InfoCard label={t('orders.paymentInfo')} value={order.paymentStatusLabel || t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: t('orders.notPaid') })} />
       </section>
 
@@ -169,7 +168,6 @@ export default function OrderDetail() {
                 <th className="px-7 py-4">{t('orders.quantity')}</th>
                 <th className="px-7 py-4">{t('cart.price')}</th>
                 <th className="px-7 py-4">{t('orders.amount')}</th>
-                <th className="px-7 py-4">{t('orders.pv')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-safi-border text-sm">
@@ -184,7 +182,6 @@ export default function OrderDetail() {
                   <td className="px-7 py-5 font-bold text-safi-green">{item.quantity.toLocaleString('ru-RU')}</td>
                   <td className="px-7 py-5 text-safi-muted">{formatCurrency(item.unitPrice)}</td>
                   <td className="px-7 py-5 font-extrabold text-safi-green">{formatCurrency(item.totalPrice)}</td>
-                  <td className="px-7 py-5 font-extrabold text-safi-gold">{item.totalPv.toLocaleString('ru-RU')} PV</td>
                 </tr>
               ))}
             </tbody>
@@ -202,7 +199,6 @@ export default function OrderDetail() {
                 <InfoCard compact label={t('orders.quantity')} value={item.quantity.toLocaleString('ru-RU')} />
                 <InfoCard compact label={t('cart.price')} value={formatCurrency(item.unitPrice)} />
                 <InfoCard compact label={t('orders.amount')} value={formatCurrency(item.totalPrice)} />
-                <InfoCard compact label={t('orders.pv')} value={`${item.totalPv.toLocaleString('ru-RU')} PV`} />
               </div>
             </article>
           ))}

@@ -25,7 +25,6 @@ export default function CartPage() {
     items,
     totalItems,
     totalPrice,
-    totalPv,
     decrementProduct,
     addProduct,
     removeProduct,
@@ -346,7 +345,6 @@ export default function CartPage() {
                       <div className="sm:text-right">
                         <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/40">{t('cart.subtotal', 'Сумма')}</div>
                         <div className="font-serif text-xl font-bold text-safi-green">{formatCurrency(item.subtotal)}</div>
-                        <div className="mt-1 text-xs font-bold uppercase tracking-widest text-safi-gold">{item.pvTotal} PV</div>
                       </div>
                     </div>
                   </div>
@@ -402,10 +400,6 @@ export default function CartPage() {
               <div className="flex items-center justify-between">
                 <span className="text-white/60">{t('cart.items', 'Товары')}</span>
                 <span className="font-bold">{totalItems}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-white/60">{t('cart.totalPv', 'PV')}</span>
-                <span className="font-bold text-safi-gold">{totalPv} PV</span>
               </div>
               <div className="flex items-end justify-between border-t border-white/10 pt-5">
                 <span className="text-white/60">{t('cart.subtotal', 'Сумма')}</span>
