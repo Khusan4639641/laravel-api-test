@@ -23,6 +23,10 @@ class BonusController extends Controller
 
     public function index(Request $request): JsonResponse
     {
+        $search = trim((string) $request->query('search', ''));
+        $type = trim((string) $request->query('type', ''));
+        $status = trim((string) $request->query('status', ''));
+
         $bonuses = BonusTransaction::query()
             ->with(['user.profile', 'sourceUser.profile', 'sourceOrder', 'walletTransaction'])
             ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
@@ -30,6 +34,31 @@ class BonusController extends Controller
             ->where(function ($query): void {
                 $query->whereNull('source_user_id')
                     ->orWhereHas('sourceUser', fn ($sourceUserQuery) => $sourceUserQuery->activeAccount());
+            })
+            ->when($type !== '', fn ($query) => $query->where('bonus_type', $type))
+            ->when($status !== '', fn ($query) => $query->where('status', $status))
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($query) use ($search): void {
+                    if (ctype_digit($search)) {
+                        $query->orWhere('id', (int) $search)
+                            ->orWhere('user_id', (int) $search)
+                            ->orWhere('source_user_id', (int) $search);
+                    }
+
+                    $query
+                        ->orWhere('bonus_type', 'like', "%{$search}%")
+                        ->orWhere('status', 'like', "%{$search}%")
+                        ->orWhereHas('user', function ($userQuery) use ($search): void {
+                            $userQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('login', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        })
+                        ->orWhereHas('sourceUser', function ($sourceUserQuery) use ($search): void {
+                            $sourceUserQuery->where('name', 'like', "%{$search}%")
+                                ->orWhere('login', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
+                });
             })
             ->latest()
             ->paginate($this->perPage($request));
@@ -91,5 +120,10 @@ class BonusController extends Controller
         return response()->json([
             'bonus_transaction' => BonusTransactionResource::make($bonusTransaction->load('walletTransaction')),
         ]);
+    }
+
+    protected function perPage(Request $request): int
+    {
+        return min(max($request->integer('per_page', 20), 1), 100);
     }
 }

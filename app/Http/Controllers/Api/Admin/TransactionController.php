@@ -130,6 +130,11 @@ class TransactionController extends Controller
         ];
     }
 
+    protected function perPage(Request $request): int
+    {
+        return min(max($request->integer('per_page', 20), 1), 100);
+    }
+
     private function decimal(string $value): string
     {
         if (str_contains($value, '.')) {

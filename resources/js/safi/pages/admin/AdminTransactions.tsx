@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { Search, Filter, Download } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { getAdminTransactions, getApiErrorState, getArray, getNumber, getString } from '../../lib/api';
+import { getAdminTransactions, getApiErrorState, getNumber, getString } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
+import { defaultPaginationMeta, getPaginatedItems, normalizePaginationMeta } from '../../lib/pagination';
+import type { PaginationMeta } from '../../lib/pagination';
 import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
 
 type TransactionRow = {
@@ -45,6 +48,9 @@ export default function AdminTransactions() {
   const [debouncedSearch, setDebouncedSearch] = useState(search.trim());
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [summary, setSummary] = useState<TransactionSummary>(emptySummary);
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+  const [meta, setMeta] = useState<PaginationMeta>(defaultPaginationMeta);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasSearch = debouncedSearch.trim() !== '';
@@ -64,6 +70,8 @@ export default function AdminTransactions() {
       const response = await getAdminTransactions({
         user_id: userIdFilter,
         search: debouncedSearch.trim() || undefined,
+        page,
+        per_page: perPage,
       });
       const summaryRecord = response && typeof response === 'object' && 'summary' in response
         ? (response as Record<string, unknown>).summary
@@ -76,7 +84,10 @@ export default function AdminTransactions() {
         pending: getNumber(summaryData, ['pending']) ?? 0,
         deferredDeposit: getNumber(summaryData, ['deferred_deposit', 'deferredDeposit']) ?? 0,
       });
-      setTransactions(getArray(response, ['transactions']).map((item, index) => {
+      const items = getPaginatedItems(response, 'transactions');
+
+      setMeta(normalizePaginationMeta(response, 'transactions', page, perPage, items.length));
+      setTransactions(items.map((item, index) => {
         const trx = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const user = trx.user && typeof trx.user === 'object' ? trx.user as Record<string, unknown> : {};
         const direction = getString(trx, ['direction']) || 'credit';
@@ -100,6 +111,7 @@ export default function AdminTransactions() {
     } catch (caughtError) {
       setTransactions([]);
       setSummary(emptySummary);
+      setMeta({ ...defaultPaginationMeta, per_page: perPage });
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_32'));
     } finally {
       setIsLoading(false);
@@ -108,6 +120,7 @@ export default function AdminTransactions() {
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
+      setPage(1);
       setDebouncedSearch(search.trim());
     }, 300);
 
@@ -116,11 +129,12 @@ export default function AdminTransactions() {
 
   useEffect(() => {
     setSearch(searchParam);
+    setPage(1);
   }, [searchParam]);
 
   useEffect(() => {
     void loadTransactions();
-  }, [debouncedSearch, userIdFilter]);
+  }, [debouncedSearch, userIdFilter, page, perPage]);
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -160,49 +174,60 @@ export default function AdminTransactions() {
 
       {isLoading && <LoadingState />}
       {!isLoading && error && <ErrorState description={error} onRetry={loadTransactions} />}
-      {!isLoading && !error && transactions.length === 0 && (
-        <EmptyState
-          title={hasSearch ? adminText('transactions_not_found') : adminText('a_0KLRgNCw0L3Q_2')}
-          description={hasSearch ? adminText('a_0J_QvtC_0YDQ') : adminText('a_0J7Qv9C10YDQ_2')}
-        />
-      )}
+      {!isLoading && !error && (
+        <section className="space-y-4">
+          {transactions.length === 0 ? (
+            <EmptyState
+              title={hasSearch ? 'По вашему запросу ничего не найдено' : 'Записей пока нет'}
+              description={hasSearch ? adminText('a_0J_QvtC_0YDQ') : adminText('a_0J7Qv9C10YDQ_2')}
+            />
+          ) : (
+            <AdminTable headers={[adminText('transaction_id_date'), adminText('partner_id_header'), adminText('a_0KLQuNC_INC-'), adminText('a_0KHRg9C80LzQ'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JjRgdGC0L7R_3')]}>
+              {transactions.map((trx, i) => (
+                <tr key={i} className="hover:bg-safi-green/5 transition-colors cursor-pointer group">
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-safi-text">{trx.id}</div>
+                    <div className="text-xs text-safi-text/50 mt-1">{trx.date}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-safi-green">{trx.partnerName}</div>
+                    <div className="text-[10px] font-mono text-safi-text/50 mt-1">{trx.partnerId}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-bold">{trx.type}</div>
+                    {!trx.affectsBalance && (
+                      <div className="mt-1 inline-flex rounded-full bg-[#F5F5F0] px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-safi-text/50">
+                        {trx.affectsBalanceLabel}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className={`font-bold ${trx.amount.startsWith('+') ? 'text-green-600' : trx.amount.startsWith('-') ? 'text-red-500' : 'text-safi-text'}`}>
+                      {trx.amount}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <AdminBadge variant={transactionBadgeVariant(trx.statusCode)}>
+                      {trx.status}
+                    </AdminBadge>
+                  </td>
+                  <td className="px-6 py-4 text-xs text-safi-text/70 max-w-[200px] truncate">
+                    {trx.comment || '-'}
+                  </td>
+                </tr>
+              ))}
+            </AdminTable>
+          )}
 
-      {!isLoading && !error && transactions.length > 0 && (
-        <AdminTable headers={[adminText('transaction_id_date'), adminText('partner_id_header'), adminText('a_0KLQuNC_INC-'), adminText('a_0KHRg9C80LzQ'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JjRgdGC0L7R_3')]}>
-          {transactions.map((trx, i) => (
-            <tr key={i} className="hover:bg-safi-green/5 transition-colors cursor-pointer group">
-              <td className="px-6 py-4">
-                <div className="font-bold text-safi-text">{trx.id}</div>
-                <div className="text-xs text-safi-text/50 mt-1">{trx.date}</div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="font-bold text-safi-green">{trx.partnerName}</div>
-                <div className="text-[10px] font-mono text-safi-text/50 mt-1">{trx.partnerId}</div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="text-sm font-bold">{trx.type}</div>
-                {!trx.affectsBalance && (
-                  <div className="mt-1 inline-flex rounded-full bg-[#F5F5F0] px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-safi-text/50">
-                    {trx.affectsBalanceLabel}
-                  </div>
-                )}
-              </td>
-              <td className="px-6 py-4">
-                <div className={`font-bold ${trx.amount.startsWith('+') ? 'text-green-600' : trx.amount.startsWith('-') ? 'text-red-500' : 'text-safi-text'}`}>
-                  {trx.amount}
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <AdminBadge variant={transactionBadgeVariant(trx.statusCode)}>
-                  {trx.status}
-                </AdminBadge>
-              </td>
-              <td className="px-6 py-4 text-xs text-safi-text/70 max-w-[200px] truncate">
-                {trx.comment || '-'}
-              </td>
-            </tr>
-          ))}
-        </AdminTable>
+          <AdminPagination
+            meta={meta}
+            onPageChange={setPage}
+            onPerPageChange={(nextPerPage) => {
+              setPerPage(nextPerPage);
+              setPage(1);
+            }}
+          />
+        </section>
       )}
       
     </div>

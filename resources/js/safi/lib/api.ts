@@ -1046,8 +1046,8 @@ export async function getAdminTransactions<T = unknown>(params: Record<string, s
   });
 }
 
-export async function getAdminBonuses<T = unknown>() {
-  return apiRequest<T>(endpoints.admin.bonuses, {
+export async function getAdminBonuses<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+  return apiRequest<T>(buildEndpointWithParams(endpoints.admin.bonuses, params), {
     method: 'GET',
     auth: true,
   });
