@@ -7,6 +7,7 @@ use App\Models\Package;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\WalletTransaction;
+use App\Services\PackagePurchaseAvailabilityService;
 use App\Services\PackageService;
 use App\Services\WalletService;
 use Illuminate\Http\Request;
@@ -17,14 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 class TipTopPayService
 {
-    private const UPGRADE_CHAIN = [
-        'START' => 'VIP',
-        'VIP' => 'ELITE',
-    ];
-
     public function __construct(
         private readonly PackageService $packageService,
         private readonly WalletService $walletService,
+        private readonly PackagePurchaseAvailabilityService $packagePurchaseAvailability,
     ) {
     }
 
@@ -129,7 +126,7 @@ class TipTopPayService
 
             /** @var Package $targetPackage */
             $targetPackage = Package::query()->whereKey($package->id)->lockForUpdate()->firstOrFail();
-            $transition = $this->packageTransition($lockedUser, $targetPackage, $upgradeFrom);
+            $transition = $this->packagePurchaseAvailability->transitionForPayment($lockedUser, $targetPackage, $upgradeFrom);
             $externalId = $this->makeExternalId('package-'.$lockedUser->id.'-'.strtolower($targetPackage->code));
             $description = $transition['description'];
 
@@ -373,91 +370,6 @@ class TipTopPayService
             ->firstOrFail();
     }
 
-    /**
-     * @return array{transition: string, amount: string, upgrade_from: string|null, description: string, final_activity_pv: string, turnover_delta_pv: string}
-     */
-    private function packageTransition(User $user, Package $targetPackage, ?string $upgradeFrom = null): array
-    {
-        $targetCode = strtoupper((string) $targetPackage->code);
-
-        if (! $targetPackage->is_active || $targetPackage->status !== 'active') {
-            throw ValidationException::withMessages([
-                'package' => 'Package is inactive.',
-            ]);
-        }
-
-        $user->loadMissing('currentPackage');
-        $currentPackage = $user->currentPackage;
-
-        if (! $currentPackage) {
-            if ($targetCode === 'ELITE') {
-                throw ValidationException::withMessages([
-                    'package' => 'ELITE нельзя купить первым пакетом.',
-                ]);
-            }
-
-            if (! in_array($targetCode, Package::STARTER_CODES, true)) {
-                throw ValidationException::withMessages([
-                    'package' => 'Package is not available for activation.',
-                ]);
-            }
-
-            return [
-                'transition' => 'activation',
-                'amount' => $this->decimal((string) $targetPackage->price),
-                'upgrade_from' => null,
-                'description' => sprintf('Оплата пакета %s на Safi Life', $targetCode),
-                'final_activity_pv' => $targetPackage->activityPv(),
-                'turnover_delta_pv' => $targetPackage->turnoverPv(),
-            ];
-        }
-
-        $currentCode = strtoupper((string) $currentPackage->code);
-        $expectedNextCode = self::UPGRADE_CHAIN[$currentCode] ?? null;
-
-        if ((int) $currentPackage->id === (int) $targetPackage->id) {
-            throw ValidationException::withMessages([
-                'package' => 'У пользователя уже активен этот пакет.',
-            ]);
-        }
-
-        if ($currentCode === 'START' && $targetCode === 'ELITE') {
-            throw ValidationException::withMessages([
-                'package' => 'Сначала перейдите на VIP',
-            ]);
-        }
-
-        if (! $targetPackage->is_upgradeable || $expectedNextCode !== $targetCode) {
-            throw ValidationException::withMessages([
-                'package' => 'Invalid package upgrade step.',
-            ]);
-        }
-
-        if ($upgradeFrom !== null && strtoupper($upgradeFrom) !== $currentCode) {
-            throw ValidationException::withMessages([
-                'upgrade_from' => 'Текущий пакет пользователя изменился. Обновите страницу и повторите оплату.',
-            ]);
-        }
-
-        $amount = bcsub((string) $targetPackage->price, (string) $currentPackage->price, 2);
-        $additionalPv = bcsub($targetPackage->activityPv(), $currentPackage->activityPv(), 2);
-
-        if (bccomp($amount, '0', 2) <= 0 || bccomp($additionalPv, '0', 2) <= 0) {
-            throw ValidationException::withMessages([
-                'package' => 'Target package price must be greater than current package price.',
-            ]);
-        }
-
-        return [
-            'transition' => 'upgrade',
-            'amount' => $this->decimal($amount),
-            'upgrade_from' => $currentCode,
-            'description' => sprintf('Upgrade пакета %s -> %s на Safi Life', $currentCode, $targetCode),
-            'final_activity_pv' => $targetPackage->activityPv(),
-            'turnover_delta_pv' => $this->decimal($additionalPv),
-        ];
-    }
-
     private function assertActorCanPay(Order $order, User $actor): void
     {
         if ((int) $order->user_id === (int) $actor->id) {
@@ -690,11 +602,6 @@ class TipTopPayService
         $amount = round((float) $value, 2);
 
         return floor($amount) === $amount ? (int) $amount : $amount;
-    }
-
-    private function decimal(string $value): string
-    {
-        return number_format((float) $value, 2, '.', '');
     }
 
     private function orderDeliveryValue(Order $order, string $field): mixed

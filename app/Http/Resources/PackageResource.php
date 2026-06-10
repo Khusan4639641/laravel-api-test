@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use App\Support\LocalizedValue;
 use App\Support\SystemLabel;
+use App\Services\PackagePurchaseAvailabilityService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -13,8 +14,14 @@ class PackageResource extends JsonResource
     {
         $fallbackName = LocalizedValue::get($this->name_translations, $this->name);
         $name = SystemLabel::package($this->code, $fallbackName);
+        $purchaseAction = null;
 
-        return [
+        if ($request->user()) {
+            $purchaseAction = app(PackagePurchaseAvailabilityService::class)
+                ->actionFor($request->user(), $this->resource);
+        }
+
+        $payload = [
             'id' => $this->id,
             'code' => $this->code,
             'code_label' => SystemLabel::package($this->code, $fallbackName),
@@ -50,5 +57,32 @@ class PackageResource extends JsonResource
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
+
+        if ($purchaseAction) {
+            $payload = [
+                ...$payload,
+                'current' => (bool) $purchaseAction['current'],
+                'available' => (bool) $purchaseAction['available'],
+                'action' => $purchaseAction['action'],
+                'button_label' => $purchaseAction['button_label'],
+                'disabled_reason' => $purchaseAction['disabled_reason'],
+                'payment_amount' => $purchaseAction['amount'],
+                'paymentAmount' => $this->numericAmount($purchaseAction['amount']),
+                'upgrade_from' => $purchaseAction['upgrade_from'],
+            ];
+        }
+
+        return $payload;
+    }
+
+    private function numericAmount(mixed $value): float|int|null
+    {
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $amount = round((float) $value, 2);
+
+        return floor($amount) === $amount ? (int) $amount : $amount;
     }
 }

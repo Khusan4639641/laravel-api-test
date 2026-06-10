@@ -21,7 +21,6 @@ export default function PackageStatus() {
   const { isWidgetLoading, startPayment } = useTipTopPayWidget();
   const currentPackageCode = normalizePackageCode(currentUser.packageCode || currentUser.packageName);
   const displayPackages = packages;
-  const currentPackageIndex = displayPackages.findIndex((pkg) => normalizePackageCode(pkg.code || pkg.name) === currentPackageCode);
   const weakLegPV = statusProgress.weakLegPV || Math.min(statusProgress.leftPV, statusProgress.rightPV);
   const nextStatus = statuses.find((status) => status.pv > weakLegPV);
   const statusTargetPV = nextStatus?.pv || statuses[statuses.length - 1]?.pv || Math.max(weakLegPV, 1);
@@ -88,7 +87,7 @@ export default function PackageStatus() {
     setPayingPackageId(pkg.id);
 
     try {
-      const intent = await createTipTopPayPackagePaymentIntent(pkg.id, normalizePackageCode(pkg.code || pkg.name), currentPackageCode || undefined);
+      const intent = await createTipTopPayPackagePaymentIntent(pkg.id, normalizePackageCode(pkg.code || pkg.name));
 
       await startPayment(intent, {
         onSuccess: async () => {
@@ -155,9 +154,9 @@ export default function PackageStatus() {
           />
         )}
 
-        {displayPackages.map((pkg, index) => {
-          const isCurrent = index === currentPackageIndex;
+        {displayPackages.map((pkg) => {
           const action = packageAction(pkg, currentPackageCode, isTipTopPayAvailable);
+          const isCurrent = action.current;
           const paymentAmount = packagePaymentAmount(pkg, currentPackageCode);
           const isPaying = payingPackageId === pkg.id || isWidgetLoading;
 
@@ -203,7 +202,7 @@ export default function PackageStatus() {
                   className="mt-8 inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <CreditCard className="h-4 w-4" />
-                  {isPaying ? 'Открываем оплату...' : 'Оплатить онлайн'}
+                  {isPaying ? 'Открываем оплату...' : action.label}
                 </button>
               ) : (
                 <div className="mt-8 rounded-3xl border border-safi-border bg-safi-cream px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
@@ -280,48 +279,90 @@ function PackageMetric({ label, value, dark }: { label: string; value: string; d
 }
 
 function normalizePackageCode(value?: string | null) {
-  return String(value || '').trim().toUpperCase();
+  const code = String(value || '').trim().toUpperCase();
+
+  if (['-', '—', 'NO PACKAGE', 'NONE', 'NULL', 'НЕТ ПАКЕТА', 'БЕЗ ПАКЕТА'].includes(code)) {
+    return '';
+  }
+
+  return code;
 }
 
 function packageAction(pkg: Package, currentPackageCode: string, paymentAvailable: boolean) {
   const code = normalizePackageCode(pkg.code || pkg.name);
+  const backendAction = String(pkg.action || '').toLowerCase();
+
+  if (backendAction) {
+    const requiresPayment = backendAction === 'pay' || backendAction === 'upgrade';
+    const blockedByPaymentConfig = requiresPayment && !paymentAvailable;
+    const label = blockedByPaymentConfig
+      ? 'Недоступно'
+      : pkg.buttonLabel || defaultPackageActionLabel(backendAction);
+
+    return {
+      canPay: !blockedByPaymentConfig && Boolean(pkg.available) && requiresPayment,
+      current: Boolean(pkg.current) || backendAction === 'current',
+      label,
+      reason: blockedByPaymentConfig
+        ? 'Онлайн-оплата временно недоступна'
+        : pkg.disabledReason || '',
+    };
+  }
 
   if (code === currentPackageCode) {
-    return { canPay: false, label: 'Текущий пакет', reason: '' };
+    return { canPay: false, current: true, label: 'Текущий пакет', reason: '' };
   }
 
   if (!paymentAvailable) {
     return {
       canPay: false,
+      current: false,
       label: 'Недоступно',
       reason: 'Смена пакета временно доступна только через администратора',
     };
   }
 
   if (!currentPackageCode) {
-    if (code === 'START' || code === 'VIP') {
-      return { canPay: true, label: 'Оплатить онлайн', reason: '' };
+    if (code === 'START') {
+      return { canPay: true, current: false, label: 'Оплатить онлайн', reason: '' };
     }
 
-    return { canPay: false, label: 'Недоступно', reason: 'ELITE нельзя купить первым пакетом' };
+    return {
+      canPay: false,
+      current: false,
+      label: 'Недоступно',
+      reason: code === 'VIP' ? 'Сначала подключите START' : 'Сначала подключите START и VIP',
+    };
   }
 
   if (currentPackageCode === 'START' && code === 'VIP') {
-    return { canPay: true, label: 'Оплатить онлайн', reason: '' };
+    return { canPay: true, current: false, label: 'Upgrade онлайн', reason: '' };
   }
 
   if (currentPackageCode === 'START' && code === 'ELITE') {
-    return { canPay: false, label: 'Недоступно', reason: 'Сначала перейдите на VIP' };
+    return { canPay: false, current: false, label: 'Недоступно', reason: 'Сначала перейдите на VIP' };
+  }
+
+  if (currentPackageCode === 'VIP' && code === 'START') {
+    return { canPay: false, current: false, label: 'Пройден', reason: '' };
   }
 
   if (currentPackageCode === 'VIP' && code === 'ELITE') {
-    return { canPay: true, label: 'Оплатить онлайн', reason: '' };
+    return { canPay: true, current: false, label: 'Upgrade онлайн', reason: '' };
   }
 
-  return { canPay: false, label: 'Недоступно', reason: '' };
+  if (currentPackageCode === 'ELITE' && (code === 'START' || code === 'VIP')) {
+    return { canPay: false, current: false, label: 'Пройден', reason: '' };
+  }
+
+  return { canPay: false, current: false, label: 'Недоступно', reason: '' };
 }
 
 function packagePaymentAmount(pkg: Package, currentPackageCode: string) {
+  if (typeof pkg.paymentAmount === 'number') {
+    return pkg.paymentAmount;
+  }
+
   const code = normalizePackageCode(pkg.code || pkg.name);
 
   if (currentPackageCode === 'START' && code === 'VIP') {
@@ -333,4 +374,24 @@ function packagePaymentAmount(pkg: Package, currentPackageCode: string) {
   }
 
   return pkg.price;
+}
+
+function defaultPackageActionLabel(action: string) {
+  if (action === 'current') {
+    return 'Текущий пакет';
+  }
+
+  if (action === 'passed') {
+    return 'Пройден';
+  }
+
+  if (action === 'upgrade') {
+    return 'Upgrade онлайн';
+  }
+
+  if (action === 'pay') {
+    return 'Оплатить онлайн';
+  }
+
+  return 'Недоступно';
 }

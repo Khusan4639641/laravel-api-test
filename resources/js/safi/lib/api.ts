@@ -233,6 +233,13 @@ export interface Package {
   codeLabel?: string;
   isActive?: boolean;
   isUpgradeable?: boolean;
+  current?: boolean;
+  available?: boolean;
+  action?: string;
+  buttonLabel?: string;
+  disabledReason?: string;
+  paymentAmount?: number;
+  upgradeFrom?: string;
 }
 
 export interface Status {
@@ -1691,6 +1698,13 @@ export function normalizePackages(response: unknown): Package[] {
       statusLabel: productStatusLabel(status, getString(record, ['status_label', 'statusLabel'])),
       isActive: Boolean(record.is_active ?? record.isActive ?? true),
       isUpgradeable: Boolean(record.is_upgradeable ?? record.isUpgradeable ?? true),
+      current: Boolean(record.current),
+      available: Boolean(record.available),
+      action: getString(record, ['action']),
+      buttonLabel: getString(record, ['button_label', 'buttonLabel']),
+      disabledReason: getString(record, ['disabled_reason', 'disabledReason']),
+      paymentAmount: getNumber(record, ['paymentAmount', 'payment_amount']),
+      upgradeFrom: getString(record, ['upgrade_from', 'upgradeFrom']),
     };
   });
 }

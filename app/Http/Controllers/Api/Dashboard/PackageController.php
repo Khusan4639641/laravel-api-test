@@ -15,6 +15,8 @@ class PackageController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
+        $request->user()?->loadMissing('currentPackage');
+
         $packages = Package::query()
             ->activeStarter()
             ->orderBy('sort_order')

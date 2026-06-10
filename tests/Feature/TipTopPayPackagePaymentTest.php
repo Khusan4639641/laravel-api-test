@@ -32,7 +32,7 @@ class TipTopPayPackagePaymentTest extends TestCase
             ->assertJsonPath('intent.metadata.package_code', 'START');
     }
 
-    public function test_start_and_vip_first_purchase_amounts_are_backend_calculated(): void
+    public function test_start_first_purchase_amount_is_backend_calculated_and_vip_is_locked_until_start(): void
     {
         $this->enableTipTopPay();
         $start = $this->package('START');
@@ -46,8 +46,9 @@ class TipTopPayPackagePaymentTest extends TestCase
             ->assertJsonPath('intent.amount', 60000);
 
         $this->postJson("/api/dashboard/package/{$vip->id}/payments/tiptoppay/intent", ['package_code' => 'VIP'])
-            ->assertOk()
-            ->assertJsonPath('intent.amount', 180000);
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('package')
+            ->assertJsonPath('message', 'Сначала подключите START');
     }
 
     public function test_start_to_vip_upgrade_amount_is_120000(): void
