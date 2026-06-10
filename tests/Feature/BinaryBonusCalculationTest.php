@@ -11,10 +11,12 @@ use App\Models\WalletTransaction;
 use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\CreatesBinaryBonusEligibility;
 use Tests\TestCase;
 
 class BinaryBonusCalculationTest extends TestCase
 {
+    use CreatesBinaryBonusEligibility;
     use RefreshDatabase;
 
     public function test_admin_can_calculate_binary_bonus_with_wallet_split_period_and_pv_carryover(): void
@@ -29,6 +31,7 @@ class BinaryBonusCalculationTest extends TestCase
             'remaining_right_pv' => 600,
             'total_pv' => 1600,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
         Sanctum::actingAs($admin);
 
@@ -93,6 +96,7 @@ class BinaryBonusCalculationTest extends TestCase
                 'remaining_left_pv' => 1000,
                 'remaining_right_pv' => 1000,
             ]);
+            $this->makeBinaryBonusEligible($user);
 
             Sanctum::actingAs($admin);
 
@@ -112,6 +116,7 @@ class BinaryBonusCalculationTest extends TestCase
             'remaining_left_pv' => 500,
             'remaining_right_pv' => 0,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
 
@@ -133,6 +138,7 @@ class BinaryBonusCalculationTest extends TestCase
             'remaining_left_pv' => 500,
             'remaining_right_pv' => 500,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
 
@@ -150,6 +156,62 @@ class BinaryBonusCalculationTest extends TestCase
         $this->assertDatabaseCount('wallet_transactions', 0);
     }
 
+    public function test_binary_bonus_is_not_created_without_direct_referrals_on_both_binary_sides(): void
+    {
+        $package = $this->createPackage('START', 7);
+        $user = User::factory()->create([
+            'current_package_id' => $package->id,
+            'remaining_left_pv' => 1000,
+            'remaining_right_pv' => 1000,
+        ]);
+        $this->makeDirectReferralInBinaryBranch($user, 'L');
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $this->postJson('/api/admin/bonuses/binary/calculate', [
+            'user_id' => $user->id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('bonus_transaction', null);
+
+        $user->refresh();
+
+        $this->assertSame('1000.00', $user->remaining_left_pv);
+        $this->assertSame('1000.00', $user->remaining_right_pv);
+        $this->assertDatabaseCount('binary_bonus_runs', 0);
+        $this->assertDatabaseCount('bonus_transactions', 0);
+        $this->assertDatabaseCount('wallet_transactions', 0);
+    }
+
+    public function test_binary_bonus_ignores_non_direct_downline_users_for_eligibility(): void
+    {
+        $package = $this->createPackage('START', 7);
+        $user = User::factory()->create([
+            'current_package_id' => $package->id,
+            'remaining_left_pv' => 1000,
+            'remaining_right_pv' => 1000,
+        ]);
+        $sponsorNode = $this->ensureBinaryNode($user);
+        $otherSponsor = User::factory()->create();
+        $leftDownline = User::factory()->create(['sponsor_id' => $otherSponsor->id]);
+        $rightDownline = User::factory()->create(['sponsor_id' => $otherSponsor->id]);
+
+        $this->createChildNode($sponsorNode, $leftDownline, 'L');
+        $this->createChildNode($sponsorNode, $rightDownline, 'R');
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $this->postJson('/api/admin/bonuses/binary/calculate', [
+            'user_id' => $user->id,
+        ])
+            ->assertOk()
+            ->assertJsonPath('bonus_transaction', null);
+
+        $this->assertDatabaseCount('binary_bonus_runs', 0);
+        $this->assertDatabaseCount('bonus_transactions', 0);
+        $this->assertDatabaseCount('wallet_transactions', 0);
+    }
+
     public function test_binary_period_does_not_recount_already_counted_pv(): void
     {
         Carbon::setTestNow('2026-06-04 10:00:00');
@@ -161,6 +223,7 @@ class BinaryBonusCalculationTest extends TestCase
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 1000,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
         Sanctum::actingAs($admin);
 
@@ -196,6 +259,7 @@ class BinaryBonusCalculationTest extends TestCase
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 600,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
         Sanctum::actingAs($admin);
 
@@ -256,6 +320,7 @@ class BinaryBonusCalculationTest extends TestCase
                 'remaining_left_pv' => 1000,
                 'remaining_right_pv' => 1000,
             ]);
+            $this->makeBinaryBonusEligible($targetUser);
 
             Sanctum::actingAs(User::factory()->create(['role' => $role]));
 

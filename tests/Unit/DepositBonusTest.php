@@ -9,10 +9,12 @@ use App\Models\Wallet;
 use App\Services\BonusService;
 use App\Services\DepositPurchaseService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\CreatesBinaryBonusEligibility;
 use Tests\TestCase;
 
 class DepositBonusTest extends TestCase
 {
+    use CreatesBinaryBonusEligibility;
     use RefreshDatabase;
 
     public function test_binary_bonus_split_sends_ten_percent_to_deposit_and_ninety_to_main_wallet(): void
@@ -25,6 +27,7 @@ class DepositBonusTest extends TestCase
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 1000,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
         $bonus = app(BonusService::class)->calculateBinaryBonus($user);
 

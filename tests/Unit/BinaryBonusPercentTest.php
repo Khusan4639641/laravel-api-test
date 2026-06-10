@@ -6,10 +6,12 @@ use App\Models\Package;
 use App\Models\User;
 use App\Services\BonusService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\CreatesBinaryBonusEligibility;
 use Tests\TestCase;
 
 class BinaryBonusPercentTest extends TestCase
 {
+    use CreatesBinaryBonusEligibility;
     use RefreshDatabase;
 
     public function test_binary_bonus_uses_current_package_percent(): void
@@ -29,6 +31,7 @@ class BinaryBonusPercentTest extends TestCase
                 'remaining_left_pv' => 1000,
                 'remaining_right_pv' => 1000,
             ]);
+            $this->makeBinaryBonusEligible($user);
 
             $bonus = app(BonusService::class)->calculateBinaryBonus($user);
 

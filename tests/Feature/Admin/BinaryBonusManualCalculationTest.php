@@ -8,10 +8,12 @@ use App\Models\User;
 use App\Models\WalletTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\CreatesBinaryBonusEligibility;
 use Tests\TestCase;
 
 class BinaryBonusManualCalculationTest extends TestCase
 {
+    use CreatesBinaryBonusEligibility;
     use RefreshDatabase;
 
     public function test_super_admin_can_calculate_binary_for_selected_partner_with_split_and_recent_transactions(): void
@@ -25,6 +27,7 @@ class BinaryBonusManualCalculationTest extends TestCase
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 600,
         ]);
+        $this->makeBinaryBonusEligible($partner);
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
 
@@ -87,6 +90,7 @@ class BinaryBonusManualCalculationTest extends TestCase
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 1000,
         ]);
+        $this->makeBinaryBonusEligible($partner);
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
 

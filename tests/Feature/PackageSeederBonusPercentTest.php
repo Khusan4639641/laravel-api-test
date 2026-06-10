@@ -8,10 +8,12 @@ use App\Models\User;
 use Database\Seeders\PackageSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\CreatesBinaryBonusEligibility;
 use Tests\TestCase;
 
 class PackageSeederBonusPercentTest extends TestCase
 {
+    use CreatesBinaryBonusEligibility;
     use RefreshDatabase;
 
     public function test_seeded_packages_have_expected_bonus_percentages(): void
@@ -89,6 +91,7 @@ class PackageSeederBonusPercentTest extends TestCase
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 1000,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
 

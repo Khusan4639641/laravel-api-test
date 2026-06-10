@@ -16,10 +16,12 @@ use Database\Seeders\X2BonusDefinitionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\CreatesBinaryBonusEligibility;
 use Tests\TestCase;
 
 class MlmNotificationPersistenceTest extends TestCase
 {
+    use CreatesBinaryBonusEligibility;
     use RefreshDatabase;
 
     protected function setUp(): void
@@ -75,6 +77,7 @@ class MlmNotificationPersistenceTest extends TestCase
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 2000,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
         app(BonusService::class)->calculateBinaryBonus($user);
 

@@ -12,10 +12,12 @@ use App\Notifications\WithdrawalRequestedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\CreatesBinaryBonusEligibility;
 use Tests\TestCase;
 
 class NotificationDispatchTest extends TestCase
 {
+    use CreatesBinaryBonusEligibility;
     use RefreshDatabase;
 
     public function test_registration_sends_notification_to_user(): void
@@ -67,6 +69,7 @@ class NotificationDispatchTest extends TestCase
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 1000,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
 

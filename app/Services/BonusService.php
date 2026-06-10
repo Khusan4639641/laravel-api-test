@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\BonusTransaction;
 use App\Models\BinaryBonusCalculation;
 use App\Models\BinaryBonusRun;
+use App\Models\BinaryNode;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Notifications\BonusAccruedNotification;
@@ -133,6 +134,10 @@ class BonusService
                 ->findOrFail($user->id);
 
             if ($this->hasActiveBinaryRun($user)) {
+                return null;
+            }
+
+            if (! $this->hasDirectReferralInEachBinaryBranch($user)) {
                 return null;
             }
 
@@ -297,6 +302,64 @@ class BonusService
             ->where('user_id', $user->id)
             ->where('period_end', '>', now())
             ->exists();
+    }
+
+    private function hasDirectReferralInEachBinaryBranch(User $user): bool
+    {
+        $sponsorNode = $user->binaryNode()
+            ->where('is_active', true)
+            ->first();
+
+        if (! $sponsorNode) {
+            return false;
+        }
+
+        $sponsorPath = trim((string) $sponsorNode->path, '.');
+
+        if ($sponsorPath === '') {
+            return false;
+        }
+
+        $rootBranchPositions = BinaryNode::query()
+            ->where('parent_id', $sponsorNode->id)
+            ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
+            ->pluck('position', 'user_id');
+
+        if ($rootBranchPositions->isEmpty()) {
+            return false;
+        }
+
+        $branches = [];
+
+        User::query()
+            ->where('sponsor_id', $user->id)
+            ->where('role', User::ROLE_USER)
+            ->activeAccount()
+            ->with(['binaryNode' => fn ($query) => $query->where('is_active', true)])
+            ->each(function (User $referral) use ($sponsorPath, $rootBranchPositions, &$branches): void {
+                $referralPath = trim((string) $referral->binaryNode?->path, '.');
+
+                if ($referralPath === '' || $referralPath === $sponsorPath) {
+                    return;
+                }
+
+                $prefix = $sponsorPath.'.';
+
+                if (! str_starts_with($referralPath, $prefix)) {
+                    return;
+                }
+
+                $relativePath = substr($referralPath, strlen($prefix));
+                $branchRootUserId = (int) explode('.', $relativePath)[0];
+                $position = $rootBranchPositions[$branchRootUserId] ?? null;
+
+                if (in_array($position, ['L', 'R'], true)) {
+                    $branches[$position] = true;
+                }
+            });
+
+        return isset($branches['L'], $branches['R']);
     }
 
     public function accrueDepositPurchaseCashback(
