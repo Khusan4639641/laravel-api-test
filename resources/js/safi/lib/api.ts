@@ -12,10 +12,13 @@ export { API_BASE_URL, endpoints };
 export const TOKEN_STORAGE_KEY = 'safi_token';
 
 export type ApiMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+export type ApiQueryParams = Record<string, string | number | boolean | null | undefined>;
+export type JsonBody = object | unknown[] | string | number | boolean | null;
+export type ApiBody = JsonBody | FormData | null | undefined;
 
 export interface ApiRequestOptions {
   method?: ApiMethod;
-  body?: Record<string, unknown> | FormData | null;
+  body?: ApiBody;
   auth?: boolean;
   headers?: Record<string, string>;
   redirectOnUnauthorized?: boolean;
@@ -559,7 +562,7 @@ export async function getDashboardOverview<T = unknown>() {
   });
 }
 
-export async function getDashboardStructure<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+export async function getDashboardStructure<T = unknown>(params: ApiQueryParams = {}) {
   return apiRequest<T>(buildEndpointWithParams(endpoints.dashboard.structure, params), {
     method: 'GET',
     auth: true,
@@ -672,7 +675,7 @@ export async function closeDashboardSupportTicket<T = unknown>(ticketId: string 
   });
 }
 
-export async function getOrders(params: Record<string, string | number | undefined> = {}) {
+export async function getOrders(params: ApiQueryParams = {}) {
   const response = await apiRequest(buildEndpointWithParams(endpoints.dashboard.orderCheckout, params), {
     method: 'GET',
     auth: true,
@@ -738,7 +741,7 @@ export async function getOrder(orderId: string | number) {
   return normalizeOrder(unwrapRecord(response, ['order']));
 }
 
-export async function getDashboardOrders(params: Record<string, string | number | undefined> = {}) {
+export async function getDashboardOrders(params: ApiQueryParams = {}) {
   const response = await apiRequest(buildEndpointWithParams(endpoints.dashboard.orders, params), {
     method: 'GET',
     auth: true,
@@ -800,7 +803,7 @@ export async function getAdminOverview<T = unknown>() {
   });
 }
 
-export async function getAdminStructure<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+export async function getAdminStructure<T = unknown>(params: ApiQueryParams = {}) {
   const query = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
@@ -815,7 +818,7 @@ export async function getAdminStructure<T = unknown>(params: Record<string, stri
   });
 }
 
-export async function getAdminUsers<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+export async function getAdminUsers<T = unknown>(params: ApiQueryParams = {}) {
   return apiRequest<T>(buildEndpointWithParams(endpoints.admin.partners, params), {
     method: 'GET',
     auth: true,
@@ -1032,7 +1035,7 @@ export async function updateAdminPackage<T = unknown>(packageId: string | number
   });
 }
 
-export async function getAdminOrders(params: Record<string, string | number | undefined> = {}) {
+export async function getAdminOrders(params: ApiQueryParams = {}) {
   const response = await apiRequest(buildEndpointWithParams(endpoints.admin.orders, params), {
     method: 'GET',
     auth: true,
@@ -1072,7 +1075,7 @@ export async function updateAdminOrderStatus(orderId: string | number, status: s
   return normalizeOrder(unwrapRecord(response, ['order']));
 }
 
-export async function getAdminTransactions<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+export async function getAdminTransactions<T = unknown>(params: ApiQueryParams = {}) {
   const query = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
@@ -1087,7 +1090,7 @@ export async function getAdminTransactions<T = unknown>(params: Record<string, s
   });
 }
 
-export async function getAdminBonuses<T = unknown>(params: Record<string, string | number | undefined> = {}) {
+export async function getAdminBonuses<T = unknown>(params: ApiQueryParams = {}) {
   return apiRequest<T>(buildEndpointWithParams(endpoints.admin.bonuses, params), {
     method: 'GET',
     auth: true,
@@ -1320,8 +1323,8 @@ function buildApiUrl(endpoint: string) {
   return `${API_BASE_URL}${normalizedEndpoint}`;
 }
 
-function serializeRequestBody(body: ApiRequestOptions['body']) {
-  if (!body) {
+function serializeRequestBody(body: ApiBody) {
+  if (body === undefined || body === null) {
     return undefined;
   }
 
@@ -1332,7 +1335,7 @@ function serializeRequestBody(body: ApiRequestOptions['body']) {
   return JSON.stringify(body);
 }
 
-function isFormData(body: ApiRequestOptions['body']): body is FormData {
+function isFormData(body: ApiBody): body is FormData {
   return typeof FormData !== 'undefined' && body instanceof FormData;
 }
 
@@ -1416,17 +1419,17 @@ function getValidationErrors(data: unknown) {
   return undefined;
 }
 
-function compactPayload<T extends Record<string, unknown>>(payload: T) {
+function compactPayload<T extends object>(payload: T): Record<string, unknown> {
   return Object.fromEntries(
     Object.entries(payload).filter(([, value]) => value !== '' && value !== undefined && value !== null)
   );
 }
 
-function buildEndpointWithParams(endpoint: string, params: Record<string, string | number | undefined> = {}) {
+function buildEndpointWithParams(endpoint: string, params: ApiQueryParams = {}) {
   const query = new URLSearchParams();
 
   Object.entries(params).forEach(([key, value]) => {
-    if (value !== undefined && value !== '') {
+    if (value !== undefined && value !== null && value !== '') {
       query.set(key, String(value));
     }
   });

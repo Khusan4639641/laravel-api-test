@@ -50,6 +50,8 @@ class TipTopPayService
         $this->assertOrderPayable($order);
 
         return DB::transaction(function () use ($order): array {
+            $currency = $this->currency();
+
             /** @var Order $lockedOrder */
             $lockedOrder = Order::query()
                 ->with(['user.profile', 'items.product', 'items.package'])
@@ -70,7 +72,7 @@ class TipTopPayService
                 'provider' => Payment::PROVIDER_TIPTOPPAY,
                 'external_id' => $externalId,
                 'amount' => (string) $lockedOrder->total_amount,
-                'currency' => 'KZT',
+                'currency' => $currency,
                 'status' => Payment::STATUS_PENDING,
                 'description' => $description,
                 'payload' => [
@@ -89,7 +91,7 @@ class TipTopPayService
                 'external_id' => $externalId,
                 'created_at' => now()->toISOString(),
                 'amount' => (string) $lockedOrder->total_amount,
-                'currency' => 'KZT',
+                'currency' => $currency,
                 'payment_schema' => $intent['paymentSchema'],
             ];
 
@@ -116,6 +118,8 @@ class TipTopPayService
         $this->assertPaymentConfigIsUsable();
 
         return DB::transaction(function () use ($user, $package, $upgradeFrom): array {
+            $currency = $this->currency();
+
             /** @var User $lockedUser */
             $lockedUser = User::query()
                 ->with(['profile', 'currentPackage'])
@@ -137,7 +141,7 @@ class TipTopPayService
                 'provider' => Payment::PROVIDER_TIPTOPPAY,
                 'external_id' => $externalId,
                 'amount' => $transition['amount'],
-                'currency' => 'KZT',
+                'currency' => $currency,
                 'status' => Payment::STATUS_PENDING,
                 'description' => $description,
                 'payload' => [
@@ -171,7 +175,7 @@ class TipTopPayService
         return [
             'enabled' => (bool) config('tiptoppay.enabled'),
             'test_mode' => (bool) config('tiptoppay.test_mode', true),
-            'currency' => strtoupper((string) config('tiptoppay.currency', 'KZT')),
+            'currency' => $this->currency(),
             'public_terminal_id_set' => trim((string) config('tiptoppay.public_terminal_id')) !== '',
         ];
     }
@@ -477,11 +481,11 @@ class TipTopPayService
 
         if (! is_string(config('tiptoppay.public_terminal_id')) || trim((string) config('tiptoppay.public_terminal_id')) === '') {
             throw ValidationException::withMessages([
-                'publicTerminalId' => 'Публичный терминал TipTop Pay не настроен',
+                'publicTerminalId' => 'TipTop Pay terminal is not configured',
             ]);
         }
 
-        if (strtoupper((string) config('tiptoppay.currency', 'KZT')) !== 'KZT') {
+        if ($this->currency() !== 'KZT') {
             throw ValidationException::withMessages([
                 'currency' => 'Онлайн-оплата доступна только в KZT',
             ]);
@@ -532,7 +536,7 @@ class TipTopPayService
             'publicTerminalId' => (string) config('tiptoppay.public_terminal_id'),
             'description' => (string) $payment->description,
             'paymentSchema' => $this->paymentSchema(),
-            'currency' => 'KZT',
+            'currency' => $this->currency(),
             'amount' => $this->numericAmount($payment->amount),
             'externalId' => $payment->external_id,
             'accountId' => 'user-'.$order->user_id,
@@ -565,7 +569,7 @@ class TipTopPayService
             'publicTerminalId' => (string) config('tiptoppay.public_terminal_id'),
             'description' => (string) $payment->description,
             'paymentSchema' => $this->paymentSchema(),
-            'currency' => 'KZT',
+            'currency' => $this->currency(),
             'amount' => $this->numericAmount($payment->amount),
             'externalId' => $payment->external_id,
             'accountId' => 'user-'.$user->id,
@@ -600,6 +604,11 @@ class TipTopPayService
         $schema = (string) config('tiptoppay.payment_schema', 'Single');
 
         return in_array($schema, ['Single', 'Dual'], true) ? $schema : 'Single';
+    }
+
+    private function currency(): string
+    {
+        return strtoupper((string) config('tiptoppay.currency', 'KZT'));
     }
 
     /**
@@ -775,7 +784,7 @@ class TipTopPayService
                 'type' => Payment::TYPE_ORDER,
                 'provider' => Payment::PROVIDER_TIPTOPPAY,
                 'amount' => (string) $order->total_amount,
-                'currency' => 'KZT',
+                'currency' => $this->currency(),
                 'status' => $order->payment_status === 'paid' ? Payment::STATUS_PAID : Payment::STATUS_PENDING,
                 'description' => sprintf('Оплата заказа #%s на Safi Life', $order->order_number ?: $order->id),
                 'payload' => [
