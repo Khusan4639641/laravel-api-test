@@ -941,6 +941,13 @@ export async function calculateAdminPartnerBinaryBonus<T = unknown>(userId: stri
   });
 }
 
+export async function recalculateAdminPartnerBinaryBonus<T = unknown>(userId: string | number) {
+  return apiRequest<T>(endpoints.admin.partnerBinaryBonusRecalculate(userId), {
+    method: 'POST',
+    auth: true,
+  });
+}
+
 export async function getAdminPartnerDeletePreview(userId: string | number, deleteSubtree = false) {
   return apiRequest<AdminPartnerDeletePreview>(
     buildEndpointWithParams(endpoints.admin.partnerDeletePreview(userId), { delete_subtree: deleteSubtree ? 1 : 0 }),

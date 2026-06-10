@@ -29,7 +29,6 @@ import {
   ApiError,
   AdminPartnerDeletePreview,
   blockAdminPartner,
-  calculateAdminPartnerBinaryBonus,
   changeAdminPartnerPackage,
   changeAdminPartnerPassword,
   changeAdminPartnerStatus,
@@ -43,6 +42,7 @@ import {
   getNumber,
   getString,
   Package,
+  recalculateAdminPartnerBinaryBonus,
   saveAdminPartnerNote,
   unblockAdminPartner,
   unwrapRecord,
@@ -158,6 +158,7 @@ export default function AdminPartnerDetail() {
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [packageModalOpen, setPackageModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [binaryRecalculateModalOpen, setBinaryRecalculateModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deletePreview, setDeletePreview] = useState<AdminPartnerDeletePreview | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
@@ -304,7 +305,7 @@ export default function AdminPartnerDetail() {
     }
   };
 
-  const calculateBinaryBonus = async () => {
+  const recalculateBinaryBonus = async () => {
     if (!partner.id) {
       return;
     }
@@ -312,13 +313,18 @@ export default function AdminPartnerDetail() {
     setActionLoading('binary');
 
     try {
-      const response = await calculateAdminPartnerBinaryBonus(partner.id);
+      const response = await recalculateAdminPartnerBinaryBonus(partner.id);
       const record = isRecord(response) ? response : {};
+      const data = isRecord(record.data) ? record.data : {};
+      const eligible = data.eligible !== false;
+      const reason = getString(data, ['reason']);
 
-      if (record.bonus_transaction) {
-        showToast('Бинарный бонус рассчитан');
+      setBinaryRecalculateModalOpen(false);
+
+      if (eligible) {
+        showToast(getString(record, ['message']) || 'Бинар пересчитан');
       } else {
-        showToast('Нет доступного PV для расчёта', 'error');
+        showToast(`Бинар не начислен${reason ? `: ${reason}` : ''}`, 'info');
       }
 
       await refreshPartnerAfterAction();
@@ -469,12 +475,12 @@ export default function AdminPartnerDetail() {
             {actionLoading === 'block' ? adminText('a_0KHQvtGF0YDQ_2') : isBlocked ? adminText('a_0KDQsNC30LHQ') : adminText('a_0JfQsNCx0LvQ')}
           </button>
           {canCalculateBinary && (
-            <button
-              type="button"
-              onClick={calculateBinaryBonus}
-              disabled={!partner.id || actionLoading === 'binary'}
-              className="flex cursor-pointer items-center gap-2 rounded-xl bg-safi-green px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
+              <button
+                type="button"
+                onClick={() => setBinaryRecalculateModalOpen(true)}
+                disabled={!partner.id || actionLoading === 'binary'}
+                className="flex cursor-pointer items-center gap-2 rounded-xl bg-safi-green px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
               <Calculator className="w-4 h-4" />
               {actionLoading === 'binary' ? adminText('a_0KHQvtGF0YDQ_2') : 'Рассчитать бинар'}
             </button>
@@ -768,6 +774,35 @@ export default function AdminPartnerDetail() {
               {actionLoading === 'status' ? adminText('a_0KHQvtGF0YDQ_2') : adminText('a_0KHQvtGF0YDQ')}
             </button>
           </form>
+        </Modal>
+      )}
+
+      {binaryRecalculateModalOpen && (
+        <Modal title="Перерассчитать бинар" onClose={() => actionLoading !== 'binary' && setBinaryRecalculateModalOpen(false)}>
+          <div className="space-y-5">
+            <div className="rounded-2xl border border-safi-green/10 bg-[#F5F5F0] p-4 text-sm leading-6 text-safi-green">
+              <p className="font-bold">Перерассчитать бинар для партнёра?</p>
+              <p className="mt-2 text-safi-muted">Будет пересчитан текущий период. Повторное нажатие не должно дублировать выплаты.</p>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setBinaryRecalculateModalOpen(false)}
+                disabled={actionLoading === 'binary'}
+                className="inline-flex flex-1 cursor-pointer items-center justify-center rounded-xl border border-safi-border bg-[#F5F5F0] px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={recalculateBinaryBonus}
+                disabled={actionLoading === 'binary'}
+                className="inline-flex flex-1 cursor-pointer items-center justify-center rounded-xl bg-safi-green px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionLoading === 'binary' ? 'Расчёт...' : 'Перерассчитать'}
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 

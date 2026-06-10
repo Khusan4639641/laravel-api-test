@@ -296,6 +296,23 @@ class PartnerController extends Controller
         ]);
     }
 
+    public function recalculateBinaryBonus(Request $request, User $user): JsonResponse
+    {
+        $result = $this->bonusService->recalculateBinaryBonus($user, $request->user());
+        $partner = $this->loadPartner($user->refresh());
+        $bonusTransaction = $result['bonus_transaction'];
+
+        return response()->json([
+            'message' => $result['message'],
+            'data' => $result['data'],
+            'bonus_transaction' => $bonusTransaction
+                ? BonusTransactionResource::make($bonusTransaction->load('walletTransaction'))
+                : null,
+            'user' => UserResource::make($partner),
+            'recent_transactions' => WalletTransactionResource::collection($this->recentTransactions($partner)),
+        ]);
+    }
+
     public function tree(User $user): JsonResponse
     {
         $rootNode = $user->binaryNode()->where('is_active', true)->first();
