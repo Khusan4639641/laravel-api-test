@@ -6,10 +6,12 @@ use App\Models\BonusTransaction;
 use App\Models\BinaryBonusCalculation;
 use App\Models\BinaryBonusRun;
 use App\Models\BinaryNode;
+use App\Models\PvTransaction;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Notifications\BonusAccruedNotification;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class BonusService
 {
@@ -129,7 +131,7 @@ class BonusService
         return DB::transaction(function () use ($user): ?BonusTransaction {
             $user = User::query()
                 ->with('currentPackage')
-                ->activeAccount()
+                ->activeMlm()
                 ->lockForUpdate()
                 ->findOrFail($user->id);
 
@@ -141,7 +143,8 @@ class BonusService
                 return null;
             }
 
-            $basePv = $this->minDecimal((string) $user->remaining_left_pv, (string) $user->remaining_right_pv);
+            $pvSnapshot = $this->binaryPvSnapshot($user);
+            $basePv = $this->minDecimal($pvSnapshot['left_available_pv'], $pvSnapshot['right_available_pv']);
             $percent = (string) ($user->currentPackage?->binary_percent ?? 0);
 
             if (bccomp($basePv, '0', 2) <= 0 || bccomp($percent, '0', 2) <= 0) {
@@ -159,8 +162,31 @@ class BonusService
             $bonusAmount = bcsub($amount, $mainAmount, 2);
             $periodStart = now();
             $periodEnd = $periodStart->copy()->addDays(self::BINARY_PERIOD_DAYS);
-            $carryLeftPv = bcsub((string) $user->remaining_left_pv, $basePv, 2);
-            $carryRightPv = bcsub((string) $user->remaining_right_pv, $basePv, 2);
+            $carryLeftPv = bcsub($pvSnapshot['left_available_pv'], $basePv, 2);
+            $carryRightPv = bcsub($pvSnapshot['right_available_pv'], $basePv, 2);
+            $diagnostics = [
+                ...$pvSnapshot,
+                'weak_leg_pv' => $basePv,
+                'binary_total' => $amount,
+                'main_wallet_amount' => $mainAmount,
+                'deposit_amount' => $bonusAmount,
+            ];
+
+            Log::info('Binary calculation input', [
+                'user_id' => $user->id,
+                'left_total_pv' => $diagnostics['left_total_pv'],
+                'right_total_pv' => $diagnostics['right_total_pv'],
+                'left_excluded_deleted_pv' => $diagnostics['left_excluded_deleted_pv'],
+                'right_excluded_deleted_pv' => $diagnostics['right_excluded_deleted_pv'],
+                'left_excluded_elite_non_bonusable_pv' => $diagnostics['left_excluded_elite_non_bonusable_pv'],
+                'right_excluded_elite_non_bonusable_pv' => $diagnostics['right_excluded_elite_non_bonusable_pv'],
+                'left_bonusable_pv' => $diagnostics['left_bonusable_pv'],
+                'right_bonusable_pv' => $diagnostics['right_bonusable_pv'],
+                'weak_leg_pv' => $diagnostics['weak_leg_pv'],
+                'binary_total' => $diagnostics['binary_total'],
+                'main_wallet_amount' => $diagnostics['main_wallet_amount'],
+                'deposit_amount' => $diagnostics['deposit_amount'],
+            ]);
 
             $user->forceFill([
                 'remaining_left_pv' => $carryLeftPv,
@@ -183,6 +209,7 @@ class BonusService
                     'pv_money_rate' => self::PV_MONEY_RATE,
                     'binary_percent' => $percent,
                     'package_id' => $user->current_package_id,
+                    'diagnostics' => $diagnostics,
                 ],
             ]);
 
@@ -201,8 +228,8 @@ class BonusService
                 'user_id' => $user->id,
                 'bonus_type' => 'binary',
                 'amount' => $amount,
-                'left_pv' => $user->left_pv,
-                'right_pv' => $user->right_pv,
+                'left_pv' => $pvSnapshot['left_total_pv'],
+                'right_pv' => $pvSnapshot['right_total_pv'],
                 'matched_pv' => $basePv,
                 'status' => 'completed',
                 'metadata' => [
@@ -223,6 +250,7 @@ class BonusService
                     'carry_right_pv' => $carryRightPv,
                     'remaining_left_pv_after' => $carryLeftPv,
                     'remaining_right_pv_after' => $carryRightPv,
+                    'diagnostics' => $diagnostics,
                 ],
                 'calculated_at' => now(),
             ]);
@@ -271,8 +299,8 @@ class BonusService
                 'binary_bonus_run_id' => $run->id,
                 'user_id' => $user->id,
                 'bonus_transaction_id' => $bonusTransaction->id,
-                'left_pv' => $user->left_pv,
-                'right_pv' => $user->right_pv,
+                'left_pv' => $pvSnapshot['left_total_pv'],
+                'right_pv' => $pvSnapshot['right_total_pv'],
                 'weak_leg_pv' => $basePv,
                 'used_left_pv' => $basePv,
                 'used_right_pv' => $basePv,
@@ -287,6 +315,7 @@ class BonusService
                     'pv_money_rate' => self::PV_MONEY_RATE,
                     'period_start' => $periodStart->toISOString(),
                     'period_end' => $periodEnd->toISOString(),
+                    'diagnostics' => $diagnostics,
                 ],
             ]);
 
@@ -323,7 +352,7 @@ class BonusService
         $rootBranchPositions = BinaryNode::query()
             ->where('parent_id', $sponsorNode->id)
             ->where('is_active', true)
-            ->whereHas('user', fn ($query) => $query->activeAccount())
+            ->whereHas('user', fn ($query) => $query->activeMlm())
             ->pluck('position', 'user_id');
 
         if ($rootBranchPositions->isEmpty()) {
@@ -335,7 +364,7 @@ class BonusService
         User::query()
             ->where('sponsor_id', $user->id)
             ->where('role', User::ROLE_USER)
-            ->activeAccount()
+            ->activeMlm()
             ->with(['binaryNode' => fn ($query) => $query->where('is_active', true)])
             ->each(function (User $referral) use ($sponsorPath, $rootBranchPositions, &$branches): void {
                 $referralPath = trim((string) $referral->binaryNode?->path, '.');
@@ -360,6 +389,120 @@ class BonusService
             });
 
         return isset($branches['L'], $branches['R']);
+    }
+
+    /**
+     * @return array<string, string|bool>
+     */
+    private function binaryPvSnapshot(User $user): array
+    {
+        $hasPvTransactions = PvTransaction::query()
+            ->where('upline_id', $user->id)
+            ->whereIn('branch', ['L', 'R'])
+            ->exists();
+
+        if (! $hasPvTransactions) {
+            return [
+                'uses_pv_transactions' => false,
+                'left_total_pv' => $this->decimal((string) ($user->left_pv ?? '0')),
+                'right_total_pv' => $this->decimal((string) ($user->right_pv ?? '0')),
+                'left_excluded_deleted_pv' => '0.00',
+                'right_excluded_deleted_pv' => '0.00',
+                'left_excluded_inactive_or_deleted_pv' => '0.00',
+                'right_excluded_inactive_or_deleted_pv' => '0.00',
+                'left_excluded_voided_pv' => '0.00',
+                'right_excluded_voided_pv' => '0.00',
+                'left_excluded_elite_non_bonusable_pv' => '0.00',
+                'right_excluded_elite_non_bonusable_pv' => '0.00',
+                'left_excluded_non_bonusable_pv' => '0.00',
+                'right_excluded_non_bonusable_pv' => '0.00',
+                'left_bonusable_pv' => $this->decimal((string) ($user->remaining_left_pv ?? '0')),
+                'right_bonusable_pv' => $this->decimal((string) ($user->remaining_right_pv ?? '0')),
+                'left_used_prior_pv' => '0.00',
+                'right_used_prior_pv' => '0.00',
+                'left_available_pv' => $this->decimal((string) ($user->remaining_left_pv ?? '0')),
+                'right_available_pv' => $this->decimal((string) ($user->remaining_right_pv ?? '0')),
+            ];
+        }
+
+        $left = $this->branchPvComponents($user, 'L');
+        $right = $this->branchPvComponents($user, 'R');
+
+        return [
+            'uses_pv_transactions' => true,
+            'left_total_pv' => $left['total_pv'],
+            'right_total_pv' => $right['total_pv'],
+            'left_excluded_deleted_pv' => $left['excluded_inactive_or_deleted_pv'],
+            'right_excluded_deleted_pv' => $right['excluded_inactive_or_deleted_pv'],
+            'left_excluded_inactive_or_deleted_pv' => $left['excluded_inactive_or_deleted_pv'],
+            'right_excluded_inactive_or_deleted_pv' => $right['excluded_inactive_or_deleted_pv'],
+            'left_excluded_voided_pv' => $left['excluded_voided_pv'],
+            'right_excluded_voided_pv' => $right['excluded_voided_pv'],
+            'left_excluded_elite_non_bonusable_pv' => $left['excluded_elite_non_bonusable_pv'],
+            'right_excluded_elite_non_bonusable_pv' => $right['excluded_elite_non_bonusable_pv'],
+            'left_excluded_non_bonusable_pv' => $left['excluded_non_bonusable_pv'],
+            'right_excluded_non_bonusable_pv' => $right['excluded_non_bonusable_pv'],
+            'left_bonusable_pv' => $left['bonusable_pv'],
+            'right_bonusable_pv' => $right['bonusable_pv'],
+            'left_used_prior_pv' => $left['used_prior_pv'],
+            'right_used_prior_pv' => $right['used_prior_pv'],
+            'left_available_pv' => $left['available_pv'],
+            'right_available_pv' => $right['available_pv'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function branchPvComponents(User $user, string $branch): array
+    {
+        $baseQuery = PvTransaction::query()
+            ->where('upline_id', $user->id)
+            ->where('branch', $branch);
+
+        $nonVoidedQuery = (clone $baseQuery)->whereNull('voided_at');
+        $activeBuyerQuery = (clone $nonVoidedQuery)
+            ->whereHas('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER));
+        $totalPv = $this->sumPv($nonVoidedQuery);
+        $excludedVoidedPv = $this->sumPv((clone $baseQuery)->whereNotNull('voided_at'));
+        $excludedInactiveOrDeletedPv = $this->sumPv(
+            (clone $nonVoidedQuery)->whereDoesntHave('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER))
+        );
+        $excludedNonBonusablePv = $this->sumPv((clone $activeBuyerQuery)->where('is_bonusable', false));
+        $excludedEliteNonBonusablePv = $this->sumPv(
+            (clone $activeBuyerQuery)
+                ->where('is_bonusable', false)
+                ->where('source', 'package_elite_upgrade')
+        );
+        $bonusablePv = $this->sumPv((clone $activeBuyerQuery)->where('is_bonusable', true));
+        $usedPriorPv = $this->usedPriorBinaryPv($user, $branch);
+        $availablePv = $this->positiveOrZero(bcsub($bonusablePv, $usedPriorPv, 2));
+
+        return [
+            'total_pv' => $totalPv,
+            'excluded_voided_pv' => $excludedVoidedPv,
+            'excluded_inactive_or_deleted_pv' => $excludedInactiveOrDeletedPv,
+            'excluded_non_bonusable_pv' => $excludedNonBonusablePv,
+            'excluded_elite_non_bonusable_pv' => $excludedEliteNonBonusablePv,
+            'bonusable_pv' => $bonusablePv,
+            'used_prior_pv' => $usedPriorPv,
+            'available_pv' => $availablePv,
+        ];
+    }
+
+    private function usedPriorBinaryPv(User $user, string $branch): string
+    {
+        $column = $branch === 'L' ? 'used_left_pv' : 'used_right_pv';
+
+        return $this->decimal((string) BinaryBonusRun::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['completed', 'pending'])
+            ->sum($column));
+    }
+
+    private function sumPv($query): string
+    {
+        return $this->decimal((string) $query->sum('pv'));
     }
 
     public function accrueDepositPurchaseCashback(
@@ -425,5 +568,15 @@ class BonusService
     private function minDecimal(string $left, string $right): string
     {
         return bccomp($left, $right, 2) <= 0 ? $left : $right;
+    }
+
+    private function positiveOrZero(string $value): string
+    {
+        return bccomp($value, '0', 2) > 0 ? $this->decimal($value) : '0.00';
+    }
+
+    private function decimal(string $value): string
+    {
+        return number_format((float) $value, 2, '.', '');
     }
 }

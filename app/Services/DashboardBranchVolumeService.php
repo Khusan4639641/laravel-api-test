@@ -172,7 +172,7 @@ class DashboardBranchVolumeService
             ->each(function (BinaryNode $node) use (&$volumes, $rootSegments, $rootChildren): void {
                 $partner = $node->user;
 
-                if (! $partner || $partner->role !== User::ROLE_USER || $partner->account_status !== 'active' || ! $partner->currentPackage) {
+                if (! $partner || ! $this->isActiveMlmPartner($partner) || ! $partner->currentPackage) {
                     return;
                 }
 
@@ -216,7 +216,7 @@ class DashboardBranchVolumeService
             ->orderBy('id')
             ->get()
             ->each(function (BinaryNode $node) use (&$counts, $rootSegments, $rootChildren): void {
-                if (! $node->user || $node->user->role !== User::ROLE_USER || $node->user->account_status !== 'active') {
+                if (! $node->user || ! $this->isActiveMlmPartner($node->user)) {
                     return;
                 }
 
@@ -245,7 +245,7 @@ class DashboardBranchVolumeService
             ->selectRaw('branch, COALESCE(SUM(pv), 0) as total_pv')
             ->where('upline_id', $user->id)
             ->whereNull('voided_at')
-            ->whereHas('buyer', fn ($query) => $query->where('role', User::ROLE_USER)->activeAccount())
+            ->whereHas('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER))
             ->groupBy('branch')
             ->get()
             ->each(function (PvTransaction $row) use (&$volumes): void {
@@ -283,7 +283,7 @@ class DashboardBranchVolumeService
             ->selectRaw('upline_id, branch, COALESCE(SUM(pv), 0) as total_pv')
             ->whereIn('upline_id', $userIds)
             ->whereNull('voided_at')
-            ->whereHas('buyer', fn ($query) => $query->where('role', User::ROLE_USER)->activeAccount())
+            ->whereHas('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER))
             ->groupBy('upline_id', 'branch')
             ->get()
             ->each(function (PvTransaction $row) use (&$volumes): void {
@@ -363,7 +363,7 @@ class DashboardBranchVolumeService
     {
         $user = $node->user;
 
-        if (! $user || $user->role !== User::ROLE_USER || $user->account_status !== 'active' || ! $user->currentPackage) {
+        if (! $user || ! $this->isActiveMlmPartner($user) || ! $user->currentPackage) {
             return '0.00';
         }
 
@@ -415,6 +415,13 @@ class DashboardBranchVolumeService
         }
 
         return $fallbackPv;
+    }
+
+    private function isActiveMlmPartner(User $user): bool
+    {
+        return $user->role === User::ROLE_USER
+            && ! $user->trashed()
+            && $user->account_status === 'active';
     }
 
     private function minDecimal(string $left, string $right): string

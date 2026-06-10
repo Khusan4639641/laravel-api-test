@@ -66,6 +66,18 @@ class User extends Authenticatable
      * @param  Builder<User>  $query
      * @return Builder<User>
      */
+    public function scopeActiveMlm(Builder $query): Builder
+    {
+        return $query
+            ->whereNull('deleted_at')
+            ->where('account_status', 'active')
+            ->whereNotIn('role', [self::ROLE_SUPPORT, self::ROLE_ACCOUNTANT]);
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
     public function scopePartnerAccount(Builder $query): Builder
     {
         return $query->where('role', self::ROLE_USER);
