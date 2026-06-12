@@ -21,8 +21,12 @@ class UserResource extends JsonResource
             ->where('direction', 'credit')
             ->where('status', 'completed')
             ->where('affects_balance', true)
+            ->whereIn('type', $this->incomeTransactionTypes())
             ->sum('amount');
-        $totalEarned = $totalEarned > 0 ? $totalEarned : $totalWalletBalance;
+        $hasIncomingPartnerTransfer = $this->resource->walletTransactions()
+            ->where('type', 'partner_transfer_in')
+            ->exists();
+        $totalEarned = $totalEarned > 0 || $hasIncomingPartnerTransfer ? $totalEarned : $totalWalletBalance;
         $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
         $packageActivityAmount = $package ? (float) $package->volumeAmount() : 0;
@@ -98,5 +102,23 @@ class UserResource extends JsonResource
         }
 
         return asset(Storage::url($path));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function incomeTransactionTypes(): array
+    {
+        return [
+            'referral_bonus',
+            'binary_bonus_main',
+            'status_bonus',
+            'x2_bonus',
+            'bonus_x2',
+            'cashback',
+            'deposit_purchase_cashback',
+            'manual_credit',
+            'manual_adjustment',
+        ];
     }
 }

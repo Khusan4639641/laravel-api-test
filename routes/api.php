@@ -27,6 +27,8 @@ use App\Http\Controllers\Api\Dashboard\NotificationController as DashboardNotifi
 use App\Http\Controllers\Api\Dashboard\OrderController as DashboardOrderController;
 use App\Http\Controllers\Api\Dashboard\OverviewController as DashboardOverviewController;
 use App\Http\Controllers\Api\Dashboard\PackageController as DashboardPackageController;
+use App\Http\Controllers\Api\Dashboard\PartnerSearchController as DashboardPartnerSearchController;
+use App\Http\Controllers\Api\Dashboard\PartnerTransferController as DashboardPartnerTransferController;
 use App\Http\Controllers\Api\Dashboard\ProductController as DashboardProductController;
 use App\Http\Controllers\Api\Dashboard\ProfileController as DashboardProfileController;
 use App\Http\Controllers\Api\Dashboard\StructureController as DashboardStructureController;
@@ -106,6 +108,9 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         Route::get('/earnings-summary', DashboardEarningsSummaryController::class);
         Route::get('/notifications', [DashboardNotificationController::class, 'index']);
         Route::get('/packages', DashboardPackageController::class);
+        Route::get('/partners/search', DashboardPartnerSearchController::class);
+        Route::get('/wallet/transfers', [DashboardPartnerTransferController::class, 'index']);
+        Route::post('/wallet/transfers', [DashboardPartnerTransferController::class, 'store']);
         Route::post('/package/{package}/payments/tiptoppay/intent', [TipTopPayIntentController::class, 'package']);
         Route::get('/products', DashboardProductController::class);
         Route::get('/deposit-products', DashboardDepositProductController::class);

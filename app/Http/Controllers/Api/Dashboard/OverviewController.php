@@ -63,6 +63,7 @@ class OverviewController extends Controller
                     ->where('direction', 'credit')
                     ->where('status', 'completed')
                     ->where('affects_balance', true)
+                    ->whereIn('type', $this->incomeTypes())
                     ->sum('amount'),
                 'pending_withdrawals' => (string) WithdrawalRequest::query()
                     ->where('user_id', $user->id)
@@ -126,5 +127,23 @@ class OverviewController extends Controller
             fn ($query) => $query->where('path', 'like', $path.'.%')->where('is_active', true),
             fn ($query) => $query->whereRaw('1 = 0'),
         );
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function incomeTypes(): array
+    {
+        return [
+            'referral_bonus',
+            'binary_bonus_main',
+            'status_bonus',
+            'x2_bonus',
+            'bonus_x2',
+            'cashback',
+            'deposit_purchase_cashback',
+            'manual_credit',
+            'manual_adjustment',
+        ];
     }
 }

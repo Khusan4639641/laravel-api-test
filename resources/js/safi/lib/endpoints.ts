@@ -35,6 +35,8 @@ export const endpoints = {
     earningsSummary: '/dashboard/earnings-summary',
     notifications: '/dashboard/notifications',
     packages: '/dashboard/packages',
+    partnersSearch: '/dashboard/partners/search',
+    walletTransfers: '/dashboard/wallet/transfers',
     products: '/dashboard/products',
     depositProducts: '/dashboard/deposit-products',
     orders: '/dashboard/orders',

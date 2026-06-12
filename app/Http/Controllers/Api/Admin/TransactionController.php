@@ -38,6 +38,9 @@ class TransactionController extends Controller
             ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
             ->whereHas('user', fn ($query) => $query->activeAccount())
             ->when($request->filled('user_id'), fn ($query) => $query->where('user_id', (int) $request->integer('user_id')))
+            ->when($request->filled('type'), fn ($query) => $query->where('type', trim((string) $request->query('type'))))
+            ->when($request->filled('date_from'), fn ($query) => $query->whereDate('created_at', '>=', (string) $request->query('date_from')))
+            ->when($request->filled('date_to'), fn ($query) => $query->whereDate('created_at', '<=', (string) $request->query('date_to')))
             ->when($search !== '', function ($query) use ($search): void {
                 $query->where(function ($query) use ($search): void {
                     if (ctype_digit($search)) {

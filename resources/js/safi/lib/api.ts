@@ -106,6 +106,37 @@ export interface WithdrawalPayload {
   [key: string]: unknown;
 }
 
+export interface TransferPartner {
+  id: number;
+  name: string;
+  login?: string;
+  email?: string;
+  phone?: string;
+  package?: string;
+  status?: string;
+}
+
+export interface PartnerTransferPayload {
+  recipient_user_id: number;
+  amount: number;
+  comment?: string;
+  idempotency_key?: string;
+}
+
+export interface PartnerTransfer {
+  id: string;
+  uuid?: string;
+  senderId: number;
+  recipientId: number;
+  amount: number;
+  currency: string;
+  status: string;
+  comment?: string;
+  sender?: TransferPartner | null;
+  recipient?: TransferPartner | null;
+  createdAt?: string;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -641,6 +672,32 @@ export async function createDashboardWithdrawal<T = unknown>(payload: Withdrawal
   return apiRequest<T>(endpoints.dashboard.withdrawals, {
     method: 'POST',
     body: payload,
+    auth: true,
+  });
+}
+
+export async function searchTransferPartners(q: string, limit = 20) {
+  const response = await apiRequest(buildEndpointWithParams(endpoints.dashboard.partnersSearch, { q, limit }), {
+    method: 'GET',
+    auth: true,
+  });
+
+  return normalizeTransferPartners(response);
+}
+
+export async function getPartnerTransfers(params: ApiQueryParams = {}) {
+  const response = await apiRequest(buildEndpointWithParams(endpoints.dashboard.walletTransfers, params), {
+    method: 'GET',
+    auth: true,
+  });
+
+  return normalizePartnerTransfers(response);
+}
+
+export async function createPartnerTransfer<T = unknown>(payload: PartnerTransferPayload) {
+  return apiRequest<T>(endpoints.dashboard.walletTransfers, {
+    method: 'POST',
+    body: compactPayload(payload),
     auth: true,
   });
 }
@@ -1446,6 +1503,48 @@ export function getArray(response: unknown, keys: string[] = []) {
   }
 
   return [];
+}
+
+export function normalizeTransferPartners(response: unknown): TransferPartner[] {
+  return getArray(response, ['partners']).map((item) => {
+    const record = isRecord(item) ? item : {};
+
+    return normalizeTransferPartner(record);
+  }).filter((partner) => partner.id > 0);
+}
+
+export function normalizePartnerTransfers(response: unknown): PartnerTransfer[] {
+  return getArray(response, ['transfers']).map((item) => {
+    const record = isRecord(item) ? item : {};
+    const senderRecord = isRecord(record.sender) ? record.sender : undefined;
+    const recipientRecord = isRecord(record.recipient) ? record.recipient : undefined;
+
+    return {
+      id: getString(record, ['id']) || getString(record, ['uuid']) || '',
+      uuid: getString(record, ['uuid']),
+      senderId: getNumber(record, ['sender_id', 'senderId']) ?? 0,
+      recipientId: getNumber(record, ['recipient_id', 'recipientId']) ?? 0,
+      amount: getNumber(record, ['amount']) ?? 0,
+      currency: getString(record, ['currency']) || 'KZT',
+      status: getString(record, ['status']) || 'completed',
+      comment: getString(record, ['comment']),
+      sender: senderRecord ? normalizeTransferPartner(senderRecord) : null,
+      recipient: recipientRecord ? normalizeTransferPartner(recipientRecord) : null,
+      createdAt: getString(record, ['created_at', 'createdAt']),
+    } satisfies PartnerTransfer;
+  });
+}
+
+function normalizeTransferPartner(record: Record<string, unknown>): TransferPartner {
+  return {
+    id: getNumber(record, ['id']) ?? 0,
+    name: getString(record, ['name']) || 'Партнёр',
+    login: getString(record, ['login']),
+    email: getString(record, ['email']),
+    phone: getString(record, ['phone']),
+    package: getString(record, ['package', 'package_label', 'packageLabel']),
+    status: getString(record, ['status']),
+  };
 }
 
 export function normalizeOrders(response: unknown): Order[] {

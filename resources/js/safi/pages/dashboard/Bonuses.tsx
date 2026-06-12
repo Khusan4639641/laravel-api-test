@@ -3,8 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { ArrowUpCircle, Info, Wallet } from 'lucide-react';
 import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
+import PartnerTransferForm from '../../components/dashboard/PartnerTransferForm';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ApiError, createDashboardWithdrawal, EarningsSummary, getApiErrorState, getDashboardEarningsSummary, getDashboardOverview, getDashboardWithdrawals, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
+import { ApiError, createDashboardWithdrawal, EarningsSummary, getApiErrorState, getDashboardEarningsSummary, getDashboardOverview, getDashboardWithdrawals, getNumber, getPartnerTransfers, getPublicStatuses, getString, PartnerTransfer, Status } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { withdrawalStatusLabel } from '../../lib/systemLabels';
 
@@ -36,9 +37,10 @@ const emptyEarningsSummary: EarningsSummary = {
 
 export default function Bonuses() {
   const { t } = useTranslation();
-  const { currentUser } = useDashboardContext();
+  const { currentUser, refreshCurrentUser } = useDashboardContext();
   const [activeTab, setActiveTab] = useState<'bonuses' | 'withdrawal'>('bonuses');
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
+  const [transfers, setTransfers] = useState<PartnerTransfer[]>([]);
   const [earningsSummary, setEarningsSummary] = useState<EarningsSummary>(emptyEarningsSummary);
   const [balance, setBalance] = useState({
     available: currentUser.walletAvailable,
@@ -69,8 +71,10 @@ export default function Bonuses() {
         getDashboardOverview(),
         getPublicStatuses(),
       ]);
+      const transferItems = await getPartnerTransfers({ per_page: 10 });
 
       setWithdrawals(normalizeWithdrawals(withdrawalsResponse));
+      setTransfers(transferItems);
       setStatuses(statusItems);
       setEarningsSummary(earningsSummaryResponse);
 
@@ -105,6 +109,7 @@ export default function Bonuses() {
       });
     } catch (caughtError) {
       setWithdrawals([]);
+      setTransfers([]);
       setStatuses([]);
       setEarningsSummary(emptyEarningsSummary);
       setBonuses({ referral: 0, binary: 0, status: 0, cashback: 0, deposit: 0, bonusX2: 0 });
@@ -118,6 +123,11 @@ export default function Bonuses() {
   useEffect(() => {
     void loadBonusData();
   }, [loadBonusData]);
+
+  const handleTransferSuccess = useCallback(async () => {
+    await loadBonusData();
+    await refreshCurrentUser();
+  }, [loadBonusData, refreshCurrentUser]);
 
   const weakLegPV = structure.weakLegPV || Math.min(structure.leftPV, structure.rightPV);
   const nextStatus = statuses.find((status) => status.pv > weakLegPV);
@@ -310,6 +320,65 @@ export default function Bonuses() {
             </aside>
           </section>
 
+          <PartnerTransferForm availableBalance={balance.available} onSuccess={handleTransferSuccess} />
+
+          <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+            <div className="border-b border-safi-border bg-safi-cream p-6 md:p-7">
+              <h2 className="font-serif text-3xl font-semibold text-safi-green">История переводов</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left">
+                <thead className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
+                  <tr>
+                    <th className="px-7 py-4">Перевод / дата</th>
+                    <th className="px-7 py-4">Сумма</th>
+                    <th className="px-7 py-4">Тип</th>
+                    <th className="px-7 py-4">Статус</th>
+                    <th className="px-7 py-4">Комментарий</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-safi-border text-sm">
+                  {transfers.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-7 py-8">
+                        <EmptyState
+                          title="Переводов пока нет"
+                          description="История появится после первого перевода партнёру."
+                          className="min-h-[180px] shadow-none"
+                        />
+                      </td>
+                    </tr>
+                  )}
+
+                  {transfers.map((transfer) => {
+                    const outgoing = isOutgoingTransfer(transfer, currentUser.id);
+                    const counterparty = outgoing ? transfer.recipient : transfer.sender;
+
+                    return (
+                      <tr key={transfer.uuid || transfer.id} className="transition-colors hover:bg-safi-cream/70">
+                        <td className="px-7 py-5">
+                          <div className="font-extrabold text-safi-green">#{transfer.id}</div>
+                          <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{formatDate(transfer.createdAt)}</div>
+                        </td>
+                        <td className={`px-7 py-5 font-extrabold ${outgoing ? 'text-red-700' : 'text-green-700'}`}>
+                          {outgoing ? '-' : '+'}{transfer.amount.toLocaleString('ru-RU')} ₸
+                        </td>
+                        <td className="px-7 py-5 text-safi-muted">{outgoing ? 'Перевод партнёру' : 'Перевод от партнёра'}</td>
+                        <td className="px-7 py-5">
+                          <Badge variant="success">Завершено</Badge>
+                        </td>
+                        <td className="px-7 py-5 text-safi-muted">
+                          <div>{outgoing ? 'Получатель' : 'Отправитель'}: {counterparty?.name || '-'}</div>
+                          {transfer.comment && <div className="mt-1 text-xs">{transfer.comment}</div>}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+
           <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             <div className="border-b border-safi-border bg-safi-cream p-6 md:p-7">
               <h2 className="font-serif text-3xl font-semibold text-safi-green">История выводов</h2>
@@ -498,6 +567,24 @@ function methodLabel(method?: string) {
   }
 
   return method || 'Карта партнера';
+}
+
+function isOutgoingTransfer(transfer: PartnerTransfer, currentUserId?: string | number) {
+  return String(transfer.senderId) === String(currentUserId || '');
+}
+
+function formatDate(value?: string) {
+  if (!value) {
+    return '-';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString('ru-RU');
 }
 
 function getString(record: Record<string, unknown>, keys: string[]) {
