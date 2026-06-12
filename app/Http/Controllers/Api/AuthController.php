@@ -22,6 +22,12 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request): JsonResponse
     {
+        if (! config('safi.public_registration_enabled', false)) {
+            return response()->json([
+                'message' => 'Самостоятельная регистрация временно недоступна',
+            ], 403);
+        }
+
         $validated = $request->validated();
         $sponsor = $this->partnerRegistrationService->resolveSponsorByReferralCode(
             $validated['referral_code'] ?? null,

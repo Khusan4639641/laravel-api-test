@@ -98,9 +98,10 @@ class FrontendContentTest extends TestCase
         $this->assertStringNotContainsString('onSubmit={e => e.preventDefault()}', $contacts);
         $this->assertStringContainsString("t('contacts.supportTitle'", $contacts);
         $this->assertStringContainsString('to="/login"', $contacts);
+        $this->assertStringNotContainsString('to="/register"', $contacts);
     }
 
-    public function test_header_uses_authenticated_cabinet_actions(): void
+    public function test_header_uses_authenticated_cabinet_actions_without_public_registration(): void
     {
         $header = file_get_contents(resource_path('js/safi/components/layout/Header.tsx'));
 
@@ -109,7 +110,8 @@ class FrontendContentTest extends TestCase
         $this->assertStringContainsString('to={cabinetPath}', $header);
         $this->assertStringContainsString('isAuthenticated ? (', $header);
         $this->assertStringContainsString('to="/login"', $header);
-        $this->assertStringContainsString('to="/register"', $header);
+        $this->assertStringNotContainsString('to="/register"', $header);
+        $this->assertStringNotContainsString("t('nav.register'", $header);
     }
 
     public function test_header_cabinet_routes_are_role_based_and_public_home_does_not_logout(): void

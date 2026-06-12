@@ -58,7 +58,7 @@ export default function ContactsPage() {
             </p>
             <div className="mt-8 grid gap-3 sm:grid-cols-2">
               <Button to="/login" className="w-full">{t('nav.login', 'Вход')}</Button>
-              <Button to="/register" variant="outline" className="w-full">{t('nav.register', 'Регистрация')}</Button>
+              <Button to="/login" variant="outline" className="w-full">{t('nav.cabinet', 'Кабинет')}</Button>
             </div>
             <div className="mt-8 rounded-3xl border border-safi-green/10 bg-[#F5F5F0] p-5 text-sm leading-7 text-safi-green/75">
               {t('contacts.supportNote', 'Если у вас уже есть аккаунт, откройте раздел “Поддержка” в кабинете и создайте обращение с темой и описанием вопроса.')}

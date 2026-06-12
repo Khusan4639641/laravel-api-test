@@ -1,6 +1,6 @@
 import React, { FormEvent, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
 import { ApiError, getMyPermissions, login } from '../lib/api';
@@ -106,7 +106,7 @@ export default function LoginPage() {
             </div>
 
             <div className="text-center text-[10px] uppercase tracking-widest text-safi-text opacity-70 pt-4">
-              Нет аккаунта? <Link to="/register" className="text-safi-green font-bold hover:underline">Стать партнёром</Link>
+              Самостоятельная регистрация временно недоступна. Обратитесь к администратору.
             </div>
           </form>
         </div>

@@ -15,7 +15,6 @@ const HowToStartPage = React.lazy(() => import('../pages/HowToStartPage'));
 const NewsPage = React.lazy(() => import('../pages/NewsPage'));
 const ContactsPage = React.lazy(() => import('../pages/ContactsPage'));
 const FAQPage = React.lazy(() => import('../pages/FAQPage'));
-const RegisterPage = React.lazy(() => import('../pages/RegisterPage'));
 const LoginPage = React.lazy(() => import('../pages/LoginPage'));
 const AdminPreviewPage = React.lazy(() => import('../pages/AdminPreviewPage'));
 const LegalPage = React.lazy(() => import('../pages/LegalPage'));
@@ -72,8 +71,10 @@ export function AppRouter() {
             <Route path="news" element={<NewsPage />} />
             <Route path="faq" element={<FAQPage />} />
             <Route path="contacts" element={<ContactsPage />} />
-            <Route path="register" element={<RegisterPage />} />
-            <Route path="register-ref-branch" element={<RegisterPage />} />
+            <Route path="register" element={<Navigate to="/login" replace />} />
+            <Route path="register-ref-branch" element={<Navigate to="/login" replace />} />
+            <Route path="registration" element={<Navigate to="/login" replace />} />
+            <Route path="sign-up" element={<Navigate to="/login" replace />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="legal" element={<LegalPage />} />
             <Route path="payment" element={<LegalInfoPage type="payment" />} />

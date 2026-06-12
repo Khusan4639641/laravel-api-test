@@ -54,7 +54,6 @@ export function Footer() {
               <li><FooterLink to="/marketing">{t('nav.marketing', 'Маркетинг-план')}</FooterLink></li>
               <li><FooterLink to="/how-to-start">{t('nav.howToStart', 'Как начать')}</FooterLink></li>
               <li><FooterLink to="/login">{t('nav.login', 'Вход в кабинет')}</FooterLink></li>
-              <li><FooterLink to="/register">{t('nav.register', 'Регистрация')}</FooterLink></li>
             </ul>
 
             <div className="mt-8 space-y-3 text-sm text-safi-bg/70">

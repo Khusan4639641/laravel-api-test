@@ -1,37 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
-import { CheckCircle2, CreditCard, Lock, Trophy } from 'lucide-react';
+import { CheckCircle2, Lock, Trophy } from 'lucide-react';
 import { Badge, ProgressBar } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ToastItem, ToastStack } from '../../components/ui/Toast';
-import { ApiError, createTipTopPayPackagePaymentIntent, getApiErrorState, getDashboardOverview, getDashboardPackages, getNumber, getPublicStatuses, getTipTopPayStatus, Package, Status, TipTopPayStatus } from '../../lib/api';
+import { getApiErrorState, getDashboardOverview, getDashboardPackages, getNumber, getPublicStatuses, Package, Status } from '../../lib/api';
 import { cn } from '../../lib/utils';
-import { useTipTopPayWidget } from '../../hooks/useTipTopPayWidget';
 
 export default function PackageStatus() {
-  const { currentUser, refreshCurrentUser } = useDashboardContext();
+  const { currentUser } = useDashboardContext();
   const [packages, setPackages] = useState<Package[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [statusProgress, setStatusProgress] = useState({ leftPV: 0, rightPV: 0, weakLegPV: 0 });
-  const [tipTopStatus, setTipTopStatus] = useState<TipTopPayStatus | null>(null);
-  const [payingPackageId, setPayingPackageId] = useState<string | null>(null);
-  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const { isWidgetLoading, startPayment } = useTipTopPayWidget();
   const currentPackageCode = normalizePackageCode(currentUser.packageCode || currentUser.packageName);
   const displayPackages = packages;
   const weakLegPV = statusProgress.weakLegPV || Math.min(statusProgress.leftPV, statusProgress.rightPV);
   const nextStatus = statuses.find((status) => status.pv > weakLegPV);
   const statusTargetPV = nextStatus?.pv || statuses[statuses.length - 1]?.pv || Math.max(weakLegPV, 1);
   const statusProgressPercent = statusTargetPV > 0 ? Math.min(100, Math.max(0, (weakLegPV / statusTargetPV) * 100)) : 0;
-  const isTipTopPayAvailable = tipTopStatus === null || (tipTopStatus.enabled && tipTopStatus.currency === 'KZT' && tipTopStatus.publicTerminalIdSet);
-
-  const showToast = useCallback((message: string, type: ToastItem['type'] = 'success') => {
-    const id = Date.now() + Math.floor(Math.random() * 1000);
-    setToasts((current) => [...current, { id, message, type }]);
-    window.setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 3600);
-  }, []);
 
   const loadPackageData = useCallback(async () => {
     setIsLoading(true);
@@ -70,50 +57,8 @@ export default function PackageStatus() {
     void loadPackageData();
   }, [loadPackageData]);
 
-  useEffect(() => {
-    void getTipTopPayStatus()
-      .then(setTipTopStatus)
-      .catch(() => setTipTopStatus(null));
-  }, []);
-
-  const handlePackagePayment = async (pkg: Package) => {
-    const action = packageAction(pkg, currentPackageCode, isTipTopPayAvailable);
-
-    if (!action.canPay) {
-      showToast(action.reason || 'Пакет недоступен для оплаты', 'error');
-      return;
-    }
-
-    setPayingPackageId(pkg.id);
-
-    try {
-      const intent = await createTipTopPayPackagePaymentIntent(pkg.id, normalizePackageCode(pkg.code || pkg.name));
-
-      await startPayment(intent, {
-        onSuccess: async () => {
-          showToast('Платёж ожидает подтверждения');
-          await Promise.all([loadPackageData(), refreshCurrentUser()]);
-        },
-        onFail: (caughtError) => {
-          const message = caughtError instanceof Error ? caughtError.message : 'Платёж не выполнен';
-          showToast(message, 'error');
-        },
-      });
-    } catch (caughtError) {
-      const message = caughtError instanceof ApiError
-        ? caughtError.message
-        : caughtError instanceof Error
-          ? caughtError.message
-          : getApiErrorState(caughtError).error;
-      showToast(message || 'Не удалось запустить онлайн-оплату', 'error');
-    } finally {
-      setPayingPackageId(null);
-    }
-  };
-
   return (
     <div className="space-y-10">
-      <ToastStack toasts={toasts} onDismiss={(id) => setToasts((current) => current.filter((toast) => toast.id !== id))} />
       <section className="rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
@@ -123,9 +68,7 @@ export default function PackageStatus() {
               Управление стартовым пакетом, апгрейдом и прогрессом по PV.
             </p>
             <p className="mt-3 max-w-2xl rounded-2xl border border-safi-gold/30 bg-safi-cream px-4 py-3 text-sm font-bold leading-6 text-safi-green">
-              {isTipTopPayAvailable
-                ? 'Пакет активируется только после подтверждения оплаты TipTop Pay.'
-                : 'Смена пакета временно доступна только через администратора.'}
+              Пакет назначается администратором. Смена пакета доступна только через администратора.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -155,10 +98,8 @@ export default function PackageStatus() {
         )}
 
         {displayPackages.map((pkg) => {
-          const action = packageAction(pkg, currentPackageCode, isTipTopPayAvailable);
+          const action = packageAction(pkg, currentPackageCode);
           const isCurrent = action.current;
-          const paymentAmount = packagePaymentAmount(pkg, currentPackageCode);
-          const isPaying = payingPackageId === pkg.id || isWidgetLoading;
 
           return (
             <article
@@ -173,11 +114,6 @@ export default function PackageStatus() {
               <div className={`mt-3 text-4xl font-extrabold ${isCurrent ? 'text-safi-gold' : 'text-safi-green'}`}>
                 {pkg.price.toLocaleString('ru-RU')} ₸
               </div>
-              {!isCurrent && action.canPay && paymentAmount !== pkg.price && (
-                <div className={`mt-3 rounded-2xl px-4 py-3 text-sm font-extrabold ${isCurrent ? 'bg-white/10 text-white' : 'bg-safi-cream text-safi-green'}`}>
-                  К оплате за upgrade: {paymentAmount.toLocaleString('ru-RU')} ₸
-                </div>
-              )}
               <div className="mt-6 grid grid-cols-2 gap-3">
                 <PackageMetric label="Реф." value={`${pkg.referralBonus}%`} dark={isCurrent} />
                 <PackageMetric label="Бинар" value={pkg.binaryBonus ? `${pkg.binaryBonus}%` : '-'} dark={isCurrent} />
@@ -190,26 +126,18 @@ export default function PackageStatus() {
                   </li>
                 ))}
               </ul>
-              {isCurrent ? (
-                <div className="mt-8 rounded-full border border-white/15 bg-white/10 px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-[0.16em] text-white">
-                  Текущий пакет
-                </div>
-              ) : action.canPay ? (
-                <button
-                  type="button"
-                  onClick={() => void handlePackagePayment(pkg)}
-                  disabled={isPaying}
-                  className="mt-8 inline-flex cursor-pointer items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-4 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <CreditCard className="h-4 w-4" />
-                  {isPaying ? 'Открываем оплату...' : action.label}
-                </button>
-              ) : (
-                <div className="mt-8 rounded-3xl border border-safi-border bg-safi-cream px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
-                  {action.label}
-                  {action.reason && <div className="mt-2 text-[10px] normal-case tracking-normal">{action.reason}</div>}
-                </div>
-              )}
+              <button
+                type="button"
+                disabled
+                className={cn(
+                  'mt-8 inline-flex items-center justify-center rounded-full px-4 py-3 text-center text-[10px] font-extrabold uppercase tracking-[0.16em] disabled:opacity-100',
+                  isCurrent
+                    ? 'cursor-default border border-white/15 bg-white/10 text-white'
+                    : 'cursor-not-allowed border border-safi-border bg-safi-cream text-safi-muted'
+                )}
+              >
+                {action.label}
+              </button>
             </article>
           );
         })}
@@ -285,113 +213,36 @@ function normalizePackageCode(value?: string | null) {
     return '';
   }
 
+  if (code === 'СТАРТ') {
+    return 'START';
+  }
+
+  if (code === 'ЭЛИТ' || code === 'ЭЛИТНЫЙ') {
+    return 'ELITE';
+  }
+
   return code;
 }
 
-function packageAction(pkg: Package, currentPackageCode: string, paymentAvailable: boolean) {
-  const code = normalizePackageCode(pkg.code || pkg.name);
-  const backendAction = String(pkg.action || '').toLowerCase();
+const PACKAGE_ORDER: Record<string, number> = {
+  START: 1,
+  VIP: 2,
+  ELITE: 3,
+};
 
-  if (backendAction) {
-    const requiresPayment = backendAction === 'pay' || backendAction === 'upgrade';
-    const blockedByPaymentConfig = requiresPayment && !paymentAvailable;
-    const label = blockedByPaymentConfig
-      ? 'Недоступно'
-      : pkg.buttonLabel || defaultPackageActionLabel(backendAction);
-
-    return {
-      canPay: !blockedByPaymentConfig && Boolean(pkg.available) && requiresPayment,
-      current: Boolean(pkg.current) || backendAction === 'current',
-      label,
-      reason: blockedByPaymentConfig
-        ? 'Онлайн-оплата временно недоступна'
-        : pkg.disabledReason || '',
-    };
-  }
-
-  if (code === currentPackageCode) {
-    return { canPay: false, current: true, label: 'Текущий пакет', reason: '' };
-  }
-
-  if (!paymentAvailable) {
-    return {
-      canPay: false,
-      current: false,
-      label: 'Недоступно',
-      reason: 'Смена пакета временно доступна только через администратора',
-    };
-  }
-
-  if (!currentPackageCode) {
-    if (code === 'START') {
-      return { canPay: true, current: false, label: 'Оплатить онлайн', reason: '' };
-    }
-
-    return {
-      canPay: false,
-      current: false,
-      label: 'Недоступно',
-      reason: code === 'VIP' ? 'Сначала подключите START' : 'Сначала подключите START и VIP',
-    };
-  }
-
-  if (currentPackageCode === 'START' && code === 'VIP') {
-    return { canPay: true, current: false, label: 'Upgrade онлайн', reason: '' };
-  }
-
-  if (currentPackageCode === 'START' && code === 'ELITE') {
-    return { canPay: false, current: false, label: 'Недоступно', reason: 'Сначала перейдите на VIP' };
-  }
-
-  if (currentPackageCode === 'VIP' && code === 'START') {
-    return { canPay: false, current: false, label: 'Пройден', reason: '' };
-  }
-
-  if (currentPackageCode === 'VIP' && code === 'ELITE') {
-    return { canPay: true, current: false, label: 'Upgrade онлайн', reason: '' };
-  }
-
-  if (currentPackageCode === 'ELITE' && (code === 'START' || code === 'VIP')) {
-    return { canPay: false, current: false, label: 'Пройден', reason: '' };
-  }
-
-  return { canPay: false, current: false, label: 'Недоступно', reason: '' };
-}
-
-function packagePaymentAmount(pkg: Package, currentPackageCode: string) {
-  if (typeof pkg.paymentAmount === 'number') {
-    return pkg.paymentAmount;
-  }
-
+function packageAction(pkg: Package, currentPackageCode: string) {
   const code = normalizePackageCode(pkg.code || pkg.name);
 
-  if (currentPackageCode === 'START' && code === 'VIP') {
-    return 120000;
+  if (Boolean(pkg.current) || (code !== '' && code === currentPackageCode)) {
+    return { current: true, label: 'Ваш текущий пакет' };
   }
 
-  if (currentPackageCode === 'VIP' && code === 'ELITE') {
-    return 120000;
+  const targetRank = PACKAGE_ORDER[code];
+  const currentRank = PACKAGE_ORDER[currentPackageCode];
+
+  if (targetRank && currentRank && targetRank < currentRank) {
+    return { current: false, label: 'Уже приобрели' };
   }
 
-  return pkg.price;
-}
-
-function defaultPackageActionLabel(action: string) {
-  if (action === 'current') {
-    return 'Текущий пакет';
-  }
-
-  if (action === 'passed') {
-    return 'Пройден';
-  }
-
-  if (action === 'upgrade') {
-    return 'Upgrade онлайн';
-  }
-
-  if (action === 'pay') {
-    return 'Оплатить онлайн';
-  }
-
-  return 'Недоступно';
+  return { current: false, label: 'Вы еще не приобрели' };
 }

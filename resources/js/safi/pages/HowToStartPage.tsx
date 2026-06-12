@@ -41,7 +41,7 @@ export default function HowToStartPage() {
         </div>
         
         <div className="text-center">
-          <Button size="lg" to="/register">{t('howToStart.startBtn', 'Начать с Safi Life')}</Button>
+          <Button size="lg" to="/login">{t('howToStart.startBtn', 'Начать с Safi Life')}</Button>
         </div>
       </Container>
     </div>

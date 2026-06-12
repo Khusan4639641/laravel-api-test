@@ -8,6 +8,14 @@ use Illuminate\Validation\ValidationException;
 
 class PackagePurchaseAvailabilityService
 {
+    private const PACKAGE_PURCHASE_DISABLED_MESSAGE = 'Покупка пакетов пользователем временно недоступна. Обратитесь к администратору.';
+
+    private const PACKAGE_ORDER = [
+        'START' => 1,
+        'VIP' => 2,
+        'ELITE' => 3,
+    ];
+
     private const UPGRADE_CHAIN = [
         'START' => 'VIP',
         'VIP' => 'ELITE',
@@ -18,6 +26,10 @@ class PackagePurchaseAvailabilityService
      */
     public function actionFor(User $user, Package $package, bool $respectPaymentConfig = true): array
     {
+        if (! config('safi.user_package_purchases_enabled', false)) {
+            return $this->informationalActionFor($user, $package);
+        }
+
         $action = $this->baseActionFor($user, $package);
 
         if ($respectPaymentConfig && $action['available'] && ! $this->tipTopPayIsConfigured()) {
@@ -38,6 +50,12 @@ class PackagePurchaseAvailabilityService
      */
     public function transitionForPayment(User $user, Package $targetPackage, ?string $upgradeFrom = null): array
     {
+        if (! config('safi.user_package_purchases_enabled', false)) {
+            throw ValidationException::withMessages([
+                'package' => self::PACKAGE_PURCHASE_DISABLED_MESSAGE,
+            ]);
+        }
+
         $action = $this->actionFor($user, $targetPackage, false);
 
         if (! $action['available']) {
@@ -116,6 +134,46 @@ class PackagePurchaseAvailabilityService
         }
 
         return $this->locked($package, 'Недоступный переход пакета');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function informationalActionFor(User $user, Package $package): array
+    {
+        $user->loadMissing('currentPackage');
+
+        $targetCode = $this->code($package);
+        $currentCode = $user->currentPackage ? $this->code($user->currentPackage) : '';
+        $targetRank = self::PACKAGE_ORDER[$targetCode] ?? null;
+        $currentRank = self::PACKAGE_ORDER[$currentCode] ?? null;
+
+        if ($targetCode !== '' && $targetCode === $currentCode) {
+            return $this->payload(
+                package: $package,
+                action: 'current',
+                available: false,
+                buttonLabel: 'Ваш текущий пакет',
+                current: true,
+            );
+        }
+
+        if ($targetRank !== null && $currentRank !== null && $targetRank < $currentRank) {
+            return $this->payload(
+                package: $package,
+                action: 'acquired',
+                available: false,
+                buttonLabel: 'Уже приобрели',
+            );
+        }
+
+        return $this->payload(
+            package: $package,
+            action: 'not_purchased',
+            available: false,
+            buttonLabel: 'Вы еще не приобрели',
+            disabledReason: 'Пакет назначается администратором.',
+        );
     }
 
     /**
@@ -237,7 +295,13 @@ class PackagePurchaseAvailabilityService
 
     private function code(Package $package): string
     {
-        return strtoupper((string) $package->code);
+        $code = mb_strtoupper(trim((string) ($package->code ?: $package->name)));
+
+        return match ($code) {
+            'СТАРТ' => 'START',
+            'ЭЛИТ', 'ЭЛИТНЫЙ' => 'ELITE',
+            default => $code,
+        };
     }
 
     private function decimal(string $value): string

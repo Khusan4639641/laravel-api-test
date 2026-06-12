@@ -47,10 +47,7 @@ export const endpoints = {
     order: (order: EndpointId) => `/orders/${encodeEndpointId(order)}`,
     orderTipTopPayIntent: (order: EndpointId) => `/orders/${encodeEndpointId(order)}/payment/tiptoppay/intent`,
     tipTopPayStatus: '/payments/tiptoppay/status',
-    packageTipTopPayIntent: (pkg: EndpointId) => `/dashboard/package/${encodeEndpointId(pkg)}/payments/tiptoppay/intent`,
     withdrawalRequests: '/withdrawals',
-    activatePackage: (pkg: EndpointId) => `/packages/${encodeEndpointId(pkg)}/activate`,
-    upgradePackage: (pkg: EndpointId) => `/packages/${encodeEndpointId(pkg)}/upgrade`,
     depositPurchase: '/deposits/purchase',
   },
   admin: {

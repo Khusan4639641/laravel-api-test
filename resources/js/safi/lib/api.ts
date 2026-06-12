@@ -726,19 +726,6 @@ export async function getTipTopPayStatus() {
   } satisfies TipTopPayStatus;
 }
 
-export async function createTipTopPayPackagePaymentIntent(pkg: string | number, packageCode?: string, upgradeFrom?: string | null) {
-  const response = await apiRequest(endpoints.dashboard.packageTipTopPayIntent(pkg), {
-    method: 'POST',
-    body: compactPayload({
-      package_code: packageCode,
-      upgrade_from: upgradeFrom || undefined,
-    }),
-    auth: true,
-  });
-
-  return normalizeTipTopPayPaymentIntent(response);
-}
-
 export async function getOrder(orderId: string | number) {
   const response = await apiRequest(endpoints.dashboard.order(orderId), {
     method: 'GET',
@@ -768,20 +755,6 @@ export async function createWithdrawal<T = unknown>(payload: WithdrawalPayload) 
   return apiRequest<T>(endpoints.dashboard.withdrawalRequests, {
     method: 'POST',
     body: payload,
-    auth: true,
-  });
-}
-
-export async function activatePackage<T = unknown>(packageId: string | number) {
-  return apiRequest<T>(endpoints.dashboard.activatePackage(packageId), {
-    method: 'POST',
-    auth: true,
-  });
-}
-
-export async function upgradePackage<T = unknown>(packageId: string | number) {
-  return apiRequest<T>(endpoints.dashboard.upgradePackage(packageId), {
-    method: 'POST',
     auth: true,
   });
 }

@@ -26,7 +26,7 @@ class DashboardPackageChangeDisabledTest extends TestCase
 
         $this->postJson("/api/packages/{$package->id}/activate")
             ->assertForbidden()
-            ->assertJsonPath('message', 'Смена пакета временно доступна только через администратора');
+            ->assertJsonPath('message', 'Покупка пакетов пользователем временно недоступна. Обратитесь к администратору.');
     }
 
     public function test_regular_user_cannot_upgrade_package_through_api(): void
@@ -38,7 +38,7 @@ class DashboardPackageChangeDisabledTest extends TestCase
 
         $this->postJson("/api/packages/{$vip->id}/upgrade")
             ->assertForbidden()
-            ->assertJsonPath('message', 'Смена пакета временно доступна только через администратора');
+            ->assertJsonPath('message', 'Покупка пакетов пользователем временно недоступна. Обратитесь к администратору.');
     }
 
     public function test_super_admin_can_still_change_partner_package_through_admin_endpoint(): void
@@ -60,14 +60,16 @@ class DashboardPackageChangeDisabledTest extends TestCase
         ]);
     }
 
-    public function test_dashboard_package_page_uses_payment_flow_not_free_package_change_buttons(): void
+    public function test_dashboard_package_page_uses_informational_package_buttons(): void
     {
         $source = file_get_contents(resource_path('js/safi/pages/dashboard/PackageStatus.tsx'));
 
-        $this->assertStringContainsString('Текущий пакет', $source);
-        $this->assertStringContainsString('Смена пакета временно доступна только через администратора', $source);
-        $this->assertStringContainsString('handlePackagePayment', $source);
-        $this->assertStringContainsString('createTipTopPayPackagePaymentIntent', $source);
+        $this->assertStringContainsString('Ваш текущий пакет', $source);
+        $this->assertStringContainsString('Уже приобрели', $source);
+        $this->assertStringContainsString('Вы еще не приобрели', $source);
+        $this->assertStringContainsString('Пакет назначается администратором', $source);
+        $this->assertStringNotContainsString('handlePackagePayment', $source);
+        $this->assertStringNotContainsString('createTipTopPayPackagePaymentIntent', $source);
         $this->assertStringNotContainsString('handlePackageAction', $source);
         $this->assertStringNotContainsString('activatePackage', $source);
         $this->assertStringNotContainsString('upgradePackage', $source);

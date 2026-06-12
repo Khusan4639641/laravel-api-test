@@ -8,7 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncStat
 import { ToastItem, ToastStack } from '../components/ui/Toast';
 import { isProductOrderable, useCart } from '../context/CartContext';
 import { cn } from '../lib/utils';
-import { getApiErrorState, getPublicNews, getPublicPackages, getPublicProducts, NewsArticle, Package, Product } from '../lib/api';
+import { getApiErrorState, getAuthToken, getPublicNews, getPublicPackages, getPublicProducts, NewsArticle, Package, Product } from '../lib/api';
 
 export default function HomePage() {
   const { t } = useTranslation();
@@ -29,6 +29,7 @@ export default function HomePage() {
     () => products.find((product) => product.name === 'Safi Face Serum') || products[0],
     [products]
   );
+  const businessStartPath = getAuthToken() ? '/dashboard' : '/login';
   const popularProducts = useMemo(() => products.slice(0, 4), [products]);
   const newsPreview = useMemo(() => newsArticles.slice(0, 3), [newsArticles]);
 
@@ -167,7 +168,7 @@ export default function HomePage() {
               </p>
 
               <div className="flex h-auto w-full max-w-md flex-col justify-center gap-4 sm:flex-row lg:max-w-none lg:justify-start">
-                <Button size="lg" to="/register" className="h-auto w-full flex-col items-center px-8 py-4 lg:w-auto">
+                <Button size="lg" to={businessStartPath} className="h-auto w-full flex-col items-center px-8 py-4 lg:w-auto">
                   <span className="text-sm">{t('hero.startNow', 'Начать бизнес')}</span>
                 </Button>
                 <Button
@@ -658,8 +659,13 @@ function PackageCard({ pkg }: { pkg: Package }) {
         ))}
       </ul>
 
-      <Button variant={isPopular ? 'secondary' : 'outline'} className="w-full" to="/register">
-        {t('packages.selectBtn', 'Выбрать пакет')}
+      <Button
+        type="button"
+        variant={isPopular ? 'secondary' : 'outline'}
+        className="w-full cursor-not-allowed"
+        disabled
+      >
+        Вы еще не приобрели
       </Button>
     </article>
   );

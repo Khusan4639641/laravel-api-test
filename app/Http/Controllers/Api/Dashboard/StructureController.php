@@ -377,8 +377,6 @@ class StructureController extends Controller
 
     private function referralLink(Request $request, User $user, string $branch): string
     {
-        $code = $user->login ?: (string) $user->id;
-
-        return $request->getSchemeAndHttpHost().'/register-ref-branch?ref='.urlencode($code).'&branch='.$branch;
+        return $request->getSchemeAndHttpHost().'/login';
     }
 }

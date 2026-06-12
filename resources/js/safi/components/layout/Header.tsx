@@ -276,7 +276,7 @@ export function Header() {
             ) : (
               <>
                 <Button variant="outline" size="sm" to="/login" className="px-5">{t('nav.login', 'Вход')}</Button>
-                <Button size="sm" to="/register" className="px-5">{t('nav.register', 'Регистрация')}</Button>
+                <Button size="sm" to="/login" className="px-5">{t('nav.cabinet', 'Кабинет')}</Button>
               </>
             )}
           </div>
@@ -334,7 +334,7 @@ export function Header() {
             ) : (
               <>
                 <Button variant="outline" to="/login" onClick={closeMenu} className="w-full justify-center">{t('nav.login', 'Вход')}</Button>
-                <Button to="/register" onClick={closeMenu} className="w-full justify-center">{t('nav.register', 'Регистрация')}</Button>
+                <Button to="/login" onClick={closeMenu} className="w-full justify-center">{t('nav.cabinet', 'Кабинет')}</Button>
               </>
             )}
           </nav>

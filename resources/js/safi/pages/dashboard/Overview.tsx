@@ -117,7 +117,7 @@ export default function Overview() {
   }, [loadOverview]);
 
   const copyLink = async (branch: 'left' | 'right') => {
-    const link = `${window.location.origin}/register-ref-branch?ref=${currentUser.referralCode}&branch=${branch}`;
+    const link = `${window.location.origin}/login`;
 
     try {
       await navigator.clipboard.writeText(link);
@@ -234,16 +234,12 @@ export default function Overview() {
 
             <div className="mt-7 grid gap-4 xl:grid-cols-2">
               <ReferralLink
-                branch="left"
                 label="Левая ветка"
-                referralCode={currentUser.referralCode}
                 copied={copiedLink === 'left'}
                 onCopy={() => copyLink('left')}
               />
               <ReferralLink
-                branch="right"
                 label="Правая ветка"
-                referralCode={currentUser.referralCode}
                 copied={copiedLink === 'right'}
                 onCopy={() => copyLink('right')}
               />
@@ -329,8 +325,8 @@ function ActionButton({ icon, label, onClick, to }: { icon: React.ReactNode; lab
   );
 }
 
-function ReferralLink({ branch, label, referralCode, copied, onCopy }: { branch: 'left' | 'right'; label: string; referralCode: string; copied: boolean; onCopy: () => void }) {
-  const link = `${window.location.origin}/register-ref-branch?ref=${referralCode}&branch=${branch}`;
+function ReferralLink({ label, copied, onCopy }: { label: string; copied: boolean; onCopy: () => void }) {
+  const link = `${window.location.origin}/login`;
 
   return (
     <div className="rounded-3xl border border-safi-border bg-safi-cream p-5">
@@ -339,6 +335,7 @@ function ReferralLink({ branch, label, referralCode, copied, onCopy }: { branch:
         {copied && <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-green-700">Скопировано</span>}
       </div>
       <div className="truncate font-mono text-xs text-safi-green">{link}</div>
+      <div className="mt-2 text-xs leading-5 text-safi-muted">Самостоятельная регистрация временно недоступна. Обратитесь к администратору.</div>
       <button type="button" onClick={onCopy} className="mt-4 inline-flex cursor-pointer items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:text-safi-green">
         <Copy className="h-4 w-4" />
         Копировать

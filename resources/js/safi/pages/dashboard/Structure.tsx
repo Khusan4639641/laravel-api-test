@@ -198,8 +198,8 @@ export default function Structure() {
         <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
           <h2 className="font-serif text-3xl font-semibold text-safi-green">Реферальные ссылки</h2>
           <div className="mt-6 space-y-4">
-            <ReferralBox label="Левая ветка" code={currentUser.referralCode} branch="left" />
-            <ReferralBox label="Правая ветка" code={currentUser.referralCode} branch="right" />
+            <ReferralBox label="Левая ветка" />
+            <ReferralBox label="Правая ветка" />
           </div>
         </article>
 
@@ -540,13 +540,14 @@ function BranchCard({ title, partners, pv, weak }: { title: string; partners: nu
   );
 }
 
-function ReferralBox({ label, code, branch }: { label: string; code: string; branch: 'left' | 'right' }) {
-  const link = `${window.location.origin}/register-ref-branch?ref=${code}&branch=${branch}`;
+function ReferralBox({ label }: { label: string }) {
+  const link = `${window.location.origin}/login`;
 
   return (
     <div className="rounded-3xl border border-safi-border bg-safi-cream p-5">
       <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>
       <div className="truncate font-mono text-xs text-safi-green">{link}</div>
+      <div className="mt-2 text-xs leading-5 text-safi-muted">Самостоятельная регистрация временно недоступна. Обратитесь к администратору.</div>
       <button
         type="button"
         onClick={() => navigator.clipboard.writeText(link)}
