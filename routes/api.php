@@ -193,6 +193,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
 
         Route::middleware('role_permission:admin.orders.manage')->group(function (): void {
             Route::patch('/orders/{order}/status', [AdminOrderController::class, 'status']);
+            Route::patch('/orders/{order}/payment-status', [AdminOrderController::class, 'paymentStatus']);
         });
 
         Route::middleware('role_permission:admin.withdrawals.manage')->group(function (): void {

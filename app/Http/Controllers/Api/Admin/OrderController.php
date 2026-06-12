@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Concerns\RespondsWithPagination;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\OrderResource;
 use App\Models\Order;
+use App\Services\PackageAutoUpgradeFromPaidOrdersService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -99,6 +100,45 @@ class OrderController extends Controller
             $order->update([
                 'status' => $nextStatus,
             ]);
+        });
+
+        return response()->json([
+            'order' => OrderResource::make($order->refresh()->load(['user.profile', 'items.product', 'items.package'])),
+        ]);
+    }
+
+    public function paymentStatus(
+        Request $request,
+        Order $order,
+        PackageAutoUpgradeFromPaidOrdersService $packageAutoUpgradeFromPaidOrders,
+    ): JsonResponse {
+        $validated = $request->validate([
+            'payment_status' => ['required', 'string', Rule::in(self::PAYMENT_STATUSES)],
+        ]);
+
+        DB::transaction(function () use ($order, $validated, $packageAutoUpgradeFromPaidOrders): void {
+            /** @var Order $lockedOrder */
+            $lockedOrder = Order::query()
+                ->whereKey($order->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $wasPaid = $lockedOrder->payment_status === 'paid';
+            $nextPaymentStatus = $validated['payment_status'];
+            $updates = [
+                'payment_status' => $nextPaymentStatus,
+            ];
+
+            if ($nextPaymentStatus === 'paid') {
+                $updates['status'] = $lockedOrder->status === 'pending' ? 'confirmed' : $lockedOrder->status;
+                $updates['paid_at'] = $lockedOrder->paid_at ?: now();
+            }
+
+            $lockedOrder->forceFill($updates)->save();
+
+            if (! $wasPaid && $nextPaymentStatus === 'paid') {
+                $packageAutoUpgradeFromPaidOrders->handlePaidOrder($lockedOrder->refresh());
+            }
         });
 
         return response()->json([

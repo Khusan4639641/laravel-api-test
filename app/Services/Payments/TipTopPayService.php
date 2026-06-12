@@ -7,6 +7,7 @@ use App\Models\Package;
 use App\Models\Payment;
 use App\Models\User;
 use App\Models\WalletTransaction;
+use App\Services\PackageAutoUpgradeFromPaidOrdersService;
 use App\Services\PackagePurchaseAvailabilityService;
 use App\Services\PackageService;
 use App\Services\WalletService;
@@ -22,6 +23,7 @@ class TipTopPayService
         private readonly PackageService $packageService,
         private readonly WalletService $walletService,
         private readonly PackagePurchaseAvailabilityService $packagePurchaseAvailability,
+        private readonly PackageAutoUpgradeFromPaidOrdersService $packageAutoUpgradeFromPaidOrders,
     ) {
     }
 
@@ -789,6 +791,7 @@ class TipTopPayService
             ])->save();
 
             $this->recordOrderPaymentTransaction($payment, $order);
+            $this->packageAutoUpgradeFromPaidOrders->handlePaidOrder($order->refresh());
         }
 
         $this->appendOrderWebhookMeta($order, 'pay', $payload, $payment);

@@ -17,6 +17,7 @@ class DepositPurchaseService
     public function __construct(
         private readonly BonusService $bonusService,
         private readonly WalletService $walletService,
+        private readonly PackageAutoUpgradeFromPaidOrdersService $packageAutoUpgradeFromPaidOrders,
     ) {
     }
 
@@ -172,6 +173,8 @@ class DepositPurchaseService
                 $amount,
                 $depositTransaction
             );
+
+            $this->packageAutoUpgradeFromPaidOrders->handlePaidOrder($order->refresh());
 
             return [
                 'deposit_transaction' => $depositTransaction->refresh(),

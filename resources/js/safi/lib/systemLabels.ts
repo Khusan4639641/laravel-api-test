@@ -76,6 +76,7 @@ const systemLabels = {
     package_assignment: { ru: 'Назначение пакета', kz: 'Пакет тағайындау', kg: 'Пакет дайындоо', en: 'Package assignment', mn: 'Багц оноолт' },
     package_activation: { ru: 'Покупка пакета', kz: 'Пакет сатып алу', kg: 'Пакет сатып алуу', en: 'Package purchase', mn: 'Багц худалдан авалт' },
     package_upgrade: { ru: 'Upgrade пакета', kz: 'Пакет upgrade', kg: 'Пакет upgrade', en: 'Package upgrade', mn: 'Багц upgrade' },
+    package_auto_upgrade: { ru: 'Автоматическое достижение пакета', kz: 'Пакетке автоматты жету', kg: 'Пакетке автоматтык жетүү', en: 'Automatic package achievement', mn: 'Багц автоматаар хүрсэн' },
     status_bonus: { ru: 'Статусный бонус', kz: 'Статус бонусы', kg: 'Статус бонусу', en: 'Status bonus', mn: 'Статусын бонус' },
     bonus_x2: { ru: 'Bonus X2', kz: 'Bonus X2', kg: 'Bonus X2', en: 'Bonus X2', mn: 'Bonus X2' },
     cashback: { ru: 'Кэшбэк', kz: 'Кэшбэк', kg: 'Кэшбэк', en: 'Cashback', mn: 'Кэшбэк' },
