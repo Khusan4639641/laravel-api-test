@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
-import { ApiError, getRegistrationPackages, Package, register } from '../lib/api';
+import { ApiError, register } from '../lib/api';
 
 type FieldErrors = Record<string, string[]>;
 type ReferralBranch = 'left' | 'right';
@@ -41,8 +41,6 @@ export default function RegisterPage() {
 
     return '';
   }, [isReferralMode, urlBranch, urlReferralCode]);
-  const [packages, setPackages] = useState<Package[]>([]);
-  const [packagesLoading, setPackagesLoading] = useState(true);
   const [form, setForm] = useState({
     name: '',
     login: '',
@@ -52,18 +50,10 @@ export default function RegisterPage() {
     password_confirmation: '',
     referral_code: '',
     branch: '',
-    package_id: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
-
-  useEffect(() => {
-    void getRegistrationPackages()
-      .then((items) => setPackages(items.filter((pkg) => isStarterPackage(pkg))))
-      .catch(() => setPackages([]))
-      .finally(() => setPackagesLoading(false));
-  }, []);
 
   useEffect(() => {
     setForm((current) => ({
@@ -97,7 +87,6 @@ export default function RegisterPage() {
         phone: form.phone,
         password: form.password,
         password_confirmation: form.password_confirmation,
-        package_id: form.package_id,
         ...(isReferralMode ? {
           referral_code: form.referral_code,
           branch: form.branch,
@@ -252,21 +241,6 @@ export default function RegisterPage() {
               </>
             )}
 
-            <FormField label="Стартовый пакет" error={fieldErrors.package_id?.[0]}>
-              <select
-                value={form.package_id}
-                onChange={(event) => updateField('package_id', event.target.value)}
-                className={`${inputClass} text-sm text-safi-green`}
-              >
-                <option value="">{packagesLoading ? 'Загружаем пакеты...' : 'Выберите пакет'}</option>
-                {packages.map((pkg) => (
-                  <option key={pkg.id} value={pkg.id}>
-                    {pkg.label || pkg.name} — {pkg.price.toLocaleString('ru-RU')} ₸
-                  </option>
-                ))}
-              </select>
-            </FormField>
-
             <div className="flex items-start gap-3 mt-4">
               <input type="checkbox" id="agree" required className="mt-1 rounded text-safi-green focus:ring-safi-green w-4 h-4" />
               <label htmlFor="agree" className="text-xs text-safi-text opacity-70 cursor-pointer">
@@ -292,12 +266,6 @@ export default function RegisterPage() {
 
 function isReferralBranch(value: string): value is ReferralBranch {
   return value === 'left' || value === 'right';
-}
-
-function isStarterPackage(pkg: Package) {
-  const code = String(pkg.code || pkg.name || '').trim().toUpperCase();
-
-  return code === 'START' || code === 'VIP';
 }
 
 function FormField({

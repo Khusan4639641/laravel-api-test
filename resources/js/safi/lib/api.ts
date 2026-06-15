@@ -49,7 +49,6 @@ export interface RegisterPayload {
   ref?: string;
   sponsor_code?: string;
   branch?: string;
-  package_id?: string;
 }
 
 export interface AdminPartnerPayload {

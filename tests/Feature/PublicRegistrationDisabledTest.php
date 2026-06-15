@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\BinaryNode;
+use App\Models\BonusTransaction;
 use App\Models\User;
+use App\Models\WalletTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -56,6 +58,7 @@ class PublicRegistrationDisabledTest extends TestCase
         $this->assertSame($sponsor->id, $user->sponsor_id);
         $this->assertSame($sponsorNode->id, $userNode->parent_id);
         $this->assertSame('L', $userNode->position);
+        $this->assertRegistrationCreatedNoPackageEffects($user, $sponsor);
     }
 
     public function test_referral_register_endpoint_is_allowed_for_right_branch(): void
@@ -75,6 +78,7 @@ class PublicRegistrationDisabledTest extends TestCase
         $this->assertSame($sponsor->id, $user->sponsor_id);
         $this->assertSame($sponsorNode->id, $userNode->parent_id);
         $this->assertSame('R', $userNode->position);
+        $this->assertRegistrationCreatedNoPackageEffects($user, $sponsor);
     }
 
     public function test_admin_can_still_create_partner(): void
@@ -135,5 +139,28 @@ class PublicRegistrationDisabledTest extends TestCase
             'password_confirmation' => 'password123',
             'role' => User::ROLE_USER,
         ];
+    }
+
+    private function assertRegistrationCreatedNoPackageEffects(User $user, User $sponsor): void
+    {
+        $user->refresh();
+        $sponsor->refresh();
+
+        $this->assertNull($user->current_package_id);
+        $this->assertSame('0.00', (string) $user->left_pv);
+        $this->assertSame('0.00', (string) $user->right_pv);
+        $this->assertSame('0.00', (string) $user->remaining_left_pv);
+        $this->assertSame('0.00', (string) $user->remaining_right_pv);
+        $this->assertSame('0.00', (string) $user->total_pv);
+
+        $this->assertSame('0.00', (string) $sponsor->left_pv);
+        $this->assertSame('0.00', (string) $sponsor->right_pv);
+        $this->assertSame('0.00', (string) $sponsor->remaining_left_pv);
+        $this->assertSame('0.00', (string) $sponsor->remaining_right_pv);
+        $this->assertSame('0.00', (string) $sponsor->total_pv);
+
+        $this->assertSame(0, BonusTransaction::query()->count());
+        $this->assertSame(0, WalletTransaction::query()->whereIn('user_id', [$user->id, $sponsor->id])->count());
+        $this->assertSame('0', (string) $user->wallets()->sum('balance'));
     }
 }

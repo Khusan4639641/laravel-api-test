@@ -38,7 +38,7 @@ class FrontendContentTest extends TestCase
         $this->assertSame('20 000 000 ₸ apartment bonus', $statuses['diamond_director']['reward']);
     }
 
-    public function test_register_package_dropdown_is_backed_by_public_packages_without_business(): void
+    public function test_public_registration_form_does_not_render_package_selection(): void
     {
         $this->seed(PackageSeeder::class);
 
@@ -48,7 +48,10 @@ class FrontendContentTest extends TestCase
         $this->assertSame(['START', 'VIP'], $packages);
         $this->assertNotContains('BUSINESS', $packages);
         $this->assertNotContains('ELITE', $packages);
-        $this->assertStringContainsString('getRegistrationPackages', $registerPage);
+        $this->assertStringNotContainsString('getRegistrationPackages', $registerPage);
+        $this->assertStringNotContainsString('package_id', $registerPage);
+        $this->assertStringNotContainsString('Стартовый пакет', $registerPage);
+        $this->assertStringNotContainsString('Загружаем пакеты...', $registerPage);
     }
 
     public function test_dashboard_package_endpoint_displays_start_vip_elite_only(): void
