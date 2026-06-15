@@ -45,7 +45,7 @@ class UserResource extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'login' => $this->login,
-            'referral_code' => $this->login ?: (string) $this->id,
+            'referral_code' => $this->login,
             'email' => $this->email,
             'phone' => $this->resource->relationLoaded('profile') ? $this->profile?->phone : null,
             'city' => $this->resource->relationLoaded('profile') ? $this->profile?->city : null,

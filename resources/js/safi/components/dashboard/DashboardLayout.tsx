@@ -51,7 +51,7 @@ const userDefaults: DashboardCurrentUser = {
   name: 'Safi Partner',
   role: 'user',
   partnerId: 'SAFI',
-  referralCode: 'SAFI',
+  referralCode: '',
   packageCode: '',
   packageName: '-',
   statusCode: 'user',
@@ -384,6 +384,7 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
   const mainWalletRecord = wallets.find((wallet) => getString(wallet, ['type']) === 'main');
   const walletRecord = mainWalletRecord || (isRecord(record.wallet) ? record.wallet : undefined);
   const sponsorRecord = isRecord(record.sponsor) ? record.sponsor : undefined;
+  const profileRecord = isRecord(record.profile) ? record.profile : undefined;
 
   const packageCode = getString(packageRecord, ['code', 'slug', 'id'])
     || getString(record, ['package_code', 'packageCode', 'package_id', 'package'])
@@ -401,6 +402,9 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
   const sponsorName = getString(sponsorRecord, ['name', 'full_name'])
     || getString(record, ['sponsor_name', 'sponsorName', 'sponsor'])
     || userDefaults.sponsor;
+  const referralCode = getString(record, ['referral_code', 'referralCode', 'invite_code', 'inviteCode', 'referral', 'login', 'username'])
+    || getString(profileRecord, ['referral_code', 'referralCode', 'invite_code', 'inviteCode', 'referral'])
+    || userDefaults.referralCode;
 
   return {
     id: getString(record, ['id']) || getNumber(record, ['id']),
@@ -408,10 +412,10 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
     login: getString(record, ['login', 'username']),
     email: getString(record, ['email']),
     avatarUrl: getString(record, ['avatar_url', 'avatarUrl'])
-      || getString(isRecord(record.profile) ? record.profile : undefined, ['avatar_url', 'avatarUrl']),
+      || getString(profileRecord, ['avatar_url', 'avatarUrl']),
     role: getString(record, ['role', 'user_role', 'role_name']) || userDefaults.role,
     partnerId: getString(record, ['partner_id', 'partnerId', 'member_id', 'code']) || userDefaults.partnerId,
-    referralCode: getString(record, ['referral_code', 'referralCode', 'invite_code']) || userDefaults.referralCode,
+    referralCode,
     packageCode,
     packageName,
     statusCode,

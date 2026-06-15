@@ -5,6 +5,7 @@ import { useDashboardContext } from '../../components/dashboard/DashboardLayout'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getApiErrorState, getArray, getDashboardStructure, getNumber, getString } from '../../lib/api';
 import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
+import { buildReferralBranchUrl, type ReferralBranch } from '../../lib/referrals';
 
 type BranchFilter = 'all' | 'left' | 'right';
 type PaginationItem = number | 'ellipsis';
@@ -151,6 +152,10 @@ export default function Structure() {
   const paginationItems = getPaginationItems(partnersMeta.current_page, partnersMeta.last_page);
   const canGoPrev = partnersMeta.current_page > 1 && !isPartnersLoading;
   const canGoNext = partnersMeta.current_page < partnersMeta.last_page && !isPartnersLoading;
+  const referralLinks: Record<ReferralBranch, string> = {
+    left: buildReferralBranchUrl(currentUser.referralCode, 'left'),
+    right: buildReferralBranchUrl(currentUser.referralCode, 'right'),
+  };
   const changePage = (nextPage: number) => {
     if (nextPage < 1 || nextPage > partnersMeta.last_page || nextPage === partnersMeta.current_page || isPartnersLoading) {
       return;
@@ -198,8 +203,8 @@ export default function Structure() {
         <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
           <h2 className="font-serif text-3xl font-semibold text-safi-green">Реферальные ссылки</h2>
           <div className="mt-6 space-y-4">
-            <ReferralBox label="Левая ветка" />
-            <ReferralBox label="Правая ветка" />
+            <ReferralBox label="Левая ветка" link={referralLinks.left} />
+            <ReferralBox label="Правая ветка" link={referralLinks.right} />
           </div>
         </article>
 
@@ -540,22 +545,25 @@ function BranchCard({ title, partners, pv, weak }: { title: string; partners: nu
   );
 }
 
-function ReferralBox({ label }: { label: string }) {
-  const link = `${window.location.origin}/login`;
-
+function ReferralBox({ label, link }: { label: string; link: string }) {
   return (
     <div className="rounded-3xl border border-safi-border bg-safi-cream p-5">
       <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>
-      <div className="truncate font-mono text-xs text-safi-green">{link}</div>
-      <div className="mt-2 text-xs leading-5 text-safi-muted">Самостоятельная регистрация временно недоступна. Обратитесь к администратору.</div>
-      <button
-        type="button"
-        onClick={() => navigator.clipboard.writeText(link)}
-        className="mt-4 inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:text-safi-green"
-      >
-        <Copy className="h-4 w-4" />
-        Копировать
-      </button>
+      {link ? (
+        <>
+          <div className="truncate font-mono text-xs text-safi-green">{link}</div>
+          <button
+            type="button"
+            onClick={() => navigator.clipboard.writeText(link)}
+            className="mt-4 inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:text-safi-green"
+          >
+            <Copy className="h-4 w-4" />
+            Копировать
+          </button>
+        </>
+      ) : (
+        <div className="text-xs leading-5 text-safi-muted">Реферальная ссылка временно недоступна. Обратитесь к администратору.</div>
+      )}
     </div>
   );
 }

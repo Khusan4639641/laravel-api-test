@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncS
 import { getApiErrorState, getArray, getDashboardOverview, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
 import { features } from '../../config/features';
 import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
+import { buildReferralBranchUrl, type ReferralBranch } from '../../lib/referrals';
 
 interface TransactionItem {
   id: string;
@@ -35,6 +36,10 @@ export default function Overview() {
   const nextStatus = statuses.find((status) => status.pv > weakLegPV);
   const statusTargetPV = nextStatus?.pv || statuses[statuses.length - 1]?.pv || Math.max(weakLegPV, 1);
   const statusProgressPercent = statusTargetPV > 0 ? Math.min(100, Math.max(0, (weakLegPV / statusTargetPV) * 100)) : 0;
+  const referralLinks: Record<ReferralBranch, string> = {
+    left: buildReferralBranchUrl(currentUser.referralCode, 'left'),
+    right: buildReferralBranchUrl(currentUser.referralCode, 'right'),
+  };
 
   const loadOverview = React.useCallback(async () => {
     setIsLoading(true);
@@ -116,8 +121,13 @@ export default function Overview() {
     void loadOverview();
   }, [loadOverview]);
 
-  const copyLink = async (branch: 'left' | 'right') => {
-    const link = `${window.location.origin}/login`;
+  const copyLink = async (branch: ReferralBranch) => {
+    const link = referralLinks[branch];
+
+    if (!link) {
+      setCopiedLink('');
+      return;
+    }
 
     try {
       await navigator.clipboard.writeText(link);
@@ -235,11 +245,13 @@ export default function Overview() {
             <div className="mt-7 grid gap-4 xl:grid-cols-2">
               <ReferralLink
                 label="Левая ветка"
+                link={referralLinks.left}
                 copied={copiedLink === 'left'}
                 onCopy={() => copyLink('left')}
               />
               <ReferralLink
                 label="Правая ветка"
+                link={referralLinks.right}
                 copied={copiedLink === 'right'}
                 onCopy={() => copyLink('right')}
               />
@@ -325,21 +337,24 @@ function ActionButton({ icon, label, onClick, to }: { icon: React.ReactNode; lab
   );
 }
 
-function ReferralLink({ label, copied, onCopy }: { label: string; copied: boolean; onCopy: () => void }) {
-  const link = `${window.location.origin}/login`;
-
+function ReferralLink({ label, link, copied, onCopy }: { label: string; link: string; copied: boolean; onCopy: () => void }) {
   return (
     <div className="rounded-3xl border border-safi-border bg-safi-cream p-5">
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</span>
         {copied && <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-green-700">Скопировано</span>}
       </div>
-      <div className="truncate font-mono text-xs text-safi-green">{link}</div>
-      <div className="mt-2 text-xs leading-5 text-safi-muted">Самостоятельная регистрация временно недоступна. Обратитесь к администратору.</div>
-      <button type="button" onClick={onCopy} className="mt-4 inline-flex cursor-pointer items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:text-safi-green">
-        <Copy className="h-4 w-4" />
-        Копировать
-      </button>
+      {link ? (
+        <>
+          <div className="truncate font-mono text-xs text-safi-green">{link}</div>
+          <button type="button" onClick={onCopy} className="mt-4 inline-flex cursor-pointer items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:text-safi-green">
+            <Copy className="h-4 w-4" />
+            Копировать
+          </button>
+        </>
+      ) : (
+        <div className="text-xs leading-5 text-safi-muted">Реферальная ссылка временно недоступна. Обратитесь к администратору.</div>
+      )}
     </div>
   );
 }

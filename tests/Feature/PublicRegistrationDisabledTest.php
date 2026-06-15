@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\BinaryNode;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -23,9 +24,12 @@ class PublicRegistrationDisabledTest extends TestCase
         $this->get('/register')->assertRedirect('/login');
     }
 
-    public function test_register_ref_branch_page_redirects_to_login(): void
+    public function test_register_ref_branch_page_is_served_for_guests(): void
     {
-        $this->get('/register-ref-branch?ref=test&branch=left')->assertRedirect('/login');
+        $sponsor = User::factory()->create(['login' => 'guest-ref-page']);
+
+        $this->get("/register-ref-branch?ref={$sponsor->login}&branch=left")->assertOk();
+        $this->get("/register-ref-branch?ref={$sponsor->login}&branch=right")->assertOk();
     }
 
     public function test_public_register_endpoint_returns_forbidden(): void
@@ -33,6 +37,44 @@ class PublicRegistrationDisabledTest extends TestCase
         $this->postJson('/api/register', $this->registrationPayload())
             ->assertForbidden()
             ->assertJsonPath('message', 'Самостоятельная регистрация временно недоступна');
+    }
+
+    public function test_referral_register_endpoint_is_allowed_for_left_branch(): void
+    {
+        $sponsor = User::factory()->create(['login' => 'public-disabled-left-sponsor']);
+
+        $this->postJson('/api/register', [
+            ...$this->registrationPayload('public-disabled-left'),
+            'referral_code' => $sponsor->login,
+            'branch' => 'left',
+        ])->assertCreated();
+
+        $user = User::query()->where('login', 'public-disabled-left')->firstOrFail();
+        $sponsorNode = BinaryNode::query()->where('user_id', $sponsor->id)->firstOrFail();
+        $userNode = BinaryNode::query()->where('user_id', $user->id)->firstOrFail();
+
+        $this->assertSame($sponsor->id, $user->sponsor_id);
+        $this->assertSame($sponsorNode->id, $userNode->parent_id);
+        $this->assertSame('L', $userNode->position);
+    }
+
+    public function test_referral_register_endpoint_is_allowed_for_right_branch(): void
+    {
+        $sponsor = User::factory()->create(['login' => 'public-disabled-right-sponsor']);
+
+        $this->postJson('/api/register', [
+            ...$this->registrationPayload('public-disabled-right'),
+            'referral_code' => $sponsor->login,
+            'branch' => 'right',
+        ])->assertCreated();
+
+        $user = User::query()->where('login', 'public-disabled-right')->firstOrFail();
+        $sponsorNode = BinaryNode::query()->where('user_id', $sponsor->id)->firstOrFail();
+        $userNode = BinaryNode::query()->where('user_id', $user->id)->firstOrFail();
+
+        $this->assertSame($sponsor->id, $user->sponsor_id);
+        $this->assertSame($sponsorNode->id, $userNode->parent_id);
+        $this->assertSame('R', $userNode->position);
     }
 
     public function test_admin_can_still_create_partner(): void
@@ -67,12 +109,12 @@ class PublicRegistrationDisabledTest extends TestCase
     /**
      * @return array<string, mixed>
      */
-    private function registrationPayload(): array
+    private function registrationPayload(string $login = 'public-disabled'): array
     {
         return [
             'name' => 'Public Disabled',
-            'login' => 'public-disabled',
-            'email' => 'public-disabled@example.test',
+            'login' => $login,
+            'email' => "{$login}@example.test",
             'phone' => '+77000000001',
             'password' => 'password123',
             'password_confirmation' => 'password123',

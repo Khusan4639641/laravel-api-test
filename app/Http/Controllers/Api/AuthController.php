@@ -22,28 +22,26 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request): JsonResponse
     {
-        if (! config('safi.public_registration_enabled', false)) {
-            return response()->json([
-                'message' => 'Самостоятельная регистрация временно недоступна',
-            ], 403);
-        }
-
         $validated = $request->validated();
         $sponsor = $this->partnerRegistrationService->resolveSponsorByReferralCode(
             $validated['referral_code'] ?? null,
             isset($validated['sponsor_id']) ? (int) $validated['sponsor_id'] : null,
         );
+        $hasReferralCode = trim((string) ($validated['referral_code'] ?? '')) !== '';
+        $hasReferralInput = $hasReferralCode || ! empty($validated['sponsor_id']);
 
-        if (! empty($validated['referral_code']) && ! $sponsor) {
+        if ($hasReferralInput && ! $sponsor) {
+            $sponsorField = $hasReferralCode ? 'referral_code' : 'sponsor_id';
+
             throw ValidationException::withMessages([
-                'referral_code' => ['Пригласитель не найден или недоступен'],
+                $sponsorField => ['Пригласитель не найден или недоступен'],
             ]);
         }
 
-        if (! empty($validated['sponsor_id']) && ! $sponsor) {
-            throw ValidationException::withMessages([
-                'sponsor_id' => ['Пригласитель не найден или недоступен'],
-            ]);
+        if (! config('safi.public_registration_enabled', false) && ! $sponsor) {
+            return response()->json([
+                'message' => 'Самостоятельная регистрация временно недоступна',
+            ], 403);
         }
 
         if ($sponsor && empty($validated['branch'])) {

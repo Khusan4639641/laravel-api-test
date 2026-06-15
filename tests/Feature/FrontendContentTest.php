@@ -114,6 +114,22 @@ class FrontendContentTest extends TestCase
         $this->assertStringNotContainsString("t('nav.register'", $header);
     }
 
+    public function test_dashboard_referral_links_use_register_ref_branch(): void
+    {
+        $overview = file_get_contents(resource_path('js/safi/pages/dashboard/Overview.tsx'));
+        $structure = file_get_contents(resource_path('js/safi/pages/dashboard/Structure.tsx'));
+        $referrals = file_get_contents(resource_path('js/safi/lib/referrals.ts'));
+
+        foreach ([$overview, $structure] as $contents) {
+            $this->assertStringContainsString('buildReferralBranchUrl', $contents);
+            $this->assertStringContainsString('Реферальная ссылка временно недоступна. Обратитесь к администратору.', $contents);
+            $this->assertStringNotContainsString('window.location.origin}/login', $contents);
+        }
+
+        $this->assertStringContainsString('/register-ref-branch?ref=', $referrals);
+        $this->assertStringContainsString('branch=${branch}', $referrals);
+    }
+
     public function test_header_cabinet_routes_are_role_based_and_public_home_does_not_logout(): void
     {
         $header = file_get_contents(resource_path('js/safi/components/layout/Header.tsx'));
