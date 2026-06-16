@@ -5,8 +5,8 @@ import { ArrowLeft, CreditCard, Minus, Plus, ShieldCheck, ShoppingBag, Trash2 } 
 import { Button } from '../components/ui/Button';
 import { Container } from '../components/ui/Container';
 import { ToastItem, ToastStack, ToastType } from '../components/ui/Toast';
-import { ApiError, createOrder, createTipTopPayPaymentIntent, getApiErrorState, getAuthToken, getPublicProducts, getString, getTipTopPayStatus, me, OrderPayload, TipTopPayStatus, unwrapRecord } from '../lib/api';
-import { getAvailableStock, isProductOrderable, useCart } from '../context/CartContext';
+import { ApiError, createDepositPurchase, createOrder, createTipTopPayPaymentIntent, getApiErrorState, getAuthToken, getPublicDepositProducts, getPublicProducts, getString, getTipTopPayStatus, me, OrderPayload, TipTopPayStatus, unwrapRecord } from '../lib/api';
+import { getStockLimit, isDepositProduct, isProductOrderable, useCart } from '../context/CartContext';
 import { useTipTopPayWidget } from '../hooks/useTipTopPayWidget';
 
 const formatCurrency = (value: number) => `${value.toLocaleString('ru-RU')} ₸`;
@@ -25,8 +25,8 @@ export default function CartPage() {
     items,
     totalItems,
     totalPrice,
+    incrementProduct,
     decrementProduct,
-    addProduct,
     removeProduct,
     clearCart,
     syncProducts,
@@ -55,7 +55,11 @@ export default function CartPage() {
     setIsSyncing(true);
 
     try {
-      syncProducts(await getPublicProducts());
+      const [regularProducts, depositProducts] = await Promise.all([
+        getPublicProducts(),
+        getPublicDepositProducts(),
+      ]);
+      syncProducts([...regularProducts, ...depositProducts]);
     } catch {
       showToast(t('cart.stockSyncFailed', 'Не удалось обновить остатки товаров.'), 'error');
     } finally {
@@ -97,24 +101,26 @@ export default function CartPage() {
       });
   }, []);
 
-  const invalidItems = useMemo(() => items.filter((item) => !isProductOrderable(item.product) || item.quantity > getAvailableStock(item.product)), [items]);
+  const invalidItems = useMemo(() => items.filter((item) => {
+    const stockLimit = getStockLimit(item.product);
+
+    return !isProductOrderable(item.product) || (stockLimit !== null && item.quantity > stockLimit);
+  }), [items]);
+  const hasDepositItems = useMemo(() => items.some((item) => isDepositProduct(item.product)), [items]);
+  const hasRegularItems = useMemo(() => items.some((item) => !isDepositProduct(item.product)), [items]);
+  const isDepositCart = hasDepositItems && !hasRegularItems;
+  const hasMixedItems = hasDepositItems && hasRegularItems;
   const hasDeliveryRequiredFields = deliveryForm.recipientName.trim() !== ''
     && deliveryForm.phone.trim() !== ''
     && deliveryForm.city.trim() !== ''
     && deliveryForm.deliveryAddress.trim() !== '';
   const isCheckoutBusy = isCheckingOut || isStartingOnlinePayment || isWidgetLoading;
-  const canCheckout = items.length > 0 && invalidItems.length === 0 && hasDeliveryRequiredFields && !isCheckoutBusy;
+  const canCheckout = items.length > 0 && invalidItems.length === 0 && !hasMixedItems && hasDeliveryRequiredFields && !isCheckoutBusy;
   const isTipTopPayAvailable = tipTopStatus === null || (tipTopStatus.enabled && tipTopStatus.currency === 'KZT' && tipTopStatus.publicTerminalIdSet);
-  const canPayOnline = canCheckout && isTipTopPayAvailable;
+  const canPayOnline = canCheckout && !isDepositCart && isTipTopPayAvailable;
 
   const handleIncrease = (productId: string) => {
-    const item = items.find((cartItem) => String(cartItem.product.id) === String(productId));
-
-    if (!item) {
-      return;
-    }
-
-    const result = addProduct(item.product);
+    const result = incrementProduct(productId);
 
     if (!result.ok) {
       showToast(result.reason === 'stock_limit'
@@ -154,6 +160,11 @@ export default function CartPage() {
       return false;
     }
 
+    if (hasMixedItems) {
+      setCheckoutError(t('cart.mixedDepositCart', 'Депозитные товары оформляются отдельным заказом'));
+      return false;
+    }
+
     if (!hasDeliveryRequiredFields) {
       setCheckoutError(t('cart.deliveryRequired', 'Укажите телефон и адрес доставки.'));
       return false;
@@ -170,12 +181,19 @@ export default function CartPage() {
     setIsCheckingOut(true);
 
     try {
-      await createOrder(buildOrderPayload());
+      if (isDepositCart) {
+        await createDepositPurchase(buildOrderPayload());
+      } else {
+        await createOrder(buildOrderPayload());
+      }
 
       clearCart();
       setDeliveryForm(emptyDeliveryForm);
-      setCheckoutMessage(t('orders.orderCreated'));
-      showToast(t('orders.orderCreated'));
+      const message = isDepositCart
+        ? t('cart.depositPurchaseCreated', 'Покупка с депозитного баланса выполнена.')
+        : t('orders.orderCreated');
+      setCheckoutMessage(message);
+      showToast(message);
       navigate('/dashboard/orders', { state: { orderCreated: true } });
     } catch (caughtError) {
       const message = caughtError instanceof ApiError
@@ -191,6 +209,13 @@ export default function CartPage() {
 
   const handleOnlinePayment = async () => {
     if (!validateCheckout()) {
+      return;
+    }
+
+    if (isDepositCart) {
+      const message = t('cart.depositOnlyOnlineBlocked', 'Этот товар доступен только за депозит');
+      setCheckoutError(message);
+      showToast(message, 'error');
       return;
     }
 
@@ -298,8 +323,13 @@ export default function CartPage() {
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
           <div className="space-y-4">
             {items.map((item) => {
-              const stock = getAvailableStock(item.product);
-              const isInvalid = !isProductOrderable(item.product) || item.quantity > stock;
+              const stockLimit = getStockLimit(item.product);
+              const hasStockLimit = stockLimit !== null;
+              const isOrderable = isProductOrderable(item.product);
+              const isInvalid = !isOrderable || (hasStockLimit && item.quantity > stockLimit);
+              const isDepositItem = isDepositProduct(item.product);
+              const canDecrease = item.quantity > 1;
+              const canIncrease = isOrderable && (!hasStockLimit || item.quantity < stockLimit);
 
               return (
                 <div key={item.product.id} className="grid gap-5 rounded-[28px] border border-safi-green/5 bg-white p-4 shadow-sm md:grid-cols-[140px_minmax(0,1fr)] md:p-5">
@@ -311,10 +341,19 @@ export default function CartPage() {
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div className="min-w-0">
                         <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold">{item.product.category}</div>
-                        <h2 className="font-serif text-2xl font-bold text-safi-green">{item.product.name}</h2>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="font-serif text-2xl font-bold text-safi-green">{item.product.name}</h2>
+                          {isDepositItem && (
+                            <span className="rounded-full bg-safi-gold/15 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green">
+                              Только депозит
+                            </span>
+                          )}
+                        </div>
                         <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-safi-text/70">{item.product.shortDescription}</p>
                         <div className={`mt-3 inline-flex rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${isInvalid ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                          {isInvalid ? t('cart.outOfStock', 'Нет в наличии') : `${t('cart.stock', 'Остаток')}: ${stock}`}
+                          {isInvalid
+                            ? t('cart.outOfStock', 'Нет в наличии')
+                            : hasStockLimit ? `${t('cart.stock', 'Остаток')}: ${stockLimit}` : t('cart.inStock', 'В наличии')}
                         </div>
                       </div>
 
@@ -340,7 +379,8 @@ export default function CartPage() {
                           <button
                             type="button"
                             onClick={() => decrementProduct(item.product.id)}
-                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-safi-green transition-colors hover:bg-white"
+                            disabled={!canDecrease}
+                            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-safi-green transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                             aria-label="-"
                           >
                             <Minus className="h-4 w-4" />
@@ -348,7 +388,7 @@ export default function CartPage() {
                           <span className="min-w-10 text-center text-sm font-bold text-safi-green">{item.quantity}</span>
                           <button
                             type="button"
-                            disabled={item.quantity >= stock || isInvalid}
+                            disabled={!canIncrease || isInvalid}
                             onClick={() => handleIncrease(item.product.id)}
                             className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-safi-green transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                             aria-label="+"
@@ -417,6 +457,21 @@ export default function CartPage() {
                 <span className="text-white/60">{t('cart.items', 'Товары')}</span>
                 <span className="font-bold">{totalItems}</span>
               </div>
+              {isDepositCart && (
+                <label className="flex items-center justify-between gap-4 rounded-2xl border border-safi-gold/30 bg-white/10 p-4">
+                  <span>
+                    <span className="block text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/50">Способ оплаты</span>
+                    <span className="mt-1 block font-bold text-white">Депозитный баланс</span>
+                  </span>
+                  <input
+                    type="radio"
+                    checked
+                    disabled
+                    readOnly
+                    className="h-4 w-4 border-white/30 text-safi-gold"
+                  />
+                </label>
+              )}
               <div className="flex items-end justify-between border-t border-white/10 pt-5">
                 <span className="text-white/60">{t('cart.subtotal', 'Сумма')}</span>
                 <span className="font-serif text-3xl font-bold text-safi-gold">{formatCurrency(totalPrice)}</span>
@@ -429,20 +484,24 @@ export default function CartPage() {
               onClick={() => void handleCheckout()}
               className="mt-8 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-safi-gold bg-safi-gold px-8 py-4 text-sm font-bold uppercase tracking-widest text-safi-green shadow-lg transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isCheckingOut ? t('cart.checkoutLoading', 'Оформляем...') : t('cart.checkout', 'Оформить заказ')}
+              {isCheckingOut
+                ? isDepositCart ? t('cart.depositCheckoutLoading', 'Покупаем...') : t('cart.checkoutLoading', 'Оформляем...')
+                : isDepositCart ? t('cart.depositCheckout', 'Купить за депозит') : t('cart.checkout', 'Оформить заказ')}
             </button>
 
-            <button
-              type="button"
-              disabled={!canPayOnline || isSyncing}
-              onClick={() => void handleOnlinePayment()}
-              className="mt-3 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/15 bg-white px-8 py-4 text-sm font-bold uppercase tracking-widest text-safi-green shadow-lg transition-all hover:bg-safi-cream disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <CreditCard className="h-4 w-4" />
-              {!isTipTopPayAvailable
-                ? t('orders.onlinePaymentUnavailable', 'Онлайн-оплата временно недоступна')
-                : isStartingOnlinePayment || isWidgetLoading ? t('orders.openingPayment') : t('orders.payOnline')}
-            </button>
+            {!isDepositCart && (
+              <button
+                type="button"
+                disabled={!canPayOnline || isSyncing}
+                onClick={() => void handleOnlinePayment()}
+                className="mt-3 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/15 bg-white px-8 py-4 text-sm font-bold uppercase tracking-widest text-safi-green shadow-lg transition-all hover:bg-safi-cream disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <CreditCard className="h-4 w-4" />
+                {!isTipTopPayAvailable
+                  ? t('orders.onlinePaymentUnavailable', 'Онлайн-оплата временно недоступна')
+                  : isStartingOnlinePayment || isWidgetLoading ? t('orders.openingPayment') : t('orders.payOnline')}
+              </button>
+            )}
 
             <div className="mt-5 flex items-start gap-3 rounded-2xl bg-white/5 p-4 text-xs leading-relaxed text-white/60">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-safi-gold" />

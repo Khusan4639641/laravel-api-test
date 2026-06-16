@@ -688,7 +688,10 @@ function applyTranslations(root: HTMLElement | Text, language: SupportedLanguage
 
 function translateTextNode(node: Text, language: SupportedLanguage) {
   const current = node.nodeValue || '';
-  const source = originalText.get(node) || current;
+  const storedSource = originalText.get(node);
+  const source = storedSource && isRenderedFromStoredSource(storedSource, current, language)
+    ? storedSource
+    : current;
   const translated = translateLiteral(source, language);
 
   originalText.set(node, source);
@@ -696,6 +699,18 @@ function translateTextNode(node: Text, language: SupportedLanguage) {
   if (current !== translated) {
     node.nodeValue = translated;
   }
+}
+
+function isRenderedFromStoredSource(source: string, value: string, language: SupportedLanguage) {
+  if (value === source || value === translateLiteral(source, language)) {
+    return true;
+  }
+
+  const sourceKey = source.trim().replace(/\s+/g, ' ');
+  const valueKey = value.trim().replace(/\s+/g, ' ');
+  const entry = sourceMap[sourceKey];
+
+  return Boolean(entry && Object.values(entry).some((translation) => translation?.trim().replace(/\s+/g, ' ') === valueKey));
 }
 
 function translateAttributes(element: HTMLElement, language: SupportedLanguage) {

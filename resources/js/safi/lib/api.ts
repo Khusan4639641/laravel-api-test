@@ -122,6 +122,13 @@ export interface PartnerTransferPayload {
   idempotency_key?: string;
 }
 
+export interface InternalWalletTransferPayload {
+  from: 'main';
+  to: 'deposit';
+  amount: number;
+  comment?: string;
+}
+
 export interface PartnerTransfer {
   id: string;
   uuid?: string;
@@ -154,6 +161,7 @@ export interface Product {
   reservedQuantity?: number;
   inStock?: boolean;
   isDepositProduct?: boolean;
+  isDepositOnly?: boolean;
   status?: string;
   statusLabel?: string;
   createdAt?: string;
@@ -536,6 +544,11 @@ export async function getPublicProducts() {
   return normalizeProducts(response);
 }
 
+export async function getPublicDepositProducts() {
+  const response = await apiRequest(endpoints.public.depositProducts, { method: 'GET', auth: false });
+  return normalizeProducts(response);
+}
+
 export async function getPublicPackages() {
   const response = await apiRequest(endpoints.public.packages, { method: 'GET', auth: false });
   return normalizePackages(response);
@@ -701,6 +714,14 @@ export async function createPartnerTransfer<T = unknown>(payload: PartnerTransfe
   });
 }
 
+export async function createInternalWalletTransfer<T = unknown>(payload: InternalWalletTransferPayload) {
+  return apiRequest<T>(endpoints.dashboard.internalWalletTransfer, {
+    method: 'POST',
+    body: compactPayload(payload),
+    auth: true,
+  });
+}
+
 export async function getDashboardSupportTickets<T = unknown>() {
   return apiRequest<T>(endpoints.dashboard.supportTickets, {
     method: 'GET',
@@ -816,7 +837,7 @@ export async function createWithdrawal<T = unknown>(payload: WithdrawalPayload) 
 }
 
 export async function createDepositPurchase<T = unknown>(
-  payload: number | { amount?: number; product_id?: string | number; productId?: string | number; quantity?: number },
+  payload: number | (OrderPayload & { amount?: number; productId?: string | number }),
 ) {
   const body = typeof payload === 'number'
     ? { amount: payload }
@@ -1713,6 +1734,7 @@ export function normalizeProducts(response: unknown): Product[] {
     const metadata = isRecord(record.metadata) ? record.metadata : {};
     const image = getString(record, ['image', 'image_url', 'imageUrl']) || getString(metadata, ['image', 'image_url', 'imageUrl']) || productImagePlaceholder;
     const status = getString(record, ['status']) || 'active';
+    const isDepositProduct = Boolean(record.is_deposit_product ?? record.isDepositProduct ?? record.is_deposit_only ?? record.isDepositOnly);
 
     return {
       id: getString(record, ['id', 'uuid']) || String(index + 1),
@@ -1731,7 +1753,8 @@ export function normalizeProducts(response: unknown): Product[] {
       stockQuantity: getNumber(record, ['stock_quantity', 'stock']) ?? undefined,
       reservedQuantity: getNumber(record, ['reserved_quantity']) ?? 0,
       inStock: Boolean(record.in_stock ?? record.is_in_stock ?? ((getNumber(record, ['stock', 'stock_quantity']) ?? 0) > 0 && status !== 'inactive')),
-      isDepositProduct: Boolean(record.is_deposit_product ?? record.isDepositProduct),
+      isDepositProduct,
+      isDepositOnly: isDepositProduct,
       status,
       statusLabel: productStatusLabel(status, getString(record, ['status_label', 'statusLabel'])),
       createdAt: getString(record, ['created_at', 'createdAt']),

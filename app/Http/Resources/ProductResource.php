@@ -51,6 +51,8 @@ class ProductResource extends JsonResource
             'status_label' => SystemLabel::productStatus($this->status),
             'is_deposit_product' => (bool) $this->is_deposit_product,
             'isDepositProduct' => (bool) $this->is_deposit_product,
+            'is_deposit_only' => (bool) $this->is_deposit_product,
+            'isDepositOnly' => (bool) $this->is_deposit_product,
             'image_path' => $this->image_path,
             'image_url' => $image,
             'imageUrl' => $image,

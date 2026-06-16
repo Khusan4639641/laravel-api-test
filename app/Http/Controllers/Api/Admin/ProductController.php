@@ -91,6 +91,7 @@ class ProductController extends Controller
             'reserved_quantity' => ['nullable', 'integer', 'min:0'],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
             'is_deposit_product' => ['nullable', 'boolean'],
+            'is_deposit_only' => ['nullable', 'boolean'],
             'image_path' => ['nullable', 'string', 'max:2048'],
             'image' => ['nullable', 'image', 'max:5120'],
             'remove_image' => ['nullable', 'boolean'],
@@ -102,6 +103,16 @@ class ProductController extends Controller
 
     private function productData(array $validated, ?Product $product = null): array
     {
+        if (array_key_exists('is_deposit_only', $validated) && ! array_key_exists('is_deposit_product', $validated)) {
+            $validated['is_deposit_product'] = $validated['is_deposit_only'];
+        }
+
+        unset($validated['is_deposit_only']);
+
+        if (array_key_exists('is_deposit_product', $validated)) {
+            $validated['is_deposit_product'] = $this->booleanValue($validated['is_deposit_product']);
+        }
+
         unset($validated['image'], $validated['remove_image'], $validated['pv']);
 
         $metadata = $validated['metadata'] ?? null;
@@ -127,6 +138,11 @@ class ProductController extends Controller
         }
 
         return $validated;
+    }
+
+    private function booleanValue(mixed $value): bool
+    {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE) ?? (bool) $value;
     }
 
     private function deleteLocalImage(Product $product): void

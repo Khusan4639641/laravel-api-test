@@ -4,13 +4,17 @@ import { Link } from 'react-router-dom';
 import { CheckCircle2, ShoppingCart } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ToastItem, ToastStack } from '../../components/ui/Toast';
-import { getAvailableStock, isProductOrderable, useCart } from '../../context/CartContext';
-import { getApiErrorState, getDashboardProducts, Product } from '../../lib/api';
+import { getAvailableStock, isDepositProduct, isProductOrderable, useCart } from '../../context/CartContext';
+import { getApiErrorState, getDashboardDepositProducts, getDashboardProducts, Product } from '../../lib/api';
+
+type ProductMode = 'regular' | 'deposit';
 
 export default function Products() {
   const { t } = useTranslation();
   const { addProduct } = useCart();
-  const [products, setProducts] = useState<Product[]>([]);
+  const [regularProducts, setRegularProducts] = useState<Product[]>([]);
+  const [depositProducts, setDepositProducts] = useState<Product[]>([]);
+  const [productMode, setProductMode] = useState<ProductMode>('regular');
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -24,10 +28,15 @@ export default function Products() {
     setLoadError(null);
 
     try {
-      const apiProducts = await getDashboardProducts();
-      setProducts(apiProducts);
+      const [apiProducts, apiDepositProducts] = await Promise.all([
+        getDashboardProducts(),
+        getDashboardDepositProducts(),
+      ]);
+      setRegularProducts(apiProducts);
+      setDepositProducts(apiDepositProducts);
     } catch (caughtError) {
-      setProducts([]);
+      setRegularProducts([]);
+      setDepositProducts([]);
       setLoadError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
@@ -38,6 +47,11 @@ export default function Products() {
     void loadProducts();
   }, [loadProducts]);
 
+  useEffect(() => {
+    setSelectedCategory('Все');
+  }, [productMode]);
+
+  const products = productMode === 'deposit' ? depositProducts : regularProducts;
   const categories = useMemo(() => ['Все', ...Array.from(new Set(products.map((product) => product.category)))], [products]);
   const visibleProducts = selectedCategory === 'Все'
     ? products
@@ -56,9 +70,11 @@ export default function Products() {
     const result = addProduct(product);
 
     if (!result.ok) {
-      const nextError = result.reason === 'stock_limit'
-        ? t('cart.stockLimitReached', 'Недостаточно товара на складе')
-        : t('cart.outOfStock', 'Нет в наличии');
+      const nextError = result.reason === 'mixed_product_type'
+        ? t('cart.mixedDepositCart', 'Депозитные товары оформляются отдельным заказом')
+        : result.reason === 'stock_limit'
+          ? t('cart.stockLimitReached', 'Недостаточно товара на складе')
+          : t('cart.outOfStock', 'Нет в наличии');
       setError(nextError);
       showToast(nextError, 'error');
       return;
@@ -96,6 +112,26 @@ export default function Products() {
             {error || message}
           </div>
         )}
+      </section>
+
+      <section className="flex flex-wrap gap-3">
+        {([
+          ['regular', 'Обычная продукция'],
+          ['deposit', 'Депозитная продукция'],
+        ] as Array<[ProductMode, string]>).map(([mode, label]) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setProductMode(mode)}
+            className={`rounded-full border px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] transition-all ${
+              productMode === mode
+                ? 'border-safi-green bg-safi-green text-white'
+                : 'border-safi-border bg-white text-safi-muted hover:border-safi-green hover:text-safi-green'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
       </section>
 
       <section className="flex gap-3 overflow-x-auto pb-1">
@@ -148,6 +184,7 @@ export default function Products() {
               outOfStock: t('cart.outOfStock', 'Нет в наличии'),
               stock: t('cart.stock', 'Остаток'),
               price: t('cart.price', 'Цена'),
+              depositOnly: 'Только депозит',
             }}
           />
         ))}
@@ -171,10 +208,12 @@ function ProductCard({
     outOfStock: string;
     stock: string;
     price: string;
+    depositOnly: string;
   };
 }) {
   const stock = getAvailableStock(product);
   const orderable = isProductOrderable(product);
+  const depositOnly = isDepositProduct(product);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -185,7 +224,7 @@ function ProductCard({
                 className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
               />
               <span className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green">
-                {product.category}
+                {depositOnly ? labels.depositOnly : product.category}
               </span>
               <span className={`absolute right-4 top-4 rounded-full px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] ${orderable ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
                 {orderable ? `${labels.stock}: ${stock}` : labels.outOfStock}

@@ -203,18 +203,57 @@ class ProductOrderApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'products')
             ->assertJsonPath('products.0.id', $depositProduct->id)
-            ->assertJsonPath('products.0.is_deposit_product', true);
+            ->assertJsonPath('products.0.is_deposit_product', true)
+            ->assertJsonPath('products.0.is_deposit_only', true);
 
         $this->getJson('/api/dashboard/deposit-products')
             ->assertOk()
             ->assertJsonCount(1, 'products')
             ->assertJsonPath('products.0.id', $depositProduct->id)
-            ->assertJsonPath('products.0.is_deposit_product', true);
+            ->assertJsonPath('products.0.is_deposit_product', true)
+            ->assertJsonPath('products.0.is_deposit_only', true);
 
         $this->getJson('/api/dashboard/products')
             ->assertOk()
             ->assertJsonMissing(['id' => $depositProduct->id])
             ->assertJsonFragment(['id' => $normalProduct->id]);
+    }
+
+    public function test_super_admin_can_create_and_update_deposit_product_flag(): void
+    {
+        Sanctum::actingAs(User::factory()->create([
+            'role' => 'super_admin',
+        ]));
+
+        $response = $this->postJson('/api/admin/products', [
+            'name' => 'Deposit Admin Product',
+            'sku' => 'DEPOSIT-ADMIN',
+            'description' => 'Admin-created deposit product.',
+            'price' => 1000,
+            'stock_quantity' => 9,
+            'status' => 'active',
+            'is_deposit_only' => true,
+        ])->assertCreated()
+            ->assertJsonPath('product.is_deposit_product', true)
+            ->assertJsonPath('product.is_deposit_only', true);
+
+        $productId = $response->json('product.id');
+
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'is_deposit_product' => 1,
+        ]);
+
+        $this->putJson("/api/admin/products/{$productId}", [
+            'is_deposit_product' => false,
+        ])->assertOk()
+            ->assertJsonPath('product.is_deposit_product', false)
+            ->assertJsonPath('product.is_deposit_only', false);
+
+        $this->assertDatabaseHas('products', [
+            'id' => $productId,
+            'is_deposit_product' => 0,
+        ]);
     }
 
     public function test_deposit_purchase_endpoint_requires_product(): void
@@ -308,6 +347,96 @@ class ProductOrderApiTest extends TestCase
         ]);
 
         Notification::assertSentTo($user, BonusAccruedNotification::class);
+    }
+
+    public function test_user_can_buy_deposit_cart_items_in_single_order(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create();
+        $first = $this->createProduct('Deposit First', 'DEPOSIT-CART-1', 1000, 'active', 2, true);
+        $second = $this->createProduct('Deposit Second', 'DEPOSIT-CART-2', 500, 'active', 1, true);
+        Wallet::query()->create([
+            'user_id' => $user->id,
+            'type' => 'deposit',
+            'currency' => 'KZT',
+            'balance' => 5000,
+            'hold_balance' => 0,
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/deposits/purchase', $this->orderPayload([
+            ['product_id' => $first->id, 'quantity' => 2],
+            ['product_id' => $second->id, 'quantity' => 1],
+        ]))->assertCreated()
+            ->assertJsonPath('data.total', '2500.00')
+            ->assertJsonPath('data.deposit_debited', '2500.00')
+            ->assertJsonPath('data.cashback', '500.00')
+            ->assertJsonPath('data.deposit_balance', '2500.00')
+            ->assertJsonPath('data.main_balance', '500.00')
+            ->assertJsonPath('order.total_pv', '0.00')
+            ->assertJsonCount(2, 'order.items');
+
+        $order = Order::query()->with('items')->firstOrFail();
+        $depositWallet = $user->wallets()->where('type', 'deposit')->firstOrFail();
+        $mainWallet = $user->wallets()->where('type', 'main')->firstOrFail();
+
+        $this->assertSame('2500.00', $order->total_amount);
+        $this->assertSame('0.00', $order->total_pv);
+        $this->assertSame('Safi Client', $order->recipient_name);
+        $this->assertSame('2500.00', $depositWallet->balance);
+        $this->assertSame('500.00', $mainWallet->balance);
+        $this->assertSame(8, $first->refresh()->stock_quantity);
+        $this->assertSame(9, $second->refresh()->stock_quantity);
+        $this->assertSame(0, PvTransaction::query()->count());
+        $this->assertSame(0, BonusTransaction::query()->whereIn('bonus_type', ['referral', 'binary'])->count());
+        $this->assertSame(1, BonusTransaction::query()->where('bonus_type', 'cashback')->count());
+        $this->assertDatabaseHas('wallet_transactions', [
+            'type' => 'deposit_product_purchase',
+            'direction' => 'debit',
+            'amount' => '2500.00',
+        ]);
+        $this->assertDatabaseHas('wallet_transactions', [
+            'type' => 'deposit_purchase_cashback',
+            'direction' => 'credit',
+            'amount' => '500.00',
+        ]);
+    }
+
+    public function test_deposit_checkout_rejects_mixed_cart_items_atomically(): void
+    {
+        $user = User::factory()->create();
+        $depositProduct = $this->createProduct('Deposit Mixed', 'DEPOSIT-MIXED', 1000, 'active', 2, true);
+        $normalProduct = $this->createProduct('Normal Mixed', 'NORMAL-MIXED', 1000);
+        Wallet::query()->create([
+            'user_id' => $user->id,
+            'type' => 'deposit',
+            'currency' => 'KZT',
+            'balance' => 5000,
+            'hold_balance' => 0,
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/deposits/purchase', $this->orderPayload([
+            ['product_id' => $depositProduct->id, 'quantity' => 1],
+            ['product_id' => $normalProduct->id, 'quantity' => 1],
+        ]))->assertUnprocessable()
+            ->assertJsonValidationErrors('product_id');
+
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertSame('5000.00', $user->wallets()->where('type', 'deposit')->firstOrFail()->balance);
+        $this->assertSame(10, $depositProduct->refresh()->stock_quantity);
+        $this->assertSame(10, $normalProduct->refresh()->stock_quantity);
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'type' => 'deposit_product_purchase',
+        ]);
+        $this->assertDatabaseMissing('wallet_transactions', [
+            'type' => 'deposit_purchase_cashback',
+        ]);
     }
 
     public function test_deposit_product_purchase_does_not_apply_mlm_or_package_effects(): void

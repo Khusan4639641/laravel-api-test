@@ -52,9 +52,11 @@ export default function ProductsPage() {
     const result = addProduct(product);
 
     if (!result.ok) {
-      showToast(result.reason === 'stock_limit'
-        ? t('cart.stockLimitReached', 'Недостаточно товара на складе')
-        : t('cart.outOfStock', 'Нет в наличии'), 'error');
+      showToast(result.reason === 'mixed_product_type'
+        ? t('cart.mixedDepositCart', 'Депозитные товары оформляются отдельным заказом')
+        : result.reason === 'stock_limit'
+          ? t('cart.stockLimitReached', 'Недостаточно товара на складе')
+          : t('cart.outOfStock', 'Нет в наличии'), 'error');
       return;
     }
 

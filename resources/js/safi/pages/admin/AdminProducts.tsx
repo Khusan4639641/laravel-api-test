@@ -23,6 +23,7 @@ interface ProductFormState {
   price: string;
   stock: string;
   status: string;
+  isDepositProduct: boolean;
   imagePreview: string;
   removeImage: boolean;
 }
@@ -34,6 +35,7 @@ const emptyForm: ProductFormState = {
   price: '',
   stock: '0',
   status: 'active',
+  isDepositProduct: false,
   imagePreview: productImagePlaceholder,
   removeImage: false,
 };
@@ -83,6 +85,7 @@ export default function AdminProducts() {
       price: String(product.price || ''),
       stock: String(product.stock ?? 0),
       status: product.status || 'active',
+      isDepositProduct: Boolean(product.isDepositProduct || product.isDepositOnly),
       imagePreview: product.image || productImagePlaceholder,
       removeImage: false,
     });
@@ -132,6 +135,7 @@ export default function AdminProducts() {
     payload.append('stock_quantity', String(Number(form.stock || 0)));
     payload.append('status', form.status);
     payload.append('category', form.category);
+    payload.append('is_deposit_product', form.isDepositProduct ? '1' : '0');
 
     if (imageFile) {
       payload.append('image', imageFile);
@@ -243,6 +247,20 @@ export default function AdminProducts() {
                   <option value="inactive">{productStatusLabel('inactive')}</option>
                 </select>
               </div>
+              <label className="md:col-span-2 flex cursor-pointer gap-3 rounded-2xl border border-safi-border bg-[#F5F5F0] p-4">
+                <input
+                  type="checkbox"
+                  checked={form.isDepositProduct}
+                  onChange={(event) => setForm({ ...form, isDepositProduct: event.target.checked })}
+                  className="mt-1 h-4 w-4 rounded border-safi-green/20 text-safi-green focus:ring-safi-green/20"
+                />
+                <span>
+                  <span className="block text-sm font-bold text-safi-green">Только за депозит</span>
+                  <span className="mt-1 block text-xs leading-5 text-safi-text/60">
+                    Товар можно купить только с депозитного счёта. Обычная оплата и оплата с основного баланса будут недоступны.
+                  </span>
+                </span>
+              </label>
               <div className="md:col-span-2">
                 <label className="block text-[10px] uppercase font-bold text-safi-text/60 tracking-widest mb-2">{adminText('a_0J7Qv9C40YHQ')}</label>
                 <textarea
@@ -265,50 +283,59 @@ export default function AdminProducts() {
       {!isLoading && !error && products.length === 0 && <EmptyState title={adminText('a_0KLQvtCy0LDR_2')} description={adminText('a_0KHQvtC30LTQ_9')} />}
 
       {!isLoading && !error && products.length > 0 && (
-        <AdminTable headers={[adminText('a_0KLQvtCy0LDR_3'), adminText('a_0JrQsNGC0LXQ'), adminText('a_0KbQtdC90LA'), adminText('a_0J7RgdGC0LDR'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
-          {products.map((product) => (
-            <tr key={product.id} className="hover:bg-safi-green/5 transition-colors group">
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-14 w-14 overflow-hidden rounded-xl border border-safi-green/10 bg-[#F5F5F0] shrink-0">
-                    <img src={product.image || productImagePlaceholder} alt={product.name} className="h-full w-full object-cover" />
+        <AdminTable headers={[adminText('a_0KLQvtCy0LDR_3'), adminText('a_0JrQsNGC0LXQ'), 'Тип оплаты', adminText('a_0KbQtdC90LA'), adminText('a_0J7RgdGC0LDR'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
+          {products.map((product) => {
+            const isDepositProduct = Boolean(product.isDepositProduct || product.isDepositOnly);
+
+            return (
+              <tr key={product.id} className="hover:bg-safi-green/5 transition-colors group">
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-4">
+                    <div className="h-14 w-14 overflow-hidden rounded-xl border border-safi-green/10 bg-[#F5F5F0] shrink-0">
+                      <img src={product.image || productImagePlaceholder} alt={product.name} className="h-full w-full object-cover" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-safi-green">{product.name}</div>
+                      <div className="text-[10px] text-safi-text/50 mt-1">{adminText('a_0JTQvtCx0LDQ_7')}{product.createdAt || '-'}</div>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-bold text-safi-green">{product.name}</div>
-                    <div className="text-[10px] text-safi-text/50 mt-1">{adminText('a_0JTQvtCx0LDQ_7')}{product.createdAt || '-'}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm">{product.category}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <AdminBadge variant={isDepositProduct ? 'gold' : 'default'}>
+                    {isDepositProduct ? 'Только депозит' : 'Обычный'}
+                  </AdminBadge>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="font-bold text-safi-green">{product.price.toLocaleString('ru-RU')} ₸</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-bold">{product.stock || 0}{adminText('a_0YjRgg')}</div>
+                  {(product.stock || 0) <= 0 && <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-red-500">нет в наличии</div>}
+                </td>
+                <td className="px-6 py-4">
+                  <AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{product.statusLabel || productStatusLabel(product.status)}</AdminBadge>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex justify-end gap-2">
+                    <button type="button" onClick={() => openEditForm(product)} className="p-2 text-safi-text hover:text-safi-green hover:bg-[#F5F5F0] rounded-lg transition-colors">
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pendingId === product.id}
+                      onClick={() => handleDelete(product.id)}
+                      className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
-                </div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="text-sm">{product.category}</div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="font-bold text-safi-green">{product.price.toLocaleString('ru-RU')} ₸</div>
-              </td>
-              <td className="px-6 py-4">
-                <div className="text-sm font-bold">{product.stock || 0}{adminText('a_0YjRgg')}</div>
-                {(product.stock || 0) <= 0 && <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-red-500">нет в наличии</div>}
-              </td>
-              <td className="px-6 py-4">
-                <AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{product.statusLabel || productStatusLabel(product.status)}</AdminBadge>
-              </td>
-              <td className="px-6 py-4 text-right">
-                <div className="flex justify-end gap-2">
-                  <button type="button" onClick={() => openEditForm(product)} className="p-2 text-safi-text hover:text-safi-green hover:bg-[#F5F5F0] rounded-lg transition-colors">
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pendingId === product.id}
-                    onClick={() => handleDelete(product.id)}
-                    className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+                </td>
+              </tr>
+            );
+          })}
         </AdminTable>
       )}
     </div>

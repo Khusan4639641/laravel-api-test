@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import type { Product } from '../lib/api';
 
 const CART_STORAGE_KEY = 'safi_cart_items';
@@ -11,7 +11,7 @@ export interface CartItem {
 
 export type CartActionResult =
   | { ok: true }
-  | { ok: false; reason: 'out_of_stock' | 'stock_limit' | 'missing_product' };
+  | { ok: false; reason: 'out_of_stock' | 'stock_limit' | 'missing_product' | 'mixed_product_type' };
 
 interface StoredCartItem {
   product: Product;
@@ -23,7 +23,8 @@ interface CartContextValue {
   totalItems: number;
   totalPrice: number;
   addProduct: (product: Product, quantity?: number) => CartActionResult;
-  decrementProduct: (productId: string) => void;
+  incrementProduct: (productId: string) => CartActionResult;
+  decrementProduct: (productId: string) => CartActionResult;
   updateQuantity: (productId: string, quantity: number) => CartActionResult;
   removeProduct: (productId: string) => void;
   clearCart: () => void;
@@ -80,8 +81,19 @@ function normalizeStoredItem(value: unknown): StoredCartItem | null {
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [storedItems, setStoredItems] = useState<StoredCartItem[]>(readStoredCart);
+  const storedItemsRef = useRef(storedItems);
+
+  const commitStoredItems = useCallback((nextItems: StoredCartItem[]) => {
+    storedItemsRef.current = nextItems;
+    setStoredItems(nextItems);
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(nextItems));
+    }
+  }, []);
 
   useEffect(() => {
+    storedItemsRef.current = storedItems;
     window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(storedItems));
   }, [storedItems]);
 
@@ -98,45 +110,49 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const addProduct = (product: Product, quantity = 1): CartActionResult => {
       const productId = String(product.id);
       const nextQuantity = Math.max(1, Math.floor(quantity));
-      const stock = getAvailableStock(product);
+      const stockLimit = getStockLimit(product);
 
       if (!isProductOrderable(product)) {
         return { ok: false, reason: 'out_of_stock' };
       }
 
-      const currentQuantity = storedItems.find((item) => String(item.product.id) === productId)?.quantity || 0;
+      const currentItems = storedItemsRef.current;
 
-      if (currentQuantity + nextQuantity > stock) {
+      if (currentItems.some((item) => isDepositProduct(item.product) !== isDepositProduct(product))) {
+        return { ok: false, reason: 'mixed_product_type' };
+      }
+
+      const currentQuantity = currentItems.find((item) => String(item.product.id) === productId)?.quantity || 0;
+
+      if (stockLimit !== null && currentQuantity + nextQuantity > stockLimit) {
         return { ok: false, reason: 'stock_limit' };
       }
 
-      setStoredItems((current) => upsertItem(current, product, currentQuantity + nextQuantity));
+      commitStoredItems(upsertItem(currentItems, product, currentQuantity + nextQuantity));
 
       return { ok: true };
     };
 
     const updateQuantity = (productId: string, quantity: number): CartActionResult => {
-      const currentItem = storedItems.find((item) => String(item.product.id) === String(productId));
-      const nextQuantity = Math.floor(quantity);
+      const currentItems = storedItemsRef.current;
+      const currentItem = currentItems.find((item) => String(item.product.id) === String(productId));
+      const nextQuantity = Math.max(1, Math.floor(quantity));
 
-      if (!currentItem) {
+      if (!currentItem || !Number.isFinite(nextQuantity)) {
         return { ok: false, reason: 'missing_product' };
-      }
-
-      if (nextQuantity <= 0) {
-        setStoredItems((current) => current.filter((item) => String(item.product.id) !== String(productId)));
-        return { ok: true };
       }
 
       if (!isProductOrderable(currentItem.product)) {
         return { ok: false, reason: 'out_of_stock' };
       }
 
-      if (nextQuantity > getAvailableStock(currentItem.product)) {
+      const stockLimit = getStockLimit(currentItem.product);
+
+      if (stockLimit !== null && nextQuantity > stockLimit) {
         return { ok: false, reason: 'stock_limit' };
       }
 
-      setStoredItems((current) => upsertItem(current, currentItem.product, nextQuantity));
+      commitStoredItems(upsertItem(currentItems, currentItem.product, nextQuantity));
 
       return { ok: true };
     };
@@ -146,25 +162,38 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       totalItems,
       totalPrice,
       addProduct,
-      decrementProduct: (productId) => {
-        const currentItem = storedItems.find((item) => String(item.product.id) === String(productId));
+      incrementProduct: (productId) => {
+        const currentItem = storedItemsRef.current.find((item) => String(item.product.id) === String(productId));
 
         if (!currentItem) {
-          return;
+          return { ok: false, reason: 'missing_product' };
         }
 
-        updateQuantity(String(productId), currentItem.quantity - 1);
+        return updateQuantity(String(productId), currentItem.quantity + 1);
+      },
+      decrementProduct: (productId) => {
+        const currentItem = storedItemsRef.current.find((item) => String(item.product.id) === String(productId));
+
+        if (!currentItem) {
+          return { ok: false, reason: 'missing_product' };
+        }
+
+        if (currentItem.quantity <= 1) {
+          return { ok: true };
+        }
+
+        return updateQuantity(String(productId), currentItem.quantity - 1);
       },
       updateQuantity,
       removeProduct: (productId) => {
-        setStoredItems((current) => current.filter((item) => String(item.product.id) !== String(productId)));
+        commitStoredItems(storedItemsRef.current.filter((item) => String(item.product.id) !== String(productId)));
       },
-      clearCart: () => setStoredItems([]),
-      getQuantity: (productId) => storedItems.find((item) => String(item.product.id) === String(productId))?.quantity || 0,
+      clearCart: () => commitStoredItems([]),
+      getQuantity: (productId) => storedItemsRef.current.find((item) => String(item.product.id) === String(productId))?.quantity || 0,
       syncProducts: (products) => {
         const productMap = new Map(products.map((product) => [String(product.id), product]));
 
-        setStoredItems((current) => current.map((item) => {
+        commitStoredItems(storedItemsRef.current.map((item) => {
           const updatedProduct = productMap.get(String(item.product.id));
 
           if (updatedProduct) {
@@ -184,7 +213,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         }));
       },
     };
-  }, [items, storedItems]);
+  }, [commitStoredItems, items]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 }
@@ -200,11 +229,35 @@ export function useCart() {
 }
 
 export function getAvailableStock(product: Product) {
-  return Math.max(0, Math.floor(Number(product.stockQuantity ?? product.stock ?? 0)));
+  return getStockLimit(product) ?? 0;
+}
+
+export function getStockLimit(product: Product): number | null {
+  const stockValue = product.stockQuantity ?? product.stock;
+
+  if (stockValue === null || stockValue === undefined || stockValue === '') {
+    return null;
+  }
+
+  const stock = Number(stockValue);
+
+  if (!Number.isFinite(stock)) {
+    return null;
+  }
+
+  return Math.max(0, Math.floor(stock));
 }
 
 export function isProductOrderable(product: Product) {
-  return (product.status || 'active') === 'active' && getAvailableStock(product) > 0 && product.inStock !== false;
+  const stockLimit = getStockLimit(product);
+
+  return (product.status || 'active') === 'active'
+    && product.inStock !== false
+    && (stockLimit === null || stockLimit > 0);
+}
+
+export function isDepositProduct(product: Product) {
+  return Boolean(product.isDepositProduct || product.isDepositOnly);
 }
 
 function upsertItem(items: StoredCartItem[], product: Product, quantity: number): StoredCartItem[] {

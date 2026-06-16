@@ -21,15 +21,26 @@ class DepositPurchaseController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'product_id' => ['required_without:items', 'integer', 'exists:products,id'],
             'quantity' => ['sometimes', 'integer', 'gt:0'],
+            'items' => ['required_without:product_id', 'array', 'min:1'],
+            'items.*.product_id' => ['required_with:items', 'integer', 'exists:products,id'],
+            'items.*.quantity' => ['required_with:items', 'integer', 'gt:0'],
+            'shipping_address' => ['nullable', 'array'],
+            'recipient_name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['nullable', 'string', 'min:6', 'max:32'],
+            'city' => ['nullable', 'string', 'max:120'],
+            'delivery_address' => ['nullable', 'string', 'max:500'],
+            'comment' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $result = $this->depositPurchaseService->purchaseProduct(
-            $request->user(),
-            Product::query()->findOrFail($validated['product_id']),
-            (int) ($validated['quantity'] ?? 1)
-        );
+        $result = isset($validated['items'])
+            ? $this->depositPurchaseService->purchaseProducts($request->user(), $validated['items'], $validated)
+            : $this->depositPurchaseService->purchaseProduct(
+                $request->user(),
+                Product::query()->findOrFail($validated['product_id']),
+                (int) ($validated['quantity'] ?? 1)
+            );
 
         return $this->purchaseResponse($result);
     }

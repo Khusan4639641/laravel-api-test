@@ -16,6 +16,7 @@ export const endpoints = {
   },
   public: {
     products: '/public/products',
+    depositProducts: '/products/deposit',
     product: (product: EndpointId) => `/public/products/${encodeEndpointId(product)}`,
     packages: '/public/packages',
     registrationPackages: '/public/registration-packages',
@@ -37,6 +38,7 @@ export const endpoints = {
     packages: '/dashboard/packages',
     partnersSearch: '/dashboard/partners/search',
     walletTransfers: '/dashboard/wallet/transfers',
+    internalWalletTransfer: '/dashboard/wallets/internal-transfer',
     products: '/dashboard/products',
     depositProducts: '/dashboard/deposit-products',
     orders: '/dashboard/orders',

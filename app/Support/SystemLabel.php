@@ -92,6 +92,8 @@ final class SystemLabel
             'order_payment' => ['ru' => 'Оплата заказа', 'kz' => 'Тапсырыс төлемі', 'kg' => 'Заказ төлөмү', 'en' => 'Order payment', 'mn' => 'Захиалгын төлбөр'],
             'partner_transfer_out' => ['ru' => 'Перевод партнёру', 'kz' => 'Серіктеске аудару', 'kg' => 'Өнөктөшкө которуу', 'en' => 'Transfer to partner', 'mn' => 'Түнш рүү шилжүүлэг'],
             'partner_transfer_in' => ['ru' => 'Перевод от партнёра', 'kz' => 'Серіктестен аударым', 'kg' => 'Өнөктөштөн которуу', 'en' => 'Transfer from partner', 'mn' => 'Түншээс шилжүүлэг'],
+            'main_to_deposit_debit' => ['ru' => 'Перевод на депозит: списание', 'kz' => 'Депозитке аудару: шегеру', 'kg' => 'Депозитке которуу: кемитүү', 'en' => 'Main to deposit transfer: debit', 'mn' => 'Депозит рүү шилжүүлэг: хасалт'],
+            'main_to_deposit_credit' => ['ru' => 'Перевод на депозит: зачисление', 'kz' => 'Депозитке аудару: есептеу', 'kg' => 'Депозитке которуу: чегерүү', 'en' => 'Main to deposit transfer: credit', 'mn' => 'Депозит рүү шилжүүлэг: нэмэгдэл'],
             'package_assignment' => ['ru' => 'Назначение пакета', 'kz' => 'Пакет тағайындау', 'kg' => 'Пакет дайындоо', 'en' => 'Package assignment', 'mn' => 'Багц оноолт'],
             'package_activation' => ['ru' => 'Покупка пакета', 'kz' => 'Пакет сатып алу', 'kg' => 'Пакет сатып алуу', 'en' => 'Package purchase', 'mn' => 'Багц худалдан авалт'],
             'package_upgrade' => ['ru' => 'Upgrade пакета', 'kz' => 'Пакет upgrade', 'kg' => 'Пакет upgrade', 'en' => 'Package upgrade', 'mn' => 'Багц upgrade'],

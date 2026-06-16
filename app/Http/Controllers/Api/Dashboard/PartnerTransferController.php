@@ -10,6 +10,7 @@ use App\Models\Wallet;
 use App\Services\PartnerTransferService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class PartnerTransferController extends Controller
 {
@@ -31,6 +32,19 @@ class PartnerTransferController extends Controller
 
     public function store(Request $request, PartnerTransferService $partnerTransferService): JsonResponse
     {
+        $requestedSourceWallet = $request->input('from', $request->input('wallet', $request->input('from_wallet')));
+        $requestedSourceWallet = is_string($requestedSourceWallet)
+            ? mb_strtolower(trim($requestedSourceWallet))
+            : $requestedSourceWallet;
+
+        if ($requestedSourceWallet !== null && $requestedSourceWallet !== '' && $requestedSourceWallet !== 'main') {
+            throw ValidationException::withMessages([
+                'from' => $requestedSourceWallet === 'deposit'
+                    ? 'Депозитный баланс нельзя переводить партнёрам'
+                    : 'Перевод партнёру доступен только с основного баланса',
+            ]);
+        }
+
         $validated = $request->validate([
             'recipient_user_id' => ['required', 'integer'],
             'amount' => ['required', 'numeric', 'gt:0'],
