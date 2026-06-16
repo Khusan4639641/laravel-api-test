@@ -80,6 +80,21 @@ class ReportsApiTest extends TestCase
             'total_amount' => 100000,
             'total_pv' => 5000,
         ]);
+        Order::query()->create([
+            'user_id' => $user->id,
+            'order_number' => 'REPORT-DEPOSIT-001',
+            'status' => 'paid',
+            'payment_status' => 'paid',
+            'payment_provider' => Order::PAYMENT_PROVIDER_DEPOSIT,
+            'subtotal_amount' => 300000,
+            'discount_amount' => 0,
+            'total_amount' => 300000,
+            'total_pv' => 0,
+            'metadata' => [
+                'source' => Order::SOURCE_DEPOSIT_PURCHASE,
+                'payment_wallet' => 'deposit',
+            ],
+        ]);
         BonusTransaction::query()->create([
             'user_id' => $user->id,
             'bonus_type' => 'binary',

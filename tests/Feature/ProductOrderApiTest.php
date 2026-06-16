@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Order;
 use App\Models\BonusTransaction;
+use App\Models\Package;
 use App\Models\Product;
+use App\Models\PvTransaction;
 use App\Models\User;
 use App\Models\Wallet;
+use App\Models\WalletTransaction;
 use App\Notifications\BonusAccruedNotification;
 use Database\Seeders\ProductSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -104,6 +107,22 @@ class ProductOrderApiTest extends TestCase
         $this->assertDatabaseCount('orders', 0);
     }
 
+    public function test_order_cannot_be_created_with_deposit_product(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->createProduct('Deposit Product', 'DEPOSIT-CHECKOUT-BLOCK', 1000, 'active', 2, true);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', $this->orderPayload([
+            ['product_id' => $product->id, 'quantity' => 1],
+        ]))->assertUnprocessable()
+            ->assertJsonValidationErrors('items');
+
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertSame(10, $product->refresh()->stock_quantity);
+    }
+
     public function test_order_cannot_be_created_with_non_positive_quantity(): void
     {
         $user = User::factory()->create();
@@ -180,6 +199,12 @@ class ProductOrderApiTest extends TestCase
 
         Sanctum::actingAs($user);
 
+        $this->getJson('/api/products/deposit')
+            ->assertOk()
+            ->assertJsonCount(1, 'products')
+            ->assertJsonPath('products.0.id', $depositProduct->id)
+            ->assertJsonPath('products.0.is_deposit_product', true);
+
         $this->getJson('/api/dashboard/deposit-products')
             ->assertOk()
             ->assertJsonCount(1, 'products')
@@ -192,7 +217,7 @@ class ProductOrderApiTest extends TestCase
             ->assertJsonFragment(['id' => $normalProduct->id]);
     }
 
-    public function test_user_can_create_deposit_purchase_with_twenty_percent_cashback(): void
+    public function test_deposit_purchase_endpoint_requires_product(): void
     {
         $user = User::factory()->create();
         Wallet::query()->create([
@@ -208,28 +233,15 @@ class ProductOrderApiTest extends TestCase
 
         $this->postJson('/api/deposits/purchase', [
             'amount' => 50000,
-        ])->assertCreated()
-            ->assertJsonPath('deposit_transaction.type', 'deposit_purchase')
-            ->assertJsonPath('cashback_bonus.bonus_type', 'cashback')
-            ->assertJsonPath('cashback_bonus.amount', '10000.00');
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('product_id');
 
-        $depositWallet = $user->wallets()->where('type', 'deposit')->firstOrFail();
-        $mainWallet = $user->wallets()->where('type', 'main')->firstOrFail();
-        $cashbackBonus = BonusTransaction::query()->where('bonus_type', 'cashback')->firstOrFail();
-
-        $this->assertSame('50000.00', $depositWallet->balance);
-        $this->assertSame('10000.00', $mainWallet->balance);
-        $this->assertSame('20', $cashbackBonus->metadata['cashback_percent']);
-        $this->assertDatabaseHas('wallet_transactions', [
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertDatabaseCount('bonus_transactions', 0);
+        $this->assertDatabaseMissing('wallet_transactions', [
             'type' => 'deposit_purchase',
-            'direction' => 'debit',
-            'amount' => '50000.00',
         ]);
-        $this->assertDatabaseHas('wallet_transactions', [
-            'type' => 'deposit_purchase_cashback',
-            'direction' => 'credit',
-            'amount' => '10000.00',
-        ]);
+        $this->assertSame('100000.00', $user->wallets()->where('type', 'deposit')->firstOrFail()->balance);
     }
 
     public function test_user_can_buy_deposit_product_with_twenty_percent_cashback(): void
@@ -249,13 +261,22 @@ class ProductOrderApiTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/deposits/purchase', [
-            'product_id' => $product->id,
+        $this->postJson("/api/deposit-products/{$product->id}/purchase", [
             'quantity' => 1,
         ])->assertCreated()
+            ->assertJsonPath('message', 'Покупка депозитного товара выполнена.')
+            ->assertJsonPath('data.total', '1000.00')
+            ->assertJsonPath('data.deposit_debited', '1000.00')
+            ->assertJsonPath('data.cashback', '200.00')
+            ->assertJsonPath('data.main_balance', '200.00')
+            ->assertJsonPath('data.deposit_balance', '4000.00')
             ->assertJsonPath('order.total_amount', '1000.00')
+            ->assertJsonPath('order.total_pv', '0.00')
             ->assertJsonPath('order.payment_status', 'paid')
-            ->assertJsonPath('deposit_transaction.type', 'deposit_purchase')
+            ->assertJsonPath('order.payment_provider', Order::PAYMENT_PROVIDER_DEPOSIT)
+            ->assertJsonPath('order.items.0.unit_pv', '0.00')
+            ->assertJsonPath('order.items.0.total_pv', '0.00')
+            ->assertJsonPath('deposit_transaction.type', 'deposit_product_purchase')
             ->assertJsonPath('deposit_transaction.amount', '1000.00')
             ->assertJsonPath('cashback_bonus.bonus_type', 'cashback')
             ->assertJsonPath('cashback_bonus.amount', '200.00');
@@ -271,10 +292,12 @@ class ProductOrderApiTest extends TestCase
         $this->assertDatabaseHas('orders', [
             'user_id' => $user->id,
             'payment_status' => 'paid',
+            'payment_provider' => Order::PAYMENT_PROVIDER_DEPOSIT,
             'total_amount' => '1000.00',
+            'total_pv' => '0.00',
         ]);
         $this->assertDatabaseHas('wallet_transactions', [
-            'type' => 'deposit_purchase',
+            'type' => 'deposit_product_purchase',
             'direction' => 'debit',
             'amount' => '1000.00',
         ]);
@@ -285,6 +308,44 @@ class ProductOrderApiTest extends TestCase
         ]);
 
         Notification::assertSentTo($user, BonusAccruedNotification::class);
+    }
+
+    public function test_deposit_product_purchase_does_not_apply_mlm_or_package_effects(): void
+    {
+        $this->createPackages();
+        $sponsor = User::factory()->create(['total_pv' => 1000]);
+        $user = User::factory()->create([
+            'sponsor_id' => $sponsor->id,
+            'total_pv' => 0,
+        ]);
+        $product = $this->createProduct('Deposit Package Blocker', 'DEPOSIT-NO-MLM', 300000, 'active', 600, true);
+        Wallet::query()->create([
+            'user_id' => $user->id,
+            'type' => 'deposit',
+            'currency' => 'KZT',
+            'balance' => 300000,
+            'hold_balance' => 0,
+            'status' => 'active',
+        ]);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/deposits/purchase', [
+            'product_id' => $product->id,
+            'quantity' => 1,
+        ])->assertCreated()
+            ->assertJsonPath('order.total_amount', '300000.00')
+            ->assertJsonPath('order.total_pv', '0.00')
+            ->assertJsonPath('cashback_bonus.amount', '60000.00');
+
+        $this->assertNull($user->refresh()->current_package_id);
+        $this->assertSame('0.00', $user->total_pv);
+        $this->assertSame('1000.00', $sponsor->refresh()->total_pv);
+        $this->assertSame(0, PvTransaction::query()->count());
+        $this->assertSame(0, BonusTransaction::query()->whereIn('bonus_type', ['referral', 'binary'])->count());
+        $this->assertSame(0, WalletTransaction::query()->where('type', 'package_auto_upgrade')->count());
+        $this->assertSame(1, BonusTransaction::query()->where('bonus_type', 'cashback')->count());
+        $this->assertSame(0, Order::query()->sum('total_pv'));
     }
 
     public function test_deposit_product_purchase_requires_deposit_balance(): void
@@ -337,7 +398,7 @@ class ProductOrderApiTest extends TestCase
 
         $this->assertDatabaseCount('orders', 0);
         $this->assertDatabaseMissing('wallet_transactions', [
-            'type' => 'deposit_purchase',
+            'type' => 'deposit_product_purchase',
         ]);
     }
 
@@ -359,6 +420,31 @@ class ProductOrderApiTest extends TestCase
             'status' => $status,
             'is_deposit_product' => $isDepositProduct,
         ]);
+    }
+
+    private function createPackages(): void
+    {
+        foreach ([
+            'START' => [60000, 100, 100, 7, 1],
+            'VIP' => [180000, 300, 300, 8, 2],
+            'ELITE' => [300000, 500, 200, 10, 3],
+        ] as $code => [$price, $activityPv, $turnoverPv, $binaryPercent, $sortOrder]) {
+            Package::query()->create([
+                'code' => $code,
+                'name' => $code,
+                'slug' => strtolower($code),
+                'price' => $price,
+                'pv' => $activityPv,
+                'activity_pv' => $activityPv,
+                'turnover_pv' => $turnoverPv,
+                'referral_percent' => 10,
+                'binary_percent' => $binaryPercent,
+                'sort_order' => $sortOrder,
+                'status' => 'active',
+                'is_active' => true,
+                'is_upgradeable' => true,
+            ]);
+        }
     }
 
     /**

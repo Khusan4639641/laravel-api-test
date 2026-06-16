@@ -91,11 +91,14 @@ class DepositBonusTest extends TestCase
 
         $result = app(DepositPurchaseService::class)->purchaseProduct($user, $product, 1);
 
+        $this->assertSame('deposit_product_purchase', $result['deposit_transaction']->type);
         $this->assertSame('1000.00', $result['deposit_transaction']->amount);
         $this->assertSame('200.00', $result['cashback_bonus']?->amount);
         $this->assertSame('1000.00', $user->wallets()->where('type', 'deposit')->firstOrFail()->balance);
         $this->assertSame('200.00', $user->wallets()->where('type', 'main')->firstOrFail()->balance);
         $this->assertSame(4, $product->refresh()->stock_quantity);
+        $this->assertSame('0.00', $result['order']->total_pv);
+        $this->assertSame('0.00', $result['order']->items->first()->total_pv);
     }
 
     private function createPackage(string $code, int $binaryPercent): Package

@@ -163,6 +163,24 @@ class PackageAutoUpgradeFromPaidOrdersTest extends TestCase
         $this->assertSame(['START', 'VIP', 'ELITE'], $this->notificationPackageCodes($user));
     }
 
+    public function test_deposit_paid_orders_do_not_count_toward_auto_package_upgrade(): void
+    {
+        $this->packages();
+        $user = User::factory()->create(['total_pv' => 0]);
+        $depositOrder = $this->depositProductOrder($user, 300000);
+        $normalOrder = $this->productOrder($user, 50000);
+
+        $depositResult = $this->service()->handlePaidOrder($depositOrder);
+        $normalResult = $this->service()->handlePaidOrder($normalOrder);
+
+        $this->assertFalse($depositResult->upgraded());
+        $this->assertFalse($normalResult->upgraded());
+        $this->assertNull($user->refresh()->current_package_id);
+        $this->assertSame('0.00', $user->total_pv);
+        $this->assertSame([], $this->notificationPackageCodes($user));
+        $this->assertSame(0, $this->autoUpgradeAuditCount($user));
+    }
+
     public function test_refunded_or_cancelled_order_no_longer_counts_but_never_downgrades_package(): void
     {
         $this->packages();
@@ -374,6 +392,55 @@ class PackageAutoUpgradeFromPaidOrdersTest extends TestCase
             'total_price' => $amount,
             'total_pv' => Product::priceToTurnoverPv($amount),
             'item_snapshot' => ['name' => $product->name],
+        ]);
+
+        return $order;
+    }
+
+    private function depositProductOrder(User $user, int $amount): Order
+    {
+        $product = Product::query()->create([
+            'name' => 'Deposit Product '.$amount,
+            'sku' => 'DEP-'.uniqid(),
+            'description' => 'Deposit Product',
+            'price' => $amount,
+            'pv' => max(1, (int) round($amount / Product::PV_MONEY_RATE)),
+            'stock_quantity' => 10,
+            'reserved_quantity' => 0,
+            'status' => 'active',
+            'is_deposit_product' => true,
+        ]);
+
+        $order = Order::query()->create([
+            'user_id' => $user->id,
+            'order_number' => 'DEP-'.uniqid(),
+            'status' => 'paid',
+            'payment_status' => 'paid',
+            'payment_provider' => Order::PAYMENT_PROVIDER_DEPOSIT,
+            'paid_at' => now(),
+            'subtotal_amount' => $amount,
+            'discount_amount' => 0,
+            'total_amount' => $amount,
+            'total_pv' => 0,
+            'metadata' => [
+                'source' => Order::SOURCE_DEPOSIT_PURCHASE,
+                'payment_wallet' => 'deposit',
+            ],
+        ]);
+
+        OrderItem::query()->create([
+            'order_id' => $order->id,
+            'product_id' => $product->id,
+            'product_name' => $product->name,
+            'quantity' => 1,
+            'unit_price' => $amount,
+            'unit_pv' => 0,
+            'total_price' => $amount,
+            'total_pv' => 0,
+            'item_snapshot' => [
+                'name' => $product->name,
+                'is_deposit_product' => true,
+            ],
         ]);
 
         return $order;

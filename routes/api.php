@@ -66,6 +66,7 @@ Route::prefix('public')->group(function (): void {
 
 Route::get('/ref/{user_id}/{branch}', [ReferralController::class, 'show']);
 Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/deposit', [ProductController::class, 'deposit']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
@@ -83,6 +84,7 @@ Route::prefix('payments/tiptoppay')->group(function (): void {
 Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
     Route::middleware('role_permission:admin.bonuses.manage')->post('/bonuses/binary/calculate', BinaryBonusController::class);
     Route::post('/deposits/purchase', DepositPurchaseController::class);
+    Route::post('/deposit-products/{product}/purchase', [DepositPurchaseController::class, 'purchaseProduct']);
     Route::post('/packages/{package}/activate', PackageActivationController::class);
     Route::post('/packages/{package}/upgrade', PackageUpgradeController::class);
     Route::get('/withdrawals', [WithdrawalController::class, 'index']);

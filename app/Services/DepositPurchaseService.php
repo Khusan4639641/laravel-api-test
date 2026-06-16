@@ -17,7 +17,6 @@ class DepositPurchaseService
     public function __construct(
         private readonly BonusService $bonusService,
         private readonly WalletService $walletService,
-        private readonly PackageAutoUpgradeFromPaidOrdersService $packageAutoUpgradeFromPaidOrders,
     ) {
     }
 
@@ -79,7 +78,7 @@ class DepositPurchaseService
         return DB::transaction(function () use ($user, $product, $quantity): array {
             if ($quantity <= 0) {
                 throw ValidationException::withMessages([
-                    'quantity' => 'Deposit purchase quantity must be greater than zero.',
+                    'quantity' => 'Количество должно быть больше нуля.',
                 ]);
             }
 
@@ -90,19 +89,19 @@ class DepositPurchaseService
 
             if ($product->status !== 'active' || ! $product->is_deposit_product) {
                 throw ValidationException::withMessages([
-                    'product_id' => 'Product is not available in the deposit catalog.',
+                    'product_id' => 'Этот товар нельзя купить за депозит',
                 ]);
             }
 
             if ((int) $product->stock_quantity <= 0 || $quantity > (int) $product->stock_quantity) {
                 throw ValidationException::withMessages([
-                    'quantity' => 'Insufficient product stock.',
+                    'quantity' => 'Недостаточно товара на складе',
                 ]);
             }
 
             $amount = bcmul((string) $product->price, (string) $quantity, 2);
-            $unitPv = $product->turnoverPv();
-            $totalPv = bcmul($unitPv, (string) $quantity, 2);
+            $unitPv = '0.00';
+            $totalPv = '0.00';
 
             $this->walletService->createUserWallets($user);
 
@@ -114,7 +113,7 @@ class DepositPurchaseService
 
             if (bccomp((string) $depositWallet->balance, $amount, 2) < 0) {
                 throw ValidationException::withMessages([
-                    'amount' => 'Insufficient deposit wallet balance.',
+                    'amount' => 'Недостаточно средств на депозитном счёте',
                 ]);
             }
 
@@ -123,14 +122,25 @@ class DepositPurchaseService
                 'order_number' => $this->makeOrderNumber(),
                 'status' => 'paid',
                 'payment_status' => 'paid',
+                'payment_provider' => Order::PAYMENT_PROVIDER_DEPOSIT,
+                'paid_at' => now(),
                 'subtotal_amount' => $amount,
                 'discount_amount' => 0,
                 'total_amount' => $amount,
                 'total_pv' => $totalPv,
+                'payment_meta' => [
+                    'provider' => Order::PAYMENT_PROVIDER_DEPOSIT,
+                    'wallet' => 'deposit',
+                    'paid_internally' => true,
+                ],
                 'metadata' => [
-                    'source' => 'deposit_purchase',
+                    'source' => Order::SOURCE_DEPOSIT_PURCHASE,
+                    'payment_method' => Order::PAYMENT_PROVIDER_DEPOSIT,
                     'payment_wallet' => 'deposit',
                     'cashback_percent' => '20',
+                    'mlm_excluded' => true,
+                    'turnover_excluded' => true,
+                    'pv_excluded' => true,
                 ],
             ]);
 
@@ -147,8 +157,8 @@ class DepositPurchaseService
                     'name' => $product->name,
                     'sku' => $product->sku,
                     'price' => (string) $product->price,
-                    'pv' => $unitPv,
-                    'pv_money_rate' => Product::PV_MONEY_RATE,
+                    'pv' => '0.00',
+                    'original_product_pv' => (string) $product->pv,
                     'is_deposit_product' => true,
                 ],
             ]);
@@ -156,14 +166,15 @@ class DepositPurchaseService
             $depositTransaction = $this->walletService->debit(
                 $depositWallet,
                 $amount,
-                'deposit_purchase',
+                'deposit_product_purchase',
                 $order,
                 [
                     'cashback_percent' => '20',
                     'product_id' => $product->id,
                     'quantity' => $quantity,
                     'order_id' => $order->id,
-                ]
+                ],
+                'Покупка депозитного товара',
             );
 
             $product->decrement('stock_quantity', $quantity);
@@ -173,8 +184,6 @@ class DepositPurchaseService
                 $amount,
                 $depositTransaction
             );
-
-            $this->packageAutoUpgradeFromPaidOrders->handlePaidOrder($order->refresh());
 
             return [
                 'deposit_transaction' => $depositTransaction->refresh(),

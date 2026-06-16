@@ -138,17 +138,29 @@ class PackageAutoUpgradeFromPaidOrdersService
             return false;
         }
 
-        return $order->items()->whereNotNull('product_id')->exists();
+        if ($order->isDepositPurchase()) {
+            return false;
+        }
+
+        return $order->items->contains(fn ($item): bool => $item->product_id !== null);
     }
 
     private function paidProductOrdersTotal(User $user): string
     {
-        $total = Order::query()
+        $orders = Order::query()
+            ->with('items.product')
             ->where('user_id', $user->id)
             ->where('payment_status', 'paid')
             ->whereNotIn('status', self::CANCELLED_ORDER_STATUSES)
             ->whereHas('items', fn ($query) => $query->whereNotNull('product_id'))
-            ->sum('total_amount');
+            ->get();
+
+        $total = $orders
+            ->filter(fn (Order $order): bool => $this->isEligiblePaidProductOrder($order))
+            ->reduce(
+                fn (string $carry, Order $order): string => bcadd($carry, (string) $order->total_amount, 2),
+                '0.00',
+            );
 
         return $this->decimal($total);
     }

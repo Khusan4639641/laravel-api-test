@@ -95,6 +95,7 @@ class OverviewController extends Controller
     {
         return Order::query()
             ->where('status', '!=', 'voided')
+            ->withoutDepositPurchases()
             ->whereHas('user', $this->partnerRoleFilter());
     }
 

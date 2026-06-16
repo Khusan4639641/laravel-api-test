@@ -967,7 +967,7 @@ class BonusService
                     'source' => 'deposit_purchase_cashback',
                     'purchase_amount' => $purchaseAmount,
                 ],
-                'Deposit purchase cashback',
+                'Cashback 20% за покупку с депозита',
             );
 
             $bonusTransaction->forceFill([

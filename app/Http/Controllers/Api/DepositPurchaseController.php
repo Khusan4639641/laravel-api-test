@@ -21,27 +21,57 @@ class DepositPurchaseController extends Controller
     public function __invoke(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'amount' => ['required_without:product_id', 'numeric', 'gt:0'],
-            'product_id' => ['required_without:amount', 'integer', 'exists:products,id'],
-            'quantity' => ['required_with:product_id', 'integer', 'gt:0'],
+            'product_id' => ['required', 'integer', 'exists:products,id'],
+            'quantity' => ['sometimes', 'integer', 'gt:0'],
         ]);
 
-        $result = isset($validated['product_id'])
-            ? $this->depositPurchaseService->purchaseProduct(
-                $request->user(),
-                Product::query()->findOrFail($validated['product_id']),
-                (int) ($validated['quantity'] ?? 1)
-            )
-            : $this->depositPurchaseService->purchase(
-                $request->user(),
-                $validated['amount']
-            );
+        $result = $this->depositPurchaseService->purchaseProduct(
+            $request->user(),
+            Product::query()->findOrFail($validated['product_id']),
+            (int) ($validated['quantity'] ?? 1)
+        );
+
+        return $this->purchaseResponse($result);
+    }
+
+    public function purchaseProduct(Request $request, Product $product): JsonResponse
+    {
+        $validated = $request->validate([
+            'quantity' => ['sometimes', 'integer', 'gt:0'],
+        ]);
+
+        $result = $this->depositPurchaseService->purchaseProduct(
+            $request->user(),
+            $product,
+            (int) ($validated['quantity'] ?? 1)
+        );
+
+        return $this->purchaseResponse($result);
+    }
+
+    /**
+     * @param  array{deposit_transaction: mixed, cashback_bonus: mixed, order: mixed}  $result
+     */
+    private function purchaseResponse(array $result): JsonResponse
+    {
+        $order = $result['order'];
+        $depositTransaction = $result['deposit_transaction'];
+        $cashbackBonus = $result['cashback_bonus']?->load('walletTransaction');
 
         return response()->json([
-            'order' => $result['order'] ? OrderResource::make($result['order']) : null,
-            'deposit_transaction' => WalletTransactionResource::make($result['deposit_transaction']),
-            'cashback_bonus' => $result['cashback_bonus']
-                ? BonusTransactionResource::make($result['cashback_bonus']->load('walletTransaction'))
+            'message' => 'Покупка депозитного товара выполнена.',
+            'data' => [
+                'order_id' => $order?->id,
+                'total' => $order?->total_amount,
+                'deposit_debited' => $depositTransaction->amount,
+                'cashback' => $cashbackBonus?->amount,
+                'main_balance' => $cashbackBonus?->walletTransaction?->balance_after,
+                'deposit_balance' => $depositTransaction->balance_after,
+            ],
+            'order' => $order ? OrderResource::make($order) : null,
+            'deposit_transaction' => WalletTransactionResource::make($depositTransaction),
+            'cashback_bonus' => $cashbackBonus
+                ? BonusTransactionResource::make($cashbackBonus)
                 : null,
         ], 201);
     }

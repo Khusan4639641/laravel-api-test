@@ -74,6 +74,12 @@ class OrderController extends Controller
                     ]);
                 }
 
+                if ($product->is_deposit_product) {
+                    throw ValidationException::withMessages([
+                        'items' => 'Этот товар доступен только за депозит',
+                    ]);
+                }
+
                 if ((int) $product->stock_quantity <= 0 || $quantity > (int) $product->stock_quantity) {
                     throw ValidationException::withMessages([
                         'items' => 'Недостаточно товара на складе',

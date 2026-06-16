@@ -100,6 +100,8 @@ final class SystemLabel
             'bonus_x2' => ['ru' => 'Bonus X2', 'kz' => 'Bonus X2', 'kg' => 'Bonus X2', 'en' => 'Bonus X2', 'mn' => 'Bonus X2'],
             'cashback' => ['ru' => 'Кэшбэк', 'kz' => 'Кэшбэк', 'kg' => 'Кэшбэк', 'en' => 'Cashback', 'mn' => 'Кэшбэк'],
             'deposit_purchase' => ['ru' => 'Покупка с депозитного кошелька', 'kz' => 'Депозит әмиянынан сатып алу', 'kg' => 'Депозит капчыктан сатып алуу', 'en' => 'Deposit wallet purchase', 'mn' => 'Депозит хэтэвчээр худалдан авалт'],
+            'deposit_product_purchase' => ['ru' => 'Покупка депозитного товара', 'kz' => 'Депозиттік тауарды сатып алу', 'kg' => 'Депозиттик товарды сатып алуу', 'en' => 'Deposit product purchase', 'mn' => 'Депозит бүтээгдэхүүн худалдан авалт'],
+            'deposit_purchase_cashback' => ['ru' => 'Cashback 20% за покупку с депозита', 'kz' => 'Депозиттен сатып алу үшін 20% cashback', 'kg' => 'Депозиттен сатып алуу үчүн 20% cashback', 'en' => '20% cashback for deposit purchase', 'mn' => 'Депозит худалдан авалтын 20% cashback'],
         ],
         'transaction_effects' => [
             'affects_balance' => ['ru' => 'Влияет на баланс', 'kz' => 'Балансқа әсер етеді', 'kg' => 'Балансқа таасир этет', 'en' => 'Affects balance', 'mn' => 'Үлдэгдэлд нөлөөлнө'],

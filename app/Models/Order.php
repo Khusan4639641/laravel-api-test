@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -32,6 +33,10 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 ])]
 class Order extends Model
 {
+    public const PAYMENT_PROVIDER_DEPOSIT = 'deposit';
+
+    public const SOURCE_DEPOSIT_PURCHASE = 'deposit_purchase';
+
     /**
      * @return array<string, string>
      */
@@ -62,5 +67,42 @@ class Order extends Model
     public function payments(): MorphMany
     {
         return $this->morphMany(Payment::class, 'payable');
+    }
+
+    public function scopeWithoutDepositPurchases(Builder $query): Builder
+    {
+        return $query
+            ->where(function (Builder $query): void {
+                $query->whereNull('payment_provider')
+                    ->orWhere('payment_provider', '!=', self::PAYMENT_PROVIDER_DEPOSIT);
+            })
+            ->whereDoesntHave('items.product', fn (Builder $query) => $query->where('is_deposit_product', true));
+    }
+
+    public function isDepositPurchase(): bool
+    {
+        $metadata = is_array($this->metadata) ? $this->metadata : [];
+
+        if (
+            $this->payment_provider === self::PAYMENT_PROVIDER_DEPOSIT
+            || ($metadata['source'] ?? null) === self::SOURCE_DEPOSIT_PURCHASE
+            || ($metadata['payment_wallet'] ?? null) === 'deposit'
+        ) {
+            return true;
+        }
+
+        return $this->hasDepositProducts();
+    }
+
+    public function hasDepositProducts(): bool
+    {
+        $this->loadMissing('items.product');
+
+        return $this->items->contains(function (OrderItem $item): bool {
+            $snapshot = is_array($item->item_snapshot) ? $item->item_snapshot : [];
+
+            return (bool) ($item->product?->is_deposit_product ?? false)
+                || (bool) ($snapshot['is_deposit_product'] ?? false);
+        });
     }
 }

@@ -20,6 +20,17 @@ class ProductController extends Controller
         ]);
     }
 
+    public function deposit(): JsonResponse
+    {
+        return response()->json([
+            'products' => ProductResource::collection(Product::query()
+                ->where('status', 'active')
+                ->where('is_deposit_product', true)
+                ->orderBy('id')
+                ->get()),
+        ]);
+    }
+
     public function show(Product $product): JsonResponse
     {
         if ($product->status !== 'active' || $product->is_deposit_product) {
