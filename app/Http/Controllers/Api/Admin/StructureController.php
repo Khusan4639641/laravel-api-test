@@ -8,6 +8,7 @@ use App\Models\BinaryNode;
 use App\Models\User;
 use App\Services\DashboardBranchVolumeService;
 use App\Support\SystemLabel;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -22,12 +23,15 @@ class StructureController extends Controller
         $rootNode = null;
         $maxDepth = min(max((int) $request->integer('depth', 10), 0), 10);
         $includeFlat = $request->boolean('include_flat');
+        $selectedUserId = $request->filled('user_id')
+            ? (int) $request->integer('user_id')
+            : ($request->filled('root_id') ? (int) $request->integer('root_id') : null);
 
-        if ($request->filled('user_id')) {
+        if ($selectedUserId !== null) {
             $selectedUser = User::query()
                 ->activeAccount()
                 ->with(['currentPackage', 'sponsor', 'wallets'])
-                ->find((int) $request->integer('user_id'));
+                ->find($selectedUserId);
 
             if (! $selectedUser) {
                 throw new NotFoundHttpException('Selected user was not found.');
@@ -81,6 +85,290 @@ class StructureController extends Controller
         }
 
         return response()->json($response);
+    }
+
+    public function rootOrphans(Request $request): JsonResponse
+    {
+        $request->validate([
+            'search' => ['nullable', 'string', 'max:255'],
+            'q' => ['nullable', 'string', 'max:255'],
+            'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'offset' => ['nullable', 'integer', 'min:0'],
+            'account_status' => ['nullable', 'string', 'max:50'],
+            'status' => ['nullable', 'string', 'max:50'],
+            'package_code' => ['nullable', 'string', 'max:50'],
+            'sort_by' => ['nullable', 'string', 'max:50'],
+            'sort_dir' => ['nullable', 'string', 'max:4'],
+        ]);
+
+        $query = $this->rootOrphanPartnersQuery();
+        $total = (clone $query)->count();
+
+        $this->applyRootOrphanSearch($query, $request->query('search', $request->query('q')));
+        $this->applyRootOrphanFilters($query, $request);
+
+        $limit = $this->structureListLimit($request);
+        $offset = $this->structureListOffset($request, $limit);
+        $filteredTotal = (clone $query)->count();
+        $sortBy = $this->rootOrphanSortBy($request);
+        $sortDir = $this->rootOrphanSortDir($request);
+
+        $query->orderBy($sortBy, $sortDir);
+
+        if ($sortBy !== 'id') {
+            $query->orderBy('id');
+        }
+
+        $partners = $query
+            ->offset($offset)
+            ->limit($limit)
+            ->get();
+        $data = $partners
+            ->map(fn (User $user): array => $this->rootOrphanPartnerRow($user))
+            ->values()
+            ->all();
+
+        return response()->json([
+            'summary' => [
+                'total_root_orphans' => $total,
+                'filtered_root_orphans' => $filteredTotal,
+            ],
+            'pagination' => [
+                'total' => $total,
+                'filtered_total' => $filteredTotal,
+                'limit' => $limit,
+                'offset' => $offset,
+                'has_next' => $offset + $limit < $filteredTotal,
+                'has_prev' => $offset > 0,
+            ],
+            'data' => $data,
+            'partners' => $data,
+            'root_orphans' => $data,
+            'links' => $this->structureListOffsetLinks($request, $limit, $offset, $filteredTotal),
+            'meta' => $this->structureListOffsetMeta($request, $limit, $offset, $filteredTotal, $partners->count()),
+        ]);
+    }
+
+    private function rootOrphanPartnersQuery(): Builder
+    {
+        return User::query()
+            ->where('role', User::ROLE_USER)
+            ->where(function (Builder $query): void {
+                $query
+                    ->whereDoesntHave('binaryNode')
+                    ->orWhereHas('binaryNode', function (Builder $nodeQuery): void {
+                        $nodeQuery
+                            ->where('is_active', true)
+                            ->whereNull('parent_id');
+                    });
+            })
+            ->with(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
+            ->withCount([
+                'invitedUsers as children_count' => fn (Builder $query) => $query->where('role', User::ROLE_USER),
+            ]);
+    }
+
+    private function applyRootOrphanSearch(Builder $query, mixed $search): void
+    {
+        $search = trim((string) $search);
+        $phoneDigits = preg_replace('/\D+/', '', $search) ?? '';
+
+        if ($search === '') {
+            return;
+        }
+
+        $like = '%'.mb_strtolower($search).'%';
+
+        $query->where(function (Builder $query) use ($search, $like, $phoneDigits): void {
+            $query
+                ->whereRaw('LOWER(name) LIKE ?', [$like])
+                ->orWhereRaw('LOWER(login) LIKE ?', [$like])
+                ->orWhereRaw('LOWER(email) LIKE ?', [$like]);
+
+            if (ctype_digit($search)) {
+                $query->orWhere('id', (int) $search);
+            }
+
+            $query->orWhereHas('profile', function (Builder $profileQuery) use ($like, $phoneDigits): void {
+                $profileQuery
+                    ->whereRaw('LOWER(first_name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(last_name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(phone) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(city) LIKE ?', [$like]);
+
+                if ($phoneDigits !== '') {
+                    $profileQuery->orWhereRaw(
+                        "REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', ''), '(', ''), ')', '') LIKE ?",
+                        ["%{$phoneDigits}%"],
+                    );
+                }
+            });
+
+            $query->orWhereHas('currentPackage', function (Builder $packageQuery) use ($like): void {
+                $packageQuery
+                    ->whereRaw('LOWER(code) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(name) LIKE ?', [$like])
+                    ->orWhereRaw('LOWER(slug) LIKE ?', [$like]);
+            });
+        });
+    }
+
+    private function applyRootOrphanFilters(Builder $query, Request $request): void
+    {
+        $accountStatus = trim((string) $request->query('account_status', ''));
+        $status = trim((string) $request->query('status', ''));
+        $packageCode = trim((string) $request->query('package_code', ''));
+
+        if ($accountStatus !== '') {
+            $query->where('account_status', $accountStatus);
+        }
+
+        if ($status !== '') {
+            $query->where('status', $status);
+        }
+
+        if ($packageCode !== '') {
+            $query->whereHas('currentPackage', fn (Builder $packageQuery) => $packageQuery->where('code', strtoupper($packageCode)));
+        }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function rootOrphanPartnerRow(User $user): array
+    {
+        $user->loadMissing(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode']);
+
+        $wallets = $user->relationLoaded('wallets') ? $user->wallets : collect();
+        $mainBalance = (float) $wallets->where('type', 'main')->sum('balance');
+        $totalBalance = (float) $wallets->whereIn('type', ['main', 'bonus', 'deposit'])->sum('balance');
+        $package = $user->currentPackage;
+        $packageCode = $package?->code;
+        $statusCode = strtoupper((string) $user->status);
+
+        return [
+            'id' => $user->id,
+            'user_id' => $user->id,
+            'binary_node_id' => $user->binaryNode?->id,
+            'parent_id' => $user->binaryNode?->parent_id,
+            'sponsor_id' => $user->sponsor_id,
+            'login' => $user->login,
+            'name' => $user->name,
+            'email' => $user->email,
+            'phone' => $user->profile?->phone,
+            'city' => $user->profile?->city,
+            'role' => $user->role,
+            'account_status' => $user->account_status,
+            'account_status_label' => SystemLabel::accountStatus($user->account_status),
+            'sponsor' => $user->sponsor ? [
+                'id' => $user->sponsor->id,
+                'name' => $user->sponsor->name,
+                'login' => $user->sponsor->login,
+            ] : null,
+            'package' => $package ? [
+                'id' => $package->id,
+                'code' => $packageCode,
+                'name' => $package->name,
+                'label' => SystemLabel::package($packageCode, $package->name, 'ru'),
+            ] : null,
+            'package_code' => $packageCode,
+            'package_label' => $package ? SystemLabel::package($packageCode, $package->name, 'ru') : '-',
+            'status' => $user->status,
+            'status_label' => SystemLabel::mlmStatus($user->status, null, 'ru'),
+            'mlm_status' => [
+                'code' => $statusCode,
+                'label' => SystemLabel::mlmStatus($user->status, null, 'ru'),
+            ],
+            'left_pv' => $user->left_pv,
+            'right_pv' => $user->right_pv,
+            'total_pv' => $user->total_pv,
+            'personal_pv' => $package ? (float) $package->activityPv() : 0,
+            'team_pv' => (float) ($user->left_pv ?? 0) + (float) ($user->right_pv ?? 0),
+            'balance' => $mainBalance,
+            'total_balance' => $totalBalance,
+            'children_count' => (int) ($user->children_count ?? 0),
+            'direct_children_count' => (int) ($user->children_count ?? 0),
+            'created_at' => $user->created_at?->toISOString(),
+        ];
+    }
+
+    private function structureListLimit(Request $request): int
+    {
+        return min(max($request->integer('limit', 20), 1), 100);
+    }
+
+    private function structureListOffset(Request $request, int $limit): int
+    {
+        if (! $request->has('offset') && $request->has('page')) {
+            return max($request->integer('page', 1) - 1, 0) * $limit;
+        }
+
+        return max($request->integer('offset', 0), 0);
+    }
+
+    private function rootOrphanSortBy(Request $request): string
+    {
+        $sortBy = (string) $request->query('sort_by', 'children_count');
+        $allowed = [
+            'id',
+            'name',
+            'login',
+            'email',
+            'created_at',
+            'status',
+            'account_status',
+            'children_count',
+            'left_pv',
+            'right_pv',
+            'total_pv',
+        ];
+
+        return in_array($sortBy, $allowed, true) ? $sortBy : 'children_count';
+    }
+
+    private function rootOrphanSortDir(Request $request): string
+    {
+        return strtolower((string) $request->query('sort_dir', 'desc')) === 'asc' ? 'asc' : 'desc';
+    }
+
+    /**
+     * @return array<string, string|null>
+     */
+    private function structureListOffsetLinks(Request $request, int $limit, int $offset, int $filteredTotal): array
+    {
+        return [
+            'first' => $this->structureListUrlWithOffset($request, $limit, 0),
+            'last' => $this->structureListUrlWithOffset($request, $limit, max(((int) ceil($filteredTotal / $limit) - 1) * $limit, 0)),
+            'prev' => $offset > 0 ? $this->structureListUrlWithOffset($request, $limit, max($offset - $limit, 0)) : null,
+            'next' => $offset + $limit < $filteredTotal ? $this->structureListUrlWithOffset($request, $limit, $offset + $limit) : null,
+        ];
+    }
+
+    /**
+     * @return array<string, int|string|null>
+     */
+    private function structureListOffsetMeta(Request $request, int $limit, int $offset, int $filteredTotal, int $count): array
+    {
+        $currentPage = intdiv($offset, $limit) + 1;
+        $lastPage = max((int) ceil($filteredTotal / $limit), 1);
+
+        return [
+            'current_page' => $currentPage,
+            'from' => $filteredTotal > 0 ? $offset + 1 : null,
+            'last_page' => $lastPage,
+            'path' => $request->url(),
+            'per_page' => $limit,
+            'to' => $filteredTotal > 0 ? $offset + $count : null,
+            'total' => $filteredTotal,
+        ];
+    }
+
+    private function structureListUrlWithOffset(Request $request, int $limit, int $offset): string
+    {
+        return $request->fullUrlWithQuery([
+            'limit' => $limit,
+            'offset' => $offset,
+        ]);
     }
 
     /**

@@ -13,9 +13,11 @@ class SupportTicketMessageResource extends JsonResource
             'id' => $this->id,
             'ticket_id' => $this->ticket_id,
             'user_id' => $this->user_id,
+            'sender_role' => $this->sender_role ?: ((bool) $this->is_staff ? 'admin' : 'partner'),
             'message' => $this->message,
             'is_staff' => (bool) $this->is_staff,
             'user' => new UserResource($this->whenLoaded('user')),
+            'attachments' => SupportMessageAttachmentResource::collection($this->whenLoaded('attachments')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

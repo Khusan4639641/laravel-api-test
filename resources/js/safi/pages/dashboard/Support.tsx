@@ -1,65 +1,81 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { FormEvent } from 'react';
-import { FileUp, Filter } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FileUp, Paperclip, Plus, Send, X } from 'lucide-react';
 import { Badge } from '../../components/dashboard/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import {
   ApiError,
   closeDashboardSupportTicket,
   createDashboardSupportTicket,
+  downloadDashboardSupportAttachment,
   getApiErrorState,
   getArray,
   getDashboardSupportTicket,
   getDashboardSupportTickets,
+  getNumber,
   getString,
-  updateDashboardSupportTicket,
+  sendDashboardSupportMessage,
+  unwrapRecord,
 } from '../../lib/api';
 
-const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 py-4 text-sm font-bold text-safi-green outline-none transition-all placeholder:text-safi-muted/50 focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25';
+const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 py-4 text-sm font-bold text-safi-green outline-none transition-all placeholder:text-safi-muted/50 focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25 disabled:cursor-not-allowed disabled:opacity-60';
+const maxFileSize = 5 * 1024 * 1024;
+
+interface SupportAttachment {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+}
+
+interface SupportMessage {
+  id: string;
+  author: string;
+  message: string;
+  isStaff: boolean;
+  date: string;
+  attachments: SupportAttachment[];
+}
 
 interface SupportTicketRow {
   id: string;
   date: string;
   subject: string;
-  category: string;
   status: string;
   statusCode: string;
-  message: string;
-  adminReply: string;
-  lastReply: string;
+  lastMessageAt: string;
+  messages: SupportMessage[];
 }
 
-const emptyForm = { subject: '', category: 'Вопрос по бонусам', message: '' };
+const emptyForm = { subject: '', message: '' };
 
 export default function Support() {
   const [supportTickets, setSupportTickets] = useState<SupportTicketRow[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState('');
   const [form, setForm] = useState(emptyForm);
-  const [editForm, setEditForm] = useState(emptyForm);
+  const [formFile, setFormFile] = useState<File | null>(null);
+  const [replyText, setReplyText] = useState('');
+  const [replyFile, setReplyFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [isSending, setIsSending] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [message, setMessage] = useState('');
+  const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
+  const bottomRef = useRef<HTMLDivElement | null>(null);
 
-  const selectedTicket = supportTickets.find((ticket) => ticket.id === selectedTicketId);
-  const canEditSelectedTicket = Boolean(selectedTicket && selectedTicket.statusCode !== 'closed');
+  const selectedTicket = supportTickets.find((ticket) => ticket.id === selectedTicketId) || null;
+  const isClosed = selectedTicket?.statusCode === 'closed';
 
-  const selectTicket = (ticket: SupportTicketRow) => {
-    setSelectedTicketId(ticket.id);
-    setEditForm({
-      subject: ticket.subject,
-      category: ticket.category,
-      message: ticket.message,
-    });
-    setMessage('');
-    setError('');
-  };
+  const sortedTickets = useMemo(
+    () => [...supportTickets].sort((left, right) => right.lastMessageAt.localeCompare(left.lastMessageAt)),
+    [supportTickets],
+  );
 
-  const loadTicketDetail = useCallback(async (ticketId: string) => {
-    setIsLoadingDetail(true);
+  const loadTicketDetail = useCallback(async (ticketId: string, silent = false) => {
+    if (!silent) {
+      setIsLoadingDetail(true);
+    }
 
     try {
       const response = await getDashboardSupportTicket(ticketId);
@@ -68,21 +84,18 @@ export default function Support() {
       setSupportTickets((current) => {
         const exists = current.some((item) => item.id === ticket.id);
 
-        if (!exists) {
-          return [ticket, ...current];
-        }
-
-        return current.map((item) => item.id === ticket.id ? ticket : item);
-      });
-      setEditForm({
-        subject: ticket.subject,
-        category: ticket.category,
-        message: ticket.message,
+        return exists
+          ? current.map((item) => item.id === ticket.id ? ticket : item)
+          : [ticket, ...current];
       });
     } catch (caughtError) {
-      setError(getApiErrorState(caughtError).error || 'Не удалось открыть обращение.');
+      if (!silent) {
+        setError(getApiErrorState(caughtError).error || 'Не удалось открыть обращение.');
+      }
     } finally {
-      setIsLoadingDetail(false);
+      if (!silent) {
+        setIsLoadingDetail(false);
+      }
     }
   }, []);
 
@@ -116,78 +129,120 @@ export default function Support() {
   }, [selectedTicketId, loadTicketDetail]);
 
   useEffect(() => {
-    if (selectedTicket) {
-      setEditForm({
-        subject: selectedTicket.subject,
-        category: selectedTicket.category,
-        message: selectedTicket.message,
-      });
+    if (!selectedTicketId || isClosed) {
+      return undefined;
     }
-  }, [selectedTicket?.id]);
+
+    const timer = window.setInterval(() => {
+      void loadTicketDetail(selectedTicketId, true);
+    }, 12000);
+
+    return () => window.clearInterval(timer);
+  }, [selectedTicketId, isClosed, loadTicketDetail]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ block: 'end' });
+  }, [selectedTicket?.messages.length, selectedTicketId]);
 
   const submitTicket = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setIsSubmitting(true);
-    setMessage('');
+    setNotice('');
     setError('');
 
+    if (!form.message.trim() && !formFile) {
+      setError('Введите сообщение или прикрепите файл.');
+      return;
+    }
+
+    if (!validateFile(formFile, setError)) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
     try {
-      await createDashboardSupportTicket(form);
-      setForm(emptyForm);
-      setMessage('Обращение отправлено.');
-      await loadTickets();
-    } catch (caughtError) {
-      if (caughtError instanceof ApiError) {
-        setError(caughtError.message);
-      } else {
-        setError('Не удалось отправить обращение.');
+      const payload = new FormData();
+      payload.append('subject', form.subject);
+      payload.append('message', form.message);
+
+      if (formFile) {
+        payload.append('file', formFile);
       }
+
+      const response = await createDashboardSupportTicket(payload);
+      const ticket = normalizeTicket(unwrapTicket(response));
+
+      setForm(emptyForm);
+      setFormFile(null);
+      setNotice('Обращение создано.');
+      await loadTickets();
+      setSelectedTicketId(ticket.id);
+    } catch (caughtError) {
+      setError(caughtError instanceof ApiError ? caughtError.message : 'Не удалось создать обращение.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const updateTicket = async (event: FormEvent<HTMLFormElement>) => {
+  const sendMessage = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    if (!selectedTicket || !canEditSelectedTicket) {
+    if (!selectedTicket || isClosed) {
       return;
     }
 
-    setIsUpdating(true);
-    setMessage('');
+    setNotice('');
     setError('');
 
+    if (!replyText.trim() && !replyFile) {
+      setError('Введите сообщение или прикрепите файл.');
+      return;
+    }
+
+    if (!validateFile(replyFile, setError)) {
+      return;
+    }
+
+    setIsSending(true);
+
     try {
-      await updateDashboardSupportTicket(selectedTicket.id, editForm);
-      setMessage('Обращение обновлено.');
+      const payload = new FormData();
+      payload.append('message', replyText);
+
+      if (replyFile) {
+        payload.append('file', replyFile);
+      }
+
+      await sendDashboardSupportMessage(selectedTicket.id, payload);
+      setReplyText('');
+      setReplyFile(null);
       await loadTicketDetail(selectedTicket.id);
       await loadTickets();
     } catch (caughtError) {
-      setError(getApiErrorState(caughtError).error || 'Не удалось обновить обращение.');
+      setError(getApiErrorState(caughtError).error || 'Не удалось отправить сообщение.');
     } finally {
-      setIsUpdating(false);
+      setIsSending(false);
     }
   };
 
   const closeTicket = async () => {
-    if (!selectedTicket || selectedTicket.statusCode === 'closed') {
+    if (!selectedTicket || isClosed) {
       return;
     }
 
-    setIsUpdating(true);
-    setMessage('');
+    setIsSending(true);
+    setNotice('');
     setError('');
 
     try {
       await closeDashboardSupportTicket(selectedTicket.id);
-      setMessage('Обращение закрыто.');
+      setNotice('Обращение закрыто.');
       await loadTicketDetail(selectedTicket.id);
       await loadTickets();
     } catch (caughtError) {
       setError(getApiErrorState(caughtError).error || 'Не удалось закрыть обращение.');
     } finally {
-      setIsUpdating(false);
+      setIsSending(false);
     }
   };
 
@@ -197,244 +252,264 @@ export default function Support() {
         <span className="safi-kicker">Support</span>
         <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Поддержка</h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-          Создавайте обращения, отслеживайте ответы и закрывайте решённые вопросы.
+          Создайте обращение и продолжайте переписку в одном чате, пока вопрос не закрыт.
         </p>
-        {(message || error) && (
+        {(notice || error) && (
           <div className={`mt-6 rounded-2xl border px-4 py-3 text-sm font-bold ${error ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
-            {error || message}
+            {error || notice}
           </div>
         )}
       </section>
 
-      <section className="grid gap-8 lg:grid-cols-[0.36fr_0.64fr]">
-        <aside className="space-y-8">
-          <article className="rounded-[32px] border border-safi-green bg-safi-green p-7 text-white shadow-[0_18px_48px_rgba(11,23,18,0.10)]">
-            <h2 className="font-serif text-3xl font-semibold text-white">Поддержка через сайт</h2>
-            <div className="mt-7 space-y-4 text-sm font-bold leading-7 text-white/80">
-              <p>Создайте обращение в форме ниже. Ответ поддержки появится в истории обращений в личном кабинете.</p>
-              <p>Для закрытия решённого вопроса используйте кнопку "Закрыть обращение". Удаление обращений недоступно.</p>
+      <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
+        <aside className="space-y-6">
+          <article className="rounded-[28px] border border-safi-border bg-white p-5 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-serif text-2xl font-semibold text-safi-green">Мои обращения</h2>
+              <Plus className="h-5 w-5 text-safi-gold" />
             </div>
+
+            {isLoading && <LoadingState title="Загружаем обращения" />}
+            {!isLoading && loadError && <ErrorState description={loadError} onRetry={loadTickets} />}
+            {!isLoading && !loadError && sortedTickets.length === 0 && (
+              <EmptyState title="Обращений пока нет" description="Создайте первое обращение ниже." />
+            )}
+
+            {!isLoading && !loadError && sortedTickets.length > 0 && (
+              <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+                {sortedTickets.map((ticket) => (
+                  <button
+                    key={ticket.id}
+                    type="button"
+                    onClick={() => setSelectedTicketId(ticket.id)}
+                    className={`w-full rounded-2xl border p-4 text-left transition-colors ${ticket.id === selectedTicketId ? 'border-safi-green bg-safi-cream' : 'border-safi-border bg-white hover:bg-safi-cream/70'}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-extrabold text-safi-green">{ticket.subject}</div>
+                        <div className="mt-1 font-mono text-[10px] text-safi-muted">#{ticket.id}</div>
+                      </div>
+                      <Badge variant={ticket.statusCode === 'closed' ? 'default' : ticket.statusCode === 'waiting_user' ? 'success' : 'warning'}>
+                        {ticket.status}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{ticket.lastMessageAt || ticket.date}</div>
+                  </button>
+                ))}
+              </div>
+            )}
           </article>
 
-          <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-            <h2 className="font-serif text-3xl font-semibold text-safi-green">Написать обращение</h2>
-            <TicketForm
-              form={form}
-              submitLabel={isSubmitting ? 'Отправляем...' : 'Отправить обращение'}
-              disabled={isSubmitting}
-              onSubmit={submitTicket}
-              onChange={setForm}
-            />
+          <article className="rounded-[28px] border border-safi-border bg-white p-5 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+            <h2 className="font-serif text-2xl font-semibold text-safi-green">Новое обращение</h2>
+            <form className="mt-5 space-y-4" onSubmit={submitTicket}>
+              <input
+                value={form.subject}
+                onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
+                className={inputClass}
+                placeholder="Тема обращения"
+                disabled={isSubmitting}
+              />
+              <textarea
+                rows={4}
+                value={form.message}
+                onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
+                className={inputClass}
+                placeholder="Опишите вопрос"
+                disabled={isSubmitting}
+              />
+              <FilePicker file={formFile} disabled={isSubmitting} onChange={setFormFile} />
+              <button
+                type="submit"
+                disabled={isSubmitting || (!form.message.trim() && !formFile)}
+                className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-safi-green px-6 py-4 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Send className="h-4 w-4 text-safi-gold" />{isSubmitting ? 'Отправляем...' : 'Создать обращение'}
+              </button>
+            </form>
           </article>
         </aside>
 
-        <div className="space-y-8">
-          <article className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-            <div className="flex items-center justify-between border-b border-safi-border bg-safi-cream p-6 md:p-7">
-              <h2 className="font-serif text-3xl font-semibold text-safi-green">Мои обращения</h2>
-              <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green">
-                <Filter className="h-4 w-4" />
-              </button>
+        <article className="flex min-h-[680px] flex-col rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+          {!selectedTicket && (
+            <div className="flex flex-1 items-center justify-center p-8">
+              <EmptyState title="Выберите обращение" description="История переписки появится здесь." />
             </div>
-
-            {isLoading && (
-              <div className="p-6 md:p-7">
-                <LoadingState title="Загружаем обращения" description="Получаем историю обращений из API." />
-              </div>
-            )}
-
-            {!isLoading && loadError && (
-              <div className="p-6 md:p-7">
-                <ErrorState description={loadError} onRetry={loadTickets} />
-              </div>
-            )}
-
-            {!isLoading && !loadError && supportTickets.length === 0 && (
-              <div className="p-6 md:p-7">
-                <EmptyState title="Обращений пока нет" description="История появится после первого обращения." />
-              </div>
-            )}
-
-            {!isLoading && !loadError && supportTickets.length > 0 && (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-left">
-                  <thead className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
-                    <tr>
-                      <th className="px-7 py-4">ID / дата</th>
-                      <th className="px-7 py-4">Тема</th>
-                      <th className="px-7 py-4">Статус</th>
-                      <th className="px-7 py-4 text-right">Ответ</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-safi-border text-sm">
-                    {supportTickets.map((ticket) => (
-                      <tr
-                        key={ticket.id}
-                        onClick={() => selectTicket(ticket)}
-                        className={`cursor-pointer transition-colors hover:bg-safi-cream/70 ${ticket.id === selectedTicketId ? 'bg-safi-cream' : ''}`}
-                      >
-                        <td className="px-7 py-5">
-                          <div className="font-extrabold text-safi-green">#{ticket.id}</div>
-                          <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{ticket.date}</div>
-                        </td>
-                        <td className="px-7 py-5">
-                          <div className="font-extrabold text-safi-green">{ticket.subject}</div>
-                          <div className="mt-1 text-xs text-safi-muted">{ticket.category}</div>
-                        </td>
-                        <td className="px-7 py-5">
-                          <Badge variant={ticket.statusCode === 'closed' ? 'default' : ticket.statusCode === 'open' ? 'warning' : 'success'}>
-                            {ticket.status}
-                          </Badge>
-                        </td>
-                        <td className="px-7 py-5 text-right font-bold text-safi-green">{ticket.lastReply}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </article>
+          )}
 
           {selectedTicket && (
-            <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
-              <div className="flex flex-col gap-3 border-b border-safi-border pb-5 md:flex-row md:items-start md:justify-between">
-                <div>
-                  <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Обращение #{selectedTicket.id}</div>
-                  <h2 className="mt-2 font-serif text-3xl font-semibold text-safi-green">{selectedTicket.subject}</h2>
-                </div>
-                <Badge variant={selectedTicket.statusCode === 'closed' ? 'default' : selectedTicket.statusCode === 'open' ? 'warning' : 'success'}>
-                  {selectedTicket.status}
-                </Badge>
-              </div>
-
-              {isLoadingDetail && (
-                <div className="mt-5 rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-xs font-extrabold uppercase tracking-[0.16em] text-safi-muted">
-                  Загружаем детали обращения...
-                </div>
-              )}
-
-              <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-3xl border border-safi-border bg-safi-cream p-5">
-                  <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Ваше сообщение</div>
-                  <p className="mt-3 whitespace-pre-line text-sm font-medium leading-7 text-safi-green">{selectedTicket.message}</p>
-                </div>
-                <div className="rounded-3xl border border-safi-border bg-white p-5">
-                  <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Ответ поддержки</div>
-                  <p className="mt-3 whitespace-pre-line text-sm font-medium leading-7 text-safi-green">
-                    {selectedTicket.adminReply || 'Ответ ещё не отправлен.'}
-                  </p>
-                </div>
-              </div>
-
-              {canEditSelectedTicket && (
-                <div className="mt-8 border-t border-safi-border pt-7">
-                  <h3 className="font-serif text-2xl font-semibold text-safi-green">Редактировать обращение</h3>
-                  <TicketForm
-                    form={editForm}
-                    submitLabel={isUpdating ? 'Сохраняем...' : 'Сохранить изменения'}
-                    disabled={isUpdating}
-                    onSubmit={updateTicket}
-                    onChange={setEditForm}
-                    compact
-                  />
-                  <div className="mt-5 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={closeTicket}
-                      disabled={isUpdating}
-                      className="rounded-full border border-safi-border bg-safi-cream px-6 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:border-safi-green disabled:opacity-60"
-                    >
-                      Закрыть обращение
-                    </button>
+            <>
+              <div className="border-b border-safi-border bg-safi-cream px-6 py-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-safi-muted">#{selectedTicket.id}</div>
+                    <h2 className="mt-1 font-serif text-2xl font-semibold text-safi-green">{selectedTicket.subject}</h2>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant={selectedTicket.statusCode === 'closed' ? 'default' : selectedTicket.statusCode === 'waiting_user' ? 'success' : 'warning'}>
+                      {selectedTicket.status}
+                    </Badge>
+                    {!isClosed && (
+                      <button
+                        type="button"
+                        onClick={closeTicket}
+                        disabled={isSending}
+                        className="rounded-full border border-safi-border bg-white px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:opacity-60"
+                      >
+                        Закрыть
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
-            </article>
+              </div>
+
+              <div className="flex-1 space-y-4 overflow-y-auto bg-[#F5F5F0]/55 p-5 md:p-6">
+                {isLoadingDetail && (
+                  <div className="rounded-2xl border border-safi-border bg-white px-4 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+                    Обновляем чат...
+                  </div>
+                )}
+                {selectedTicket.messages.map((item) => (
+                  <ChatBubble key={item.id} message={item} onDownload={downloadDashboardSupportAttachment} />
+                ))}
+                <div ref={bottomRef} />
+              </div>
+
+              <div className="border-t border-safi-border bg-white p-5">
+                {isClosed ? (
+                  <div className="rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-muted">
+                    Обращение закрыто. Создайте новое обращение, если нужна помощь.
+                  </div>
+                ) : (
+                  <form className="space-y-4" onSubmit={sendMessage}>
+                    <textarea
+                      rows={3}
+                      value={replyText}
+                      onChange={(event) => setReplyText(event.target.value)}
+                      className={inputClass}
+                      placeholder="Напишите сообщение"
+                      disabled={isSending}
+                    />
+                    <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+                      <FilePicker file={replyFile} disabled={isSending} onChange={setReplyFile} />
+                      <button
+                        type="submit"
+                        disabled={isSending || (!replyText.trim() && !replyFile)}
+                        className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-safi-green px-6 py-4 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Send className="h-4 w-4 text-safi-gold" />Отправить
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+            </>
           )}
-        </div>
+        </article>
       </section>
     </div>
   );
 }
 
-function TicketForm({
-  form,
-  submitLabel,
-  disabled,
-  compact = false,
-  onSubmit,
-  onChange,
-}: {
-  form: typeof emptyForm;
-  submitLabel: string;
-  disabled: boolean;
-  compact?: boolean;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onChange: (form: typeof emptyForm) => void;
-}) {
+function FilePicker({ file, disabled, onChange }: { file: File | null; disabled?: boolean; onChange: (file: File | null) => void }) {
   return (
-    <form className={compact ? 'mt-5 space-y-5' : 'mt-7 space-y-6'} onSubmit={onSubmit}>
-      <div className="grid gap-5 md:grid-cols-2">
-        <label className="block">
-          <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Тема</span>
-          <input type="text" value={form.subject} onChange={(event) => onChange({ ...form, subject: event.target.value })} placeholder="Кратко суть вопроса" className={inputClass} required />
-        </label>
-        <label className="block">
-          <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Категория</span>
-          <select value={form.category} onChange={(event) => onChange({ ...form, category: event.target.value })} className={inputClass}>
-            <option>Вопрос по бонусам</option>
-            <option>Вопрос по выводу</option>
-            <option>Вопрос по структуре</option>
-            <option>Вопрос по пакету</option>
-            <option>Техническая проблема</option>
-            <option>Другое</option>
-          </select>
-        </label>
-      </div>
-      <label className="block">
-        <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Сообщение</span>
-        <textarea rows={compact ? 4 : 5} value={form.message} onChange={(event) => onChange({ ...form, message: event.target.value })} placeholder="Опишите вопрос подробно" className={`${inputClass} resize-none`} required />
-      </label>
-      <div className="flex flex-col gap-3 border-t border-safi-border pt-6 md:flex-row md:items-center md:justify-between">
-        {!compact && (
-          <button type="button" className="inline-flex items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:border-safi-green">
-            <FileUp className="h-4 w-4" />
-            Прикрепить файл
-          </button>
-        )}
-        <button
-          type="submit"
+    <div className="flex min-h-[56px] items-center gap-3 rounded-2xl border border-safi-border bg-white px-4 py-3">
+      <FileUp className="h-5 w-5 shrink-0 text-safi-gold" />
+      <label className="min-w-0 flex-1 cursor-pointer text-sm font-bold text-safi-green">
+        <input
+          type="file"
+          className="hidden"
           disabled={disabled}
-          className="inline-flex items-center justify-center rounded-full border border-safi-green bg-safi-green px-7 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white shadow-[0_18px_38px_rgba(11,23,18,0.16)] disabled:opacity-60"
+          accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+          onChange={(event) => onChange(event.target.files?.[0] || null)}
+        />
+        <span className="block truncate">{file ? file.name : 'Прикрепить файл до 5 MB'}</span>
+      </label>
+      {file && (
+        <button
+          type="button"
+          onClick={() => onChange(null)}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-safi-cream text-safi-green"
+          aria-label="Убрать файл"
         >
-          {submitLabel}
+          <X className="h-4 w-4" />
         </button>
+      )}
+    </div>
+  );
+}
+
+function ChatBubble({ message, onDownload }: { message: SupportMessage; onDownload: (id: string, filename: string) => Promise<void> }) {
+  return (
+    <div className={`flex ${message.isStaff ? 'justify-start' : 'justify-end'}`}>
+      <div className={`max-w-[min(680px,92%)] rounded-3xl border px-5 py-4 shadow-sm ${message.isStaff ? 'border-safi-border bg-white' : 'border-safi-green bg-safi-green text-white'}`}>
+        <div className={`flex flex-wrap items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.14em] ${message.isStaff ? 'text-safi-muted' : 'text-white/70'}`}>
+          <span>{message.isStaff ? 'Поддержка' : 'Вы'}</span>
+          <span>{message.date}</span>
+        </div>
+        {message.message && <p className={`mt-2 whitespace-pre-line text-sm leading-7 ${message.isStaff ? 'text-safi-green' : 'text-white'}`}>{message.message}</p>}
+        {message.attachments.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {message.attachments.map((attachment) => (
+              <button
+                key={attachment.id}
+                type="button"
+                onClick={() => void onDownload(attachment.id, attachment.name)}
+                className={`flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-bold ${message.isStaff ? 'bg-safi-cream text-safi-green' : 'bg-white/10 text-white'}`}
+              >
+                <Paperclip className="h-4 w-4 shrink-0" />
+                <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
+                <span>{formatFileSize(attachment.size)}</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
-    </form>
+    </div>
   );
 }
 
 function normalizeTicket(item: unknown, index = 0): SupportTicketRow {
   const ticket = isRecord(item) ? item : {};
   const statusCode = getString(ticket, ['status']) || 'open';
-  const messages = Array.isArray(ticket.messages) ? ticket.messages : [];
-  const staffMessage = [...messages].reverse().find((message) => {
-    const record = isRecord(message) ? message : {};
-
-    return record.is_staff === true || record.is_staff === 1;
-  });
-  const staffRecord = isRecord(staffMessage) ? staffMessage : undefined;
+  const subject = getString(ticket, ['subject']) || `Обращение ${index + 1}`;
 
   return {
     id: getString(ticket, ['id']) || String(index + 1),
     date: getString(ticket, ['created_at']) || '',
-    subject: getString(ticket, ['subject']) || '-',
-    category: getString(ticket, ['category']) || '-',
+    subject,
     status: normalizeStatus(statusCode),
     statusCode,
-    message: getString(ticket, ['message']) || '',
-    adminReply: getString(ticket, ['admin_reply']) || getString(staffRecord, ['message']) || '',
-    lastReply: getString(ticket, ['last_reply_at', 'replied_at']) || '-',
+    lastMessageAt: getString(ticket, ['last_message_at', 'last_reply_at', 'updated_at', 'created_at']) || '',
+    messages: normalizeMessages(ticket),
+  };
+}
+
+function normalizeMessages(ticket: Record<string, unknown>): SupportMessage[] {
+  return getArray(ticket.messages, []).map((item, index) => {
+    const record = isRecord(item) ? item : {};
+    const user = unwrapRecord(record, ['user']);
+    const isStaff = record.is_staff === true || record.is_staff === 1 || getString(record, ['sender_role']) === 'admin';
+
+    return {
+      id: getString(record, ['id']) || String(index + 1),
+      author: getString(user, ['name']) || (isStaff ? 'Поддержка' : 'Вы'),
+      message: getString(record, ['message']) || '',
+      isStaff,
+      date: getString(record, ['created_at']) || '',
+      attachments: getArray(record, ['attachments']).map(normalizeAttachment),
+    };
+  });
+}
+
+function normalizeAttachment(item: unknown): SupportAttachment {
+  const record = isRecord(item) ? item : {};
+
+  return {
+    id: getString(record, ['id']) || '',
+    name: getString(record, ['original_name', 'originalName', 'name']) || 'attachment',
+    mimeType: getString(record, ['mime_type', 'mimeType']) || '',
+    size: getNumber(record, ['size']) ?? 0,
   };
 }
 
@@ -456,8 +531,13 @@ function unwrapTicket(response: unknown) {
   return record;
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+function validateFile(file: File | null, setError: (message: string) => void) {
+  if (file && file.size > maxFileSize) {
+    setError('Файл не должен превышать 5 MB');
+    return false;
+  }
+
+  return true;
 }
 
 function normalizeStatus(status: string) {
@@ -465,17 +545,33 @@ function normalizeStatus(status: string) {
     return 'Закрыто';
   }
 
+  if (status === 'waiting_user') {
+    return 'Ждёт пользователя';
+  }
+
+  if (status === 'waiting_admin') {
+    return 'Ждёт администратора';
+  }
+
   if (status === 'answered') {
-    return 'Отвечено';
+    return 'Получен ответ';
   }
 
-  if (status === 'in_progress') {
-    return 'В работе';
+  return 'Открыто';
+}
+
+function formatFileSize(size: number) {
+  if (!size) {
+    return '';
   }
 
-  if (status === 'open') {
-    return 'Новое';
+  if (size < 1024 * 1024) {
+    return `${Math.ceil(size / 1024)} KB`;
   }
 
-  return status;
+  return `${(size / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }

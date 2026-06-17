@@ -8,19 +8,54 @@ use App\Http\Requests\SupportTicket\AssignSupportTicketRequest;
 use App\Http\Requests\SupportTicket\ReplySupportTicketRequest;
 use App\Http\Requests\SupportTicket\UpdateSupportTicketStatusRequest;
 use App\Http\Resources\SupportTicketResource;
+use App\Models\SupportMessageAttachment;
 use App\Models\SupportTicket;
+use App\Services\SupportAttachmentStorage;
+use App\Services\SupportTicketService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class TicketController extends Controller
 {
     use RespondsWithPagination;
 
+    public function __construct(
+        private readonly SupportTicketService $supportTicketService,
+        private readonly SupportAttachmentStorage $attachmentStorage,
+    ) {
+    }
+
     public function index(Request $request): JsonResponse
     {
         $tickets = SupportTicket::query()
-            ->with(['user.profile', 'assignedTo', 'messages.user'])
-            ->latest()
+            ->with(['user.profile', 'assignedTo', 'closedBy', 'messages.user.profile', 'messages.attachments'])
+            ->when($request->filled('status'), fn (Builder $query) => $query->where('status', $request->query('status')))
+            ->when($request->filled('q'), function (Builder $query) use ($request): void {
+                $search = trim((string) $request->query('q'));
+                $like = '%'.mb_strtolower($search).'%';
+
+                $query->where(function (Builder $query) use ($search, $like): void {
+                    $query
+                        ->whereRaw('LOWER(subject) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(message) LIKE ?', [$like]);
+
+                    if (ctype_digit($search)) {
+                        $query->orWhere('id', (int) $search)
+                            ->orWhere('user_id', (int) $search);
+                    }
+
+                    $query->orWhereHas('user', function (Builder $userQuery) use ($like): void {
+                        $userQuery
+                            ->whereRaw('LOWER(name) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(login) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(email) LIKE ?', [$like]);
+                    });
+                });
+            })
+            ->orderByDesc('last_message_at')
+            ->latest('updated_at')
             ->paginate($this->perPage($request));
 
         return $this->paginated($tickets, SupportTicketResource::class, 'support_tickets', $request);
@@ -29,32 +64,21 @@ class TicketController extends Controller
     public function show(SupportTicket $ticket): JsonResponse
     {
         return response()->json([
-            'support_ticket' => SupportTicketResource::make($ticket->load(['user.profile', 'assignedTo', 'messages.user'])),
+            'support_ticket' => SupportTicketResource::make($this->supportTicketService->loadTicket($ticket)),
         ]);
     }
 
     public function reply(ReplySupportTicketRequest $request, SupportTicket $ticket): JsonResponse
     {
-        $validated = $request->validated();
-        $status = $validated['status'] ?? SupportTicket::STATUS_ANSWERED;
-
-        $ticket->messages()->create([
-            'user_id' => $request->user()->id,
-            'message' => $validated['message'],
-            'is_staff' => true,
-        ]);
-
-        $ticket->forceFill([
-            'assigned_to' => $ticket->assigned_to ?? $request->user()->id,
-            'admin_reply' => $validated['message'],
-            'status' => $status,
-            'replied_at' => now(),
-            'last_reply_at' => now(),
-            'closed_at' => $status === SupportTicket::STATUS_CLOSED ? now() : null,
-        ])->save();
+        $ticket = $this->supportTicketService->sendAdminMessage(
+            $ticket,
+            $request->user(),
+            $request->validated('message'),
+            $request->file('file'),
+        );
 
         return response()->json([
-            'support_ticket' => SupportTicketResource::make($ticket->refresh()->load(['user.profile', 'assignedTo', 'messages.user'])),
+            'support_ticket' => SupportTicketResource::make($ticket),
         ]);
     }
 
@@ -65,11 +89,13 @@ class TicketController extends Controller
         $ticket->forceFill([
             'status' => $validated['status'],
             'closed_at' => $validated['status'] === SupportTicket::STATUS_CLOSED ? now() : null,
+            'closed_by' => $validated['status'] === SupportTicket::STATUS_CLOSED ? $request->user()?->id : null,
             'last_reply_at' => now(),
+            'last_message_at' => now(),
         ])->save();
 
         return response()->json([
-            'support_ticket' => SupportTicketResource::make($ticket->refresh()->load(['user.profile', 'assignedTo', 'messages.user'])),
+            'support_ticket' => SupportTicketResource::make($this->supportTicketService->loadTicket($ticket->refresh())),
         ]);
     }
 
@@ -83,20 +109,28 @@ class TicketController extends Controller
         ])->save();
 
         return response()->json([
-            'support_ticket' => SupportTicketResource::make($ticket->refresh()->load(['user.profile', 'assignedTo', 'messages.user'])),
+            'support_ticket' => SupportTicketResource::make($this->supportTicketService->loadTicket($ticket->refresh())),
         ]);
     }
 
-    public function close(SupportTicket $ticket): JsonResponse
+    public function close(Request $request, SupportTicket $ticket): JsonResponse
     {
-        $ticket->forceFill([
-            'status' => SupportTicket::STATUS_CLOSED,
-            'closed_at' => now(),
-            'last_reply_at' => now(),
-        ])->save();
+        $ticket = $this->supportTicketService->closeTicket($ticket, $request->user());
 
         return response()->json([
-            'support_ticket' => SupportTicketResource::make($ticket->refresh()->load(['user.profile', 'assignedTo', 'messages.user'])),
+            'support_ticket' => SupportTicketResource::make($ticket),
         ]);
+    }
+
+    public function reopen(SupportTicket $ticket): JsonResponse
+    {
+        return response()->json([
+            'support_ticket' => SupportTicketResource::make($this->supportTicketService->reopenTicket($ticket)),
+        ]);
+    }
+
+    public function download(SupportMessageAttachment $attachment): StreamedResponse
+    {
+        return $this->attachmentStorage->download($attachment);
     }
 }

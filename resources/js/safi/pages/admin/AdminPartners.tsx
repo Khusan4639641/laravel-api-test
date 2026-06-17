@@ -448,8 +448,8 @@ export default function AdminPartners() {
                     <Link to={`/admin/partners/${partner.id}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title={adminText('a_0J7RgtC60YDR_2')}>
                       <Eye className="h-4 w-4" />
                     </Link>
-                    <Link to={`/admin/structure?user_id=${encodeURIComponent(partner.id)}`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white" title={adminText('a_0KHRgtGA0YPQ')}>
-                      <Network className="h-4 w-4" />Открыть дерево
+                    <Link to={`/admin/structure?root_id=${encodeURIComponent(partner.id)}`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white" title={adminText('a_0KHRgtGA0YPQ')}>
+                      <Network className="h-4 w-4" />Показать дерево
                     </Link>
                   </div>
                 </td>

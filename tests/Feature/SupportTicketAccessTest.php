@@ -38,10 +38,9 @@ class SupportTicketAccessTest extends TestCase
 
         $this->postJson("/api/support/tickets/{$ticket->id}/reply", [
             'message' => 'Answered by support.',
-            'status' => 'answered',
         ])
             ->assertOk()
-            ->assertJsonPath('support_ticket.status', 'answered')
+            ->assertJsonPath('support_ticket.status', SupportTicket::STATUS_WAITING_USER)
             ->assertJsonPath('support_ticket.admin_reply', 'Answered by support.');
 
         $this->assertDatabaseHas('support_ticket_messages', [
@@ -95,7 +94,7 @@ class SupportTicketAccessTest extends TestCase
             'message' => 'Created by user.',
         ])
             ->assertCreated()
-            ->assertJsonPath('support_ticket.status', 'open')
+            ->assertJsonPath('support_ticket.status', SupportTicket::STATUS_WAITING_ADMIN)
             ->assertJsonCount(1, 'support_ticket.messages');
 
         $this->assertDatabaseHas('support_ticket_messages', [

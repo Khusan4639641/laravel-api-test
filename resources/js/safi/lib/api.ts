@@ -729,10 +729,10 @@ export async function getDashboardSupportTickets<T = unknown>() {
   });
 }
 
-export async function createDashboardSupportTicket<T = unknown>(payload: Record<string, unknown>) {
+export async function createDashboardSupportTicket<T = unknown>(payload: Record<string, unknown> | FormData) {
   return apiRequest<T>(endpoints.dashboard.supportTickets, {
     method: 'POST',
-    body: payload,
+    body: isFormData(payload) ? payload : compactPayload(payload),
     auth: true,
   });
 }
@@ -752,11 +752,23 @@ export async function updateDashboardSupportTicket<T = unknown>(ticketId: string
   });
 }
 
-export async function closeDashboardSupportTicket<T = unknown>(ticketId: string | number) {
-  return apiRequest<T>(endpoints.dashboard.closeSupportTicket(ticketId), {
-    method: 'PATCH',
+export async function sendDashboardSupportMessage<T = unknown>(ticketId: string | number, payload: Record<string, unknown> | FormData) {
+  return apiRequest<T>(endpoints.dashboard.supportTicketMessages(ticketId), {
+    method: 'POST',
+    body: isFormData(payload) ? payload : compactPayload(payload),
     auth: true,
   });
+}
+
+export async function closeDashboardSupportTicket<T = unknown>(ticketId: string | number) {
+  return apiRequest<T>(endpoints.dashboard.closeSupportTicket(ticketId), {
+    method: 'POST',
+    auth: true,
+  });
+}
+
+export async function downloadDashboardSupportAttachment(attachmentId: string | number, filename = 'attachment') {
+  return downloadAuthenticatedFile(endpoints.dashboard.supportAttachmentDownload(attachmentId), filename);
 }
 
 export async function getOrders(params: ApiQueryParams = {}) {
@@ -870,6 +882,13 @@ export async function getAdminStructure<T = unknown>(params: ApiQueryParams = {}
   });
 
   return apiRequest<T>(`${endpoints.admin.structure}${query.toString() ? `?${query.toString()}` : ''}`, {
+    method: 'GET',
+    auth: true,
+  });
+}
+
+export async function getAdminStructureRootOrphans<T = unknown>(params: ApiQueryParams = {}) {
+  return apiRequest<T>(buildEndpointWithParams(endpoints.admin.structureRootOrphans, params), {
     method: 'GET',
     auth: true,
   });
@@ -1242,8 +1261,8 @@ export async function deleteAdminFaq<T = unknown>(faqId: string | number) {
   });
 }
 
-export async function getAdminSupportTickets<T = unknown>() {
-  return apiRequest<T>(endpoints.admin.supportTickets, {
+export async function getAdminSupportTickets<T = unknown>(params: ApiQueryParams = {}) {
+  return apiRequest<T>(buildEndpointWithParams(endpoints.admin.supportTickets, params), {
     method: 'GET',
     auth: true,
   });
@@ -1256,10 +1275,20 @@ export async function getAdminSupportTicket<T = unknown>(ticketId: string | numb
   });
 }
 
-export async function replyAdminSupportTicket<T = unknown>(ticketId: string | number, reply: string, status?: string) {
+export async function replyAdminSupportTicket<T = unknown>(
+  ticketId: string | number,
+  replyOrPayload: string | FormData | Record<string, unknown>,
+  status?: string,
+) {
+  const body = typeof replyOrPayload === 'string'
+    ? compactPayload({ message: replyOrPayload, status })
+    : isFormData(replyOrPayload)
+      ? replyOrPayload
+      : compactPayload(replyOrPayload);
+
   return apiRequest<T>(endpoints.admin.replySupportTicket(ticketId), {
     method: 'POST',
-    body: compactPayload({ reply, status }),
+    body,
     auth: true,
   });
 }
@@ -1282,9 +1311,20 @@ export async function assignAdminSupportTicket<T = unknown>(ticketId: string | n
 
 export async function closeAdminSupportTicket<T = unknown>(ticketId: string | number) {
   return apiRequest<T>(endpoints.admin.closeSupportTicket(ticketId), {
-    method: 'PATCH',
+    method: 'POST',
     auth: true,
   });
+}
+
+export async function reopenAdminSupportTicket<T = unknown>(ticketId: string | number) {
+  return apiRequest<T>(endpoints.admin.reopenSupportTicket(ticketId), {
+    method: 'POST',
+    auth: true,
+  });
+}
+
+export async function downloadAdminSupportAttachment(attachmentId: string | number, filename = 'attachment') {
+  return downloadAuthenticatedFile(endpoints.admin.supportAttachmentDownload(attachmentId), filename);
 }
 
 export async function getAdminReportsSummary<T = unknown>() {
@@ -1371,6 +1411,41 @@ export async function apiRequest<T = unknown>(endpoint: string, options: ApiRequ
   }
 
   return data as T;
+}
+
+async function downloadAuthenticatedFile(endpoint: string, fallbackFilename: string) {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    Accept: '*/*',
+    'Accept-Language': getCurrentLanguage(),
+  };
+
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(buildApiUrl(endpoint), {
+    method: 'GET',
+    headers,
+    credentials: 'same-origin',
+  });
+
+  if (!response.ok) {
+    const data = await parseResponse(response);
+    throw new ApiError(getErrorMessage(data, response.status), response.status, getValidationErrors(data));
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const headerFilename = response.headers.get('Content-Disposition')?.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i)?.[1];
+
+  link.href = url;
+  link.download = headerFilename ? decodeURIComponent(headerFilename.replace(/"/g, '')) : fallbackFilename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
 }
 
 function buildApiUrl(endpoint: string) {

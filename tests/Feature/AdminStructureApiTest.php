@@ -55,6 +55,18 @@ class AdminStructureApiTest extends TestCase
         $this->assertNotSame($rootResponse->json('root.id'), $leftResponse->json('root.id'));
     }
 
+    public function test_admin_structure_accepts_root_id_alias(): void
+    {
+        [, $left] = $this->createNestedBinaryTree();
+
+        Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
+
+        $this->getJson("/api/admin/structure?root_id={$left->id}")
+            ->assertOk()
+            ->assertJsonPath('root_user_id', $left->id)
+            ->assertJsonPath('root.id', $left->id);
+    }
+
     public function test_admin_structure_includes_downline_and_branch_counts(): void
     {
         [$root, , , , , , , $rightRight] = $this->createSevenDescendantTree();
@@ -126,6 +138,68 @@ class AdminStructureApiTest extends TestCase
 
         $this->getJson('/api/admin/structure')
             ->assertForbidden();
+    }
+
+    public function test_admin_structure_root_orphans_excludes_super_admin_and_counts_partner_children(): void
+    {
+        $superAdmin = User::factory()->create([
+            'role' => User::ROLE_SUPER_ADMIN,
+            'name' => 'Super Admin',
+            'login' => 'super-admin-root',
+            'sponsor_id' => null,
+        ]);
+        $rootA = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'name' => 'Root A',
+            'login' => 'root-a',
+            'sponsor_id' => null,
+        ]);
+        $rootB = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'name' => 'Root B',
+            'login' => 'root-b',
+            'sponsor_id' => null,
+        ]);
+        $noNodeRoot = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'name' => 'No Node Root',
+            'login' => 'no-node-root',
+            'sponsor_id' => null,
+        ]);
+
+        $rootAChild = User::factory()->create(['role' => User::ROLE_USER, 'sponsor_id' => $rootA->id]);
+        $rootASuperAdminChild = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN, 'sponsor_id' => $rootA->id]);
+        $rootBChildA = User::factory()->create(['role' => User::ROLE_USER, 'sponsor_id' => $rootB->id]);
+        $rootBChildB = User::factory()->create(['role' => User::ROLE_USER, 'sponsor_id' => $rootB->id]);
+        $nonRoot = User::factory()->create(['role' => User::ROLE_USER, 'sponsor_id' => $rootAChild->id]);
+
+        $this->node($superAdmin);
+        $rootANode = $this->node($rootA);
+        $rootBNode = $this->node($rootB);
+        $rootAChildNode = $this->node($rootAChild, $rootANode, 'L');
+        $this->node($rootASuperAdminChild, $rootANode, 'R');
+        $this->node($rootBChildA, $rootBNode, 'L');
+        $this->node($rootBChildB, $rootBNode, 'R');
+        $this->node($nonRoot, $rootAChildNode, 'L');
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
+
+        $response = $this->getJson('/api/admin/structure/root-orphans?sort_by=children_count&sort_dir=desc&limit=10')
+            ->assertOk();
+        $rows = collect($response->json('data'));
+        $rowIds = $rows->pluck('id')->all();
+
+        $this->assertSame($rootB->id, $rows->first()['id']);
+        $this->assertContains($rootA->id, $rowIds);
+        $this->assertContains($noNodeRoot->id, $rowIds);
+        $this->assertNotContains($superAdmin->id, $rowIds);
+        $this->assertNotContains($nonRoot->id, $rowIds);
+        $this->assertSame(1, data_get($rows->firstWhere('id', $rootA->id), 'children_count'));
+
+        $this->getJson('/api/admin/structure/root-orphans?search=no-node-root')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $noNodeRoot->id);
     }
 
     public function test_selected_user_without_binary_node_returns_empty_tree_but_valid_root_user(): void

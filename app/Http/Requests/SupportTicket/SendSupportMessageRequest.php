@@ -5,11 +5,20 @@ namespace App\Http\Requests\SupportTicket;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class StoreSupportTicketRequest extends FormRequest
+class SendSupportMessageRequest extends FormRequest
 {
     public function authorize(): bool
     {
         return true;
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('reply') && ! $this->has('message')) {
+            $this->merge([
+                'message' => $this->input('reply'),
+            ]);
+        }
     }
 
     /**
@@ -18,11 +27,8 @@ class StoreSupportTicketRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'subject' => ['nullable', 'string', 'max:255'],
-            'category' => ['nullable', 'string', 'max:255'],
             'message' => ['nullable', 'required_without:file', 'string'],
             'file' => ['nullable', 'file', 'max:5120', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt'],
-            'priority' => ['nullable', 'string', 'max:255'],
         ];
     }
 }

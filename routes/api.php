@@ -121,24 +121,41 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         Route::get('/orders', DashboardOrderController::class);
         Route::get('/withdrawals', [DashboardWithdrawalController::class, 'index']);
         Route::post('/withdrawals', [DashboardWithdrawalController::class, 'store']);
+        Route::get('/support/attachments/{attachment}/download', [DashboardSupportTicketController::class, 'download']);
+        Route::get('/support/tickets', [DashboardSupportTicketController::class, 'index']);
+        Route::post('/support/tickets', [DashboardSupportTicketController::class, 'store']);
         Route::get('/support-tickets', [DashboardSupportTicketController::class, 'index']);
         Route::post('/support-tickets', [DashboardSupportTicketController::class, 'store']);
         Route::middleware('own_resource:ticket')->group(function (): void {
+            Route::get('/support/tickets/{ticket}', [DashboardSupportTicketController::class, 'show']);
+            Route::post('/support/tickets/{ticket}/messages', [DashboardSupportTicketController::class, 'message']);
+            Route::post('/support/tickets/{ticket}/close', [DashboardSupportTicketController::class, 'close']);
             Route::get('/support-tickets/{ticket}', [DashboardSupportTicketController::class, 'show']);
+            Route::post('/support-tickets/{ticket}/messages', [DashboardSupportTicketController::class, 'message']);
             Route::put('/support-tickets/{ticket}', [DashboardSupportTicketController::class, 'update']);
             Route::patch('/support-tickets/{ticket}/close', [DashboardSupportTicketController::class, 'close']);
         });
     });
 
     Route::middleware('role_permission:support.manage')->prefix('support')->group(function (): void {
+        Route::get('/attachments/{attachment}/download', [SupportTicketController::class, 'download']);
         Route::get('/tickets', [SupportTicketController::class, 'index']);
         Route::get('/tickets/{ticket}', [SupportTicketController::class, 'show']);
+        Route::post('/tickets/{ticket}/messages', [SupportTicketController::class, 'reply']);
         Route::post('/tickets/{ticket}/reply', [SupportTicketController::class, 'reply']);
         Route::patch('/tickets/{ticket}/status', [SupportTicketController::class, 'status']);
         Route::patch('/tickets/{ticket}/assign', [SupportTicketController::class, 'assign']);
+        Route::post('/tickets/{ticket}/close', [SupportTicketController::class, 'close']);
+        Route::post('/tickets/{ticket}/reopen', [SupportTicketController::class, 'reopen']);
     });
 
     Route::middleware('role_permission:support.manage')->prefix('admin')->group(function (): void {
+        Route::get('/support/attachments/{attachment}/download', [SupportTicketController::class, 'download']);
+        Route::get('/support/tickets', [SupportTicketController::class, 'index']);
+        Route::get('/support/tickets/{ticket}', [SupportTicketController::class, 'show']);
+        Route::post('/support/tickets/{ticket}/messages', [SupportTicketController::class, 'reply']);
+        Route::post('/support/tickets/{ticket}/close', [SupportTicketController::class, 'close']);
+        Route::post('/support/tickets/{ticket}/reopen', [SupportTicketController::class, 'reopen']);
         Route::get('/support-tickets', [SupportTicketController::class, 'index']);
         Route::get('/support-tickets/{ticket}', [SupportTicketController::class, 'show']);
         Route::post('/support-tickets/{ticket}/reply', [SupportTicketController::class, 'reply']);
@@ -167,6 +184,7 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         });
 
         Route::middleware('role_permission:admin.read')->group(function (): void {
+            Route::get('/structure/root-orphans', [AdminStructureController::class, 'rootOrphans']);
             Route::get('/structure', AdminStructureController::class);
             Route::get('/users', [AdminUserController::class, 'index']);
             Route::get('/users/{user}', [AdminUserController::class, 'show']);

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'user_id',
@@ -18,16 +19,24 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'admin_reply',
     'replied_at',
     'closed_at',
+    'closed_by',
     'last_reply_at',
+    'last_message_at',
     'metadata',
 ])]
 class SupportTicket extends Model
 {
+    use SoftDeletes;
+
     public const STATUS_OPEN = 'open';
 
     public const STATUS_IN_PROGRESS = 'in_progress';
 
     public const STATUS_ANSWERED = 'answered';
+
+    public const STATUS_WAITING_ADMIN = 'waiting_admin';
+
+    public const STATUS_WAITING_USER = 'waiting_user';
 
     public const STATUS_CLOSED = 'closed';
 
@@ -35,6 +44,8 @@ class SupportTicket extends Model
         self::STATUS_OPEN,
         self::STATUS_IN_PROGRESS,
         self::STATUS_ANSWERED,
+        self::STATUS_WAITING_ADMIN,
+        self::STATUS_WAITING_USER,
         self::STATUS_CLOSED,
     ];
 
@@ -47,6 +58,8 @@ class SupportTicket extends Model
             'replied_at' => 'datetime',
             'closed_at' => 'datetime',
             'last_reply_at' => 'datetime',
+            'last_message_at' => 'datetime',
+            'deleted_at' => 'datetime',
             'metadata' => 'array',
         ];
     }
@@ -59,6 +72,11 @@ class SupportTicket extends Model
     public function assignedTo(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    public function closedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'closed_by');
     }
 
     public function messages(): HasMany

@@ -1,12 +1,13 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Info } from 'lucide-react';
+import { Filter, Info, Network, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
+import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { getAdminStructure, getApiErrorState, getArray, getNumber, getString, searchAdminPartners, unwrapRecord } from '../../lib/api';
+import { getAdminStructure, getAdminStructureRootOrphans, getApiErrorState, getArray, getNumber, getString, searchAdminPartners, unwrapRecord } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
-import { mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
+import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 
 interface StructureNode {
   id: string;
@@ -59,6 +60,37 @@ interface PartnerSearchResult {
   phone: string;
 }
 
+interface RootOrphanPartner {
+  id: string;
+  name: string;
+  login: string;
+  email: string;
+  phone: string;
+  city: string;
+  sponsor: string;
+  childrenCount: number;
+  packageCode: string;
+  packageName: string;
+  statusCode: string;
+  status: string;
+  accountStatusCode: string;
+  accountStatus: string;
+  personalPV: number;
+  teamPV: number;
+  balance: number;
+  totalBalance: number;
+  createdAt: string;
+}
+
+interface RootOrphanPagination {
+  total: number;
+  filteredTotal: number;
+  limit: number;
+  offset: number;
+  hasNext: boolean;
+  hasPrev: boolean;
+}
+
 const emptyStats: StructureStats = {
   directInvitedCount: 0,
   totalDownlineCount: 0,
@@ -69,13 +101,48 @@ const emptyStats: StructureStats = {
   weakLegPV: 0,
 };
 
+const pageSizeOptions = [10, 20, 50, 100];
+const defaultRootOrphanPagination: RootOrphanPagination = {
+  total: 0,
+  filteredTotal: 0,
+  limit: 20,
+  offset: 0,
+  hasNext: false,
+  hasPrev: false,
+};
+const mlmStatusFilterOptions = [
+  { value: '', label: 'Все статусы' },
+  { value: 'user', label: mlmStatusLabel('user', 'Партнёр') },
+  { value: 'manager', label: mlmStatusLabel('manager', 'Менеджер') },
+  { value: 'leader', label: mlmStatusLabel('leader', 'Лидер') },
+  { value: 'director', label: mlmStatusLabel('director', 'Директор') },
+  { value: 'bronze_director', label: mlmStatusLabel('bronze_director', 'Bronze Director') },
+  { value: 'silver_director', label: mlmStatusLabel('silver_director', 'Silver Director') },
+  { value: 'gold_director', label: mlmStatusLabel('gold_director', 'Gold Director') },
+  { value: 'platinum_director', label: mlmStatusLabel('platinum_director', 'Platinum Director') },
+  { value: 'emerald_director', label: mlmStatusLabel('emerald_director', 'Emerald Director') },
+  { value: 'diamond_director', label: mlmStatusLabel('diamond_director', 'Diamond Director') },
+];
+
 export default function AdminStructure() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const selectedUserId = searchParams.get('user_id') || '';
+  const selectedUserId = searchParams.get('root_id') || searchParams.get('user_id') || '';
   const selectedDepth = searchParams.get('depth') || '10';
   const [view, setView] = useState<'tree' | 'list'>('tree');
   const [query, setQuery] = useState(selectedUserId);
+  const [rootOrphanQuery, setRootOrphanQuery] = useState('');
+  const [rootOrphanSearchTerm, setRootOrphanSearchTerm] = useState('');
+  const [rootOrphanAccountStatus, setRootOrphanAccountStatus] = useState('');
+  const [rootOrphanStatus, setRootOrphanStatus] = useState('');
+  const [rootOrphanPackageCode, setRootOrphanPackageCode] = useState('');
+  const [rootOrphanSortDir, setRootOrphanSortDir] = useState<'asc' | 'desc'>('desc');
+  const [rootOrphanLimit, setRootOrphanLimit] = useState(defaultRootOrphanPagination.limit);
+  const [rootOrphanOffset, setRootOrphanOffset] = useState(defaultRootOrphanPagination.offset);
+  const [rootOrphans, setRootOrphans] = useState<RootOrphanPartner[]>([]);
+  const [rootOrphanPagination, setRootOrphanPagination] = useState<RootOrphanPagination>(defaultRootOrphanPagination);
+  const [isRootOrphansLoading, setIsRootOrphansLoading] = useState(true);
+  const [rootOrphansError, setRootOrphansError] = useState<string | null>(null);
   const [rootNode, setRootNode] = useState<StructureNode | null>(null);
   const [nodes, setNodes] = useState<StructureNode[]>([]);
   const [stats, setStats] = useState<StructureStats>(emptyStats);
@@ -96,7 +163,7 @@ export default function AdminStructure() {
 
     try {
       const response = await getAdminStructure({
-        ...(selectedUserId ? { user_id: selectedUserId } : {}),
+        ...(selectedUserId ? { root_id: selectedUserId } : {}),
         depth: selectedDepth,
         include_flat: 'true',
       });
@@ -117,10 +184,64 @@ export default function AdminStructure() {
     }
   };
 
+  const loadRootOrphans = async (
+    searchQuery = rootOrphanSearchTerm,
+    pageLimit = rootOrphanLimit,
+    pageOffset = rootOrphanOffset,
+  ) => {
+    setIsRootOrphansLoading(true);
+    setRootOrphansError(null);
+
+    try {
+      const normalizedQuery = searchQuery.trim();
+      const response = await getAdminStructureRootOrphans({
+        ...(normalizedQuery ? { search: normalizedQuery } : {}),
+        ...(rootOrphanAccountStatus ? { account_status: rootOrphanAccountStatus } : {}),
+        ...(rootOrphanStatus ? { status: rootOrphanStatus } : {}),
+        ...(rootOrphanPackageCode ? { package_code: rootOrphanPackageCode } : {}),
+        limit: pageLimit,
+        offset: pageOffset,
+        sort_by: 'children_count',
+        sort_dir: rootOrphanSortDir,
+      });
+      const normalizedRootOrphans = normalizeRootOrphans(response);
+
+      setRootOrphans(normalizedRootOrphans);
+      setRootOrphanPagination(normalizeRootOrphanPagination(response, pageLimit, pageOffset, normalizedRootOrphans.length));
+    } catch (caughtError) {
+      setRootOrphans([]);
+      setRootOrphanPagination({ ...defaultRootOrphanPagination, limit: pageLimit, offset: pageOffset });
+      setRootOrphansError(getApiErrorState(caughtError).error || 'Не удалось загрузить партнёров без parent line');
+    } finally {
+      setIsRootOrphansLoading(false);
+    }
+  };
+
   useEffect(() => {
     setQuery(selectedUserId);
     void loadStructure();
   }, [selectedUserId, selectedDepth]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setRootOrphanOffset(0);
+      setRootOrphanSearchTerm(rootOrphanQuery.trim());
+    }, rootOrphanQuery.trim() ? 400 : 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [rootOrphanQuery]);
+
+  useEffect(() => {
+    void loadRootOrphans(rootOrphanSearchTerm, rootOrphanLimit, rootOrphanOffset);
+  }, [
+    rootOrphanSearchTerm,
+    rootOrphanLimit,
+    rootOrphanOffset,
+    rootOrphanAccountStatus,
+    rootOrphanStatus,
+    rootOrphanPackageCode,
+    rootOrphanSortDir,
+  ]);
 
   useEffect(() => {
     const normalizedQuery = query.trim();
@@ -165,6 +286,29 @@ export default function AdminStructure() {
 
   const hasChildren = Boolean(rootNode?.children.left || rootNode?.children.right);
   const treeCanvasWidth = useMemo(() => `${Math.max(1400, (Number(selectedDepth) || 10) * 360)}px`, [selectedDepth]);
+  const rootOrphanTotalItems = rootOrphanPagination.filteredTotal ?? rootOrphanPagination.total ?? 0;
+  const rootOrphanEffectiveLimit = Math.max(rootOrphanPagination.limit || rootOrphanLimit, 1);
+  const rootOrphanEffectiveOffset = Math.max(rootOrphanPagination.offset || rootOrphanOffset, 0);
+  const rootOrphanTotalPages = Math.max(1, Math.ceil(rootOrphanTotalItems / rootOrphanEffectiveLimit));
+  const rootOrphanCurrentPage = Math.min(Math.floor(rootOrphanEffectiveOffset / rootOrphanEffectiveLimit) + 1, rootOrphanTotalPages);
+  const rootOrphanPaginationMeta = {
+    current_page: rootOrphanCurrentPage,
+    last_page: rootOrphanTotalPages,
+    per_page: rootOrphanEffectiveLimit,
+    total: rootOrphanTotalItems,
+    from: rootOrphanTotalItems === 0 ? 0 : rootOrphanEffectiveOffset + 1,
+    to: rootOrphanTotalItems === 0 ? 0 : Math.min(rootOrphanEffectiveOffset + rootOrphanEffectiveLimit, rootOrphanTotalItems),
+  };
+
+  const changeRootOrphanPage = (page: number) => {
+    if (page < 1 || page > rootOrphanTotalPages || page === rootOrphanCurrentPage || isRootOrphansLoading) {
+      return;
+    }
+
+    setRootOrphanOffset((page - 1) * rootOrphanLimit);
+  };
+
+  const resetRootOrphanPage = () => setRootOrphanOffset(0);
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -175,7 +319,7 @@ export default function AdminStructure() {
     }
 
     if (/^\d+$/.test(normalizedQuery)) {
-      navigate(`/admin/structure?user_id=${encodeURIComponent(normalizedQuery)}`);
+      navigate(`/admin/structure?root_id=${encodeURIComponent(normalizedQuery)}`);
       return;
     }
 
@@ -192,7 +336,7 @@ export default function AdminStructure() {
       return;
     }
 
-    navigate(`/admin/structure?user_id=${encodeURIComponent(userId)}`);
+    navigate(`/admin/structure?root_id=${encodeURIComponent(userId)}`);
   };
 
   return (
@@ -363,6 +507,172 @@ export default function AdminStructure() {
           ))}
         </AdminTable>
       )}
+
+      <section className="space-y-4 rounded-[32px] border border-safi-green/5 bg-white p-4 shadow-sm md:p-6">
+        <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="font-serif text-2xl font-bold text-safi-green">Партнёры без parent line</h2>
+            <p className="mt-1 text-sm text-safi-text/60">
+              Root-orphans без Super Admin. Children count считает только партнёров.
+            </p>
+          </div>
+          <div className="text-xs font-bold uppercase tracking-widest text-safi-text/45">
+            {rootOrphanPagination.filteredTotal.toLocaleString('ru-RU')} / {rootOrphanPagination.total.toLocaleString('ru-RU')}
+          </div>
+        </div>
+
+        <div className="grid gap-3 rounded-[24px] border border-safi-border bg-safi-cream p-4 lg:grid-cols-[minmax(240px,1fr)_repeat(4,minmax(150px,190px))]">
+          <label className="relative">
+            <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-safi-muted" />
+            <input
+              type="text"
+              value={rootOrphanQuery}
+              onChange={(event) => setRootOrphanQuery(event.target.value)}
+              placeholder="Поиск по ID, ФИО, login, email, телефону"
+              className="w-full rounded-full border border-safi-border bg-white py-3 pl-12 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
+            />
+          </label>
+          <label className="relative">
+            <Filter className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-safi-muted" />
+            <select
+              value={rootOrphanAccountStatus}
+              onChange={(event) => {
+                setRootOrphanAccountStatus(event.target.value);
+                resetRootOrphanPage();
+              }}
+              className="w-full cursor-pointer rounded-full border border-safi-border bg-white py-3 pl-10 pr-4 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
+            >
+              <option value="">Все аккаунты</option>
+              <option value="active">{accountStatusLabel('active')}</option>
+              <option value="inactive">{accountStatusLabel('inactive')}</option>
+              <option value="blocked">{accountStatusLabel('blocked')}</option>
+            </select>
+          </label>
+          <select
+            value={rootOrphanStatus}
+            onChange={(event) => {
+              setRootOrphanStatus(event.target.value);
+              resetRootOrphanPage();
+            }}
+            className="w-full cursor-pointer rounded-full border border-safi-border bg-white px-4 py-3 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
+          >
+            {mlmStatusFilterOptions.map((option) => (
+              <option key={option.value || 'all'} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <select
+            value={rootOrphanPackageCode}
+            onChange={(event) => {
+              setRootOrphanPackageCode(event.target.value);
+              resetRootOrphanPage();
+            }}
+            className="w-full cursor-pointer rounded-full border border-safi-border bg-white px-4 py-3 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
+          >
+            <option value="">Все пакеты</option>
+            <option value="START">{packageLabel('START', 'START')}</option>
+            <option value="VIP">{packageLabel('VIP', 'VIP')}</option>
+            <option value="ELITE">{packageLabel('ELITE', 'ELITE')}</option>
+          </select>
+          <select
+            value={rootOrphanSortDir}
+            onChange={(event) => {
+              setRootOrphanSortDir(event.target.value === 'asc' ? 'asc' : 'desc');
+              resetRootOrphanPage();
+            }}
+            className="w-full cursor-pointer rounded-full border border-safi-border bg-white px-4 py-3 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
+          >
+            <option value="desc">children_count ↓</option>
+            <option value="asc">children_count ↑</option>
+          </select>
+        </div>
+
+        {isRootOrphansLoading && <LoadingState />}
+        {!isRootOrphansLoading && rootOrphansError && (
+          <ErrorState description={rootOrphansError} onRetry={() => void loadRootOrphans(rootOrphanSearchTerm, rootOrphanLimit, rootOrphanOffset)} />
+        )}
+        {!isRootOrphansLoading && !rootOrphansError && rootOrphans.length === 0 && (
+          <EmptyState title="Root-orphans не найдены" description="Попробуйте изменить поиск или фильтры." />
+        )}
+
+        {!isRootOrphansLoading && !rootOrphansError && rootOrphans.length > 0 && (
+          <>
+            <AdminTable headers={[adminText('a_0J_QsNGA0YLQ'), adminText('a_0JrQvtC90YLQ'), 'Parent line', 'children_count', adminText('a_0J_QsNC60LXR_4'), adminText('a_0KHRgtCw0YLR'), 'PV', adminText('a_0JHQsNC70LDQ'), adminText('a_0JTQtdC50YHR')]}>
+              {rootOrphans.map((partner) => (
+                <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
+                  <td className="px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/partners/${encodeURIComponent(partner.id)}`)}
+                      className="block cursor-pointer text-left hover:opacity-80"
+                    >
+                      <div className="font-bold text-safi-green">{partner.name}</div>
+                      <div className="mt-1 font-mono text-[10px] text-safi-muted">ID {partner.id}</div>
+                      <div className="mt-1 text-[10px] text-safi-muted">{partner.createdAt || '-'}</div>
+                    </button>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm text-safi-green">{partner.phone}</div>
+                    <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
+                    <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.login || '-'}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="inline-flex rounded-full bg-safi-cream px-3 py-1 text-xs font-bold text-safi-green">{partner.sponsor}</div>
+                    <div className="mt-1 text-[10px] text-safi-muted">{partner.city || '-'}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/admin/structure?root_id=${encodeURIComponent(partner.id)}`)}
+                      className="cursor-pointer rounded-full border border-safi-green bg-white px-3 py-2 text-xs font-extrabold text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+                    >
+                      {partner.childrenCount.toLocaleString('ru-RU')}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4"><AdminBadge variant="gold">{partner.packageName}</AdminBadge></td>
+                  <td className="px-6 py-4">
+                    <div className="mb-2"><AdminBadge variant="default">{partner.status}</AdminBadge></div>
+                    <AdminBadge variant={partner.accountStatusCode === 'active' ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="font-bold text-safi-green">{adminText('Личный PV')}: {partner.personalPV.toLocaleString('ru-RU')}</div>
+                    <div className="mt-1 text-xs text-safi-muted">{adminText('Командный PV')}: {partner.teamPV.toLocaleString('ru-RU')}</div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-bold text-safi-green">{formatMoney(partner.balance)}</div>
+                    <div className="mt-1 text-[10px] text-safi-muted">{formatMoney(partner.totalBalance)}</div>
+                  </td>
+                  <td className="px-6 py-4 text-right">
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/admin/structure?root_id=${encodeURIComponent(partner.id)}`)}
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white"
+                      >
+                        <Network className="h-4 w-4" />Показать дерево
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </AdminTable>
+
+            <AdminPagination
+              meta={rootOrphanPaginationMeta}
+              perPageOptions={pageSizeOptions}
+              onPageChange={changeRootOrphanPage}
+              onPerPageChange={(nextLimit) => {
+                setRootOrphanLimit(nextLimit);
+                setRootOrphanOffset(0);
+              }}
+              totalSuffix={rootOrphanPagination.total !== rootOrphanPagination.filteredTotal && (
+                <span className="ml-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+                  всего {rootOrphanPagination.total.toLocaleString('ru-RU')}
+                </span>
+              )}
+            />
+          </>
+        )}
+      </section>
     </div>
   );
 }
@@ -501,6 +811,71 @@ function normalizePartnerSearchResults(response: unknown): PartnerSearchResult[]
   });
 }
 
+function normalizeRootOrphans(response: unknown): RootOrphanPartner[] {
+  return getArray(response, ['root_orphans', 'partners', 'data']).map((item, index) => {
+    const record = isRecord(item) ? item : {};
+    const profile = isRecord(record.profile) ? record.profile : {};
+    const packageRecord = isRecord(record.package) ? record.package : isRecord(record.current_package) ? record.current_package : {};
+    const mlmStatus = isRecord(record.mlm_status) ? record.mlm_status : {};
+    const sponsor = isRecord(record.sponsor) ? record.sponsor : undefined;
+    const packageCode = String(getString(packageRecord, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode']) || '').toUpperCase();
+    const statusCode = getString(mlmStatus, ['code']) || getString(record, ['status']) || 'user';
+    const accountStatusCode = getString(record, ['account_status', 'accountStatus']) || 'active';
+    const leftPV = getNumber(record, ['left_pv', 'leftPV']) ?? 0;
+    const rightPV = getNumber(record, ['right_pv', 'rightPV']) ?? 0;
+    const personalPV = getNumber(record, ['personal_pv', 'personalPv', 'package_activity_pv', 'packageActivityPv'])
+      ?? getNumber(packageRecord, ['activity_pv', 'activityPv'])
+      ?? 0;
+
+    return {
+      id: getString(record, ['user_id', 'id']) || String(index + 1),
+      name: getString(record, ['name', 'full_name', 'fullName']) || `Partner ${index + 1}`,
+      login: getString(record, ['login']) || '',
+      email: getString(record, ['email']) || '-',
+      phone: getString(record, ['phone']) || getString(profile, ['phone']) || '-',
+      city: getString(record, ['city']) || getString(profile, ['city']) || '-',
+      sponsor: sponsor ? (getString(sponsor, ['name', 'login', 'id']) || '-') : 'root-orphan',
+      childrenCount: getNumber(record, ['children_count', 'childrenCount', 'direct_children_count', 'directChildrenCount']) ?? 0,
+      packageCode,
+      packageName: packageLabel(packageCode, getString(packageRecord, ['label', 'name']) || getString(record, ['package_label', 'packageLabel']) || '-'),
+      statusCode,
+      status: mlmStatusLabel(statusCode, getString(mlmStatus, ['label']) || getString(record, ['status_label', 'statusLabel']) || '-'),
+      accountStatusCode,
+      accountStatus: accountStatusLabel(accountStatusCode),
+      personalPV,
+      teamPV: getNumber(record, ['team_pv', 'teamPv', 'total_pv', 'totalPv']) ?? leftPV + rightPV,
+      balance: getNumber(record, ['balance', 'wallet_balance', 'walletBalance', 'available_balance', 'availableBalance']) ?? 0,
+      totalBalance: getNumber(record, ['total_balance', 'totalBalance', 'total_wallet_balance', 'totalWalletBalance']) ?? 0,
+      createdAt: getString(record, ['created_at', 'createdAt']) || '-',
+    };
+  });
+}
+
+function normalizeRootOrphanPagination(response: unknown, fallbackLimit: number, fallbackOffset: number, rowCount: number): RootOrphanPagination {
+  const record = isRecord(response) ? response : {};
+  const pagination = isRecord(record.pagination) ? record.pagination : {};
+  const meta = isRecord(record.meta) ? record.meta : {};
+  const total = getNumber(pagination, ['total']) ?? getNumber(meta, ['total']) ?? rowCount;
+  const filteredTotal = getNumber(pagination, ['filtered_total', 'filteredTotal']) ?? getNumber(meta, ['total']) ?? total;
+  const limit = getNumber(pagination, ['limit']) ?? getNumber(meta, ['per_page', 'perPage']) ?? fallbackLimit;
+  const offset = getNumber(pagination, ['offset']) ?? fallbackOffset;
+  const hasNextValue = pagination.has_next ?? pagination.hasNext;
+  const hasPrevValue = pagination.has_prev ?? pagination.hasPrev;
+
+  return {
+    total,
+    filteredTotal,
+    limit,
+    offset,
+    hasNext: typeof hasNextValue === 'boolean' ? hasNextValue : offset + limit < filteredTotal,
+    hasPrev: typeof hasPrevValue === 'boolean' ? hasPrevValue : offset > 0,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
+}
+
 function normalizeSponsor(record: Record<string, unknown>) {
   const sponsor = record.sponsor && typeof record.sponsor === 'object' ? record.sponsor as Record<string, unknown> : undefined;
 
@@ -615,6 +990,10 @@ function formatPosition(position: string) {
   }
 
   return position || '-';
+}
+
+function formatMoney(value: number) {
+  return `${value.toLocaleString('ru-RU')} ₸`;
 }
 
 function formatCompactPv(value: number) {

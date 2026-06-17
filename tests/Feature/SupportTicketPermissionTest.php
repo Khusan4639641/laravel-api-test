@@ -65,10 +65,9 @@ class SupportTicketPermissionTest extends TestCase
 
         $this->postJson("/api/support/tickets/{$ticket->id}/reply", [
             'message' => 'Support reply.',
-            'status' => SupportTicket::STATUS_ANSWERED,
         ])
             ->assertOk()
-            ->assertJsonPath('support_ticket.status', SupportTicket::STATUS_ANSWERED)
+            ->assertJsonPath('support_ticket.status', SupportTicket::STATUS_WAITING_USER)
             ->assertJsonPath('support_ticket.admin_reply', 'Support reply.');
     }
 

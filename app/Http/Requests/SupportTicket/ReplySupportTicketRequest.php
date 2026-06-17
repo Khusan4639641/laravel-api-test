@@ -29,7 +29,8 @@ class ReplySupportTicketRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'message' => ['required', 'string'],
+            'message' => ['nullable', 'required_without:file', 'string'],
+            'file' => ['nullable', 'file', 'max:5120', 'mimes:jpg,jpeg,png,webp,pdf,doc,docx,xls,xlsx,txt'],
             'status' => ['nullable', Rule::in(SupportTicket::STATUSES)],
         ];
     }
