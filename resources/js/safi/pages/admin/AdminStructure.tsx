@@ -169,27 +169,27 @@ const defaultTreeViewSettings: TreeViewSettings = {
 const treeNodeSizeConfigs: Record<TreeNodeSize, TreeSizeConfig> = {
   small: {
     width: 110,
-    height: 145,
+    height: 164,
     avatar: 'h-8 w-8 text-sm',
     padding: 'p-2',
     nameText: 'text-[11px]',
     metaText: 'text-[9px]',
     detailText: 'text-[9px]',
-    pvText: 'text-[8px]',
+    pvText: 'text-[7px]',
   },
   normal: {
     width: 140,
-    height: 176,
+    height: 188,
     avatar: 'h-10 w-10 text-base',
     padding: 'p-3',
     nameText: 'text-xs',
     metaText: 'text-[10px]',
     detailText: 'text-[10px]',
-    pvText: 'text-[9px]',
+    pvText: 'text-[8px]',
   },
   large: {
     width: 170,
-    height: 208,
+    height: 220,
     avatar: 'h-12 w-12 text-lg',
     padding: 'p-4',
     nameText: 'text-sm',
@@ -1093,17 +1093,26 @@ function TreeNodeCard({
           <span>{adminText('Статус')}:</span>
           <span className="truncate text-safi-green">{node.status}</span>
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <span>{adminText('Личный PV')}:</span>
-          <span className="truncate text-safi-gold">{node.personalPV.toLocaleString('ru-RU')}</span>
+      </div>
+      <div className={cn('mt-1 shrink-0 text-center font-extrabold leading-none', sizeConfig.pvText)}>
+        <div className="whitespace-nowrap text-safi-gold" title={adminText('Личный PV')} aria-label={adminText('Личный PV')}>
+          PV: {node.personalPV.toLocaleString('ru-RU')}
         </div>
-        <div className={cn('grid grid-cols-2 gap-1 pt-1 text-center font-extrabold text-safi-green', sizeConfig.pvText)}>
-          <div className="truncate rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Левая ветка PV')}>
-            {adminText('Л')}: {formatCompactPv(node.leftBranchPV)}
-          </div>
-          <div className="truncate rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Правая ветка PV')}>
-            {adminText('П')}: {formatCompactPv(node.rightBranchPV)}
-          </div>
+        <div className="mt-1 grid grid-cols-2 gap-1 text-safi-green">
+          <span
+            className="whitespace-nowrap rounded-full bg-[#F5F5F0] px-1 py-1 text-center leading-none"
+            title={adminText('Левая ветка PV')}
+            aria-label={adminText('Левая ветка PV')}
+          >
+            {formatCompactPv(node.leftBranchPV)}
+          </span>
+          <span
+            className="whitespace-nowrap rounded-full bg-[#F5F5F0] px-1 py-1 text-center leading-none"
+            title={adminText('Правая ветка PV')}
+            aria-label={adminText('Правая ветка PV')}
+          >
+            {formatCompactPv(node.rightBranchPV)}
+          </span>
         </div>
       </div>
     </button>

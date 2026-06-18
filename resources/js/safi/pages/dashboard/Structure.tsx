@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncS
 import { getApiErrorState, getArray, getDashboardStructure, getNumber, getString } from '../../lib/api';
 import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 import { buildReferralBranchUrl, type ReferralBranch } from '../../lib/referrals';
+import { cn } from '../../lib/utils';
 
 type BranchFilter = 'all' | 'left' | 'right';
 type PaginationItem = number | 'ellipsis';
@@ -21,6 +22,8 @@ interface StructurePartnerRow {
   package: string;
   status: string;
   personalPV: number;
+  leftPV: number;
+  rightPV: number;
   teamPV: number;
   activity: string;
   createdAt: string;
@@ -99,8 +102,12 @@ export default function Structure() {
         const personalPV = getNumber(user, ['personal_pv', 'personalPV', 'package_activity_pv', 'packageActivityPv'])
           ?? getNumber(packageRecord, ['activity_pv', 'activityPv', 'pv'])
           ?? 0;
-        const leftPV = getNumber(user, ['left_pv']) ?? 0;
-        const rightPV = getNumber(user, ['right_pv']) ?? 0;
+        const leftPV = getNumber(user, ['left_branch_pv', 'leftBranchPv', 'left_pv', 'leftPV', 'left_volume', 'leftVolume'])
+          ?? getNumber(node, ['left_branch_pv', 'leftBranchPv', 'left_pv', 'leftPV', 'left_volume', 'leftVolume'])
+          ?? 0;
+        const rightPV = getNumber(user, ['right_branch_pv', 'rightBranchPv', 'right_pv', 'rightPV', 'right_volume', 'rightVolume'])
+          ?? getNumber(node, ['right_branch_pv', 'rightBranchPv', 'right_pv', 'rightPV', 'right_volume', 'rightVolume'])
+          ?? 0;
         const id = getString(user, ['id']) || getString(node, ['user_id', 'userId']) || String(index + 1);
 
         return {
@@ -114,6 +121,8 @@ export default function Structure() {
           package: packageLabel(getString(packageRecord, ['code', 'slug', 'id']), getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name']) || '-'),
           status: mlmStatusLabel(getString(user, ['status']), getString(user, ['status_label', 'statusLabel']) || '-'),
           personalPV,
+          leftPV,
+          rightPV,
           teamPV: getNumber(user, ['team_pv', 'teamPV']) ?? leftPV + rightPV,
           activity: accountStatusLabel(getString(user, ['account_status', 'accountStatus']), getString(user, ['account_status_label', 'accountStatusLabel']) || accountStatusLabel('active')),
           createdAt: formatDate(getString(user, ['registered_at', 'registeredAt', 'created_at', 'createdAt']) || getString(node, ['registered_at', 'registeredAt', 'created_at', 'createdAt'])),
@@ -226,11 +235,18 @@ export default function Structure() {
           <h2 className="font-serif text-3xl font-semibold text-safi-green">Бинарное дерево</h2>
           <div className="mt-6 rounded-[28px] border border-dashed border-safi-border bg-safi-cream p-6">
             <div className="mx-auto max-w-lg">
-              <Node name={currentUser.name} label={currentUser.partnerId} root />
+              <Node
+                name={currentUser.name}
+                label={currentUser.partnerId}
+                root
+                personalPV={currentUser.personalPV}
+                leftPV={structure.leftPV}
+                rightPV={structure.rightPV}
+              />
               <div className="mx-auto h-8 w-px bg-safi-border" />
               <div className="grid grid-cols-2 gap-5">
-                <Node name="Левая ветка" label={`${structure.leftPartners} партнеров`} />
-                <Node name="Правая ветка" label={`${structure.rightPartners} партнеров`} />
+                <Node name="Левая ветка" label={`${structure.leftPartners} партнеров`} branchPVLabel="Л" branchPV={structure.leftPV} />
+                <Node name="Правая ветка" label={`${structure.rightPartners} партнеров`} branchPVLabel="П" branchPV={structure.rightPV} />
               </div>
             </div>
           </div>
@@ -329,6 +345,10 @@ export default function Structure() {
                   </td>
                   <td className="px-7 py-5 text-right">
                     <div className="font-extrabold text-safi-gold">Личный PV: {partner.personalPV.toLocaleString('ru-RU')}</div>
+                    <div className="mt-2 flex flex-wrap justify-end gap-1 text-[10px] font-extrabold text-safi-green">
+                      <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Левая ветка PV" aria-label="Левая ветка PV">{formatPv(partner.leftPV)}</span>
+                      <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Правая ветка PV" aria-label="Правая ветка PV">{formatPv(partner.rightPV)}</span>
+                    </div>
                     <div className="mt-1 text-xs text-safi-muted">Командный PV: {partner.teamPV.toLocaleString('ru-RU')}</div>
                   </td>
                   <td className="px-7 py-5 text-center">
@@ -582,11 +602,55 @@ function ReferralBox({ label, link }: { label: string; link: string }) {
   );
 }
 
-function Node({ name, label, root = false }: { name: string; label: string; root?: boolean }) {
+function Node({
+  name,
+  label,
+  root = false,
+  personalPV,
+  leftPV,
+  rightPV,
+  branchPV,
+  branchPVLabel,
+}: {
+  name: string;
+  label: string;
+  root?: boolean;
+  personalPV?: number;
+  leftPV?: number;
+  rightPV?: number;
+  branchPV?: number;
+  branchPVLabel?: 'Л' | 'П';
+}) {
+  const hasBranchPair = typeof leftPV === 'number' && typeof rightPV === 'number';
+
   return (
     <div className={`rounded-3xl border p-5 text-center ${root ? 'border-safi-green bg-safi-green text-white' : 'border-safi-border bg-white text-safi-green'}`}>
       <div className={`font-serif text-xl font-semibold ${root ? 'text-white' : 'text-safi-green'}`}>{name}</div>
       <div className={`mt-2 text-[10px] font-extrabold uppercase tracking-[0.14em] ${root ? 'text-white/70' : 'text-safi-muted'}`}>{label}</div>
+      {typeof personalPV === 'number' && (
+        <div className={`mt-3 text-xs font-extrabold ${root ? 'text-safi-gold' : 'text-safi-gold'}`}>
+          PV: {personalPV.toLocaleString('ru-RU')}
+        </div>
+      )}
+      {hasBranchPair && (
+        <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-extrabold">
+          <span className={cn('whitespace-nowrap rounded-full px-2 py-1', root ? 'bg-white/12 text-white' : 'bg-safi-cream text-safi-green')} title="Левая ветка PV" aria-label="Левая ветка PV">
+            {formatPv(leftPV)}
+          </span>
+          <span className={cn('whitespace-nowrap rounded-full px-2 py-1', root ? 'bg-white/12 text-white' : 'bg-safi-cream text-safi-green')} title="Правая ветка PV" aria-label="Правая ветка PV">
+            {formatPv(rightPV)}
+          </span>
+        </div>
+      )}
+      {typeof branchPV === 'number' && branchPVLabel && (
+        <div className="mt-3 whitespace-nowrap rounded-full bg-safi-cream px-2 py-1 text-[10px] font-extrabold text-safi-green" title={branchPVLabel === 'Л' ? 'Левая ветка PV' : 'Правая ветка PV'} aria-label={branchPVLabel === 'Л' ? 'Левая ветка PV' : 'Правая ветка PV'}>
+          {formatPv(branchPV)}
+        </div>
+      )}
     </div>
   );
+}
+
+function formatPv(value: number) {
+  return `${value.toLocaleString('ru-RU')} PV`;
 }
