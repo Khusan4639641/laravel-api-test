@@ -125,7 +125,8 @@ class FrontendContentTest extends TestCase
 
         foreach ([$overview, $structure] as $contents) {
             $this->assertStringContainsString('buildReferralBranchUrl', $contents);
-            $this->assertStringContainsString('Реферальная ссылка временно недоступна. Обратитесь к администратору.', $contents);
+            $this->assertStringContainsString('Реферальные ссылки станут доступны после активации пакета.', $contents);
+            $this->assertStringContainsString('link ? (', $contents);
             $this->assertStringNotContainsString('window.location.origin}/login', $contents);
         }
 

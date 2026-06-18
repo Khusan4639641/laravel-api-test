@@ -59,7 +59,8 @@ class DepositPurchaseService
             $cashbackBonus = $this->bonusService->accrueDepositPurchaseCashback(
                 $user,
                 $amount,
-                $depositTransaction
+                $depositTransaction,
+                "deposit_purchase_cashback:wallet_transaction:{$depositTransaction->id}",
             );
 
             return [
@@ -192,7 +193,8 @@ class DepositPurchaseService
             $cashbackBonus = $this->bonusService->accrueDepositPurchaseCashback(
                 $user,
                 $amount,
-                $depositTransaction
+                $depositTransaction,
+                "deposit_purchase_cashback:{$order->id}",
             );
 
             return [
@@ -379,7 +381,8 @@ class DepositPurchaseService
             $cashbackBonus = $this->bonusService->accrueDepositPurchaseCashback(
                 $user,
                 $amount,
-                $depositTransaction
+                $depositTransaction,
+                "deposit_purchase_cashback:{$order->id}",
             );
 
             return [

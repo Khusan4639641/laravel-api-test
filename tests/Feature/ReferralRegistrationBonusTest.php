@@ -19,7 +19,7 @@ class ReferralRegistrationBonusTest extends TestCase
     public function test_public_referral_registration_with_start_gives_sponsor_5000(): void
     {
         $start = $this->createPackage('START');
-        $sponsor = User::factory()->create(['login' => 'sponsor_start']);
+        $sponsor = User::factory()->create(['login' => 'sponsor_start', 'current_package_id' => $start->id]);
 
         $this->postJson('/api/register', $this->registrationPayload('public-start', [
             'referral_code' => $sponsor->login,
@@ -38,7 +38,7 @@ class ReferralRegistrationBonusTest extends TestCase
     public function test_public_referral_registration_with_vip_gives_sponsor_15000(): void
     {
         $vip = $this->createPackage('VIP');
-        $sponsor = User::factory()->create(['login' => 'sponsor_vip']);
+        $sponsor = User::factory()->create(['login' => 'sponsor_vip', 'current_package_id' => $vip->id]);
 
         $this->postJson('/api/register', $this->registrationPayload('public-vip', [
             'ref' => $sponsor->login,
@@ -59,7 +59,7 @@ class ReferralRegistrationBonusTest extends TestCase
     public function test_vip_referral_uses_pv_base_not_price(): void
     {
         $vip = $this->createPackage('VIP');
-        $sponsor = User::factory()->create(['login' => 'sponsor_pv_base']);
+        $sponsor = User::factory()->create(['login' => 'sponsor_pv_base', 'current_package_id' => $vip->id]);
 
         $this->postJson('/api/register', $this->registrationPayload('vip-pv-base', [
             'referral_code' => $sponsor->login,
@@ -142,7 +142,7 @@ class ReferralRegistrationBonusTest extends TestCase
     public function test_sponsor_referral_transaction_has_affects_balance_true(): void
     {
         $start = $this->createPackage('START');
-        $sponsor = User::factory()->create(['login' => 'sponsor_affects']);
+        $sponsor = User::factory()->create(['login' => 'sponsor_affects', 'current_package_id' => $start->id]);
 
         $this->postJson('/api/register', $this->registrationPayload('affects-balance', [
             'referral_code' => $sponsor->login,
@@ -159,7 +159,7 @@ class ReferralRegistrationBonusTest extends TestCase
     public function test_sponsor_balance_increases_by_referral_bonus(): void
     {
         $vip = $this->createPackage('VIP');
-        $sponsor = User::factory()->create(['login' => 'sponsor_balance']);
+        $sponsor = User::factory()->create(['login' => 'sponsor_balance', 'current_package_id' => $vip->id]);
         app(WalletService::class)->createUserWallets($sponsor);
 
         $this->postJson('/api/register', $this->registrationPayload('balance-vip', [
@@ -176,7 +176,7 @@ class ReferralRegistrationBonusTest extends TestCase
     public function test_new_user_balance_does_not_increase_from_package_purchase(): void
     {
         $vip = $this->createPackage('VIP');
-        $sponsor = User::factory()->create(['login' => 'sponsor_buyer_balance']);
+        $sponsor = User::factory()->create(['login' => 'sponsor_buyer_balance', 'current_package_id' => $vip->id]);
 
         $this->postJson('/api/register', $this->registrationPayload('buyer-balance', [
             'referral_code' => $sponsor->login,

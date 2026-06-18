@@ -199,7 +199,12 @@ class CheckoutOrderService
 
             if ($isDepositOnlyOrder) {
                 $depositTransaction = $this->debitDepositForPaidOrder($user, $order, $split['deposit_amount']);
-                $this->bonusService->accrueDepositPurchaseCashback($user, $split['total_amount'], $depositTransaction);
+                $this->bonusService->accrueDepositPurchaseCashback(
+                    $user,
+                    $split['total_amount'],
+                    $depositTransaction,
+                    "deposit_purchase_cashback:{$order->id}",
+                );
 
                 return $order->refresh()->load('items.product');
             }

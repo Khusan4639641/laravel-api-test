@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Models\BinaryNode;
+use App\Models\PvTransaction;
 use App\Models\User;
 
 trait CreatesBinaryBonusEligibility
@@ -14,6 +15,8 @@ trait CreatesBinaryBonusEligibility
     {
         $leftReferral = $this->makeDirectReferralInBinaryBranch($user, 'L');
         $rightReferral = $this->makeDirectReferralInBinaryBranch($user, 'R');
+        $this->seedCachedBranchPvTransaction($user, $leftReferral, 'L');
+        $this->seedCachedBranchPvTransaction($user, $rightReferral, 'R');
 
         return [
             'left' => $leftReferral,
@@ -63,6 +66,38 @@ trait CreatesBinaryBonusEligibility
             'depth' => $parentNode->depth + 1,
             'path' => trim($parentNode->path.'.'.$user->id, '.'),
             'is_active' => true,
+        ]);
+    }
+
+    private function seedCachedBranchPvTransaction(User $user, User $buyer, string $branch): void
+    {
+        $leftBranch = $branch === 'L';
+        $cachedPv = (string) ($leftBranch ? $user->left_pv : $user->right_pv);
+        $remainingPv = (string) ($leftBranch ? $user->remaining_left_pv : $user->remaining_right_pv);
+        $pv = bccomp($cachedPv, $remainingPv, 2) >= 0 ? $cachedPv : $remainingPv;
+
+        if (bccomp($pv, '0', 2) <= 0) {
+            return;
+        }
+
+        $exists = PvTransaction::query()
+            ->where('upline_id', $user->id)
+            ->where('buyer_id', $buyer->id)
+            ->where('branch', $branch)
+            ->where('source', 'test_cached_branch_pv')
+            ->exists();
+
+        if ($exists) {
+            return;
+        }
+
+        PvTransaction::query()->create([
+            'buyer_id' => $buyer->id,
+            'upline_id' => $user->id,
+            'source' => 'test_cached_branch_pv',
+            'branch' => $branch,
+            'pv' => $pv,
+            'is_bonusable' => true,
         ]);
     }
 }

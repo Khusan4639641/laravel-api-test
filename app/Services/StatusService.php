@@ -9,6 +9,11 @@ use App\Support\SystemLabel;
 
 class StatusService
 {
+    public function __construct(
+        private readonly DashboardBranchVolumeService $branchVolumeService,
+    ) {
+    }
+
     /**
      * @var array<int, array{id: string, name: string, pv: int, income_potential: int, reward: string, is_cash_bonus: bool, reward_type: string, amount: string, cash_amount: string, compensation_amount: string, compensation_available: bool}>
      */
@@ -102,8 +107,9 @@ class StatusService
 
     public function weakLegPv(User $user): string
     {
-        $leftPv = (string) ($user->left_pv ?? '0');
-        $rightPv = (string) ($user->right_pv ?? '0');
+        $branchVolumes = $this->branchVolumeService->getBranchVolumes($user);
+        $leftPv = $branchVolumes['left_pv'];
+        $rightPv = $branchVolumes['right_pv'];
 
         return bccomp($leftPv, $rightPv, 2) <= 0 ? $leftPv : $rightPv;
     }

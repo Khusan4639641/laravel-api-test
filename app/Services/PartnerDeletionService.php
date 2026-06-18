@@ -239,7 +239,7 @@ class PartnerDeletionService
             ->orderBy('id')
             ->get()
             ->each(function (User $upline): void {
-                $volumes = $this->activeTransactionVolumesForUpline($upline);
+                $volumes = app(DashboardBranchVolumeService::class)->getBranchVolumes($upline);
                 $ownPv = $upline->currentPackage ? $upline->currentPackage->activityPv() : '0.00';
                 $teamPv = bcadd($volumes['left_pv'], $volumes['right_pv'], 2);
                 $totalPv = bcadd($ownPv, $teamPv, 2);
@@ -772,6 +772,7 @@ class PartnerDeletionService
         PvTransaction::query()
             ->selectRaw('branch, COALESCE(SUM(pv), 0) as total_pv')
             ->where('upline_id', $upline->id)
+            ->whereColumn('buyer_id', '!=', 'upline_id')
             ->whereNull('voided_at')
             ->whereHas('buyer', fn ($query) => $query->where('role', User::ROLE_USER)->activeAccount())
             ->groupBy('branch')

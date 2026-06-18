@@ -14,6 +14,7 @@ class StatusBonusService
 {
     public function __construct(
         private readonly WalletService $walletService,
+        private readonly DashboardBranchVolumeService $branchVolumeService,
     ) {
     }
 
@@ -42,7 +43,8 @@ class StatusBonusService
                 return $created;
             }
 
-            $weakLegPv = $this->weakLegPv($user);
+            $branchVolumes = $this->branchVolumes($user);
+            $weakLegPv = $this->weakLegPvFromVolumes($branchVolumes);
 
             $definitions = StatusBonusDefinition::query()
                 ->where('is_active', true)
@@ -76,8 +78,8 @@ class StatusBonusService
                         'threshold_pv' => (string) $definition->threshold_pv,
                         'user_total_pv' => (string) $user->total_pv,
                         'weak_leg_pv' => $weakLegPv,
-                        'left_pv' => (string) $user->left_pv,
-                        'right_pv' => (string) $user->right_pv,
+                        'left_pv' => $branchVolumes['left_pv'],
+                        'right_pv' => $branchVolumes['right_pv'],
                         'elite_required' => true,
                         'package_id' => $user->current_package_id,
                         'package_code' => $user->currentPackage?->code,
@@ -122,6 +124,7 @@ class StatusBonusService
             }
 
             $cashAmount = $this->cashAmount($definition);
+            $branchVolumes = $this->branchVolumes($user);
             $bonusTransaction = $this->createCashBonusTransaction($user, $definition, $cashAmount, true);
 
             return UserStatusBonus::query()->create([
@@ -137,9 +140,9 @@ class StatusBonusService
                     'manual_status_assignment' => true,
                     'threshold_pv' => (string) $definition->threshold_pv,
                     'user_total_pv' => (string) $user->total_pv,
-                    'weak_leg_pv' => $this->weakLegPv($user),
-                    'left_pv' => (string) $user->left_pv,
-                    'right_pv' => (string) $user->right_pv,
+                    'weak_leg_pv' => $this->weakLegPvFromVolumes($branchVolumes),
+                    'left_pv' => $branchVolumes['left_pv'],
+                    'right_pv' => $branchVolumes['right_pv'],
                     'package_id' => $user->current_package_id,
                     'package_code' => $user->currentPackage?->code,
                     'reward_type' => $definition->reward_type,
@@ -164,6 +167,7 @@ class StatusBonusService
         }
 
         $this->walletService->createUserWallets($user);
+        $branchVolumes = $this->branchVolumes($user);
 
         $wallet = $user->wallets()
             ->where('type', 'main')
@@ -179,9 +183,9 @@ class StatusBonusService
                 'status_code' => $definition->status_code,
                 'status_bonus_definition_id' => $definition->id,
                 'threshold_pv' => (string) $definition->threshold_pv,
-                'weak_leg_pv' => $this->weakLegPv($user),
-                'left_pv' => (string) $user->left_pv,
-                'right_pv' => (string) $user->right_pv,
+                'weak_leg_pv' => $this->weakLegPvFromVolumes($branchVolumes),
+                'left_pv' => $branchVolumes['left_pv'],
+                'right_pv' => $branchVolumes['right_pv'],
                 'elite_required' => true,
                 'package_id' => $user->current_package_id,
                 'package_code' => $user->currentPackage?->code,
@@ -232,10 +236,26 @@ class StatusBonusService
         return strtoupper((string) $user->currentPackage?->code) === 'ELITE';
     }
 
-    private function weakLegPv(User $user): string
+    /**
+     * @return array{left_pv: string, right_pv: string}
+     */
+    private function branchVolumes(User $user): array
     {
-        $leftPv = (string) ($user->left_pv ?? '0');
-        $rightPv = (string) ($user->right_pv ?? '0');
+        $volumes = $this->branchVolumeService->getBranchVolumes($user);
+
+        return [
+            'left_pv' => $volumes['left_pv'],
+            'right_pv' => $volumes['right_pv'],
+        ];
+    }
+
+    /**
+     * @param  array{left_pv: string, right_pv: string}  $branchVolumes
+     */
+    private function weakLegPvFromVolumes(array $branchVolumes): string
+    {
+        $leftPv = $branchVolumes['left_pv'];
+        $rightPv = $branchVolumes['right_pv'];
 
         return bccomp($leftPv, $rightPv, 2) <= 0 ? $leftPv : $rightPv;
     }

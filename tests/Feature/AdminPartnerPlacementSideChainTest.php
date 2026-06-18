@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\BinaryNode;
+use App\Models\Package;
 use App\Models\User;
 use App\Services\PartnerDeletionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -238,10 +239,32 @@ class AdminPartnerPlacementSideChainTest extends TestCase
 
     private function partner(string $login): User
     {
+        $package = $this->package();
+
         return User::factory()->create([
             'role' => User::ROLE_USER,
             'login' => $login,
             'email' => "{$login}@example.test",
+            'current_package_id' => $package->id,
+        ]);
+    }
+
+    private function package(): Package
+    {
+        return Package::query()->create([
+            'code' => 'START',
+            'name' => 'START',
+            'slug' => 'start-'.uniqid(),
+            'price' => 60000,
+            'pv' => 100,
+            'activity_pv' => 100,
+            'turnover_pv' => 100,
+            'referral_percent' => 10,
+            'binary_percent' => 7,
+            'sort_order' => 1,
+            'status' => 'active',
+            'is_active' => true,
+            'is_upgradeable' => true,
         ]);
     }
 

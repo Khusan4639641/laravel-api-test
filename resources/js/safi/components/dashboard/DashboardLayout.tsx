@@ -17,6 +17,7 @@ export interface DashboardCurrentUser {
   role: string;
   partnerId: string;
   referralCode: string;
+  canInvite: boolean;
   packageCode?: string;
   packageName: string;
   statusCode?: string;
@@ -52,6 +53,7 @@ const userDefaults: DashboardCurrentUser = {
   role: 'user',
   partnerId: 'SAFI',
   referralCode: '',
+  canInvite: false,
   packageCode: '',
   packageName: '-',
   statusCode: 'user',
@@ -65,6 +67,7 @@ const userDefaults: DashboardCurrentUser = {
   bonusesTotal: 0,
   referralsCount: 0,
 };
+const invitePackageCodes = new Set(['START', 'VIP', 'ELITE']);
 
 export function useDashboardContext() {
   return useOutletContext<DashboardContextValue>();
@@ -415,6 +418,10 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
   const referralCode = getString(record, ['referral_code', 'referralCode', 'invite_code', 'inviteCode', 'referral', 'login', 'username'])
     || getString(profileRecord, ['referral_code', 'referralCode', 'invite_code', 'inviteCode', 'referral'])
     || userDefaults.referralCode;
+  const canInviteValue = record.can_invite ?? record.canInvite ?? record.referral_links_available ?? record.referralLinksAvailable;
+  const canInvite = typeof canInviteValue === 'boolean'
+    ? canInviteValue
+    : invitePackageCodes.has(packageCode.toUpperCase());
 
   return {
     id: getString(record, ['id']) || getNumber(record, ['id']),
@@ -426,6 +433,7 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
     role: getString(record, ['role', 'user_role', 'role_name']) || userDefaults.role,
     partnerId: getString(record, ['partner_id', 'partnerId', 'member_id', 'code']) || userDefaults.partnerId,
     referralCode,
+    canInvite,
     packageCode,
     packageName,
     statusCode,

@@ -96,7 +96,10 @@ class AdminPartnerCreateParityTest extends TestCase
     {
         $vip = $this->createPackage('VIP');
         $adminSponsor = User::factory()->create(['login' => 'admin_sponsor']);
-        $publicSponsor = User::factory()->create(['login' => 'public_sponsor']);
+        $publicSponsor = User::factory()->create([
+            'login' => 'public_sponsor',
+            'current_package_id' => $vip->id,
+        ]);
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
 

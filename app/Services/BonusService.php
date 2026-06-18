@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\AdminActionLog;
 use App\Models\BonusTransaction;
 use App\Models\BinaryBonusCalculation;
 use App\Models\BinaryBonusRun;
@@ -10,6 +11,7 @@ use App\Models\PvTransaction;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Notifications\BonusAccruedNotification;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -25,6 +27,7 @@ class BonusService
 
     public function __construct(
         private readonly WalletService $walletService,
+        private readonly DashboardBranchVolumeService $branchVolumeService,
     ) {
     }
 
@@ -126,16 +129,20 @@ class BonusService
             ->first(fn (BonusTransaction $bonus): bool => ($bonus->metadata['referral_bonus_key'] ?? null) === $idempotencyKey);
     }
 
-    public function calculateBinaryBonus(User $user): ?BonusTransaction
+    public function calculateBinaryBonus(User $user, ?CarbonInterface $periodStart = null, ?CarbonInterface $periodEnd = null): ?BonusTransaction
     {
-        return DB::transaction(function () use ($user): ?BonusTransaction {
+        return DB::transaction(function () use ($user, $periodStart, $periodEnd): ?BonusTransaction {
             $user = User::query()
                 ->with('currentPackage')
                 ->activeMlm()
                 ->lockForUpdate()
                 ->findOrFail($user->id);
 
-            if ($this->hasActiveBinaryRun($user)) {
+            $customPeriod = $periodStart !== null || $periodEnd !== null;
+            $periodStart = $periodStart ? $periodStart->copy()->startOfDay() : now();
+            $periodEnd = $periodEnd ? $periodEnd->copy()->endOfDay() : $periodStart->copy()->addDays(self::BINARY_PERIOD_DAYS);
+
+            if ($customPeriod ? $this->hasBinaryRunForPeriod($user, $periodStart, $periodEnd) : $this->hasActiveBinaryRun($user)) {
                 return null;
             }
 
@@ -160,8 +167,6 @@ class BonusService
 
             $mainAmount = bcdiv(bcmul($amount, '90', 2), '100', 2);
             $bonusAmount = bcsub($amount, $mainAmount, 2);
-            $periodStart = now();
-            $periodEnd = $periodStart->copy()->addDays(self::BINARY_PERIOD_DAYS);
             $carryLeftPv = bcsub($pvSnapshot['left_available_pv'], $basePv, 2);
             $carryRightPv = bcsub($pvSnapshot['right_available_pv'], $basePv, 2);
             $diagnostics = [
@@ -328,16 +333,16 @@ class BonusService
     /**
      * @return array{message: string, data: array<string, mixed>, bonus_transaction: ?BonusTransaction}
      */
-    public function recalculateBinaryBonus(User $user, User $admin): array
+    public function recalculateBinaryBonus(User $user, User $admin, ?CarbonInterface $periodStart = null, ?CarbonInterface $periodEnd = null): array
     {
-        return DB::transaction(function () use ($user, $admin): array {
+        return DB::transaction(function () use ($user, $admin, $periodStart, $periodEnd): array {
             $user = User::query()
                 ->with('currentPackage')
                 ->activeMlm()
                 ->lockForUpdate()
                 ->findOrFail($user->id);
 
-            $currentRun = $this->currentBinaryRun($user);
+            $currentRun = $this->currentBinaryRun($user, $periodStart, $periodEnd);
             $preview = $this->previewBinaryCalculation($user, $currentRun?->id);
 
             if (! $currentRun) {
@@ -349,8 +354,8 @@ class BonusService
                     ];
                 }
 
-                $bonusTransaction = $this->calculateBinaryBonus($user);
-                $currentRun = $this->currentBinaryRun($user->refresh());
+                $bonusTransaction = $this->calculateBinaryBonus($user, $periodStart, $periodEnd);
+                $currentRun = $this->currentBinaryRun($user->refresh(), $periodStart, $periodEnd);
 
                 return [
                     'message' => 'Бинар пересчитан',
@@ -500,6 +505,116 @@ class BonusService
         });
     }
 
+    /**
+     * @return array{processed_count: int, recalculated_count: int, skipped_count: int, created_count: int, updated_count: int, force: bool, results: array<int, array<string, mixed>>}
+     */
+    public function recalculateBinaryBonusesForPeriod(User $admin, CarbonInterface $dateFrom, CarbonInterface $dateTo, bool $force = false): array
+    {
+        $processed = 0;
+        $recalculated = 0;
+        $created = 0;
+        $updated = 0;
+        $results = [];
+
+        $users = User::query()
+            ->where('role', User::ROLE_USER)
+            ->activeAccount()
+            ->whereHas('currentPackage')
+            ->with('binaryNode')
+            ->get()
+            ->sortByDesc(fn (User $user): int => (int) ($user->binaryNode?->depth ?? 0))
+            ->values();
+
+        foreach ($users as $user) {
+            $processed++;
+            $hadExistingRun = $this->hasBinaryRunForPeriod($user, $dateFrom, $dateTo);
+            $result = $force
+                ? $this->recalculateBinaryBonus($user, $admin, $dateFrom, $dateTo)
+                : $this->calculateBinaryForMissingPeriod($user, $dateFrom, $dateTo);
+            $bonusTransaction = $result['bonus_transaction'];
+
+            if ($bonusTransaction) {
+                $metadata = is_array($bonusTransaction->metadata) ? $bonusTransaction->metadata : [];
+                $metadata['period_recalculation'] = [
+                    'date_from' => $dateFrom->toDateString(),
+                    'date_to' => $dateTo->toDateString(),
+                    'force' => $force,
+                    'admin_id' => $admin->id,
+                    'requested_at' => now()->toISOString(),
+                ];
+                $bonusTransaction->forceFill(['metadata' => $metadata])->save();
+                $recalculated++;
+                $hadExistingRun ? $updated++ : $created++;
+            }
+
+            $results[] = [
+                'user_id' => $user->id,
+                'message' => $result['message'],
+                'eligible' => (bool) ($result['data']['eligible'] ?? false),
+                'bonus_transaction_id' => $bonusTransaction?->id,
+                'updated_existing' => $bonusTransaction !== null && $hadExistingRun,
+            ];
+        }
+
+        AdminActionLog::query()->create([
+            'admin_id' => $admin->id,
+            'target_user_id' => null,
+            'action' => 'binary_bonus_period_recalculated',
+            'reason' => $force ? 'Полный перерасчёт бинарных бонусов за период' : 'Расчёт недостающих бинарных бонусов за период',
+            'metadata' => [
+                'date_from' => $dateFrom->toDateString(),
+                'date_to' => $dateTo->toDateString(),
+                'force' => $force,
+                'users_processed' => $processed,
+                'bonuses_created' => $created,
+                'bonuses_updated' => $updated,
+                'bonuses_recalculated' => $recalculated,
+            ],
+        ]);
+
+        return [
+            'processed_count' => $processed,
+            'recalculated_count' => $recalculated,
+            'skipped_count' => max($processed - $recalculated, 0),
+            'created_count' => $created,
+            'updated_count' => $updated,
+            'force' => $force,
+            'results' => $results,
+        ];
+    }
+
+    /**
+     * @return array{message: string, data: array<string, mixed>, bonus_transaction: ?BonusTransaction}
+     */
+    private function calculateBinaryForMissingPeriod(User $user, CarbonInterface $dateFrom, CarbonInterface $dateTo): array
+    {
+        if ($this->hasBinaryRunForPeriod($user, $dateFrom, $dateTo)) {
+            return [
+                'message' => 'Бинар уже рассчитан за период',
+                'data' => ['eligible' => false],
+                'bonus_transaction' => null,
+            ];
+        }
+
+        $preview = $this->previewBinaryCalculation($user);
+
+        if (! $preview['eligible'] || bccomp($preview['binary_total'], '0', 2) <= 0) {
+            return [
+                'message' => 'Бинар не начислен',
+                'data' => $this->recalculationResponseData($user, null, $preview, '0.00', '0.00'),
+                'bonus_transaction' => null,
+            ];
+        }
+
+        $bonusTransaction = $this->calculateBinaryBonus($user, $dateFrom, $dateTo);
+
+        return [
+            'message' => $bonusTransaction ? 'Бинар рассчитан' : 'Бинар не начислен',
+            'data' => $this->recalculationResponseData($user, null, $preview, '0.00', '0.00'),
+            'bonus_transaction' => $bonusTransaction,
+        ];
+    }
+
     private function hasActiveBinaryRun(User $user): bool
     {
         return BinaryBonusRun::query()
@@ -508,12 +623,28 @@ class BonusService
             ->exists();
     }
 
-    private function currentBinaryRun(User $user): ?BinaryBonusRun
+    private function hasBinaryRunForPeriod(User $user, CarbonInterface $periodStart, CarbonInterface $periodEnd): bool
     {
         return BinaryBonusRun::query()
             ->where('user_id', $user->id)
             ->whereIn('status', ['completed', 'pending'])
-            ->where('period_end', '>', now())
+            ->where('period_start', '<=', $periodEnd)
+            ->where('period_end', '>=', $periodStart)
+            ->exists();
+    }
+
+    private function currentBinaryRun(User $user, ?CarbonInterface $periodStart = null, ?CarbonInterface $periodEnd = null): ?BinaryBonusRun
+    {
+        return BinaryBonusRun::query()
+            ->where('user_id', $user->id)
+            ->whereIn('status', ['completed', 'pending'])
+            ->when(
+                $periodStart || $periodEnd,
+                fn ($query) => $query
+                    ->where('period_start', '<=', ($periodEnd ?: now())->copy()->endOfDay())
+                    ->where('period_end', '>=', ($periodStart ?: now())->copy()->startOfDay()),
+                fn ($query) => $query->where('period_end', '>', now()),
+            )
             ->latest('id')
             ->lockForUpdate()
             ->first();
@@ -816,10 +947,18 @@ class BonusService
             ->exists();
 
         if (! $hasPvTransactions) {
+            $branchVolumes = $this->branchVolumeService->getBranchVolumes($user);
+            $leftTotalPv = $this->decimal($branchVolumes['left_pv']);
+            $rightTotalPv = $this->decimal($branchVolumes['right_pv']);
+            $leftUsedPriorPv = $this->usedPriorBinaryPv($user, 'L', $ignoredRunId);
+            $rightUsedPriorPv = $this->usedPriorBinaryPv($user, 'R', $ignoredRunId);
+            $leftAvailablePv = $this->positiveOrZero(bcsub($leftTotalPv, $leftUsedPriorPv, 2));
+            $rightAvailablePv = $this->positiveOrZero(bcsub($rightTotalPv, $rightUsedPriorPv, 2));
+
             return [
                 'uses_pv_transactions' => false,
-                'left_total_pv' => $this->decimal((string) ($user->left_pv ?? '0')),
-                'right_total_pv' => $this->decimal((string) ($user->right_pv ?? '0')),
+                'left_total_pv' => $leftTotalPv,
+                'right_total_pv' => $rightTotalPv,
                 'left_excluded_deleted_pv' => '0.00',
                 'right_excluded_deleted_pv' => '0.00',
                 'left_excluded_inactive_or_deleted_pv' => '0.00',
@@ -830,12 +969,12 @@ class BonusService
                 'right_excluded_elite_non_bonusable_pv' => '0.00',
                 'left_excluded_non_bonusable_pv' => '0.00',
                 'right_excluded_non_bonusable_pv' => '0.00',
-                'left_bonusable_pv' => $this->decimal((string) ($user->remaining_left_pv ?? '0')),
-                'right_bonusable_pv' => $this->decimal((string) ($user->remaining_right_pv ?? '0')),
-                'left_used_prior_pv' => '0.00',
-                'right_used_prior_pv' => '0.00',
-                'left_available_pv' => $this->decimal((string) ($user->remaining_left_pv ?? '0')),
-                'right_available_pv' => $this->decimal((string) ($user->remaining_right_pv ?? '0')),
+                'left_bonusable_pv' => $leftTotalPv,
+                'right_bonusable_pv' => $rightTotalPv,
+                'left_used_prior_pv' => $leftUsedPriorPv,
+                'right_used_prior_pv' => $rightUsedPriorPv,
+                'left_available_pv' => $leftAvailablePv,
+                'right_available_pv' => $rightAvailablePv,
             ];
         }
 
@@ -870,25 +1009,44 @@ class BonusService
      */
     private function branchPvComponents(User $user, string $branch, ?int $ignoredRunId = null): array
     {
+        $user->loadMissing('binaryNode');
+        $uplineNode = $user->binaryNode;
+
+        if (! $uplineNode) {
+            return [
+                'total_pv' => '0.00',
+                'excluded_voided_pv' => '0.00',
+                'excluded_inactive_or_deleted_pv' => '0.00',
+                'excluded_non_bonusable_pv' => '0.00',
+                'excluded_elite_non_bonusable_pv' => '0.00',
+                'bonusable_pv' => '0.00',
+                'used_prior_pv' => $this->usedPriorBinaryPv($user, $branch, $ignoredRunId),
+                'available_pv' => '0.00',
+            ];
+        }
+
         $baseQuery = PvTransaction::query()
             ->where('upline_id', $user->id)
+            ->whereColumn('buyer_id', '!=', 'upline_id')
             ->where('branch', $branch);
 
         $nonVoidedQuery = (clone $baseQuery)->whereNull('voided_at');
         $activeBuyerQuery = (clone $nonVoidedQuery)
             ->whereHas('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER));
-        $totalPv = $this->sumPv($nonVoidedQuery);
-        $excludedVoidedPv = $this->sumPv((clone $baseQuery)->whereNotNull('voided_at'));
-        $excludedInactiveOrDeletedPv = $this->sumPv(
-            (clone $nonVoidedQuery)->whereDoesntHave('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER))
+        $totalPv = $this->sumDirectionalPv($nonVoidedQuery, $uplineNode);
+        $excludedVoidedPv = $this->sumDirectionalPv((clone $baseQuery)->whereNotNull('voided_at'), $uplineNode);
+        $excludedInactiveOrDeletedPv = $this->sumDirectionalPv(
+            (clone $nonVoidedQuery)->whereDoesntHave('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER)),
+            $uplineNode,
         );
-        $excludedNonBonusablePv = $this->sumPv((clone $activeBuyerQuery)->where('is_bonusable', false));
-        $excludedEliteNonBonusablePv = $this->sumPv(
+        $excludedNonBonusablePv = $this->sumDirectionalPv((clone $activeBuyerQuery)->where('is_bonusable', false), $uplineNode);
+        $excludedEliteNonBonusablePv = $this->sumDirectionalPv(
             (clone $activeBuyerQuery)
                 ->where('is_bonusable', false)
-                ->where('source', 'package_elite_upgrade')
+                ->where('source', 'package_elite_upgrade'),
+            $uplineNode,
         );
-        $bonusablePv = $this->sumPv((clone $activeBuyerQuery)->where('is_bonusable', true));
+        $bonusablePv = $this->sumDirectionalPv((clone $activeBuyerQuery)->where('is_bonusable', true), $uplineNode);
         $usedPriorPv = $this->usedPriorBinaryPv($user, $branch, $ignoredRunId);
         $availablePv = $this->positiveOrZero(bcsub($bonusablePv, $usedPriorPv, 2));
 
@@ -915,19 +1073,43 @@ class BonusService
             ->sum($column));
     }
 
-    private function sumPv($query): string
+    private function sumDirectionalPv($query, BinaryNode $uplineNode): string
     {
-        return $this->decimal((string) $query->sum('pv'));
+        $total = '0.00';
+
+        $query
+            ->with(['buyer' => fn ($buyerQuery) => $buyerQuery->withTrashed()->with('binaryNode')])
+            ->get()
+            ->each(function (PvTransaction $transaction) use (&$total, $uplineNode): void {
+                if (! $transaction->buyer || ! $this->branchVolumeService->buyerBelongsToDirectionalBranch($uplineNode, $transaction->buyer->binaryNode, $transaction->branch)) {
+                    return;
+                }
+
+                $total = bcadd($total, (string) $transaction->pv, 2);
+            });
+
+        return $this->decimal($total);
     }
 
     public function accrueDepositPurchaseCashback(
         User $user,
         float|string $purchaseAmount,
         ?WalletTransaction $sourceTransaction = null,
+        ?string $idempotencyKey = null,
     ): ?BonusTransaction {
-        return DB::transaction(function () use ($user, $purchaseAmount, $sourceTransaction): ?BonusTransaction {
+        return DB::transaction(function () use ($user, $purchaseAmount, $sourceTransaction, $idempotencyKey): ?BonusTransaction {
             if ($user->trashed() || $user->account_status !== 'active') {
                 return null;
+            }
+
+            $idempotencyKey = $idempotencyKey ?: $this->depositCashbackKeyFromSource($sourceTransaction);
+
+            if ($idempotencyKey !== null) {
+                $existingBonus = $this->findExistingDepositCashback($user, $idempotencyKey);
+
+                if ($existingBonus) {
+                    return $existingBonus;
+                }
             }
 
             $purchaseAmount = (string) $purchaseAmount;
@@ -949,10 +1131,17 @@ class BonusService
                 'bonus_type' => 'cashback',
                 'amount' => $amount,
                 'status' => 'completed',
+                'source_order_id' => $sourceTransaction?->source_type === \App\Models\Order::class
+                    ? $sourceTransaction->source_id
+                    : null,
                 'metadata' => [
                     'purchase_amount' => $purchaseAmount,
                     'cashback_percent' => self::DEPOSIT_CASHBACK_PERCENT,
                     'source' => 'deposit_purchase',
+                    'deposit_purchase_cashback_key' => $idempotencyKey,
+                    'source_order_id' => $sourceTransaction?->source_type === \App\Models\Order::class
+                        ? $sourceTransaction->source_id
+                        : null,
                     'deposit_wallet_transaction_id' => $sourceTransaction?->id,
                 ],
                 'calculated_at' => now(),
@@ -978,6 +1167,34 @@ class BonusService
 
             return $bonusTransaction->refresh();
         });
+    }
+
+    private function depositCashbackKeyFromSource(?WalletTransaction $sourceTransaction): ?string
+    {
+        if (! $sourceTransaction) {
+            return null;
+        }
+
+        $metadata = is_array($sourceTransaction->metadata) ? $sourceTransaction->metadata : [];
+        $orderId = $metadata['order_id'] ?? (
+            $sourceTransaction->source_type === \App\Models\Order::class ? $sourceTransaction->source_id : null
+        );
+
+        if ($orderId) {
+            return "deposit_purchase_cashback:{$orderId}";
+        }
+
+        return "deposit_purchase_cashback:wallet_transaction:{$sourceTransaction->id}";
+    }
+
+    private function findExistingDepositCashback(User $user, string $idempotencyKey): ?BonusTransaction
+    {
+        return BonusTransaction::query()
+            ->where('user_id', $user->id)
+            ->where('bonus_type', 'cashback')
+            ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
+            ->get()
+            ->first(fn (BonusTransaction $bonus): bool => ($bonus->metadata['deposit_purchase_cashback_key'] ?? null) === $idempotencyKey);
     }
 
     private function minDecimal(string $left, string $right): string

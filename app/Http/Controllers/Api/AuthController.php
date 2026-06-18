@@ -38,6 +38,14 @@ class AuthController extends Controller
             ]);
         }
 
+        if ($sponsor && ! $sponsor->canInvitePartners()) {
+            $sponsorField = $hasReferralCode ? 'referral_code' : 'sponsor_id';
+
+            throw ValidationException::withMessages([
+                $sponsorField => ['У пригласителя нет активного пакета. Регистрация по этой ссылке недоступна.'],
+            ]);
+        }
+
         if (! config('safi.public_registration_enabled', false) && ! $sponsor) {
             return response()->json([
                 'message' => 'Самостоятельная регистрация временно недоступна',

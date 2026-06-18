@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\BinaryNode;
 use App\Models\BonusTransaction;
+use App\Models\Package;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -43,7 +44,11 @@ class PublicRegistrationDisabledTest extends TestCase
 
     public function test_referral_register_endpoint_is_allowed_for_left_branch(): void
     {
-        $sponsor = User::factory()->create(['login' => 'public-disabled-left-sponsor']);
+        $package = $this->package();
+        $sponsor = User::factory()->create([
+            'login' => 'public-disabled-left-sponsor',
+            'current_package_id' => $package->id,
+        ]);
 
         $this->postJson('/api/register', [
             ...$this->registrationPayload('public-disabled-left'),
@@ -63,7 +68,11 @@ class PublicRegistrationDisabledTest extends TestCase
 
     public function test_referral_register_endpoint_is_allowed_for_right_branch(): void
     {
-        $sponsor = User::factory()->create(['login' => 'public-disabled-right-sponsor']);
+        $package = $this->package();
+        $sponsor = User::factory()->create([
+            'login' => 'public-disabled-right-sponsor',
+            'current_package_id' => $package->id,
+        ]);
 
         $this->postJson('/api/register', [
             ...$this->registrationPayload('public-disabled-right'),
@@ -162,5 +171,24 @@ class PublicRegistrationDisabledTest extends TestCase
         $this->assertSame(0, BonusTransaction::query()->count());
         $this->assertSame(0, WalletTransaction::query()->whereIn('user_id', [$user->id, $sponsor->id])->count());
         $this->assertSame('0', (string) $user->wallets()->sum('balance'));
+    }
+
+    private function package(): Package
+    {
+        return Package::query()->create([
+            'code' => 'START',
+            'name' => 'START',
+            'slug' => 'start-'.uniqid(),
+            'price' => 60000,
+            'pv' => 100,
+            'activity_pv' => 100,
+            'turnover_pv' => 100,
+            'referral_percent' => 10,
+            'binary_percent' => 7,
+            'sort_order' => 1,
+            'status' => 'active',
+            'is_active' => true,
+            'is_upgradeable' => true,
+        ]);
     }
 }

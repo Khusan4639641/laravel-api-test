@@ -58,12 +58,16 @@ class UserStatusTest extends TestCase
         $root = User::factory()->create([
             'status' => 'user',
             'total_pv' => 0,
-            'left_pv' => 5000,
+        ]);
+        $leftPackage = $this->createPackage('LEFT', 5000);
+        $leftChild = User::factory()->create([
+            'current_package_id' => $leftPackage->id,
         ]);
         $rightChild = User::factory()->create();
         $package = $this->createPackage('START', 10000);
 
         $treeService->placeUser($root);
+        $treeService->placeUser($leftChild, $root, 'L');
         $treeService->placeUser($rightChild, $root, 'R');
 
         Sanctum::actingAs($rightChild);

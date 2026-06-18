@@ -138,6 +138,17 @@ class User extends Authenticatable
         return $this->role === self::ROLE_SUPER_ADMIN;
     }
 
+    public function canInvitePartners(): bool
+    {
+        $this->loadMissing('currentPackage');
+        $package = $this->currentPackage;
+
+        return $package !== null
+            && $package->is_active
+            && $package->status === 'active'
+            && in_array(strtoupper((string) $package->code), Package::PUBLIC_CODES, true);
+    }
+
     public function sponsor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sponsor_id');

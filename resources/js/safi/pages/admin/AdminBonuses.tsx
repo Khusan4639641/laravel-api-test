@@ -1,17 +1,22 @@
 import { useEffect, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Edit3, Search, Trash2 } from 'lucide-react';
 import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
-import { calculateAdminBinaryBonuses, getAdminBonuses, getApiErrorState, getNumber, getString } from '../../lib/api';
+import { calculateAdminBinaryBonuses, deleteAdminBonus, getAdminBonuses, getApiErrorState, getNumber, getString, recalculateAdminBonuses, updateAdminBonus } from '../../lib/api';
+import { useAdminContext } from '../../components/admin/AdminLayout';
 import { adminText } from '../../i18n/adminText';
 import { defaultPaginationMeta, getPaginatedItems, normalizePaginationMeta } from '../../lib/pagination';
 import type { PaginationMeta } from '../../lib/pagination';
 import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
 
 export default function AdminBonuses() {
-  const [bonuses, setBonuses] = useState<Array<{ date: string; partnerId: string; partnerName: string; type: string; basis: string; percentage: string; amount: string; status: string }>>([]);
+  const { currentUser } = useAdminContext();
+  const isSuperAdmin = currentUser.role === 'super_admin';
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [bonuses, setBonuses] = useState<Array<{ id: string; date: string; partnerId: string; partnerName: string; type: string; basis: string; percentage: string; amount: string; rawAmount: number; status: string }>>([]);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
@@ -22,6 +27,15 @@ export default function AdminBonuses() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [dateFrom, setDateFrom] = useState(monthStart);
+  const [dateTo, setDateTo] = useState(today);
+  const [forceRecalculation, setForceRecalculation] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [editBonus, setEditBonus] = useState<{ id: string; amount: number } | null>(null);
+  const [deleteBonusId, setDeleteBonusId] = useState<string | null>(null);
+  const [manualAmount, setManualAmount] = useState('');
+  const [manualReason, setManualReason] = useState('');
+  const [isSavingManualAction, setIsSavingManualAction] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const hasActiveFilters = debouncedSearch.trim() !== '' || typeFilter !== '' || statusFilter !== '';
 
@@ -49,14 +63,18 @@ export default function AdminBonuses() {
       setBonuses(items.map((item) => {
         const bonus = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const user = bonus.user && typeof bonus.user === 'object' ? bonus.user as Record<string, unknown> : {};
+        const rawAmount = getNumber(bonus, ['amount']) ?? 0;
+
         return {
+          id: getString(bonus, ['id']) || '',
           date: getString(bonus, ['created_at', 'calculated_at']) || '-',
           partnerId: getString(user, ['id', 'login']) || getString(bonus, ['user_id']) || '-',
           partnerName: getString(user, ['name']) || '-',
           type: transactionTypeLabel(getString(bonus, ['bonus_type', 'type']), getString(bonus, ['bonus_type_label', 'bonusTypeLabel', 'type_label', 'typeLabel']) || getString(bonus, ['bonus_type', 'type']) || '-'),
           basis: getString(bonus, ['description']) || adminText('a_0KHQuNGB0YLQ'),
           percentage: '',
-          amount: `${(getNumber(bonus, ['amount']) ?? 0).toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`,
+          amount: `${rawAmount.toLocaleString('ru-RU')} ${adminText('currency_kzt_short')}`,
+          rawAmount,
           status: transactionStatusLabel(getString(bonus, ['status']), getString(bonus, ['status_label', 'statusLabel']) || getString(bonus, ['status']) || '-'),
         };
       }));
@@ -99,6 +117,80 @@ export default function AdminBonuses() {
     }
   };
 
+  const recalculateBonusesForPeriod = async () => {
+    setIsRecalculating(true);
+
+    try {
+      const response = await recalculateAdminBonuses({ date_from: dateFrom, date_to: dateTo, force: forceRecalculation });
+      const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
+      const processed = Number(record.processed_count ?? 0);
+      const recalculated = Number(record.recalculated_count ?? 0);
+      const created = Number(record.created_count ?? 0);
+      const updated = Number(record.updated_count ?? 0);
+
+      showToast(`Перерасчёт выполнен: обработано ${processed}, создано ${created}, обновлено ${updated}, всего ${recalculated}`);
+      await loadBonuses();
+    } catch (caughtError) {
+      showToast(getApiErrorState(caughtError).error || 'Не удалось выполнить перерасчёт за период', 'error');
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
+
+  const openEditModal = (bonus: { id: string; rawAmount: number }) => {
+    setEditBonus({ id: bonus.id, amount: bonus.rawAmount });
+    setDeleteBonusId(null);
+    setManualAmount(String(bonus.rawAmount));
+    setManualReason('');
+  };
+
+  const openDeleteModal = (bonusId: string) => {
+    setDeleteBonusId(bonusId);
+    setEditBonus(null);
+    setManualAmount('');
+    setManualReason('');
+  };
+
+  const closeManualModal = () => {
+    setEditBonus(null);
+    setDeleteBonusId(null);
+    setManualAmount('');
+    setManualReason('');
+  };
+
+  const submitManualAction = async () => {
+    if (!manualReason.trim()) {
+      showToast('Укажите причину', 'error');
+      return;
+    }
+
+    setIsSavingManualAction(true);
+
+    try {
+      if (editBonus) {
+        await updateAdminBonus(editBonus.id, {
+          amount: manualAmount,
+          reason: manualReason.trim(),
+        });
+        showToast('Бонус обновлён');
+      }
+
+      if (deleteBonusId) {
+        await deleteAdminBonus(deleteBonusId, {
+          reason: manualReason.trim(),
+        });
+        showToast('Бонус удалён');
+      }
+
+      closeManualModal();
+      await loadBonuses();
+    } catch (caughtError) {
+      showToast(getApiErrorState(caughtError).error || 'Не удалось сохранить изменение бонуса', 'error');
+    } finally {
+      setIsSavingManualAction(false);
+    }
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <ToastStack toasts={toasts} onDismiss={(toastId) => setToasts((current) => current.filter((toast) => toast.id !== toastId))} />
@@ -108,14 +200,49 @@ export default function AdminBonuses() {
           <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0JHQvtC90YPR')}</h1>
           <p className="text-sm text-safi-text/70">{adminText('a_0J3QsNGH0LjR')}</p>
         </div>
-        <button
-          type="button"
-          onClick={calculateBinaryBonuses}
-          disabled={isCalculating}
-          className="cursor-pointer rounded-xl bg-safi-green px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {isCalculating ? adminText('a_0KHQvtGF0YDQ_2') : 'Запустить бинарный расчёт'}
-        </button>
+        <div className="flex w-full flex-col gap-3 md:w-auto">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="rounded-xl bg-white px-4 py-3 text-xs font-bold text-safi-green outline-none ring-1 ring-safi-green/10 focus:ring-safi-green/30"
+              aria-label="Дата начала"
+            />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="rounded-xl bg-white px-4 py-3 text-xs font-bold text-safi-green outline-none ring-1 ring-safi-green/10 focus:ring-safi-green/30"
+              aria-label="Дата окончания"
+            />
+            <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl bg-white px-4 py-3 text-xs font-bold text-safi-green ring-1 ring-safi-green/10">
+              <input
+                type="checkbox"
+                checked={forceRecalculation}
+                onChange={(event) => setForceRecalculation(event.target.checked)}
+                className="h-4 w-4 accent-safi-green"
+              />
+              <span>Полный перерасчёт всех пользователей</span>
+            </label>
+            <button
+              type="button"
+              onClick={recalculateBonusesForPeriod}
+              disabled={isRecalculating}
+              className="cursor-pointer rounded-xl border border-safi-green bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isRecalculating ? 'Перерасчёт...' : 'Запустить перерасчёт'}
+            </button>
+          </div>
+          <button
+            type="button"
+            onClick={calculateBinaryBonuses}
+            disabled={isCalculating}
+            className="cursor-pointer rounded-xl bg-safi-green px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isCalculating ? adminText('a_0KHQvtGF0YDQ_2') : 'Запустить бинарный расчёт'}
+          </button>
+        </div>
       </div>
 
       <div className="rounded-[24px] border border-safi-green/5 bg-white p-4 shadow-sm">
@@ -175,9 +302,17 @@ export default function AdminBonuses() {
               description={hasActiveFilters ? 'Попробуйте изменить поиск или фильтры.' : adminText('a_0J3QsNGH0LjR_2')}
             />
           ) : (
-            <AdminTable headers={[adminText('a_0JTQsNGC0LA'), adminText('a_0J_QsNGA0YLQ'), adminText('a_0KLQuNC_INCx'), adminText('a_0J7QsdC-0YHQ'), adminText('a_0KHRg9C80LzQ'), adminText('a_0KHRgtCw0YLR')]}>
+            <AdminTable headers={[
+              adminText('a_0JTQsNGC0LA'),
+              adminText('a_0J_QsNGA0YLQ'),
+              adminText('a_0KLQuNC_INCx'),
+              adminText('a_0J7QsdC-0YHQ'),
+              adminText('a_0KHRg9C80LzQ'),
+              adminText('a_0KHRgtCw0YLR'),
+              ...(isSuperAdmin ? ['Действия'] : []),
+            ]}>
               {bonuses.map((b, i) => (
-                <tr key={i} className="hover:bg-safi-green/5 transition-colors group">
+                <tr key={b.id || i} className="hover:bg-safi-green/5 transition-colors group">
                   <td className="px-6 py-4 text-xs">{b.date}</td>
                   <td className="px-6 py-4">
                     <div className="font-bold text-safi-green">{b.partnerName}</div>
@@ -190,6 +325,28 @@ export default function AdminBonuses() {
                   </td>
                   <td className="px-6 py-4 font-bold text-green-600">+{b.amount}</td>
                   <td className="px-6 py-4"><AdminBadge variant="success">{b.status}</AdminBadge></td>
+                  {isSuperAdmin && (
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditModal(b)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white"
+                          aria-label="Изменить бонус"
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDeleteModal(b.id)}
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-red-200 bg-white text-red-600 transition-colors hover:bg-red-600 hover:text-white"
+                          aria-label="Удалить бонус"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </AdminTable>
@@ -204,6 +361,65 @@ export default function AdminBonuses() {
             }}
           />
         </section>
+      )}
+
+      {(editBonus || deleteBonusId) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/40 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+            <h2 className="font-serif text-2xl font-bold text-safi-green">
+              {editBonus ? 'Изменить бонус' : 'Удалить бонус'}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-safi-text/70">
+              {editBonus
+                ? 'Баланс пользователя будет скорректирован на разницу суммы.'
+                : 'Бонус будет отменён, баланс пользователя будет пересчитан обратной операцией.'}
+            </p>
+
+            {editBonus && (
+              <label className="mt-5 block">
+                <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">Новая сумма</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  value={manualAmount}
+                  onChange={(event) => setManualAmount(event.target.value)}
+                  className="mt-2 w-full rounded-xl bg-[#F5F5F0] px-4 py-3 text-sm font-bold text-safi-green outline-none focus:ring-2 focus:ring-safi-green/20"
+                />
+              </label>
+            )}
+
+            <label className="mt-5 block">
+              <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">Причина</span>
+              <textarea
+                value={manualReason}
+                onChange={(event) => setManualReason(event.target.value)}
+                rows={4}
+                className="mt-2 w-full resize-none rounded-xl bg-[#F5F5F0] px-4 py-3 text-sm font-bold text-safi-green outline-none focus:ring-2 focus:ring-safi-green/20"
+                placeholder="Укажите причину для audit log"
+              />
+            </label>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeManualModal}
+                disabled={isSavingManualAction}
+                className="rounded-xl border border-safi-border px-5 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green disabled:opacity-60"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={submitManualAction}
+                disabled={isSavingManualAction}
+                className={`rounded-xl px-5 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-white disabled:opacity-60 ${deleteBonusId ? 'bg-red-600' : 'bg-safi-green'}`}
+              >
+                {isSavingManualAction ? 'Сохранение...' : editBonus ? 'Сохранить' : 'Удалить'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

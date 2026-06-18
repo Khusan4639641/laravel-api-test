@@ -28,6 +28,7 @@ class UserResource extends JsonResource
             ->exists();
         $totalEarned = $totalEarned > 0 || $hasIncomingPartnerTransfer ? $totalEarned : $totalWalletBalance;
         $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
+        $canInvite = $this->resource->canInvitePartners();
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
         $packageActivityAmount = $package ? (float) $package->volumeAmount() : 0;
         $leftPv = (float) ($this->left_pv ?? 0);
@@ -46,6 +47,8 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'login' => $this->login,
             'referral_code' => $this->login,
+            'can_invite' => (bool) $canInvite,
+            'referral_links_available' => (bool) $canInvite,
             'email' => $this->email,
             'phone' => $this->resource->relationLoaded('profile') ? $this->profile?->phone : null,
             'city' => $this->resource->relationLoaded('profile') ? $this->profile?->city : null,

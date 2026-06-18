@@ -112,6 +112,7 @@ class AdminBinaryRecalculateButtonTest extends TestCase
         $partner = $this->rootWithPackage('ELITE');
         ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($partner);
         $deletedRightBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'active']);
+        $this->placeDirectionalBuyer($partner, $deletedRightBuyer, 'R');
         $this->pv($partner, $leftBuyer, 'L', 2000);
         $this->pv($partner, $rightBuyer, 'R', 2000);
         $this->pv($partner, $deletedRightBuyer, 'R', 200);
@@ -131,6 +132,7 @@ class AdminBinaryRecalculateButtonTest extends TestCase
         $partner = $this->rootWithPackage('ELITE');
         ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($partner);
         $eliteUpgradeBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'active']);
+        $this->placeDirectionalBuyer($partner, $eliteUpgradeBuyer, 'R');
         $this->pv($partner, $leftBuyer, 'L', 2000);
         $this->pv($partner, $rightBuyer, 'R', 2000);
         $this->pv($partner, $eliteUpgradeBuyer, 'R', 200, false, 'package_elite_upgrade');
@@ -380,6 +382,18 @@ class AdminBinaryRecalculateButtonTest extends TestCase
         ])->save();
 
         return $run;
+    }
+
+    private function placeDirectionalBuyer(User $root, User $buyer, string $branch): void
+    {
+        $rootNode = $this->ensureBinaryNode($root);
+        $parent = $rootNode;
+
+        while ($next = $parent->children()->where('position', $branch)->where('is_active', true)->first()) {
+            $parent = $next;
+        }
+
+        $this->createChildNode($parent, $buyer, $branch);
     }
 
     private function assertWalletBalance(User $user, string $type, string $balance): void

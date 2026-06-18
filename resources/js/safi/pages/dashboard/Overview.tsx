@@ -32,14 +32,15 @@ export default function Overview() {
   const [withdrawalsSummary, setWithdrawalsSummary] = useState({ total: 0, pending: 0, approved: 0, pendingAmount: 0 });
   const [transactions, setTransactions] = useState<TransactionItem[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
+  const [canInvite, setCanInvite] = useState(currentUser.canInvite);
+  const [referralLinks, setReferralLinks] = useState<Record<ReferralBranch, string>>({
+    left: currentUser.canInvite ? buildReferralBranchUrl(currentUser.referralCode, 'left') : '',
+    right: currentUser.canInvite ? buildReferralBranchUrl(currentUser.referralCode, 'right') : '',
+  });
   const weakLegPV = structure.weakLegPV || Math.min(structure.leftPV, structure.rightPV);
   const nextStatus = statuses.find((status) => status.pv > weakLegPV);
   const statusTargetPV = nextStatus?.pv || statuses[statuses.length - 1]?.pv || Math.max(weakLegPV, 1);
   const statusProgressPercent = statusTargetPV > 0 ? Math.min(100, Math.max(0, (weakLegPV / statusTargetPV) * 100)) : 0;
-  const referralLinks: Record<ReferralBranch, string> = {
-    left: buildReferralBranchUrl(currentUser.referralCode, 'left'),
-    right: buildReferralBranchUrl(currentUser.referralCode, 'right'),
-  };
 
   const loadOverview = React.useCallback(async () => {
     setIsLoading(true);
@@ -57,10 +58,17 @@ export default function Overview() {
       const bonusTypes = bonusesRecord.by_type && typeof bonusesRecord.by_type === 'object' ? bonusesRecord.by_type as Record<string, unknown> : {};
       const ordersRecord = record.orders_summary && typeof record.orders_summary === 'object' ? record.orders_summary as Record<string, unknown> : {};
       const withdrawalsRecord = record.withdrawals_summary && typeof record.withdrawals_summary === 'object' ? record.withdrawals_summary as Record<string, unknown> : {};
+      const referralLinksRecord = record.referral_links && typeof record.referral_links === 'object' ? record.referral_links as Record<string, unknown> : {};
+      const inviteAvailable = typeof record.can_invite === 'boolean' ? record.can_invite : currentUser.canInvite;
       const leftPV = getNumber(structureRecord, ['left_pv', 'leftPV', 'left_branch_pv', 'leftBranchPv']) ?? 0;
       const rightPV = getNumber(structureRecord, ['right_pv', 'rightPV', 'right_branch_pv', 'rightBranchPv']) ?? 0;
 
       setStatuses(statusItems);
+      setCanInvite(inviteAvailable);
+      setReferralLinks({
+        left: inviteAvailable ? (getString(referralLinksRecord, ['left']) || buildReferralBranchUrl(currentUser.referralCode, 'left')) : '',
+        right: inviteAvailable ? (getString(referralLinksRecord, ['right']) || buildReferralBranchUrl(currentUser.referralCode, 'right')) : '',
+      });
       setStructure({
         totalPartners: getNumber(structureRecord, ['total_partners']) ?? 0,
         leftPV,
@@ -109,13 +117,15 @@ export default function Overview() {
       }));
     } catch (caughtError) {
       setStructure({ totalPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
+      setCanInvite(false);
+      setReferralLinks({ left: '', right: '' });
       setStatuses([]);
       setTransactions([]);
       setError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser.bonusesTotal, currentUser.totalEarned, currentUser.walletAvailable]);
+  }, [currentUser.bonusesTotal, currentUser.canInvite, currentUser.referralCode, currentUser.totalEarned, currentUser.walletAvailable]);
 
   useEffect(() => {
     void loadOverview();
@@ -245,13 +255,13 @@ export default function Overview() {
             <div className="mt-7 grid gap-4 xl:grid-cols-2">
               <ReferralLink
                 label="Левая ветка"
-                link={referralLinks.left}
+                link={canInvite ? referralLinks.left : ''}
                 copied={copiedLink === 'left'}
                 onCopy={() => copyLink('left')}
               />
               <ReferralLink
                 label="Правая ветка"
-                link={referralLinks.right}
+                link={canInvite ? referralLinks.right : ''}
                 copied={copiedLink === 'right'}
                 onCopy={() => copyLink('right')}
               />
@@ -353,7 +363,7 @@ function ReferralLink({ label, link, copied, onCopy }: { label: string; link: st
           </button>
         </>
       ) : (
-        <div className="text-xs leading-5 text-safi-muted">Реферальная ссылка временно недоступна. Обратитесь к администратору.</div>
+        <div className="text-xs leading-5 text-safi-muted">Реферальные ссылки станут доступны после активации пакета.</div>
       )}
     </div>
   );

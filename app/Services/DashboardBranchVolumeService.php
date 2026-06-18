@@ -37,17 +37,20 @@ class DashboardBranchVolumeService
     {
         $user->loadMissing('binaryNode');
 
-        $fallbackVolumes = $this->packageTurnoverVolumes($user);
+        $fallbackVolumes = $this->calculateDirectionalBranchPv($user);
         $transactionVolumes = $this->transactionVolumes($user);
+        $hasBinaryNode = (bool) $user->binaryNode?->path;
         $leftPv = $this->resolveBranchVolume(
             (string) ($user->left_pv ?? '0'),
             $transactionVolumes['left_pv'],
             $fallbackVolumes['left_pv'],
+            ! $hasBinaryNode,
         );
         $rightPv = $this->resolveBranchVolume(
             (string) ($user->right_pv ?? '0'),
             $transactionVolumes['right_pv'],
             $fallbackVolumes['right_pv'],
+            ! $hasBinaryNode,
         );
         $weakLegPv = $this->minDecimal($leftPv, $rightPv);
 
@@ -79,6 +82,39 @@ class DashboardBranchVolumeService
     }
 
     /**
+     * @return array{left_pv: string, right_pv: string}
+     */
+    public function calculateDirectionalBranchPv(User $user): array
+    {
+        $user->loadMissing('binaryNode');
+        $rootNode = $user->binaryNode;
+
+        if (! $rootNode?->path) {
+            return ['left_pv' => '0.00', 'right_pv' => '0.00'];
+        }
+
+        $nodes = BinaryNode::query()
+            ->with(['user.currentPackage'])
+            ->where(function ($query) use ($rootNode): void {
+                $query->where('id', $rootNode->id)
+                    ->orWhere('path', 'like', $rootNode->path.'.%');
+            })
+            ->where('is_active', true)
+            ->whereHas('user', fn ($query) => $query->activeAccount())
+            ->orderBy('depth')
+            ->orderBy('id')
+            ->get();
+
+        $volumes = $this->calculatePackageFallbackNodeVolumes($nodes);
+        $rootVolumes = $volumes[$rootNode->id] ?? null;
+
+        return [
+            'left_pv' => $rootVolumes['left_branch_pv'] ?? '0.00',
+            'right_pv' => $rootVolumes['right_branch_pv'] ?? '0.00',
+        ];
+    }
+
+    /**
      * @param  Collection<int, BinaryNode>  $nodes
      * @return array<int, array{left_branch_pv: string, right_branch_pv: string, weak_leg_pv: float, subtree_turnover_pv: string}>
      */
@@ -95,11 +131,13 @@ class DashboardBranchVolumeService
                 (string) ($user?->left_pv ?? '0'),
                 $userId ? ($transactionVolumes[$userId]['left_pv'] ?? '0.00') : '0.00',
                 $fallbackVolumes[$node->id]['left_branch_pv'] ?? '0.00',
+                false,
             );
             $rightPv = $this->resolveBranchVolume(
                 (string) ($user?->right_pv ?? '0'),
                 $userId ? ($transactionVolumes[$userId]['right_pv'] ?? '0.00') : '0.00',
                 $fallbackVolumes[$node->id]['right_branch_pv'] ?? '0.00',
+                false,
             );
             $weakLegPv = $this->minDecimal($leftPv, $rightPv);
 
@@ -144,51 +182,6 @@ class DashboardBranchVolumeService
             'right_pv' => $volumes['right_pv'],
             'total_pv' => bccomp($currentTotalPv, $totalPv, 2) < 0 ? $totalPv : $currentTotalPv,
         ];
-    }
-
-    /**
-     * @return array{left_pv: string, right_pv: string}
-     */
-    private function packageTurnoverVolumes(User $user): array
-    {
-        $rootNode = $user->binaryNode;
-
-        if (! $rootNode?->path) {
-            return ['left_pv' => '0.00', 'right_pv' => '0.00'];
-        }
-
-        $rootSegments = explode('.', $rootNode->path);
-        $rootChildren = BinaryNode::query()
-            ->where('parent_id', $rootNode->id)
-            ->where('is_active', true)
-            ->pluck('position', 'user_id');
-        $volumes = ['left_pv' => '0.00', 'right_pv' => '0.00'];
-
-        $this->descendantNodes($rootNode->path)
-            ->with(['user.currentPackage'])
-            ->orderBy('depth')
-            ->orderBy('id')
-            ->get()
-            ->each(function (BinaryNode $node) use (&$volumes, $rootSegments, $rootChildren): void {
-                $partner = $node->user;
-
-                if (! $partner || ! $this->isActiveMlmPartner($partner) || ! $partner->currentPackage) {
-                    return;
-                }
-
-                $branch = $this->rootBranch($node, $rootSegments, $rootChildren);
-                $turnoverPv = $this->decimal($partner->currentPackage->turnoverPv());
-
-                if ($branch === 'left') {
-                    $volumes['left_pv'] = bcadd($volumes['left_pv'], $turnoverPv, 2);
-                }
-
-                if ($branch === 'right') {
-                    $volumes['right_pv'] = bcadd($volumes['right_pv'], $turnoverPv, 2);
-                }
-            });
-
-        return $volumes;
     }
 
     /**
@@ -240,25 +233,34 @@ class DashboardBranchVolumeService
     private function transactionVolumes(User $user): array
     {
         $volumes = ['left_pv' => '0.00', 'right_pv' => '0.00'];
+        $user->loadMissing('binaryNode');
+        $uplineNode = $user->binaryNode;
 
         PvTransaction::query()
-            ->selectRaw('branch, COALESCE(SUM(pv), 0) as total_pv')
+            ->with(['buyer.binaryNode'])
             ->where('upline_id', $user->id)
+            ->whereColumn('buyer_id', '!=', 'upline_id')
             ->whereNull('voided_at')
             ->whereHas('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER))
-            ->groupBy('branch')
             ->get()
-            ->each(function (PvTransaction $row) use (&$volumes): void {
+            ->each(function (PvTransaction $row) use (&$volumes, $uplineNode): void {
+                if (! $uplineNode || ! $this->buyerBelongsToDirectionalBranch($uplineNode, $row->buyer?->binaryNode, $row->branch)) {
+                    return;
+                }
+
                 if ($row->branch === 'L') {
-                    $volumes['left_pv'] = $this->decimal((string) $row->getAttribute('total_pv'));
+                    $volumes['left_pv'] = bcadd($volumes['left_pv'], (string) $row->pv, 2);
                 }
 
                 if ($row->branch === 'R') {
-                    $volumes['right_pv'] = $this->decimal((string) $row->getAttribute('total_pv'));
+                    $volumes['right_pv'] = bcadd($volumes['right_pv'], (string) $row->pv, 2);
                 }
             });
 
-        return $volumes;
+        return [
+            'left_pv' => $this->decimal($volumes['left_pv']),
+            'right_pv' => $this->decimal($volumes['right_pv']),
+        ];
     }
 
     /**
@@ -278,28 +280,78 @@ class DashboardBranchVolumeService
         }
 
         $volumes = [];
+        $uplineNodes = $nodes
+            ->filter(fn (BinaryNode $node): bool => $node->user !== null)
+            ->keyBy(fn (BinaryNode $node): int => (int) $node->user->id);
 
         PvTransaction::query()
-            ->selectRaw('upline_id, branch, COALESCE(SUM(pv), 0) as total_pv')
+            ->with(['buyer.binaryNode'])
             ->whereIn('upline_id', $userIds)
+            ->whereColumn('buyer_id', '!=', 'upline_id')
             ->whereNull('voided_at')
             ->whereHas('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER))
-            ->groupBy('upline_id', 'branch')
             ->get()
-            ->each(function (PvTransaction $row) use (&$volumes): void {
+            ->each(function (PvTransaction $row) use (&$volumes, $uplineNodes): void {
                 $uplineId = (int) $row->getAttribute('upline_id');
+                $uplineNode = $uplineNodes->get($uplineId);
+
+                if (! $uplineNode || ! $this->buyerBelongsToDirectionalBranch($uplineNode, $row->buyer?->binaryNode, $row->branch)) {
+                    return;
+                }
+
                 $volumes[$uplineId] ??= ['left_pv' => '0.00', 'right_pv' => '0.00'];
 
                 if ($row->branch === 'L') {
-                    $volumes[$uplineId]['left_pv'] = $this->decimal((string) $row->getAttribute('total_pv'));
+                    $volumes[$uplineId]['left_pv'] = bcadd($volumes[$uplineId]['left_pv'], (string) $row->pv, 2);
                 }
 
                 if ($row->branch === 'R') {
-                    $volumes[$uplineId]['right_pv'] = $this->decimal((string) $row->getAttribute('total_pv'));
+                    $volumes[$uplineId]['right_pv'] = bcadd($volumes[$uplineId]['right_pv'], (string) $row->pv, 2);
                 }
             });
 
-        return $volumes;
+        return collect($volumes)
+            ->map(fn (array $row): array => [
+                'left_pv' => $this->decimal($row['left_pv']),
+                'right_pv' => $this->decimal($row['right_pv']),
+            ])
+            ->all();
+    }
+
+    public function buyerBelongsToDirectionalBranch(BinaryNode $uplineNode, ?BinaryNode $buyerNode, ?string $branch): bool
+    {
+        $branch = strtoupper((string) $branch);
+
+        if (! in_array($branch, ['L', 'R'], true) || ! $buyerNode?->path || ! $uplineNode->path) {
+            return false;
+        }
+
+        $uplinePath = trim((string) $uplineNode->path, '.');
+        $buyerPath = trim((string) $buyerNode->path, '.');
+
+        if ($buyerPath === $uplinePath || ! str_starts_with($buyerPath, $uplinePath.'.')) {
+            return false;
+        }
+
+        $relativePath = substr($buyerPath, strlen($uplinePath) + 1);
+        $relativeUserIds = array_values(array_filter(explode('.', $relativePath), fn (string $id): bool => $id !== ''));
+
+        if ($relativeUserIds === []) {
+            return false;
+        }
+
+        $positions = BinaryNode::query()
+            ->whereIn('user_id', array_map('intval', $relativeUserIds))
+            ->where('is_active', true)
+            ->pluck('position', 'user_id');
+
+        foreach ($relativeUserIds as $userId) {
+            if (strtoupper((string) $positions->get((int) $userId)) !== $branch) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -320,26 +372,27 @@ class DashboardBranchVolumeService
             }
         }
 
-        $calculateSubtreePv = function (BinaryNode $node) use (&$calculateSubtreePv, &$volumes, $childrenByParentId): string {
+        $calculateDirectionalPv = function (BinaryNode $node) use (&$calculateDirectionalPv, &$volumes, $childrenByParentId): array {
             $leftPv = '0.00';
             $rightPv = '0.00';
-            $otherPv = '0.00';
+            $subtreeChildrenPv = '0.00';
 
             foreach ($childrenByParentId[$node->id] ?? [] as $child) {
-                $childSubtreePv = $calculateSubtreePv($child);
+                $childVolumes = $calculateDirectionalPv($child);
+                $childOwnPv = $this->nodeTurnoverPv($child);
+                $childSubtreePv = $childVolumes['subtree_turnover_pv'];
+                $subtreeChildrenPv = bcadd($subtreeChildrenPv, $childSubtreePv, 2);
 
                 if ($child->position === 'L') {
-                    $leftPv = bcadd($leftPv, $childSubtreePv, 2);
+                    $leftPv = bcadd($leftPv, bcadd($childOwnPv, $childVolumes['left_branch_pv'], 2), 2);
                 } elseif ($child->position === 'R') {
-                    $rightPv = bcadd($rightPv, $childSubtreePv, 2);
-                } else {
-                    $otherPv = bcadd($otherPv, $childSubtreePv, 2);
+                    $rightPv = bcadd($rightPv, bcadd($childOwnPv, $childVolumes['right_branch_pv'], 2), 2);
                 }
             }
 
             $weakLegPv = $this->minDecimal($leftPv, $rightPv);
             $ownTurnoverPv = $this->nodeTurnoverPv($node);
-            $subtreeTurnoverPv = bcadd(bcadd($ownTurnoverPv, $leftPv, 2), bcadd($rightPv, $otherPv, 2), 2);
+            $subtreeTurnoverPv = bcadd($ownTurnoverPv, $subtreeChildrenPv, 2);
             $volumes[$node->id] = [
                 'left_branch_pv' => $leftPv,
                 'right_branch_pv' => $rightPv,
@@ -347,12 +400,12 @@ class DashboardBranchVolumeService
                 'subtree_turnover_pv' => $subtreeTurnoverPv,
             ];
 
-            return $subtreeTurnoverPv;
+            return $volumes[$node->id];
         };
 
         foreach ($nodes as $node) {
             if ($node->parent_id === null || ! isset($nodesById[$node->parent_id])) {
-                $calculateSubtreePv($node);
+                $calculateDirectionalPv($node);
             }
         }
 
@@ -400,21 +453,21 @@ class DashboardBranchVolumeService
         };
     }
 
-    private function resolveBranchVolume(string $cachedPv, string $transactionPv, string $fallbackPv): string
+    private function resolveBranchVolume(string $cachedPv, string $transactionPv, string $fallbackPv, bool $allowCachedFallback = true): string
     {
         $cachedPv = $this->decimal($cachedPv);
         $transactionPv = $this->decimal($transactionPv);
         $fallbackPv = $this->decimal($fallbackPv);
 
-        if (bccomp($cachedPv, '0.00', 2) > 0) {
-            return $cachedPv;
-        }
-
         if (bccomp($transactionPv, '0.00', 2) > 0) {
             return $transactionPv;
         }
 
-        return $fallbackPv;
+        if (bccomp($fallbackPv, '0.00', 2) > 0) {
+            return $fallbackPv;
+        }
+
+        return $allowCachedFallback ? $cachedPv : '0.00';
     }
 
     private function isActiveMlmPartner(User $user): bool

@@ -10,6 +10,7 @@ use App\Models\BinaryNode;
 use App\Models\BinaryBonusRun;
 use App\Models\BonusTransaction;
 use App\Models\Order;
+use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Models\WithdrawalRequest;
 use App\Services\DashboardBranchVolumeService;
@@ -49,9 +50,15 @@ class OverviewController extends Controller
         $teamCount = $this->descendantsQuery($user->binaryNode?->path)
             ->whereHas('user', fn ($query) => $query->where('role', 'user')->activeAccount())
             ->count();
+        $canInvite = $user->canInvitePartners();
 
         return response()->json([
             'user' => UserResource::make($user),
+            'can_invite' => $canInvite,
+            'referral_links' => [
+                'left' => $canInvite ? $this->referralLink($request, $user, 'left') : '',
+                'right' => $canInvite ? $this->referralLink($request, $user, 'right') : '',
+            ],
             'wallets' => WalletResource::collection($user->wallets),
             'balances' => [
                 'available' => $mainWalletBalance,
@@ -127,6 +134,20 @@ class OverviewController extends Controller
             fn ($query) => $query->where('path', 'like', $path.'.%')->where('is_active', true),
             fn ($query) => $query->whereRaw('1 = 0'),
         );
+    }
+
+    private function referralLink(Request $request, User $user, string $branch): string
+    {
+        $referralCode = trim((string) $user->login);
+
+        if ($referralCode === '') {
+            return '';
+        }
+
+        return $request->getSchemeAndHttpHost().'/register-ref-branch?'.http_build_query([
+            'ref' => $referralCode,
+            'branch' => $branch,
+        ]);
     }
 
     /**

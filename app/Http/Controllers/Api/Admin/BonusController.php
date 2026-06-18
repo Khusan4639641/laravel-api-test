@@ -7,7 +7,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\BonusTransactionResource;
 use App\Models\BonusTransaction;
 use App\Models\User;
+use App\Services\BonusAdminAdjustmentService;
 use App\Services\BonusService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -18,6 +20,7 @@ class BonusController extends Controller
 
     public function __construct(
         private readonly BonusService $bonusService,
+        private readonly BonusAdminAdjustmentService $bonusAdjustmentService,
     ) {
     }
 
@@ -85,10 +88,6 @@ class BonusController extends Controller
                 ->where('role', User::ROLE_USER)
                 ->activeAccount()
                 ->whereHas('currentPackage')
-                ->where(function ($query): void {
-                    $query->where('remaining_left_pv', '>', 0)
-                        ->where('remaining_right_pv', '>', 0);
-                })
                 ->orderBy('id')
                 ->each(function (User $user) use ($calculated): void {
                     $bonusTransaction = $this->bonusService->calculateBinaryBonus($user);
@@ -119,6 +118,66 @@ class BonusController extends Controller
 
         return response()->json([
             'bonus_transaction' => BonusTransactionResource::make($bonusTransaction->load('walletTransaction')),
+        ]);
+    }
+
+    public function recalculatePeriod(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'date_from' => ['required', 'date'],
+            'date_to' => ['required', 'date', 'after_or_equal:date_from'],
+            'force' => ['sometimes', 'boolean'],
+        ]);
+
+        $dateFrom = CarbonImmutable::parse($validated['date_from'])->startOfDay();
+        $dateTo = CarbonImmutable::parse($validated['date_to'])->endOfDay();
+        $force = (bool) ($validated['force'] ?? false);
+        $result = $this->bonusService->recalculateBinaryBonusesForPeriod($request->user(), $dateFrom, $dateTo, $force);
+
+        return response()->json([
+            'message' => $force ? 'Бонусы за период полностью пересчитаны' : 'Бонусы за период рассчитаны',
+            'date_from' => $dateFrom->toDateString(),
+            'date_to' => $dateTo->toDateString(),
+            'force' => $force,
+            ...$result,
+        ]);
+    }
+
+    public function update(Request $request, BonusTransaction $bonus): JsonResponse
+    {
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'gt:0'],
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        $bonus = $this->bonusAdjustmentService->updateAmount(
+            $bonus,
+            $request->user(),
+            (string) $validated['amount'],
+            $validated['reason'],
+        );
+
+        return response()->json([
+            'message' => 'Бонус обновлён',
+            'bonus' => BonusTransactionResource::make($bonus),
+        ]);
+    }
+
+    public function destroy(Request $request, BonusTransaction $bonus): JsonResponse
+    {
+        $validated = $request->validate([
+            'reason' => ['required', 'string', 'min:3', 'max:500'],
+        ]);
+
+        $this->bonusAdjustmentService->delete(
+            $bonus,
+            $request->user(),
+            $validated['reason'],
+        );
+
+        return response()->json([
+            'message' => 'Бонус удалён',
+            'bonus_id' => $bonus->id,
         ]);
     }
 

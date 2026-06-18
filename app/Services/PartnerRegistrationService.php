@@ -35,6 +35,7 @@ class PartnerRegistrationService
     ): User {
         return DB::transaction(function () use ($data, $actor, $payReferralBonus, $source, $notifyRegisteredUser): User {
             $referralCode = $data['referral_code'] ?? $data['ref'] ?? $data['sponsor_code'] ?? null;
+            $requiresActiveSponsorPackage = $this->requiresActiveSponsorPackage($source);
             $sponsor = $this->resolveSponsorByReferralCode(
                 $referralCode,
                 isset($data['sponsor_id']) ? (int) $data['sponsor_id'] : null,
@@ -44,6 +45,12 @@ class PartnerRegistrationService
             if ($this->hasSponsorInput($referralCode, $data['sponsor_id'] ?? null) && ! $sponsor) {
                 throw ValidationException::withMessages([
                     'referral_code' => ['Пригласитель не найден или недоступен'],
+                ]);
+            }
+
+            if ($sponsor && $requiresActiveSponsorPackage && ! $sponsor->canInvitePartners()) {
+                throw ValidationException::withMessages([
+                    'referral_code' => ['У пригласителя нет активного пакета. Регистрация по этой ссылке недоступна.'],
                 ]);
             }
 
@@ -66,11 +73,12 @@ class PartnerRegistrationService
         });
     }
 
-    public function resolveSponsorByReferralCode(mixed $referralCode = null, ?int $sponsorId = null): ?User
+    public function resolveSponsorByReferralCode(mixed $referralCode = null, ?int $sponsorId = null, bool $requireActivePackage = false): ?User
     {
         if ($sponsorId) {
             return User::query()
                 ->eligibleSponsor()
+                ->when($requireActivePackage, fn ($query) => $this->activeSponsorPackageConstraint($query))
                 ->find($sponsorId);
         }
 
@@ -88,6 +96,7 @@ class PartnerRegistrationService
 
         return User::query()
             ->eligibleSponsor()
+            ->when($requireActivePackage, fn ($query) => $this->activeSponsorPackageConstraint($query))
             ->where(function ($query) use ($referralCode, $normalizedCode, $optionalCodeColumns): void {
                 $query->whereRaw('LOWER(login) = ?', [$normalizedCode]);
 
@@ -100,6 +109,19 @@ class PartnerRegistrationService
                 }
             })
             ->first();
+    }
+
+    private function requiresActiveSponsorPackage(string $source): bool
+    {
+        return $source === 'public_referral_registration';
+    }
+
+    private function activeSponsorPackageConstraint($query)
+    {
+        return $query->whereHas('currentPackage', fn ($packageQuery) => $packageQuery
+            ->where('is_active', true)
+            ->where('status', 'active')
+            ->whereIn('code', Package::PUBLIC_CODES));
     }
 
     private function hasSponsorInput(mixed $referralCode, mixed $sponsorId): bool

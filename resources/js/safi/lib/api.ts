@@ -1050,6 +1050,30 @@ export async function calculateAdminBinaryBonuses<T = unknown>() {
   });
 }
 
+export async function recalculateAdminBonuses<T = unknown>(payload: { date_from: string; date_to: string; force?: boolean }) {
+  return apiRequest<T>(`${endpoints.admin.bonuses}/binary/recalculate`, {
+    method: 'POST',
+    body: payload,
+    auth: true,
+  });
+}
+
+export async function updateAdminBonus<T = unknown>(bonusId: string | number, payload: { amount: number | string; reason: string }) {
+  return apiRequest<T>(`${endpoints.admin.bonuses}/${encodeEndpointId(bonusId)}`, {
+    method: 'PATCH',
+    body: payload,
+    auth: true,
+  });
+}
+
+export async function deleteAdminBonus<T = unknown>(bonusId: string | number, payload: { reason: string }) {
+  return apiRequest<T>(`${endpoints.admin.bonuses}/${encodeEndpointId(bonusId)}`, {
+    method: 'DELETE',
+    body: payload,
+    auth: true,
+  });
+}
+
 export async function getAdminUser<T = unknown>(userId: string | number) {
   return apiRequest<T>(endpoints.admin.user(userId), {
     method: 'GET',

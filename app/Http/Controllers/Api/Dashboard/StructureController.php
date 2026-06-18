@@ -41,7 +41,8 @@ class StructureController extends Controller
             fn (BinaryNode $node) => $this->decorateNodeWithRootBranch($node, $rootSegments, $rootChildren, $rootDepth)
         );
 
-        $partnerRows = $this->partnerRows($descendantNodes);
+        $nodeVolumes = $branchVolumeService->calculateNodeBranchVolumes($descendantNodes);
+        $partnerRows = $this->partnerRows($descendantNodes, $nodeVolumes);
         $filteredPartnerRows = $this->filterPartnerRows($partnerRows, $request);
         $paginator = $this->paginateRows($filteredPartnerRows, $request);
         $branchCounts = $this->branchCounts($partnerRows);
@@ -84,15 +85,19 @@ class StructureController extends Controller
             ],
         ];
 
+        $canInvite = $this->canInvite($user);
+
         return response()->json([
             'summary' => $summary,
             'referral_links' => [
-                'left' => $this->referralLink($request, $user, 'left'),
-                'right' => $this->referralLink($request, $user, 'right'),
+                'left' => $canInvite ? $this->referralLink($request, $user, 'left') : '',
+                'right' => $canInvite ? $this->referralLink($request, $user, 'right') : '',
             ],
+            'can_invite' => $canInvite,
             'structure' => [
                 'root_user_id' => $user->id,
                 'referral_code' => $user->login ?: (string) $user->id,
+                'can_invite' => $canInvite,
                 ...$summary,
             ],
             'tree' => $this->tree($user, $rootNode, $descendantNodes, $rootDepth),
@@ -129,11 +134,11 @@ class StructureController extends Controller
      * @param  Collection<int, BinaryNode>  $descendantNodes
      * @return Collection<int, array<string, mixed>>
      */
-    private function partnerRows(Collection $descendantNodes): Collection
+    private function partnerRows(Collection $descendantNodes, array $nodeVolumes): Collection
     {
         return $descendantNodes
             ->filter(fn (BinaryNode $node): bool => $node->user !== null && $node->user->role === User::ROLE_USER && $node->user->account_status === 'active')
-            ->map(fn (BinaryNode $node): array => $this->partnerRow($node->user, $node))
+            ->map(fn (BinaryNode $node): array => $this->partnerRow($node->user, $node, $nodeVolumes[$node->id] ?? null))
             ->unique('id')
             ->values();
     }
@@ -200,11 +205,11 @@ class StructureController extends Controller
     /**
      * @return array<string, mixed>
      */
-    private function partnerRow(User $partner, ?BinaryNode $node): array
+    private function partnerRow(User $partner, ?BinaryNode $node, ?array $nodeVolume = null): array
     {
         $package = $partner->currentPackage;
-        $leftPv = (float) ($partner->left_pv ?? 0);
-        $rightPv = (float) ($partner->right_pv ?? 0);
+        $leftPv = (string) ($nodeVolume['left_branch_pv'] ?? $partner->left_pv ?? '0.00');
+        $rightPv = (string) ($nodeVolume['right_branch_pv'] ?? $partner->right_pv ?? '0.00');
         $line = (int) ($node?->getAttribute('relative_level') ?? $node?->depth ?? 1);
         $branch = $this->branchCode($node?->getAttribute('root_branch') ?? $node?->position);
 
@@ -231,9 +236,9 @@ class StructureController extends Controller
             'account_status' => $partner->account_status,
             'account_status_label' => \App\Support\SystemLabel::accountStatus($partner->account_status),
             'personal_pv' => $package ? (float) $package->activityPv() : 0,
-            'team_pv' => $leftPv + $rightPv,
-            'left_pv' => $partner->left_pv,
-            'right_pv' => $partner->right_pv,
+            'team_pv' => (float) $leftPv + (float) $rightPv,
+            'left_pv' => number_format((float) $leftPv, 2, '.', ''),
+            'right_pv' => number_format((float) $rightPv, 2, '.', ''),
             'registered_at' => $partner->created_at?->toDateString(),
             'registered_date' => $partner->created_at?->toDateString(),
             'created_at' => $partner->created_at?->toISOString(),
@@ -387,5 +392,10 @@ class StructureController extends Controller
             'ref' => $referralCode,
             'branch' => $branch,
         ]);
+    }
+
+    private function canInvite(User $user): bool
+    {
+        return $user->canInvitePartners();
     }
 }

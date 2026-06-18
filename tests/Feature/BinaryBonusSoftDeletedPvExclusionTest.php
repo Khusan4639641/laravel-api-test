@@ -22,6 +22,7 @@ class BinaryBonusSoftDeletedPvExclusionTest extends TestCase
         $root = $this->rootWithPackage('ELITE');
         ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($root);
         $deletedRightBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'active']);
+        $this->placeDirectionalBuyer($root, $deletedRightBuyer, 'R');
 
         $this->pv($root, $leftBuyer, 'L', 2000);
         $this->pv($root, $rightBuyer, 'R', 2000);
@@ -42,6 +43,7 @@ class BinaryBonusSoftDeletedPvExclusionTest extends TestCase
         $root = $this->rootWithPackage('ELITE');
         ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($root);
         $deletedLeftBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'active']);
+        $this->placeDirectionalBuyer($root, $deletedLeftBuyer, 'L');
 
         $this->pv($root, $leftBuyer, 'L', 2000);
         $this->pv($root, $deletedLeftBuyer, 'L', 300);
@@ -59,6 +61,7 @@ class BinaryBonusSoftDeletedPvExclusionTest extends TestCase
         $root = $this->rootWithPackage('ELITE');
         ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($root);
         $deletedRightBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'active']);
+        $this->placeDirectionalBuyer($root, $deletedRightBuyer, 'R');
 
         $this->pv($root, $leftBuyer, 'L', 2000);
         $this->pv($root, $rightBuyer, 'R', 2000);
@@ -79,6 +82,7 @@ class BinaryBonusSoftDeletedPvExclusionTest extends TestCase
         $root = $this->rootWithPackage('ELITE');
         ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($root);
         $voidedLeftBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'active']);
+        $this->placeDirectionalBuyer($root, $voidedLeftBuyer, 'L');
 
         $this->pv($root, $leftBuyer, 'L', 2000);
         $this->pv($root, $voidedLeftBuyer, 'L', 500, true, 'reversed_order', now());
@@ -97,6 +101,8 @@ class BinaryBonusSoftDeletedPvExclusionTest extends TestCase
         ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($root);
         $archivedRightBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'archived']);
         $blockedRightBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'blocked']);
+        $this->placeDirectionalBuyer($root, $archivedRightBuyer, 'R');
+        $this->placeDirectionalBuyer($root, $blockedRightBuyer, 'R');
 
         $this->pv($root, $leftBuyer, 'L', 2000);
         $this->pv($root, $rightBuyer, 'R', 2000);
@@ -131,6 +137,7 @@ class BinaryBonusSoftDeletedPvExclusionTest extends TestCase
         $root = $this->rootWithPackage('ELITE');
         ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($root);
         $eliteUpgradeBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'active']);
+        $this->placeDirectionalBuyer($root, $eliteUpgradeBuyer, 'R');
 
         $this->pv($root, $leftBuyer, 'L', 2000);
         $this->pv($root, $rightBuyer, 'R', 2000);
@@ -167,6 +174,8 @@ class BinaryBonusSoftDeletedPvExclusionTest extends TestCase
         ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($root);
         $deletedRightBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'active']);
         $eliteUpgradeBuyer = User::factory()->create(['role' => User::ROLE_USER, 'account_status' => 'active']);
+        $this->placeDirectionalBuyer($root, $deletedRightBuyer, 'R');
+        $this->placeDirectionalBuyer($root, $eliteUpgradeBuyer, 'R');
 
         $this->pv($root, $leftBuyer, 'L', 2000);
         $this->pv($root, $rightBuyer, 'R', 2000);
@@ -278,6 +287,18 @@ class BinaryBonusSoftDeletedPvExclusionTest extends TestCase
                 'package_code' => $source === 'package_elite_upgrade' ? 'ELITE' : null,
             ],
         ]);
+    }
+
+    private function placeDirectionalBuyer(User $root, User $buyer, string $branch): void
+    {
+        $rootNode = $this->ensureBinaryNode($root);
+        $parent = $rootNode;
+
+        while ($next = $parent->children()->where('position', $branch)->where('is_active', true)->first()) {
+            $parent = $next;
+        }
+
+        $this->createChildNode($parent, $buyer, $branch);
     }
 
     private function calculateBinary(User $root): BonusTransaction

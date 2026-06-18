@@ -58,6 +58,11 @@ export default function Structure() {
   const [structure, setStructure] = useState({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
   const [partners, setPartners] = useState<StructurePartnerRow[]>([]);
   const [partnersMeta, setPartnersMeta] = useState<PartnersMeta>(defaultPartnersMeta);
+  const [canInvite, setCanInvite] = useState(currentUser.canInvite);
+  const [referralLinks, setReferralLinks] = useState<Record<ReferralBranch, string>>({
+    left: currentUser.canInvite ? buildReferralBranchUrl(currentUser.referralCode, 'left') : '',
+    right: currentUser.canInvite ? buildReferralBranchUrl(currentUser.referralCode, 'right') : '',
+  });
 
   const loadStructure = useCallback(async () => {
     setIsPartnersLoading(true);
@@ -73,6 +78,12 @@ export default function Structure() {
       const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
       const summaryRecord = record.summary && typeof record.summary === 'object' ? record.summary as Record<string, unknown> : {};
       const structureRecord = record.structure && typeof record.structure === 'object' ? record.structure as Record<string, unknown> : summaryRecord;
+      const referralLinksRecord = record.referral_links && typeof record.referral_links === 'object' ? record.referral_links as Record<string, unknown> : {};
+      const inviteAvailable = typeof record.can_invite === 'boolean'
+        ? record.can_invite
+        : typeof structureRecord.can_invite === 'boolean'
+          ? structureRecord.can_invite
+          : currentUser.canInvite;
       const list = getStructurePartners(record).map((item, index) => {
         const node = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const nestedUser = node.user && typeof node.user === 'object' ? node.user as Record<string, unknown> : null;
@@ -110,6 +121,11 @@ export default function Structure() {
       });
       setPartners(list);
       setPartnersMeta(getPartnersMeta(record));
+      setCanInvite(inviteAvailable);
+      setReferralLinks({
+        left: inviteAvailable ? (getString(referralLinksRecord, ['left']) || buildReferralBranchUrl(currentUser.referralCode, 'left')) : '',
+        right: inviteAvailable ? (getString(referralLinksRecord, ['right']) || buildReferralBranchUrl(currentUser.referralCode, 'right')) : '',
+      });
       const leftPV = getNumber(structureRecord, ['left_pv', 'leftPV', 'left_branch_pv', 'leftBranchPv']) ?? 0;
       const rightPV = getNumber(structureRecord, ['right_pv', 'rightPV', 'right_branch_pv', 'rightBranchPv']) ?? 0;
       setStructure({
@@ -126,12 +142,14 @@ export default function Structure() {
       setPartners([]);
       setPartnersMeta(defaultPartnersMeta);
       setStructure({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
+      setCanInvite(false);
+      setReferralLinks({ left: '', right: '' });
       setError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
       setIsPartnersLoading(false);
     }
-  }, [branchFilter, page, perPage, searchTerm]);
+  }, [branchFilter, currentUser.canInvite, currentUser.referralCode, page, perPage, searchTerm]);
 
   useEffect(() => {
     void loadStructure();
@@ -152,10 +170,6 @@ export default function Structure() {
   const paginationItems = getPaginationItems(partnersMeta.current_page, partnersMeta.last_page);
   const canGoPrev = partnersMeta.current_page > 1 && !isPartnersLoading;
   const canGoNext = partnersMeta.current_page < partnersMeta.last_page && !isPartnersLoading;
-  const referralLinks: Record<ReferralBranch, string> = {
-    left: buildReferralBranchUrl(currentUser.referralCode, 'left'),
-    right: buildReferralBranchUrl(currentUser.referralCode, 'right'),
-  };
   const changePage = (nextPage: number) => {
     if (nextPage < 1 || nextPage > partnersMeta.last_page || nextPage === partnersMeta.current_page || isPartnersLoading) {
       return;
@@ -203,8 +217,8 @@ export default function Structure() {
         <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
           <h2 className="font-serif text-3xl font-semibold text-safi-green">Реферальные ссылки</h2>
           <div className="mt-6 space-y-4">
-            <ReferralBox label="Левая ветка" link={referralLinks.left} />
-            <ReferralBox label="Правая ветка" link={referralLinks.right} />
+            <ReferralBox label="Левая ветка" link={canInvite ? referralLinks.left : ''} />
+            <ReferralBox label="Правая ветка" link={canInvite ? referralLinks.right : ''} />
           </div>
         </article>
 
@@ -562,7 +576,7 @@ function ReferralBox({ label, link }: { label: string; link: string }) {
           </button>
         </>
       ) : (
-        <div className="text-xs leading-5 text-safi-muted">Реферальная ссылка временно недоступна. Обратитесь к администратору.</div>
+        <div className="text-xs leading-5 text-safi-muted">Реферальные ссылки станут доступны после активации пакета.</div>
       )}
     </div>
   );

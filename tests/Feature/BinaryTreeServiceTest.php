@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\BinaryNode;
+use App\Models\Package;
 use App\Models\User;
 use App\Services\BinaryTreeService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -46,7 +47,8 @@ class BinaryTreeServiceTest extends TestCase
     public function test_referral_endpoint_returns_link_status_and_spillover_parent(): void
     {
         $service = app(BinaryTreeService::class);
-        $sponsor = User::factory()->create();
+        $package = $this->package();
+        $sponsor = User::factory()->create(['current_package_id' => $package->id]);
         $leftUser = User::factory()->create();
         $service->placeUser($leftUser, $sponsor, 'L');
 
@@ -63,7 +65,8 @@ class BinaryTreeServiceTest extends TestCase
 
     public function test_register_places_user_when_sponsor_and_branch_are_present(): void
     {
-        $sponsor = User::factory()->create();
+        $package = $this->package();
+        $sponsor = User::factory()->create(['current_package_id' => $package->id]);
 
         $response = $this->postJson('/api/register', [
             'name' => 'Referral User',
@@ -89,8 +92,10 @@ class BinaryTreeServiceTest extends TestCase
 
     public function test_register_places_user_by_referral_code_and_branch(): void
     {
+        $package = $this->package();
         $sponsor = User::factory()->create([
             'login' => 'SAFI',
+            'current_package_id' => $package->id,
         ]);
 
         $response = $this->postJson('/api/register', [
@@ -136,8 +141,10 @@ class BinaryTreeServiceTest extends TestCase
 
     public function test_register_rejects_missing_referral_branch(): void
     {
+        $package = $this->package();
         User::factory()->create([
             'login' => 'SAFI',
+            'current_package_id' => $package->id,
         ]);
 
         $response = $this->postJson('/api/register', [
@@ -153,5 +160,24 @@ class BinaryTreeServiceTest extends TestCase
         $response
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['branch']);
+    }
+
+    private function package(): Package
+    {
+        return Package::query()->create([
+            'code' => 'START',
+            'name' => 'START',
+            'slug' => 'start-'.uniqid(),
+            'price' => 60000,
+            'pv' => 100,
+            'activity_pv' => 100,
+            'turnover_pv' => 100,
+            'referral_percent' => 10,
+            'binary_percent' => 7,
+            'sort_order' => 1,
+            'status' => 'active',
+            'is_active' => true,
+            'is_upgradeable' => true,
+        ]);
     }
 }

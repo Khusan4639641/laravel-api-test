@@ -6,6 +6,7 @@ use App\Models\BonusTransaction;
 use App\Models\BinaryBonusCalculation;
 use App\Models\BinaryBonusRun;
 use App\Models\Package;
+use App\Models\PvTransaction;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use Illuminate\Support\Carbon;
@@ -259,7 +260,7 @@ class BinaryBonusCalculationTest extends TestCase
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 600,
         ]);
-        $this->makeBinaryBonusEligible($user);
+        $eligible = $this->makeBinaryBonusEligible($user);
 
         Sanctum::actingAs($admin);
 
@@ -271,6 +272,14 @@ class BinaryBonusCalculationTest extends TestCase
         $user->refresh()->forceFill([
             'remaining_right_pv' => 400,
         ])->save();
+        PvTransaction::query()->create([
+            'buyer_id' => $eligible['right']->id,
+            'upline_id' => $user->id,
+            'source' => 'test_next_binary_period',
+            'branch' => 'R',
+            'pv' => '400.00',
+            'is_bonusable' => true,
+        ]);
 
         Carbon::setTestNow('2026-06-20 10:00:00');
 

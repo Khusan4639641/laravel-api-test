@@ -47,7 +47,7 @@ class RegistrationPackageRulesTest extends TestCase
     public function test_register_with_package_choice_assigns_package_and_accrues_referral_bonus(): void
     {
         $start = $this->createPackage('START', 60000, 100);
-        $sponsor = User::factory()->create();
+        $sponsor = User::factory()->create(['current_package_id' => $start->id]);
 
         $this->postJson('/api/register', $this->registerPayload('start-not-paid', [
             'package_id' => $start->id,

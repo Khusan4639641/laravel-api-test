@@ -202,6 +202,10 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
 
         Route::middleware('role_permission:admin.bonuses.manage')->group(function (): void {
             Route::post('/bonuses/binary/calculate', [AdminBonusController::class, 'calculateBinary']);
+            Route::post('/bonuses/binary/recalculate', [AdminBonusController::class, 'recalculatePeriod']);
+            Route::post('/bonuses/recalculate', [AdminBonusController::class, 'recalculatePeriod']);
+            Route::patch('/bonuses/{bonus}', [AdminBonusController::class, 'update']);
+            Route::delete('/bonuses/{bonus}', [AdminBonusController::class, 'destroy']);
             Route::post('/partners/{user}/binary-bonus/calculate', [AdminPartnerController::class, 'calculateBinaryBonus']);
             Route::post('/partners/{user}/binary/recalculate', [AdminPartnerController::class, 'recalculateBinaryBonus']);
         });
