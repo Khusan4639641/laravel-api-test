@@ -129,8 +129,15 @@ interface TreeLayoutItem {
   isRoot?: boolean;
 }
 
+interface TreeNodeMeasurement {
+  width: number;
+  height: number;
+}
+
 interface TreeConnector {
   id: string;
+  fromItemId: string;
+  toItemId: string;
   fromX: number;
   fromY: number;
   toX: number;
@@ -143,6 +150,7 @@ interface TreeLayout {
   height: number;
   rootCenterX: number;
   rootY: number;
+  rootItemId: string;
   items: TreeLayoutItem[];
   connectors: TreeConnector[];
 }
@@ -169,27 +177,27 @@ const defaultTreeViewSettings: TreeViewSettings = {
 const treeNodeSizeConfigs: Record<TreeNodeSize, TreeSizeConfig> = {
   small: {
     width: 110,
-    height: 164,
+    height: 190,
     avatar: 'h-8 w-8 text-sm',
     padding: 'p-2',
     nameText: 'text-[11px]',
     metaText: 'text-[9px]',
     detailText: 'text-[9px]',
-    pvText: 'text-[7px]',
+    pvText: 'text-[8px]',
   },
   normal: {
     width: 140,
-    height: 188,
+    height: 215,
     avatar: 'h-10 w-10 text-base',
     padding: 'p-3',
     nameText: 'text-xs',
     metaText: 'text-[10px]',
     detailText: 'text-[10px]',
-    pvText: 'text-[8px]',
+    pvText: 'text-[9px]',
   },
   large: {
     width: 170,
-    height: 220,
+    height: 245,
     avatar: 'h-12 w-12 text-lg',
     padding: 'p-4',
     nameText: 'text-sm',
@@ -265,6 +273,7 @@ export default function AdminStructure() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [treeSettings, setTreeSettings] = useState<TreeViewSettings>(() => readTreeViewSettings());
+  const [treeNodeMeasurements, setTreeNodeMeasurements] = useState<Record<string, TreeNodeMeasurement>>({});
 
   const loadStructure = async () => {
     setIsLoading(true);
@@ -332,6 +341,35 @@ export default function AdminStructure() {
     () => rootNode ? computeTreeLayout(rootNode, treeSettings, nodeSizeConfig, densityConfig) : null,
     [rootNode, treeSettings.nodeSize, treeSettings.density, treeSettings.showEmptySlots, nodeSizeConfig, densityConfig],
   );
+  const treeItemsById = useMemo(() => {
+    const itemsById = new Map<string, TreeLayoutItem>();
+
+    treeLayout?.items.forEach((item) => {
+      itemsById.set(item.id, item);
+    });
+
+    return itemsById;
+  }, [treeLayout]);
+  const treeBounds = useMemo(
+    () => treeLayout ? getMeasuredTreeBounds(treeLayout, treeNodeMeasurements) : null,
+    [treeLayout, treeNodeMeasurements],
+  );
+
+  const updateTreeNodeMeasurement = useCallback((id: string, measurement: TreeNodeMeasurement) => {
+    setTreeNodeMeasurements((currentMeasurements) => {
+      const previousMeasurement = currentMeasurements[id];
+
+      if (
+        previousMeasurement
+        && Math.abs(previousMeasurement.width - measurement.width) < 1
+        && Math.abs(previousMeasurement.height - measurement.height) < 1
+      ) {
+        return currentMeasurements;
+      }
+
+      return { ...currentMeasurements, [id]: measurement };
+    });
+  }, []);
 
   const persistTreeSettings = useCallback((nextSettings: TreeViewSettings) => {
     if (typeof window === 'undefined') {
@@ -358,33 +396,39 @@ export default function AdminStructure() {
       return;
     }
 
+    const rootItem = treeItemsById.get(treeLayout.rootItemId);
+    const rootMeasurement = rootItem ? treeNodeMeasurements[rootItem.id] : undefined;
+    const rootCenterX = rootItem
+      ? rootItem.x + (rootMeasurement?.width ?? rootItem.width) / 2
+      : treeLayout.rootCenterX;
+    const rootY = rootItem?.y ?? treeLayout.rootY;
     const zoom = zoomOverride ?? treeSettings.zoom;
-    const nextScrollLeft = Math.max(0, treeLayout.rootCenterX * zoom - container.clientWidth / 2);
-    const nextScrollTop = Math.max(0, treeLayout.rootY * zoom - 40);
+    const nextScrollLeft = Math.max(0, rootCenterX * zoom - container.clientWidth / 2);
+    const nextScrollTop = Math.max(0, rootY * zoom - 40);
 
     treeProgrammaticScrollRef.current = true;
     container.scrollTo({ left: nextScrollLeft, top: nextScrollTop, behavior: 'smooth' });
     window.setTimeout(() => {
       treeProgrammaticScrollRef.current = false;
     }, 450);
-  }, [treeLayout, treeSettings.zoom]);
+  }, [treeItemsById, treeLayout, treeNodeMeasurements, treeSettings.zoom]);
 
   const fitTreeToScreen = useCallback(() => {
     const container = treeScrollRef.current;
 
-    if (!container || !treeLayout) {
+    if (!container || !treeBounds) {
       return;
     }
 
     const nextZoom = clampNumber(
-      Math.min(container.clientWidth / treeLayout.width, container.clientHeight / treeLayout.height, 1),
+      Math.min(container.clientWidth / treeBounds.width, container.clientHeight / treeBounds.height, 1),
       minTreeZoom,
       1,
     );
 
     updateTreeSettings({ zoom: nextZoom });
     window.setTimeout(() => centerTree(nextZoom), 0);
-  }, [centerTree, treeLayout, updateTreeSettings]);
+  }, [centerTree, treeBounds, updateTreeSettings]);
 
   const resetTreeView = useCallback(() => {
     if (typeof window !== 'undefined') {
@@ -401,6 +445,10 @@ export default function AdminStructure() {
   }, [rootNode?.id]);
 
   useEffect(() => {
+    setTreeNodeMeasurements({});
+  }, [rootNode?.id, treeSettings.nodeSize, treeSettings.density, treeSettings.showEmptySlots]);
+
+  useEffect(() => {
     if (!treeLayout || treeUserScrolledRef.current) {
       return;
     }
@@ -408,7 +456,7 @@ export default function AdminStructure() {
     const timeout = window.setTimeout(() => centerTree(treeSettings.zoom), 80);
 
     return () => window.clearTimeout(timeout);
-  }, [centerTree, treeLayout?.height, treeLayout?.width, rootNode?.id, treeSettings.zoom]);
+  }, [centerTree, treeBounds?.height, treeBounds?.width, rootNode?.id, treeSettings.zoom]);
 
   useEffect(() => {
     setQuery(selectedUserId);
@@ -828,37 +876,37 @@ export default function AdminStructure() {
               <div className="sticky bottom-5 left-5 z-10 mx-5 mt-5 rounded-2xl bg-[#F5F5F0] px-4 py-3 text-center text-xs font-bold text-safi-text/60">{adminText('a_0KMg0L_QsNGA')}</div>
             )}
 
-            {treeLayout && (
+            {treeLayout && treeBounds && (
               <div
                 className="relative"
                 style={{
-                  width: `${treeLayout.width * treeSettings.zoom}px`,
-                  height: `${treeLayout.height * treeSettings.zoom}px`,
+                  width: `${treeBounds.width * treeSettings.zoom}px`,
+                  height: `${treeBounds.height * treeSettings.zoom}px`,
                 }}
               >
                 <div
                   className="absolute left-0 top-0 bg-[radial-gradient(circle_at_1px_1px,rgba(35,74,58,0.08)_1px,transparent_0)] [background-size:28px_28px]"
                   style={{
-                    width: `${treeLayout.width}px`,
-                    height: `${treeLayout.height}px`,
+                    width: `${treeBounds.width}px`,
+                    height: `${treeBounds.height}px`,
                     transform: `scale(${treeSettings.zoom})`,
                     transformOrigin: 'top left',
                   }}
                 >
                   <svg
                     className="absolute inset-0"
-                    width={treeLayout.width}
-                    height={treeLayout.height}
-                    viewBox={`0 0 ${treeLayout.width} ${treeLayout.height}`}
+                    width={treeBounds.width}
+                    height={treeBounds.height}
+                    viewBox={`0 0 ${treeBounds.width} ${treeBounds.height}`}
                     style={{ pointerEvents: 'none' }}
                   >
                     {treeLayout.connectors.map((connector) => {
-                      const midY = connector.fromY + Math.max((connector.toY - connector.fromY) / 2, 24);
+                      const connectorPath = getTreeConnectorPath(connector, treeItemsById, treeNodeMeasurements);
 
                       return (
                         <path
                           key={connector.id}
-                          d={`M ${connector.fromX} ${connector.fromY} V ${midY} H ${connector.toX} V ${connector.toY}`}
+                          d={connectorPath}
                           fill="none"
                           stroke={connector.isEmptyTarget ? 'rgba(35,74,58,0.18)' : 'rgba(35,74,58,0.32)'}
                           strokeWidth="2"
@@ -870,22 +918,17 @@ export default function AdminStructure() {
                     })}
                   </svg>
                   {treeLayout.items.map((item) => (
-                    <div
+                    <MeasuredTreeItem
                       key={item.id}
-                      className="absolute"
-                      style={{
-                        left: `${item.x}px`,
-                        top: `${item.y}px`,
-                        width: `${item.width}px`,
-                        height: `${item.height}px`,
-                      }}
+                      item={item}
+                      onMeasure={updateTreeNodeMeasurement}
                     >
                       {item.kind === 'node' && item.node ? (
                         <TreeNodeCard node={item.node} isRoot={item.isRoot} onOpen={openNodeTree} sizeConfig={nodeSizeConfig} />
                       ) : (
                         <EmptyTreeSlotCard sizeConfig={nodeSizeConfig} branch={item.branch} />
                       )}
-                    </div>
+                    </MeasuredTreeItem>
                   ))}
                 </div>
               </div>
@@ -1069,10 +1112,11 @@ function TreeNodeCard({
       type="button"
       onClick={() => onOpen(node.userId)}
       className={cn(
-        'flex h-full w-full cursor-pointer flex-col rounded-2xl bg-white text-center shadow-sm transition-transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-safi-green/20',
+        'flex h-auto w-max max-w-none cursor-pointer flex-col overflow-visible rounded-2xl bg-white text-center shadow-sm transition-transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-safi-green/20',
         sizeConfig.padding,
         isRoot ? 'border-2 border-safi-gold shadow-md' : 'border border-safi-green/10',
       )}
+      style={{ minWidth: `${sizeConfig.width}px` }}
       title={adminText('a_0J7RgtC60YDR_5')}
     >
       <div className={cn(
@@ -1082,32 +1126,32 @@ function TreeNodeCard({
       )}>
         {node.name.charAt(0)}
       </div>
-      <div className={cn('mb-1 w-full truncate font-bold leading-tight text-safi-green', sizeConfig.nameText)} title={node.name}>{node.name}</div>
-      <div className={cn('mb-2 truncate rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-safi-text/50', sizeConfig.metaText)}>{node.login || node.userId}</div>
-      <div className={cn('min-h-0 flex-1 space-y-1 overflow-hidden border-t border-safi-green/5 pt-2 text-left font-bold text-safi-text/70', sizeConfig.detailText)}>
-        <div className="flex items-center justify-between gap-2">
+      <div className={cn('mb-1 w-full truncate font-bold leading-tight text-safi-green', sizeConfig.nameText)} style={{ maxWidth: `${sizeConfig.width}px` }} title={node.name}>{node.name}</div>
+      <div className={cn('mb-2 truncate rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-safi-text/50', sizeConfig.metaText)} style={{ maxWidth: `${sizeConfig.width}px` }}>{node.login || node.userId}</div>
+      <div className={cn('space-y-1 overflow-visible border-t border-safi-green/5 pt-2 text-left font-bold text-safi-text/70', sizeConfig.detailText)}>
+        <div className="grid grid-cols-[auto_max-content] items-center justify-between gap-2 whitespace-nowrap">
           <span>{adminText('Пакет')}:</span>
-          <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="max-w-[72px] truncate px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
+          <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="whitespace-nowrap px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
         </div>
-        <div className="flex items-center justify-between gap-2">
+        <div className="grid grid-cols-[auto_max-content] items-center justify-between gap-2 whitespace-nowrap">
           <span>{adminText('Статус')}:</span>
-          <span className="truncate text-safi-green">{node.status}</span>
+          <span className="whitespace-nowrap text-safi-green">{node.status}</span>
         </div>
       </div>
       <div className={cn('mt-1 shrink-0 text-center font-extrabold leading-none', sizeConfig.pvText)}>
         <div className="whitespace-nowrap text-safi-gold" title={adminText('Личный PV')} aria-label={adminText('Личный PV')}>
           PV: {node.personalPV.toLocaleString('ru-RU')}
         </div>
-        <div className="mt-1 grid grid-cols-2 gap-1 text-safi-green">
+        <div className="mt-1 grid grid-cols-[max-content_max-content] justify-center gap-1 text-safi-green">
           <span
-            className="whitespace-nowrap rounded-full bg-[#F5F5F0] px-1 py-1 text-center leading-none"
+            className="min-w-max whitespace-nowrap rounded-full bg-[#F5F5F0] px-1 py-1 text-center leading-none"
             title={adminText('Левая ветка PV')}
             aria-label={adminText('Левая ветка PV')}
           >
             {formatCompactPv(node.leftBranchPV)}
           </span>
           <span
-            className="whitespace-nowrap rounded-full bg-[#F5F5F0] px-1 py-1 text-center leading-none"
+            className="min-w-max whitespace-nowrap rounded-full bg-[#F5F5F0] px-1 py-1 text-center leading-none"
             title={adminText('Правая ветка PV')}
             aria-label={adminText('Правая ветка PV')}
           >
@@ -1121,12 +1165,112 @@ function TreeNodeCard({
 
 function EmptyTreeSlotCard({ sizeConfig, branch }: { sizeConfig: TreeSizeConfig; branch?: 'L' | 'R' }) {
   return (
-    <div className={cn('flex h-full w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-safi-green/20 bg-[#F5F5F0]/60 text-center opacity-75', sizeConfig.padding)}>
+    <div
+      className={cn('flex h-auto w-max flex-col items-center justify-center overflow-visible rounded-2xl border-2 border-dashed border-safi-green/20 bg-[#F5F5F0]/60 text-center opacity-75', sizeConfig.padding)}
+      style={{ minWidth: `${sizeConfig.width}px`, minHeight: `${Math.round(sizeConfig.height * 0.72)}px` }}
+    >
       <div className={cn('mb-2 flex items-center justify-center rounded-full bg-safi-green/5 pb-1 text-safi-green/40', sizeConfig.avatar)}>+</div>
       <div className={cn('font-bold text-safi-text/50', sizeConfig.nameText)}>{adminText('a_0KHQstC-0LHQ')}</div>
       {branch && <div className={cn('mt-1 font-mono text-safi-muted', sizeConfig.metaText)}>{branch === 'L' ? adminText('Л') : adminText('П')}</div>}
     </div>
   );
+}
+
+function MeasuredTreeItem({
+  item,
+  onMeasure,
+  children,
+}: {
+  item: TreeLayoutItem;
+  onMeasure: (id: string, measurement: TreeNodeMeasurement) => void;
+  children: ReactNode;
+}) {
+  const itemRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const element = itemRef.current;
+
+    if (!element) {
+      return;
+    }
+
+    const measure = () => {
+      onMeasure(item.id, {
+        width: Math.ceil(element.offsetWidth),
+        height: Math.ceil(element.offsetHeight),
+      });
+    };
+
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+
+    const observer = new ResizeObserver(measure);
+
+    observer.observe(element);
+
+    return () => observer.disconnect();
+  }, [item.id, onMeasure]);
+
+  return (
+    <div
+      ref={itemRef}
+      className="absolute overflow-visible"
+      style={{
+        left: `${item.x}px`,
+        top: `${item.y}px`,
+        minWidth: `${item.width}px`,
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function getTreeConnectorPath(
+  connector: TreeConnector,
+  itemsById: Map<string, TreeLayoutItem>,
+  measurements: Record<string, TreeNodeMeasurement>,
+) {
+  const fromItem = itemsById.get(connector.fromItemId);
+  const toItem = itemsById.get(connector.toItemId);
+  const fromMeasurement = fromItem ? measurements[fromItem.id] : undefined;
+  const toMeasurement = toItem ? measurements[toItem.id] : undefined;
+  const fromX = fromItem ? fromItem.x + (fromMeasurement?.width ?? fromItem.width) / 2 : connector.fromX;
+  const fromY = fromItem ? fromItem.y + (fromMeasurement?.height ?? fromItem.height) : connector.fromY;
+  const toX = toItem ? toItem.x + (toMeasurement?.width ?? toItem.width) / 2 : connector.toX;
+  const toY = toItem ? toItem.y : connector.toY;
+  const midY = fromY + Math.max((toY - fromY) / 2, 24);
+
+  return `M ${fromX} ${fromY} V ${midY} H ${toX} V ${toY}`;
+}
+
+function getMeasuredTreeBounds(layout: TreeLayout, measurements: Record<string, TreeNodeMeasurement>) {
+  let width = layout.width;
+  let height = layout.height;
+  const padding = 48;
+
+  layout.items.forEach((item) => {
+    const measurement = measurements[item.id];
+
+    width = Math.max(width, item.x + (measurement?.width ?? item.width) + padding);
+    height = Math.max(height, item.y + (measurement?.height ?? item.height) + padding);
+  });
+
+  return {
+    width: Math.ceil(width),
+    height: Math.ceil(height),
+  };
+}
+
+function getNodeItemId(node: StructureNode) {
+  return `node-${node.userId}-${node.id}`;
+}
+
+function getEmptyItemId(parent: StructureNode, branch: 'L' | 'R') {
+  return `empty-${parent.userId}-${branch}`;
 }
 
 function computeTreeLayout(
@@ -1166,7 +1310,8 @@ function computeTreeLayout(
   };
 
   const addConnector = (
-    parentId: string,
+    parentItemId: string,
+    targetItemId: string,
     parentX: number,
     parentY: number,
     childCenterX: number,
@@ -1175,7 +1320,9 @@ function computeTreeLayout(
     isEmptyTarget: boolean,
   ) => {
     connectors.push({
-      id: `${parentId}-${branch}-${isEmptyTarget ? 'empty' : 'node'}`,
+      id: `${parentItemId}-${branch}-${targetItemId}`,
+      fromItemId: parentItemId,
+      toItemId: targetItemId,
       fromX: parentX + sizeConfig.width / 2,
       fromY: parentY + sizeConfig.height,
       toX: childCenterX,
@@ -1198,9 +1345,10 @@ function computeTreeLayout(
     }
 
     const emptyX = x + slotWidth / 2 - sizeConfig.width / 2;
+    const emptyItemId = getEmptyItemId(parent, branch);
 
     items.push({
-      id: `empty-${parent.userId}-${branch}`,
+      id: emptyItemId,
       kind: 'empty',
       node: null,
       x: emptyX,
@@ -1209,14 +1357,14 @@ function computeTreeLayout(
       height: sizeConfig.height,
       branch,
     });
-    addConnector(parent.userId, parentX, parentY, emptyX + sizeConfig.width / 2, y, branch, true);
+    addConnector(getNodeItemId(parent), emptyItemId, parentX, parentY, emptyX + sizeConfig.width / 2, y, branch, true);
     maxBottom = Math.max(maxBottom, y + sizeConfig.height);
   };
 
   const layoutNode = (node: StructureNode, x: number, y: number, isRoot = false) => {
     const subtreeWidth = getNodeWidth(node);
     const nodeX = x + subtreeWidth / 2 - sizeConfig.width / 2;
-    const itemId = `node-${node.userId}-${node.id}`;
+    const itemId = getNodeItemId(node);
 
     if (isRoot) {
       rootCenterX = nodeX + sizeConfig.width / 2;
@@ -1248,9 +1396,12 @@ function computeTreeLayout(
 
     if (leftWidth > 0) {
       if (node.children.left) {
+        const childItemId = getNodeItemId(node.children.left);
+
         layoutNode(node.children.left, childX, childY);
         addConnector(
-          node.userId,
+          itemId,
+          childItemId,
           nodeX,
           y,
           childX + leftWidth / 2,
@@ -1267,9 +1418,12 @@ function computeTreeLayout(
 
     if (rightWidth > 0) {
       if (node.children.right) {
+        const childItemId = getNodeItemId(node.children.right);
+
         layoutNode(node.children.right, childX, childY);
         addConnector(
-          node.userId,
+          itemId,
+          childItemId,
           nodeX,
           y,
           childX + rightWidth / 2,
@@ -1292,6 +1446,7 @@ function computeTreeLayout(
     height: Math.ceil(maxBottom + paddingBottom),
     rootCenterX,
     rootY: paddingTop,
+    rootItemId: getNodeItemId(root),
     items,
     connectors,
   };
