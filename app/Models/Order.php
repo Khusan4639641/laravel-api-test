@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
     'order_number',
     'status',
     'payment_status',
+    'payment_strategy',
     'payment_provider',
     'payment_external_id',
     'payment_transaction_id',
@@ -22,6 +23,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
     'subtotal_amount',
     'discount_amount',
     'total_amount',
+    'card_amount',
+    'deposit_amount',
     'total_pv',
     'shipping_address',
     'recipient_name',
@@ -33,6 +36,12 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 ])]
 class Order extends Model
 {
+    public const PAYMENT_STRATEGY_CARD_100 = 'card_100';
+
+    public const PAYMENT_STRATEGY_CARD_50_DEPOSIT_50 = 'card_50_deposit_50';
+
+    public const PAYMENT_STRATEGY_DEPOSIT_100 = 'deposit_100';
+
     public const PAYMENT_PROVIDER_DEPOSIT = 'deposit';
 
     public const SOURCE_DEPOSIT_PURCHASE = 'deposit_purchase';
@@ -46,6 +55,8 @@ class Order extends Model
             'subtotal_amount' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'total_amount' => 'decimal:2',
+            'card_amount' => 'decimal:2',
+            'deposit_amount' => 'decimal:2',
             'total_pv' => 'decimal:2',
             'paid_at' => 'datetime',
             'payment_meta' => 'array',
@@ -84,7 +95,8 @@ class Order extends Model
         $metadata = is_array($this->metadata) ? $this->metadata : [];
 
         if (
-            $this->payment_provider === self::PAYMENT_PROVIDER_DEPOSIT
+            $this->payment_strategy === self::PAYMENT_STRATEGY_DEPOSIT_100
+            || $this->payment_provider === self::PAYMENT_PROVIDER_DEPOSIT
             || ($metadata['source'] ?? null) === self::SOURCE_DEPOSIT_PURCHASE
             || ($metadata['payment_wallet'] ?? null) === 'deposit'
         ) {
@@ -92,6 +104,15 @@ class Order extends Model
         }
 
         return $this->hasDepositProducts();
+    }
+
+    public static function paymentStrategyLabel(?string $strategy): string
+    {
+        return match ($strategy) {
+            self::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50 => '50% карта + 50% депозит',
+            self::PAYMENT_STRATEGY_DEPOSIT_100 => '100% депозит',
+            default => '100% карта',
+        };
     }
 
     public function hasDepositProducts(): bool

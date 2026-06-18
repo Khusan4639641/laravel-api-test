@@ -331,7 +331,7 @@ class ProductStockOrderTest extends TestCase
 
     public function test_order_creation_uses_transaction_and_product_row_lock(): void
     {
-        $source = file_get_contents(app_path('Http/Controllers/Api/OrderController.php'));
+        $source = file_get_contents(app_path('Services/CheckoutOrderService.php'));
 
         $this->assertIsString($source);
         $this->assertStringContainsString('DB::transaction', $source);

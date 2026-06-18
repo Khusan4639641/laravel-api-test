@@ -5,15 +5,16 @@ import { CheckCircle2, ShoppingCart } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ToastItem, ToastStack } from '../../components/ui/Toast';
 import { getAvailableStock, isDepositProduct, isProductOrderable, useCart } from '../../context/CartContext';
-import { getApiErrorState, getDashboardDepositProducts, getDashboardProducts, Product } from '../../lib/api';
+import { getApiErrorState, getDashboardDepositProducts, getDashboardEarningsSummary, getDashboardProducts, Product } from '../../lib/api';
 
 type ProductMode = 'regular' | 'deposit';
 
 export default function Products() {
   const { t } = useTranslation();
-  const { addProduct } = useCart();
+  const { addProduct, items, totalPrice } = useCart();
   const [regularProducts, setRegularProducts] = useState<Product[]>([]);
   const [depositProducts, setDepositProducts] = useState<Product[]>([]);
+  const [depositBalance, setDepositBalance] = useState(0);
   const [productMode, setProductMode] = useState<ProductMode>('regular');
   const [selectedCategory, setSelectedCategory] = useState('Все');
   const [isLoading, setIsLoading] = useState(true);
@@ -28,12 +29,14 @@ export default function Products() {
     setLoadError(null);
 
     try {
-      const [apiProducts, apiDepositProducts] = await Promise.all([
+      const [apiProducts, apiDepositProducts, earningsSummary] = await Promise.all([
         getDashboardProducts(),
         getDashboardDepositProducts(),
+        getDashboardEarningsSummary(),
       ]);
       setRegularProducts(apiProducts);
       setDepositProducts(apiDepositProducts);
+      setDepositBalance(earningsSummary.depositBalance);
     } catch (caughtError) {
       setRegularProducts([]);
       setDepositProducts([]);
@@ -67,11 +70,20 @@ export default function Products() {
     setMessage('');
     setError('');
 
+    const cartHasRegularItems = items.some((item) => !isDepositProduct(item.product));
+
+    if (isDepositProduct(product) && !cartHasRegularItems && totalPrice + product.price > depositBalance) {
+      const nextError = 'Недостаточно средств на депозитном балансе.';
+      setError(nextError);
+      showToast(nextError, 'error');
+      return;
+    }
+
     const result = addProduct(product);
 
     if (!result.ok) {
       const nextError = result.reason === 'mixed_product_type'
-        ? t('cart.mixedDepositCart', 'Депозитные товары оформляются отдельным заказом')
+        ? t('cart.mixedDepositCart', 'Нельзя смешивать депозитные и обычные товары в одной корзине. Очистите корзину.')
         : result.reason === 'stock_limit'
           ? t('cart.stockLimitReached', 'Недостаточно товара на складе')
           : t('cart.outOfStock', 'Нет в наличии');

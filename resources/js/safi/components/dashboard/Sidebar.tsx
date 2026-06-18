@@ -59,11 +59,12 @@ export function Sidebar({
         )}
       >
         <div className="flex h-20 shrink-0 items-center border-b border-safi-border px-6">
-          <Link to="/" className="flex items-center gap-3" onClick={onClose}>
+          <Link to="/" className="notranslate flex items-center gap-3" onClick={onClose} translate="no">
             <img
               alt="Safi Life"
               src="https://napaxiong.wordpress.com/wp-content/uploads/2026/04/safi-life.png"
-              className="h-10 w-[112px] object-contain"
+              className="notranslate h-10 w-[112px] object-contain"
+              translate="no"
             />
           </Link>
         </div>
@@ -83,7 +84,7 @@ export function Sidebar({
             )}
             <div className="min-w-0">
               <div className="truncate text-sm font-extrabold text-safi-green">{currentUser.name}</div>
-              <div className="mt-1 truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">{currentUser.partnerId}</div>
+              <div className="notranslate mt-1 truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted" translate="no">{currentUser.partnerId}</div>
             </div>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2">

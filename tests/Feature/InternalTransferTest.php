@@ -19,9 +19,9 @@ class InternalTransferTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_user_can_transfer_from_main_balance_to_deposit_balance(): void
+    public function test_super_admin_can_transfer_from_main_balance_to_deposit_balance(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
         $this->wallet($user, 'main', 10000);
         $this->wallet($user, 'deposit', 500);
 
@@ -60,7 +60,7 @@ class InternalTransferTest extends TestCase
 
     public function test_user_cannot_transfer_more_than_main_balance(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
         $this->wallet($user, 'main', 1000);
         $this->wallet($user, 'deposit', 500);
 
@@ -84,7 +84,7 @@ class InternalTransferTest extends TestCase
 
     public function test_user_cannot_transfer_from_deposit_to_main_balance(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
         $this->wallet($user, 'main', 1000);
         $this->wallet($user, 'deposit', 5000);
 
@@ -155,7 +155,7 @@ class InternalTransferTest extends TestCase
 
     public function test_cashback_total_is_not_treated_as_wallet_balance(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
         $this->wallet($user, 'main', 1000);
         $this->wallet($user, 'deposit', 0);
 
@@ -188,7 +188,7 @@ class InternalTransferTest extends TestCase
 
     public function test_internal_transfer_is_atomic(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]);
         $this->wallet($user, 'main', 10000);
         $this->wallet($user, 'deposit', 500);
 
@@ -214,6 +214,24 @@ class InternalTransferTest extends TestCase
             'main_to_deposit_debit',
             'main_to_deposit_credit',
         ])->count());
+    }
+
+    public function test_regular_user_cannot_access_internal_transfer_endpoint(): void
+    {
+        $user = User::factory()->create();
+        $this->wallet($user, 'main', 10000);
+        $this->wallet($user, 'deposit', 500);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/dashboard/wallets/internal-transfer', [
+            'from' => 'main',
+            'to' => 'deposit',
+            'amount' => 1000,
+        ])->assertForbidden();
+
+        $this->assertSame('10000.00', $this->walletFor($user, 'main')->balance);
+        $this->assertSame('500.00', $this->walletFor($user, 'deposit')->balance);
     }
 
     private function wallet(User $user, string $type, int $balance): Wallet

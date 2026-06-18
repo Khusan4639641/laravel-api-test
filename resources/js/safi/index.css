@@ -35,6 +35,7 @@
     font-feature-settings: "lnum" 1, "tnum" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    top: 0 !important;
   }
 
   h1,
@@ -115,5 +116,27 @@
   }
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  .gtranslate_wrapper {
+    position: absolute !important;
+    left: -9999px !important;
+    top: -9999px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+  }
+
+  .gtranslate_wrapper select,
+  .gtranslate_wrapper iframe {
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+  }
+
+  iframe.goog-te-banner-frame,
+  .skiptranslate iframe {
+    display: none !important;
   }
 }

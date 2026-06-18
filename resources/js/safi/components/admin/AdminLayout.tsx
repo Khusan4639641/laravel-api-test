@@ -141,7 +141,7 @@ export function AdminLayout() {
             <div className="hidden items-center gap-3 border-l border-safi-border pl-4 sm:flex">
               <div className="text-right">
                 <div className="text-sm font-extrabold text-safi-green">{currentUser.name}</div>
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold">{roleLabel(currentUser.role)}</div>
+                <div className="notranslate text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold" translate="no">{roleLabel(currentUser.role)}</div>
               </div>
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-safi-green text-safi-gold">
                 <User className="h-5 w-5" />

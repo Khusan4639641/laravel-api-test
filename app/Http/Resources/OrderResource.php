@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Support\SystemLabel;
+use App\Models\Order;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,6 +27,8 @@ class OrderResource extends JsonResource
             'status_label' => SystemLabel::orderStatus($this->status),
             'payment_status' => $this->payment_status,
             'payment_status_label' => SystemLabel::label('payment_statuses', $this->payment_status),
+            'payment_strategy' => $this->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100,
+            'payment_strategy_label' => Order::paymentStrategyLabel($this->payment_strategy),
             'payment_provider' => $this->payment_provider,
             'payment_external_id' => $this->payment_external_id,
             'payment_transaction_id' => $this->payment_transaction_id,
@@ -34,6 +37,8 @@ class OrderResource extends JsonResource
             'subtotal_amount' => $this->subtotal_amount,
             'discount_amount' => $this->discount_amount,
             'total_amount' => $this->total_amount,
+            'card_amount' => $this->card_amount ?? $this->total_amount,
+            'deposit_amount' => $this->deposit_amount ?? '0.00',
             'total_pv' => $this->total_pv,
             'shipping_address' => $this->shipping_address,
             'recipient_name' => $recipientName,

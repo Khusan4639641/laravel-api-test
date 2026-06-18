@@ -215,7 +215,17 @@ export function DashboardLayout() {
                 className="relative flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:bg-safi-green hover:text-white"
                 aria-label="Уведомления"
                 aria-expanded={isNotificationsOpen}
-                onClick={() => setIsNotificationsOpen((isOpen) => !isOpen)}
+                onClick={() => {
+                  setIsNotificationsOpen((isOpen) => {
+                    const nextIsOpen = !isOpen;
+
+                    if (nextIsOpen) {
+                      void loadNotifications();
+                    }
+
+                    return nextIsOpen;
+                  });
+                }}
               >
                 <Bell className="h-5 w-5" />
                 {unreadNotificationsCount > 0 ? (

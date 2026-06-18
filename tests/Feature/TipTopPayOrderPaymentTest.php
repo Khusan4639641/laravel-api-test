@@ -7,6 +7,8 @@ use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\Wallet;
+use App\Services\OrderPaymentSplitService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Config;
 use Laravel\Sanctum\Sanctum;
@@ -172,6 +174,63 @@ class TipTopPayOrderPaymentTest extends TestCase
         $this->assertSame('failed', Payment::query()->where('external_id', $externalId)->firstOrFail()->status);
     }
 
+    public function test_fifty_fifty_intent_charges_only_card_half_and_debits_deposit_once(): void
+    {
+        $this->enableTipTopPay();
+        $user = User::factory()->create();
+        $this->wallet($user, 'deposit', 30000);
+        $order = $this->orderFor($user, unitPrice: 30001);
+        $this->applyFiftyFiftySplit($order);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/orders/{$order->id}/payment/tiptoppay/intent")
+            ->assertOk()
+            ->assertJsonPath('intent.amount', 15001)
+            ->assertJsonPath('intent.metadata.payment_strategy', Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50)
+            ->assertJsonPath('intent.metadata.card_amount', '15001.00')
+            ->assertJsonPath('intent.metadata.deposit_amount', '15000.00');
+
+        $this->postJson("/api/orders/{$order->id}/payment/tiptoppay/intent")
+            ->assertOk()
+            ->assertJsonPath('intent.amount', 15001);
+
+        $this->assertSame('15000.00', $this->walletFor($user, 'deposit')->balance);
+        $this->assertSame(1, $user->walletTransactions()->where('type', 'order_deposit_payment')->count());
+        $this->assertSame('debited', $order->refresh()->payment_meta['deposit_debit_status']);
+        $this->assertSame('15001.00', Payment::query()->latest('id')->firstOrFail()->amount);
+    }
+
+    public function test_fifty_fifty_fail_webhook_releases_deposit_part(): void
+    {
+        $this->enableTipTopPay();
+        $user = User::factory()->create();
+        $this->wallet($user, 'deposit', 30000);
+        $order = $this->orderFor($user, unitPrice: 30000);
+        $this->applyFiftyFiftySplit($order);
+
+        Sanctum::actingAs($user);
+        $externalId = $this->postJson("/api/orders/{$order->id}/payment/tiptoppay/intent")
+            ->assertOk()
+            ->json('external_id');
+
+        $this->assertSame('15000.00', $this->walletFor($user, 'deposit')->balance);
+
+        $this->postJson('/api/payments/tiptoppay/fail', [
+            'InvoiceId' => $externalId,
+            'TransactionId' => 'order-50-fail',
+            'Amount' => 15000,
+            'Currency' => 'KZT',
+            'Reason' => 'Card declined',
+        ])->assertOk()->assertJsonPath('code', 0);
+
+        $this->assertSame('30000.00', $this->walletFor($user, 'deposit')->balance);
+        $this->assertSame('failed', $order->refresh()->payment_status);
+        $this->assertSame('released', $order->payment_meta['deposit_debit_status']);
+        $this->assertSame(1, $user->walletTransactions()->where('type', 'order_deposit_payment')->count());
+        $this->assertSame(1, $user->walletTransactions()->where('type', 'order_deposit_refund')->count());
+    }
+
     private function enableTipTopPay(): void
     {
         Config::set('tiptoppay.enabled', true);
@@ -222,5 +281,40 @@ class TipTopPayOrderPaymentTest extends TestCase
         ]);
 
         return $order->load('items.product');
+    }
+
+    private function applyFiftyFiftySplit(Order $order): void
+    {
+        $split = app(OrderPaymentSplitService::class)->split(
+            $order->total_amount,
+            Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50,
+        );
+
+        $order->forceFill([
+            'payment_strategy' => Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50,
+            'card_amount' => $split['card_amount'],
+            'deposit_amount' => $split['deposit_amount'],
+            'payment_meta' => [
+                'payment_strategy' => Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50,
+                'payment_strategy_label' => Order::paymentStrategyLabel(Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50),
+            ],
+        ])->save();
+    }
+
+    private function wallet(User $user, string $type, int $balance): Wallet
+    {
+        return Wallet::query()->create([
+            'user_id' => $user->id,
+            'type' => $type,
+            'currency' => 'KZT',
+            'balance' => $balance,
+            'hold_balance' => 0,
+            'status' => 'active',
+        ]);
+    }
+
+    private function walletFor(User $user, string $type): Wallet
+    {
+        return $user->wallets()->where('type', $type)->firstOrFail()->refresh();
     }
 }

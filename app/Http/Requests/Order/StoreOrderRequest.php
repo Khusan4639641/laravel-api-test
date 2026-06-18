@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Order;
 
+use App\Models\Order;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreOrderRequest extends FormRequest
 {
@@ -40,6 +42,11 @@ class StoreOrderRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.product_id' => ['required', 'integer', 'exists:products,id'],
             'items.*.quantity' => ['required', 'integer', 'gt:0'],
+            'payment_strategy' => ['sometimes', 'nullable', 'string', Rule::in([
+                Order::PAYMENT_STRATEGY_CARD_100,
+                Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50,
+                Order::PAYMENT_STRATEGY_DEPOSIT_100,
+            ])],
             'shipping_address' => ['nullable', 'array'],
             'recipient_name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'min:6', 'max:32'],

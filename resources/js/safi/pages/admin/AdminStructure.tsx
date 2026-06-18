@@ -101,11 +101,12 @@ const emptyStats: StructureStats = {
   weakLegPV: 0,
 };
 
-const pageSizeOptions = [10, 20, 50, 100];
+const defaultRootOrphanPageSize = 5;
+const pageSizeOptions = [defaultRootOrphanPageSize, 10, 20, 50, 100];
 const defaultRootOrphanPagination: RootOrphanPagination = {
   total: 0,
   filteredTotal: 0,
-  limit: 20,
+  limit: defaultRootOrphanPageSize,
   offset: 0,
   hasNext: false,
   hasPrev: false,
@@ -124,12 +125,19 @@ const mlmStatusFilterOptions = [
   { value: 'diamond_director', label: mlmStatusLabel('diamond_director', 'Diamond Director') },
 ];
 
+function normalizeRootOrphanPerPage(value: string | null): number {
+  const parsedValue = Number(value);
+
+  return pageSizeOptions.includes(parsedValue) ? parsedValue : defaultRootOrphanPageSize;
+}
+
 export default function AdminStructure() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const selectedUserId = searchParams.get('root_id') || searchParams.get('user_id') || '';
   const selectedDepth = searchParams.get('depth') || '10';
-  const [view, setView] = useState<'tree' | 'list'>('tree');
+  const rootOrphanPerPageParam = searchParams.get('per_page');
+  const initialRootOrphanLimit = normalizeRootOrphanPerPage(rootOrphanPerPageParam);
   const [query, setQuery] = useState(selectedUserId);
   const [rootOrphanQuery, setRootOrphanQuery] = useState('');
   const [rootOrphanSearchTerm, setRootOrphanSearchTerm] = useState('');
@@ -137,14 +145,13 @@ export default function AdminStructure() {
   const [rootOrphanStatus, setRootOrphanStatus] = useState('');
   const [rootOrphanPackageCode, setRootOrphanPackageCode] = useState('');
   const [rootOrphanSortDir, setRootOrphanSortDir] = useState<'asc' | 'desc'>('desc');
-  const [rootOrphanLimit, setRootOrphanLimit] = useState(defaultRootOrphanPagination.limit);
+  const [rootOrphanLimit, setRootOrphanLimit] = useState(initialRootOrphanLimit);
   const [rootOrphanOffset, setRootOrphanOffset] = useState(defaultRootOrphanPagination.offset);
   const [rootOrphans, setRootOrphans] = useState<RootOrphanPartner[]>([]);
   const [rootOrphanPagination, setRootOrphanPagination] = useState<RootOrphanPagination>(defaultRootOrphanPagination);
   const [isRootOrphansLoading, setIsRootOrphansLoading] = useState(true);
   const [rootOrphansError, setRootOrphansError] = useState<string | null>(null);
   const [rootNode, setRootNode] = useState<StructureNode | null>(null);
-  const [nodes, setNodes] = useState<StructureNode[]>([]);
   const [stats, setStats] = useState<StructureStats>(emptyStats);
   const [depthInfo, setDepthInfo] = useState<StructureDepthInfo>({ hasDeeperNodes: false, hiddenNodesCount: 0 });
   const [searchResults, setSearchResults] = useState<PartnerSearchResult[]>([]);
@@ -157,7 +164,6 @@ export default function AdminStructure() {
     setIsLoading(true);
     setError(null);
     setRootNode(null);
-    setNodes([]);
     setStats(emptyStats);
     setDepthInfo({ hasDeeperNodes: false, hiddenNodesCount: 0 });
 
@@ -165,17 +171,14 @@ export default function AdminStructure() {
       const response = await getAdminStructure({
         ...(selectedUserId ? { root_id: selectedUserId } : {}),
         depth: selectedDepth,
-        include_flat: 'true',
       });
       const root = normalizeRoot(response);
 
       setRootNode(root);
       setStats(normalizeStats(response));
       setDepthInfo(normalizeDepthInfo(response));
-      setNodes(normalizeFlatNodes(response, root));
     } catch (caughtError) {
       setRootNode(null);
-      setNodes([]);
       setStats(emptyStats);
       setDepthInfo({ hasDeeperNodes: false, hiddenNodesCount: 0 });
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_26'));
@@ -221,6 +224,13 @@ export default function AdminStructure() {
     setQuery(selectedUserId);
     void loadStructure();
   }, [selectedUserId, selectedDepth]);
+
+  useEffect(() => {
+    const nextLimit = normalizeRootOrphanPerPage(rootOrphanPerPageParam);
+
+    setRootOrphanLimit((currentLimit) => currentLimit === nextLimit ? currentLimit : nextLimit);
+    setRootOrphanOffset(0);
+  }, [rootOrphanPerPageParam]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -274,16 +284,6 @@ export default function AdminStructure() {
     return () => window.clearTimeout(timeout);
   }, [query, selectedUserId]);
 
-  const visibleNodes = useMemo(() => {
-    const normalizedQuery = query.toLowerCase().trim();
-
-    if (!normalizedQuery || /^\d+$/.test(normalizedQuery)) {
-      return nodes;
-    }
-
-    return nodes.filter((node) => `${node.name} ${node.login} ${node.email} ${node.userId}`.toLowerCase().includes(normalizedQuery));
-  }, [nodes, query]);
-
   const hasChildren = Boolean(rootNode?.children.left || rootNode?.children.right);
   const treeCanvasWidth = useMemo(() => `${Math.max(1400, (Number(selectedDepth) || 10) * 360)}px`, [selectedDepth]);
   const rootOrphanTotalItems = rootOrphanPagination.filteredTotal ?? rootOrphanPagination.total ?? 0;
@@ -308,7 +308,26 @@ export default function AdminStructure() {
     setRootOrphanOffset((page - 1) * rootOrphanLimit);
   };
 
+  const changeRootOrphanPerPage = (nextLimit: number) => {
+    const normalizedLimit = normalizeRootOrphanPerPage(String(nextLimit));
+    const nextParams = new URLSearchParams(searchParams);
+
+    setRootOrphanLimit(normalizedLimit);
+    setRootOrphanOffset(0);
+    nextParams.set('per_page', String(normalizedLimit));
+    setSearchParams(nextParams, { replace: true });
+  };
+
   const resetRootOrphanPage = () => setRootOrphanOffset(0);
+
+  const structureUrlWithRoot = (userId: string) => {
+    const nextParams = new URLSearchParams(searchParams);
+
+    nextParams.set('root_id', userId);
+    nextParams.delete('user_id');
+
+    return `/admin/structure?${nextParams.toString()}`;
+  };
 
   const submitSearch = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -319,7 +338,7 @@ export default function AdminStructure() {
     }
 
     if (/^\d+$/.test(normalizedQuery)) {
-      navigate(`/admin/structure?root_id=${encodeURIComponent(normalizedQuery)}`);
+      navigate(structureUrlWithRoot(normalizedQuery));
       return;
     }
 
@@ -336,7 +355,7 @@ export default function AdminStructure() {
       return;
     }
 
-    navigate(`/admin/structure?root_id=${encodeURIComponent(userId)}`);
+    navigate(structureUrlWithRoot(userId));
   };
 
   return (
@@ -351,18 +370,6 @@ export default function AdminStructure() {
           </p>
         </div>
 
-        <div className="flex bg-[#F5F5F0] p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => setView('tree')}
-            className={cn('cursor-pointer px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors', view === 'tree' ? 'bg-white text-safi-green shadow-sm' : 'text-safi-text/50 hover:text-safi-green')}
-          >{adminText('a_0JTQtdGA0LXQ')}</button>
-          <button
-            type="button"
-            onClick={() => setView('list')}
-            className={cn('cursor-pointer px-4 py-2 text-xs font-bold uppercase tracking-widest rounded-lg transition-colors', view === 'list' ? 'bg-white text-safi-green shadow-sm' : 'text-safi-text/50 hover:text-safi-green')}
-          >{adminText('a_0KHQv9C40YHQ_3')}</button>
-        </div>
       </div>
 
       <form onSubmit={submitSearch} className="bg-white p-4 rounded-[24px] border border-safi-green/5 shadow-sm flex flex-col md:flex-row gap-4 items-center">
@@ -430,82 +437,6 @@ export default function AdminStructure() {
       {!isLoading && error && <ErrorState description={error} onRetry={loadStructure} />}
       {!isLoading && !error && !rootNode && (
         <EmptyState title={adminText('a_0KHRgtGA0YPQ_3')} description={adminText('a_0JHQuNC90LDR_3')} />
-      )}
-
-      {!isLoading && !error && rootNode && view === 'tree' && (
-        <div className="rounded-[32px] border border-safi-green/5 bg-white p-4 shadow-sm md:p-6">
-          <div className="mb-4 flex flex-col gap-2 text-xs font-bold text-safi-text/50 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-2">
-              <Info className="h-4 w-4 shrink-0" />
-              <span>{adminText('a_0JjRgdC_0L7Q')}</span>
-            </div>
-            <span>{adminText('a_0JTQsNC90L3R_4')}{selectedDepth}</span>
-          </div>
-          {depthInfo.hasDeeperNodes && (
-            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
-              Есть ещё партнёры глубже текущей глубины дерева: {depthInfo.hiddenNodesCount.toLocaleString('ru-RU')}. Увеличьте depth в URL до 10 или откройте список.
-            </div>
-          )}
-
-          <div className="relative max-h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-auto rounded-[24px] border border-safi-border bg-white">
-            {!hasChildren && (
-              <div className="sticky bottom-5 left-5 z-10 mx-5 mt-5 rounded-2xl bg-[#F5F5F0] px-4 py-3 text-center text-xs font-bold text-safi-text/60">{adminText('a_0KMg0L_QsNGA')}</div>
-            )}
-
-            <div
-              className="flex min-h-[700px] w-max items-start justify-center px-10 py-12"
-              style={{ minWidth: treeCanvasWidth }}
-            >
-              <TreeNode node={rootNode} isRoot onOpen={openNodeTree} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!isLoading && !error && visibleNodes.length === 0 && rootNode && view === 'list' && (
-        <EmptyState title={adminText('a_0J3QuNC20LXR')} description={adminText('a_0KHQv9C40YHQ_4')} />
-      )}
-
-      {!isLoading && !error && visibleNodes.length > 0 && view === 'list' && (
-        <AdminTable headers={['ID', adminText('a_0J_QsNGA0YLQ'), adminText('a_0JvQvtCz0LjQ'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0JLQtdGC0LrQ'), adminText('a_0KPRgNC-0LLQ'), adminText('a_0J_QsNC60LXR_4'), adminText('a_0KHRgtCw0YLR'), 'PV', adminText('a_0JHQsNC70LDQ'), adminText('a_0JTQtdC50YHR')]}>
-          {visibleNodes.map((node) => (
-            <tr key={`${node.id}-${node.userId}`} className="hover:bg-safi-green/5 transition-colors">
-              <td className="px-6 py-4 font-mono text-[10px] text-safi-text/50">{node.userId}</td>
-              <td className="px-6 py-4">
-                <div className="font-bold text-safi-green">{node.name}</div>
-                <div className="text-[10px] text-safi-text/50">{node.email || '-'}</div>
-              </td>
-              <td className="px-6 py-4 font-mono text-xs text-safi-text/70">{node.login || '-'}</td>
-              <td className="px-6 py-4">{node.sponsor || '-'}</td>
-              <td className="px-6 py-4">{formatPosition(node.position)}</td>
-              <td className="px-6 py-4">{node.depth}</td>
-              <td className="px-6 py-4"><AdminBadge variant="gold">{node.packageName}</AdminBadge></td>
-              <td className="px-6 py-4"><AdminBadge variant="default">{node.status}</AdminBadge></td>
-              <td className="px-6 py-4">
-                <div className="font-bold text-safi-green">{adminText('Личный PV')}: {node.personalPV.toLocaleString('ru-RU')}</div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('Левая ветка PV')}: {node.leftBranchPV.toLocaleString('ru-RU')}</div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('Правая ветка PV')}: {node.rightBranchPV.toLocaleString('ru-RU')}</div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{adminText('Командный PV')}: {node.teamPV.toLocaleString('ru-RU')}</div>
-                <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-safi-gold">{adminText('Малая ветка PV')}: {node.weakLegPV.toLocaleString('ru-RU')}</div>
-              </td>
-              <td className="px-6 py-4">{node.balance.toLocaleString('ru-RU')}</td>
-              <td className="px-6 py-4">
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openNodeTree(node.userId)}
-                    className="cursor-pointer rounded-full border border-safi-green bg-white px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white"
-                  >{adminText('a_0J7RgtC60YDR_4')}</button>
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/admin/partners/${encodeURIComponent(node.userId)}`)}
-                    className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10"
-                  >{adminText('a_0J_RgNC-0YTQ')}</button>
-                </div>
-              </td>
-            </tr>
-          ))}
-        </AdminTable>
       )}
 
       <section className="space-y-4 rounded-[32px] border border-safi-green/5 bg-white p-4 shadow-sm md:p-6">
@@ -622,7 +553,7 @@ export default function AdminStructure() {
                   <td className="px-6 py-4">
                     <button
                       type="button"
-                      onClick={() => navigate(`/admin/structure?root_id=${encodeURIComponent(partner.id)}`)}
+                      onClick={() => openNodeTree(partner.id)}
                       className="cursor-pointer rounded-full border border-safi-green bg-white px-3 py-2 text-xs font-extrabold text-safi-green transition-colors hover:bg-safi-green hover:text-white"
                     >
                       {partner.childrenCount.toLocaleString('ru-RU')}
@@ -645,7 +576,7 @@ export default function AdminStructure() {
                     <div className="flex justify-end">
                       <button
                         type="button"
-                        onClick={() => navigate(`/admin/structure?root_id=${encodeURIComponent(partner.id)}`)}
+                        onClick={() => openNodeTree(partner.id)}
                         className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white"
                       >
                         <Network className="h-4 w-4" />Показать дерево
@@ -660,10 +591,7 @@ export default function AdminStructure() {
               meta={rootOrphanPaginationMeta}
               perPageOptions={pageSizeOptions}
               onPageChange={changeRootOrphanPage}
-              onPerPageChange={(nextLimit) => {
-                setRootOrphanLimit(nextLimit);
-                setRootOrphanOffset(0);
-              }}
+              onPerPageChange={changeRootOrphanPerPage}
               totalSuffix={rootOrphanPagination.total !== rootOrphanPagination.filteredTotal && (
                 <span className="ml-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
                   всего {rootOrphanPagination.total.toLocaleString('ru-RU')}
@@ -673,6 +601,36 @@ export default function AdminStructure() {
           </>
         )}
       </section>
+
+      {!isLoading && !error && rootNode && (
+        <div className="rounded-[32px] border border-safi-green/5 bg-white p-4 shadow-sm md:p-6">
+          <div className="mb-4 flex flex-col gap-2 text-xs font-bold text-safi-text/50 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 shrink-0" />
+              <span>{adminText('a_0JjRgdC_0L7Q')}</span>
+            </div>
+            <span>{adminText('a_0JTQsNC90L3R_4')}{selectedDepth}</span>
+          </div>
+          {depthInfo.hasDeeperNodes && (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
+              Есть ещё партнёры глубже текущей глубины дерева: {depthInfo.hiddenNodesCount.toLocaleString('ru-RU')}. Увеличьте depth в URL до 10 или используйте список выше.
+            </div>
+          )}
+
+          <div className="relative max-h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-auto rounded-[24px] border border-safi-border bg-white">
+            {!hasChildren && (
+              <div className="sticky bottom-5 left-5 z-10 mx-5 mt-5 rounded-2xl bg-[#F5F5F0] px-4 py-3 text-center text-xs font-bold text-safi-text/60">{adminText('a_0KMg0L_QsNGA')}</div>
+            )}
+
+            <div
+              className="flex min-h-[700px] w-max items-start justify-center px-10 py-12"
+              style={{ minWidth: treeCanvasWidth }}
+            >
+              <TreeNode node={rootNode} isRoot onOpen={openNodeTree} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -954,42 +912,6 @@ function normalizeRoot(response: unknown): StructureNode | null {
 
 function normalizeTreeNode(record: Record<string, unknown>): StructureNode {
   return normalizeNodeRecord(record);
-}
-
-function normalizeFlatNodes(response: unknown, root: StructureNode | null): StructureNode[] {
-  const flat = getArray(response, ['flat', 'descendants']);
-
-  if (flat.length > 0) {
-    return flat.map((item, index) => {
-      const record = item && typeof item === 'object' ? item as Record<string, unknown> : {};
-
-      return normalizeNodeRecord(record, index);
-    });
-  }
-
-  return root ? flattenTree(root).filter((node) => node.userId !== root.userId) : [];
-}
-
-function flattenTree(root: StructureNode): StructureNode[] {
-  return [
-    root,
-    ...(root.children.left ? flattenTree(root.children.left) : []),
-    ...(root.children.right ? flattenTree(root.children.right) : []),
-  ];
-}
-
-function formatPosition(position: string) {
-  const normalized = position.toLowerCase();
-
-  if (['l', 'left'].includes(normalized)) {
-    return adminText('a_0JvQtdCy0LDR');
-  }
-
-  if (['r', 'right'].includes(normalized)) {
-    return adminText('a_0J_RgNCw0LLQ');
-  }
-
-  return position || '-';
 }
 
 function formatMoney(value: number) {

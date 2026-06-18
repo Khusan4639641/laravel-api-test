@@ -146,7 +146,10 @@ export default function Orders() {
                             <span className="font-bold text-safi-green">{order.itemsCount.toLocaleString('ru-RU')}</span>
                           </div>
                         </td>
-                        <td className="px-7 py-5 font-extrabold text-safi-green">{formatCurrency(order.totalAmount)}</td>
+                        <td className="px-7 py-5">
+                          <div className="font-extrabold text-safi-green">{formatCurrency(order.totalAmount)}</div>
+                          <div className="mt-1 text-xs font-bold text-safi-muted">{order.paymentStrategyLabel || '100% карта'}</div>
+                        </td>
                         <td className="px-7 py-5"><OrderStatusBadge status={order.status} /></td>
                         <td className="px-7 py-5"><PaymentStatusBadge status={order.paymentStatus || 'unpaid'} /></td>
                         <td className="px-7 py-5">
@@ -195,6 +198,7 @@ export default function Orders() {
                       </div>
                       <Metric label={t('orders.items')} value={order.itemsCount.toLocaleString('ru-RU')} />
                       <Metric label={t('orders.amount')} value={formatCurrency(order.totalAmount)} />
+                      <Metric label="Тип оплаты" value={order.paymentStrategyLabel || '100% карта'} />
                       <Metric label={t('orders.paymentStatus')} value={t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: order.paymentStatus || 'unpaid' })} />
                       <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
                       <Metric label={t('orders.deliveryPhone')} value={order.phone || '-'} />
@@ -284,7 +288,8 @@ function canPayOrderOnline(order: Order) {
   return !['paid', 'refunded', 'cancelled'].includes(order.paymentStatus || '')
     && !['cancelled', 'completed', 'voided'].includes(order.status)
     && order.items.length > 0
-    && order.totalAmount > 0;
+    && (order.cardAmount ?? order.totalAmount) > 0
+    && order.paymentStrategy !== 'deposit_100';
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

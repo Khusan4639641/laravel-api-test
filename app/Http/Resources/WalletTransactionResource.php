@@ -10,6 +10,10 @@ class WalletTransactionResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $metadata = is_array($this->metadata) ? $this->metadata : [];
+        $paymentStrategy = $metadata['payment_strategy'] ?? null;
+        $paymentStrategyLabel = $metadata['payment_strategy_label'] ?? null;
+
         return [
             'id' => $this->id,
             'transaction_type' => 'wallet_transaction',
@@ -33,6 +37,8 @@ class WalletTransactionResource extends JsonResource
             'source_id' => $this->source_id,
             'description' => $this->description,
             'comment' => $this->description,
+            'payment_strategy' => $paymentStrategy,
+            'payment_strategy_label' => $paymentStrategyLabel,
             'metadata' => $this->metadata,
             'wallet' => new WalletResource($this->whenLoaded('wallet')),
             'user' => new UserResource($this->whenLoaded('user')),

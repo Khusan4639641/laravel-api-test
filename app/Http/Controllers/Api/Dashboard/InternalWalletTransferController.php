@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\WalletTransactionResource;
+use App\Models\User;
 use App\Services\InternalWalletTransferService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,6 +13,10 @@ class InternalWalletTransferController extends Controller
 {
     public function __invoke(Request $request, InternalWalletTransferService $internalWalletTransferService): JsonResponse
     {
+        if (! in_array($request->user()?->role, [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN], true)) {
+            abort(403);
+        }
+
         $validated = $request->validate([
             'from' => ['required', 'string', 'max:40'],
             'to' => ['required', 'string', 'max:40', 'different:from'],

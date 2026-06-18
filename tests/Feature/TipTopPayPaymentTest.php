@@ -25,10 +25,11 @@ class TipTopPayPaymentTest extends TestCase
 
         $this->postJson("/api/orders/{$order->id}/payment/tiptoppay/intent")
             ->assertOk()
-            ->assertJsonPath('intent.description', "Оплата заказа #{$order->order_number} на Safi Life")
+            ->assertJsonPath('intent.description', "Оплата заказа #{$order->order_number} на Safi Life (100% карта)")
             ->assertJsonPath('intent.currency', 'KZT')
             ->assertJsonPath('intent.amount', 25000)
             ->assertJsonPath('intent.metadata.order_id', $order->id)
+            ->assertJsonPath('intent.metadata.payment_strategy', Order::PAYMENT_STRATEGY_CARD_100)
             ->assertJsonPath('intent.metadata.user_id', $user->id);
 
         $order->refresh();

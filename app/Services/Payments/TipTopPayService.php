@@ -6,6 +6,7 @@ use App\Models\Order;
 use App\Models\Package;
 use App\Models\Payment;
 use App\Models\User;
+use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\PackageAutoUpgradeFromPaidOrdersService;
 use App\Services\PackagePurchaseAvailabilityService;
@@ -60,8 +61,25 @@ class TipTopPayService
 
             $this->assertOrderPayable($lockedOrder);
 
+            if ($lockedOrder->payment_strategy === Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50) {
+                $this->ensureOrderDepositPartDebited($lockedOrder);
+                $lockedOrder->refresh()->load(['user.profile', 'items.product', 'items.package']);
+            }
+
+            $paymentAmount = $this->orderCardPaymentAmount($lockedOrder);
+
+            if (bccomp($paymentAmount, '0.00', 2) <= 0) {
+                throw ValidationException::withMessages([
+                    'payment_strategy' => 'Этот заказ оплачивается без онлайн-эквайринга.',
+                ]);
+            }
+
             $externalId = $this->makeExternalId('order-'.$lockedOrder->id);
-            $description = sprintf('Оплата заказа #%s на Safi Life', $lockedOrder->order_number ?: $lockedOrder->id);
+            $description = sprintf(
+                'Оплата заказа #%s на Safi Life (%s)',
+                $lockedOrder->order_number ?: $lockedOrder->id,
+                Order::paymentStrategyLabel($lockedOrder->payment_strategy),
+            );
 
             $payment = Payment::query()->create([
                 'user_id' => $lockedOrder->user_id,
@@ -70,7 +88,7 @@ class TipTopPayService
                 'type' => Payment::TYPE_ORDER,
                 'provider' => Payment::PROVIDER_TIPTOPPAY,
                 'external_id' => $externalId,
-                'amount' => (string) $lockedOrder->total_amount,
+                'amount' => $paymentAmount,
                 'currency' => $currency,
                 'status' => Payment::STATUS_PENDING,
                 'description' => $description,
@@ -78,6 +96,10 @@ class TipTopPayService
                     'order_id' => $lockedOrder->id,
                     'order_number' => $lockedOrder->order_number,
                     'type' => Payment::TYPE_ORDER,
+                    'payment_strategy' => $lockedOrder->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100,
+                    'total_amount' => (string) $lockedOrder->total_amount,
+                    'card_amount' => $paymentAmount,
+                    'deposit_amount' => (string) ($lockedOrder->deposit_amount ?? '0.00'),
                 ],
             ]);
 
@@ -89,8 +111,9 @@ class TipTopPayService
                 'payment_id' => $payment->id,
                 'external_id' => $externalId,
                 'created_at' => now()->toISOString(),
-                'amount' => (string) $lockedOrder->total_amount,
+                'amount' => $paymentAmount,
                 'currency' => $currency,
+                'payment_strategy' => $lockedOrder->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100,
                 'payment_schema' => $intent['paymentSchema'],
             ];
 
@@ -432,6 +455,18 @@ class TipTopPayService
             ]);
         }
 
+        if (($order->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100) === Order::PAYMENT_STRATEGY_DEPOSIT_100) {
+            throw ValidationException::withMessages([
+                'payment_strategy' => 'Этот заказ оплачивается с депозитного баланса.',
+            ]);
+        }
+
+        if (bccomp($this->orderCardPaymentAmount($order), '0.00', 2) <= 0) {
+            throw ValidationException::withMessages([
+                'amount' => 'Сумма оплаты картой должна быть больше нуля',
+            ]);
+        }
+
         foreach (['recipient_name', 'phone', 'city', 'delivery_address'] as $field) {
             if (trim((string) $this->orderDeliveryValue($order, $field)) === '') {
                 throw ValidationException::withMessages([
@@ -467,6 +502,10 @@ class TipTopPayService
                 'order_number' => $order->order_number,
                 'user_id' => $order->user_id,
                 'type' => Payment::TYPE_ORDER,
+                'payment_strategy' => $order->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100,
+                'total_amount' => (string) $order->total_amount,
+                'card_amount' => (string) $payment->amount,
+                'deposit_amount' => (string) ($order->deposit_amount ?? '0.00'),
             ],
         ];
 
@@ -577,6 +616,17 @@ class TipTopPayService
      */
     private function orderItems(Order $order): array
     {
+        $cardAmount = $this->orderCardPaymentAmount($order);
+
+        if (bccomp($cardAmount, (string) $order->total_amount, 2) !== 0) {
+            return [[
+                'id' => 'order-'.$order->id.'-card-part',
+                'count' => 1,
+                'name' => 'Оплата заказа картой: '.Order::paymentStrategyLabel($order->payment_strategy),
+                'price' => $this->numericAmount($cardAmount),
+            ]];
+        }
+
         return $order->items->map(function ($item): array {
             $snapshot = is_array($item->item_snapshot) ? $item->item_snapshot : [];
             $productId = $item->product_id ?: $item->id;
@@ -588,6 +638,22 @@ class TipTopPayService
                 'price' => $this->numericAmount($item->unit_price),
             ];
         })->values()->all();
+    }
+
+    private function orderCardPaymentAmount(Order $order): string
+    {
+        $strategy = $order->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100;
+        $cardAmount = (string) ($order->card_amount ?? '0.00');
+
+        if ($strategy === Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50 && bccomp($cardAmount, '0.00', 2) > 0) {
+            return $this->decimal($cardAmount);
+        }
+
+        if ($strategy === Order::PAYMENT_STRATEGY_DEPOSIT_100) {
+            return '0.00';
+        }
+
+        return $this->decimal(bccomp($cardAmount, '0.00', 2) > 0 ? $cardAmount : (string) $order->total_amount);
     }
 
     /**
@@ -604,6 +670,11 @@ class TipTopPayService
         $amount = round((float) $value, 2);
 
         return floor($amount) === $amount ? (int) $amount : $amount;
+    }
+
+    private function decimal(mixed $value): string
+    {
+        return number_format((float) $value, 2, '.', '');
     }
 
     private function orderDeliveryValue(Order $order, string $field): mixed
@@ -692,7 +763,7 @@ class TipTopPayService
                 'payable_id' => $order->id,
                 'type' => Payment::TYPE_ORDER,
                 'provider' => Payment::PROVIDER_TIPTOPPAY,
-                'amount' => (string) $order->total_amount,
+                'amount' => $this->orderCardPaymentAmount($order),
                 'currency' => $this->currency(),
                 'status' => $order->payment_status === 'paid' ? Payment::STATUS_PAID : Payment::STATUS_PENDING,
                 'description' => sprintf('Оплата заказа #%s на Safi Life', $order->order_number ?: $order->id),
@@ -700,6 +771,7 @@ class TipTopPayService
                     'order_id' => $order->id,
                     'order_number' => $order->order_number,
                     'type' => Payment::TYPE_ORDER,
+                    'payment_strategy' => $order->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100,
                     'legacy_order_payment' => true,
                 ],
             ],
@@ -810,13 +882,17 @@ class TipTopPayService
             return;
         }
 
-        if ($order->payment_status !== 'paid') {
+        $isCurrentPayment = ! $order->payment_external_id || $order->payment_external_id === $payment->external_id;
+
+        if ($order->payment_status !== 'paid' && $isCurrentPayment) {
             $order->forceFill([
                 'payment_provider' => Payment::PROVIDER_TIPTOPPAY,
                 'payment_status' => 'failed',
                 'payment_external_id' => $payment->external_id,
                 'payment_transaction_id' => $this->transactionId($payload) ?: $order->payment_transaction_id,
             ])->save();
+
+            $this->releaseOrderDepositPart($order, $payment, 'fail');
         }
 
         $this->appendOrderWebhookMeta($order, 'fail', $payload, $payment);
@@ -871,6 +947,113 @@ class TipTopPayService
         $transaction->forceFill(['metadata' => $metadata])->save();
     }
 
+    private function ensureOrderDepositPartDebited(Order $order): void
+    {
+        if (($order->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100) !== Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50) {
+            return;
+        }
+
+        $depositAmount = (string) ($order->deposit_amount ?? '0.00');
+
+        if (bccomp($depositAmount, '0.00', 2) <= 0) {
+            return;
+        }
+
+        $paymentMeta = is_array($order->payment_meta) ? $order->payment_meta : [];
+
+        if (($paymentMeta['deposit_debit_status'] ?? null) === 'debited') {
+            return;
+        }
+
+        $this->walletService->createUserWallets($order->user);
+
+        /** @var Wallet $depositWallet */
+        $depositWallet = $order->user->wallets()
+            ->where('type', 'deposit')
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        if (bccomp((string) $depositWallet->balance, $depositAmount, 2) < 0) {
+            throw ValidationException::withMessages([
+                'amount' => 'Недостаточно средств на депозитном балансе.',
+            ]);
+        }
+
+        $transaction = $this->walletService->debit(
+            $depositWallet,
+            $depositAmount,
+            'order_deposit_payment',
+            $order,
+            [
+                'payment_strategy' => Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50,
+                'payment_strategy_label' => Order::paymentStrategyLabel(Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50),
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'total_amount' => (string) $order->total_amount,
+                'card_amount' => (string) $order->card_amount,
+                'deposit_amount' => $depositAmount,
+            ],
+            sprintf('Оплата заказа 50/50: депозит #%s', $order->order_number ?: $order->id),
+        );
+
+        $paymentMeta['deposit_debit_transaction_id'] = $transaction->id;
+        $paymentMeta['deposit_debit_status'] = 'debited';
+        $paymentMeta['deposit_debited_at'] = now()->toISOString();
+        unset($paymentMeta['deposit_released_at'], $paymentMeta['deposit_release_transaction_id']);
+
+        $order->forceFill(['payment_meta' => $paymentMeta])->save();
+    }
+
+    private function releaseOrderDepositPart(Order $order, Payment $payment, string $event): void
+    {
+        if (($order->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100) !== Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50) {
+            return;
+        }
+
+        $paymentMeta = is_array($order->payment_meta) ? $order->payment_meta : [];
+
+        if (($paymentMeta['deposit_debit_status'] ?? null) !== 'debited') {
+            return;
+        }
+
+        $depositAmount = (string) ($order->deposit_amount ?? '0.00');
+
+        if (bccomp($depositAmount, '0.00', 2) <= 0) {
+            return;
+        }
+
+        $this->walletService->createUserWallets($order->user);
+
+        /** @var Wallet $depositWallet */
+        $depositWallet = $order->user->wallets()
+            ->where('type', 'deposit')
+            ->lockForUpdate()
+            ->firstOrFail();
+
+        $transaction = $this->walletService->credit(
+            $depositWallet,
+            $depositAmount,
+            'order_deposit_refund',
+            $order,
+            [
+                'payment_id' => $payment->id,
+                'payment_external_id' => $payment->external_id,
+                'payment_strategy' => Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50,
+                'payment_strategy_label' => Order::paymentStrategyLabel(Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50),
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'release_event' => $event,
+            ],
+            sprintf('Возврат депозитной части заказа #%s', $order->order_number ?: $order->id),
+        );
+
+        $paymentMeta['deposit_debit_status'] = 'released';
+        $paymentMeta['deposit_released_at'] = now()->toISOString();
+        $paymentMeta['deposit_release_transaction_id'] = $transaction->id;
+
+        $order->forceFill(['payment_meta' => $paymentMeta])->save();
+    }
+
     private function recordOrderPaymentTransaction(Payment $payment, Order $order): void
     {
         $this->walletService->createUserWallets($order->user);
@@ -891,9 +1074,16 @@ class TipTopPayService
                 'order_id' => $order->id,
                 'order_number' => $order->order_number,
                 'provider' => Payment::PROVIDER_TIPTOPPAY,
+                'payment_strategy' => $order->payment_strategy ?: Order::PAYMENT_STRATEGY_CARD_100,
+                'payment_strategy_label' => Order::paymentStrategyLabel($order->payment_strategy),
+                'total_amount' => (string) $order->total_amount,
+                'card_amount' => (string) $payment->amount,
+                'deposit_amount' => (string) ($order->deposit_amount ?? '0.00'),
                 'affects_balance' => false,
             ],
-            sprintf('Оплата заказа #%s через TipTop Pay', $order->order_number ?: $order->id),
+            $order->payment_strategy === Order::PAYMENT_STRATEGY_CARD_50_DEPOSIT_50
+                ? sprintf('Оплата заказа 50/50: карта #%s', $order->order_number ?: $order->id)
+                : sprintf('Оплата заказа #%s через TipTop Pay', $order->order_number ?: $order->id),
             'debit',
         );
     }
@@ -923,6 +1113,14 @@ class TipTopPayService
                 $order = Order::query()->whereKey($lockedPayment->payable_id)->lockForUpdate()->first();
 
                 if ($order) {
+                    $isCurrentPayment = ! $order->payment_external_id || $order->payment_external_id === $lockedPayment->external_id;
+
+                    if (! $isCurrentPayment) {
+                        $this->appendOrderWebhookMeta($order, $event.'_ignored_stale_payment', $payload, $lockedPayment);
+
+                        return;
+                    }
+
                     $order->forceFill([
                         'status' => $orderStatus,
                         'payment_provider' => Payment::PROVIDER_TIPTOPPAY,
@@ -930,6 +1128,10 @@ class TipTopPayService
                         'payment_external_id' => $lockedPayment->external_id,
                         'payment_transaction_id' => $this->transactionId($payload) ?: $order->payment_transaction_id,
                     ])->save();
+
+                    if ($orderPaymentStatus !== 'paid') {
+                        $this->releaseOrderDepositPart($order, $lockedPayment, $event);
+                    }
 
                     $this->appendOrderWebhookMeta($order, $event, $payload, $lockedPayment);
                 }

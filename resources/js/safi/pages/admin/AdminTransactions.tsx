@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { FormEvent, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
-import { Search, Filter, Download } from 'lucide-react';
+import { Search, Filter, Download, Pencil, Trash2, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { getAdminTransactions, getApiErrorState, getNumber, getString } from '../../lib/api';
+import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
+import { useAdminContext } from '../../components/admin/AdminLayout';
+import { deleteAdminTransaction, getAdminTransactions, getApiErrorState, getNumber, getString, updateAdminTransactionAmount } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 import { defaultPaginationMeta, getPaginatedItems, normalizePaginationMeta } from '../../lib/pagination';
 import type { PaginationMeta } from '../../lib/pagination';
@@ -16,12 +18,15 @@ type TransactionRow = {
   partnerId: string;
   partnerName: string;
   type: string;
+  direction: string;
+  rawAmount: number;
   amount: string;
   affectsBalance: boolean;
   affectsBalanceLabel: string;
   statusCode: string;
   status: string;
   comment: string;
+  paymentStrategyLabel?: string;
 };
 
 type TransactionSummary = {
@@ -40,7 +45,12 @@ const emptySummary: TransactionSummary = {
   deferredDeposit: 0,
 };
 
+type TransactionActionModal =
+  | { mode: 'edit'; transaction: TransactionRow; amount: string; reason: string }
+  | { mode: 'delete'; transaction: TransactionRow; reason: string };
+
 export default function AdminTransactions() {
+  const { currentUser } = useAdminContext();
   const [searchParams] = useSearchParams();
   const userIdFilter = searchParams.get('user_id') || undefined;
   const searchParam = searchParams.get('search') || '';
@@ -53,7 +63,15 @@ export default function AdminTransactions() {
   const [meta, setMeta] = useState<PaginationMeta>(defaultPaginationMeta);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [actionModal, setActionModal] = useState<TransactionActionModal | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
   const hasSearch = debouncedSearch.trim() !== '';
+  const currentRole = currentUser.role.toLowerCase();
+  const canEditTransactions = currentRole === 'admin' || currentRole === 'super_admin';
+  const canDeleteTransactions = currentRole === 'super_admin';
+  const showActions = canEditTransactions || canDeleteTransactions;
   const summaryCards = [
     { label: adminText('Оборот операций'), value: summary.operationTurnover },
     { label: adminText('a_0JLRgdC10LPQ_5'), value: summary.totalCredited },
@@ -61,6 +79,12 @@ export default function AdminTransactions() {
     { label: adminText('a_0JIg0L7QsdGA'), value: summary.pending },
     { label: adminText('Отложено / Депозит'), value: summary.deferredDeposit },
   ];
+
+  const showToast = (message: string, type: ToastType = 'success') => {
+    const toast = { id: Date.now() + Math.floor(Math.random() * 1000), message, type };
+    setToasts((current) => [...current, toast]);
+    window.setTimeout(() => setToasts((current) => current.filter((item) => item.id !== toast.id)), 3500);
+  };
 
   const loadTransactions = async () => {
     setIsLoading(true);
@@ -100,12 +124,15 @@ export default function AdminTransactions() {
           partnerId: getString(user, ['id', 'login']) || getString(trx, ['user_id']) || '-',
           partnerName: getString(user, ['name']) || '-',
           type: transactionTypeLabel(rawType, getString(trx, ['type_label', 'typeLabel']) || rawType),
+          direction,
+          rawAmount: amount,
           amount: formatTransactionAmount(direction, amount),
           affectsBalance: trx.affects_balance !== false && trx.affectsBalance !== false,
           affectsBalanceLabel: getString(trx, ['affects_balance_label', 'affectsBalanceLabel']) || adminText('Не влияет на баланс'),
           statusCode,
           status: transactionStatusLabel(statusCode, getString(trx, ['status_label', 'statusLabel']) || statusCode),
           comment: getString(trx, ['description']) || '-',
+          paymentStrategyLabel: getString(trx, ['payment_strategy_label', 'paymentStrategyLabel']),
         };
       }));
     } catch (caughtError) {
@@ -115,6 +142,78 @@ export default function AdminTransactions() {
       setError(getApiErrorState(caughtError).error || adminText('a_0J3QtSDRg9C0_32'));
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const openEditModal = (transaction: TransactionRow) => {
+    setActionError(null);
+    setActionModal({
+      mode: 'edit',
+      transaction,
+      amount: String(transaction.rawAmount),
+      reason: '',
+    });
+  };
+
+  const openDeleteModal = (transaction: TransactionRow) => {
+    setActionError(null);
+    setActionModal({
+      mode: 'delete',
+      transaction,
+      reason: '',
+    });
+  };
+
+  const submitEdit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!actionModal || actionModal.mode !== 'edit') {
+      return;
+    }
+
+    setIsSubmittingAction(true);
+    setActionError(null);
+
+    try {
+      await updateAdminTransactionAmount(actionModal.transaction.id, {
+        amount: actionModal.amount,
+        reason: actionModal.reason,
+      });
+      setActionModal(null);
+      showToast('Транзакция обновлена');
+      await loadTransactions();
+    } catch (caughtError) {
+      const message = getApiErrorState(caughtError).error || 'Не удалось обновить транзакцию';
+      setActionError(message);
+      showToast(message, 'error');
+    } finally {
+      setIsSubmittingAction(false);
+    }
+  };
+
+  const submitDelete = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!actionModal || actionModal.mode !== 'delete') {
+      return;
+    }
+
+    setIsSubmittingAction(true);
+    setActionError(null);
+
+    try {
+      await deleteAdminTransaction(actionModal.transaction.id, {
+        reason: actionModal.reason,
+      });
+      setActionModal(null);
+      showToast('Транзакция удалена');
+      await loadTransactions();
+    } catch (caughtError) {
+      const message = getApiErrorState(caughtError).error || 'Не удалось удалить транзакцию';
+      setActionError(message);
+      showToast(message, 'error');
+    } finally {
+      setIsSubmittingAction(false);
     }
   };
 
@@ -138,6 +237,7 @@ export default function AdminTransactions() {
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <ToastStack toasts={toasts} onDismiss={(toastId) => setToasts((current) => current.filter((toast) => toast.id !== toastId))} />
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
@@ -182,9 +282,17 @@ export default function AdminTransactions() {
               description={hasSearch ? adminText('a_0J_QvtC_0YDQ') : adminText('a_0J7Qv9C10YDQ_2')}
             />
           ) : (
-            <AdminTable headers={[adminText('transaction_id_date'), adminText('partner_id_header'), adminText('a_0KLQuNC_INC-'), adminText('a_0KHRg9C80LzQ'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JjRgdGC0L7R_3')]}>
+            <AdminTable headers={[
+              adminText('transaction_id_date'),
+              adminText('partner_id_header'),
+              adminText('a_0KLQuNC_INC-'),
+              adminText('a_0KHRg9C80LzQ'),
+              adminText('a_0KHRgtCw0YLR'),
+              adminText('a_0JjRgdGC0L7R_3'),
+              ...(showActions ? ['Действия'] : []),
+            ]}>
               {transactions.map((trx, i) => (
-                <tr key={i} className="hover:bg-safi-green/5 transition-colors cursor-pointer group">
+                <tr key={i} className="hover:bg-safi-green/5 transition-colors group">
                   <td className="px-6 py-4">
                     <div className="font-bold text-safi-text">{trx.id}</div>
                     <div className="text-xs text-safi-text/50 mt-1">{trx.date}</div>
@@ -212,8 +320,37 @@ export default function AdminTransactions() {
                     </AdminBadge>
                   </td>
                   <td className="px-6 py-4 text-xs text-safi-text/70 max-w-[200px] truncate">
-                    {trx.comment || '-'}
+                    <div>{trx.comment || '-'}</div>
+                    {trx.paymentStrategyLabel && (
+                      <div className="mt-1 font-bold text-safi-gold">{trx.paymentStrategyLabel}</div>
+                    )}
                   </td>
+                  {showActions && (
+                    <td className="px-6 py-4">
+                      <div className="flex flex-wrap gap-2">
+                        {canEditTransactions && (
+                          <button
+                            type="button"
+                            onClick={() => openEditModal(trx)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-safi-border bg-white px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                            Изменить
+                          </button>
+                        )}
+                        {canDeleteTransactions && (
+                          <button
+                            type="button"
+                            onClick={() => openDeleteModal(trx)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-red-600 transition-colors hover:border-red-200 hover:bg-red-100"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Удалить
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </AdminTable>
@@ -228,6 +365,94 @@ export default function AdminTransactions() {
             }}
           />
         </section>
+      )}
+
+      {actionModal && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-safi-green/40 px-4 py-8 backdrop-blur-sm">
+          <form
+            className="w-full max-w-lg rounded-3xl border border-safi-border bg-white p-6 shadow-[0_24px_80px_rgba(11,23,18,0.18)]"
+            onSubmit={actionModal.mode === 'edit' ? submitEdit : submitDelete}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Транзакция #{actionModal.transaction.id}</div>
+                <h2 className="mt-2 font-serif text-2xl font-semibold text-safi-green">
+                  {actionModal.mode === 'edit' ? 'Изменить сумму' : 'Удалить транзакцию'}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActionModal(null)}
+                className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-safi-cream text-safi-green"
+                aria-label="Закрыть"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-sm text-safi-green">
+              <div className="font-bold">{actionModal.transaction.partnerName}</div>
+              <div className="mt-1 text-xs text-safi-muted">{actionModal.transaction.type} · {actionModal.transaction.amount}</div>
+            </div>
+
+            {actionModal.mode === 'edit' ? (
+              <label className="mt-5 block">
+                <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Новая сумма</span>
+                <input
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={actionModal.amount}
+                  onChange={(event) => setActionModal({ ...actionModal, amount: event.target.value })}
+                  className="w-full rounded-2xl border border-safi-border bg-white px-4 py-3 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
+                  required
+                />
+              </label>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm leading-6 text-red-700">
+                Транзакция будет удалена, баланс пользователя будет пересчитан, связанное уведомление исчезнет.
+              </div>
+            )}
+
+            <label className="mt-5 block">
+              <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Причина</span>
+              <textarea
+                rows={4}
+                value={actionModal.reason}
+                onChange={(event) => setActionModal({ ...actionModal, reason: event.target.value })}
+                className="w-full resize-none rounded-2xl border border-safi-border bg-white px-4 py-3 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
+                placeholder={actionModal.mode === 'edit' ? 'Корректировка суммы по заявке администратора' : 'Удаление ошибочной транзакции'}
+                required
+                minLength={3}
+                maxLength={500}
+              />
+            </label>
+
+            {actionError && (
+              <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm font-bold text-red-700">
+                {actionError}
+              </div>
+            )}
+
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setActionModal(null)}
+                className="rounded-full border border-safi-border bg-white px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green"
+                disabled={isSubmittingAction}
+              >
+                Отмена
+              </button>
+              <button
+                type="submit"
+                className={`rounded-full px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white disabled:opacity-60 ${actionModal.mode === 'delete' ? 'bg-red-600' : 'bg-safi-green'}`}
+                disabled={isSubmittingAction}
+              >
+                {isSubmittingAction ? 'Сохранение...' : actionModal.mode === 'edit' ? 'Сохранить' : 'Удалить'}
+              </button>
+            </div>
+          </form>
+        </div>
       )}
       
     </div>

@@ -91,6 +91,7 @@ export interface OrderPayload {
   product_id?: string | number;
   quantity?: number;
   items?: Array<{ product_id: string | number; quantity: number }>;
+  payment_strategy?: 'card_100' | 'card_50_deposit_50' | 'deposit_100';
   recipient_name?: string;
   phone?: string;
   city?: string;
@@ -200,6 +201,10 @@ export interface Order {
   paymentProvider?: string;
   paymentExternalId?: string;
   paymentTransactionId?: string;
+  paymentStrategy?: string;
+  paymentStrategyLabel?: string;
+  cardAmount?: number;
+  depositAmount?: number;
   paidAt?: string;
   recipientName?: string;
   phone?: string;
@@ -1173,6 +1178,22 @@ export async function getAdminTransactions<T = unknown>(params: ApiQueryParams =
   });
 }
 
+export async function updateAdminTransactionAmount<T = unknown>(transactionId: string | number, payload: { amount: number | string; reason: string }) {
+  return apiRequest<T>(endpoints.admin.transaction(transactionId), {
+    method: 'PATCH',
+    body: payload,
+    auth: true,
+  });
+}
+
+export async function deleteAdminTransaction<T = unknown>(transactionId: string | number, payload: { reason: string }) {
+  return apiRequest<T>(endpoints.admin.transaction(transactionId), {
+    method: 'DELETE',
+    body: payload,
+    auth: true,
+  });
+}
+
 export async function getAdminBonuses<T = unknown>(params: ApiQueryParams = {}) {
   return apiRequest<T>(buildEndpointWithParams(endpoints.admin.bonuses, params), {
     method: 'GET',
@@ -1666,6 +1687,10 @@ export function normalizeOrder(item: unknown, index = 0): Order {
     paymentProvider: getString(record, ['payment_provider', 'paymentProvider']),
     paymentExternalId: getString(record, ['payment_external_id', 'paymentExternalId']),
     paymentTransactionId: getString(record, ['payment_transaction_id', 'paymentTransactionId']),
+    paymentStrategy: getString(record, ['payment_strategy', 'paymentStrategy']),
+    paymentStrategyLabel: getString(record, ['payment_strategy_label', 'paymentStrategyLabel']),
+    cardAmount: getNumber(record, ['card_amount', 'cardAmount']),
+    depositAmount: getNumber(record, ['deposit_amount', 'depositAmount']),
     paidAt: getString(record, ['paid_at', 'paidAt']),
     recipientName: getString(record, ['recipient_name', 'recipientName'])
       || getString(delivery, ['recipient_name', 'recipientName'])

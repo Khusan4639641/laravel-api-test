@@ -4,16 +4,24 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Api\Concerns\RespondsWithPagination;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Admin\DeleteWalletTransactionRequest;
+use App\Http\Requests\Admin\UpdateWalletTransactionAmountRequest;
 use App\Http\Resources\WalletTransactionResource;
 use App\Models\BinaryBonusRun;
 use App\Models\WalletTransaction;
 use App\Models\WithdrawalRequest;
+use App\Services\AdminWalletTransactionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TransactionController extends Controller
 {
     use RespondsWithPagination;
+
+    public function __construct(
+        private readonly AdminWalletTransactionService $adminWalletTransactionService,
+    ) {
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -32,10 +40,43 @@ class TransactionController extends Controller
         ]);
     }
 
+    public function update(UpdateWalletTransactionAmountRequest $request, WalletTransaction $transaction): JsonResponse
+    {
+        $transaction = $this->adminWalletTransactionService->updateAmount(
+            $transaction,
+            $request->user(),
+            $request->validated('amount'),
+            $request->validated('reason'),
+        );
+
+        return response()->json([
+            'message' => 'Транзакция обновлена',
+            'data' => [
+                'transaction' => WalletTransactionResource::make($transaction),
+            ],
+        ]);
+    }
+
+    public function destroy(DeleteWalletTransactionRequest $request, WalletTransaction $transaction): JsonResponse
+    {
+        $this->adminWalletTransactionService->void(
+            $transaction,
+            $request->user(),
+            $request->validated('reason'),
+        );
+
+        return response()->json([
+            'message' => 'Транзакция удалена',
+            'data' => [
+                'transaction_id' => $transaction->id,
+            ],
+        ]);
+    }
+
     private function transactionsQuery(Request $request, string $search)
     {
         return WalletTransaction::query()
-            ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
+            ->visible()
             ->whereHas('user', fn ($query) => $query->activeAccount())
             ->when($request->filled('user_id'), fn ($query) => $query->where('user_id', (int) $request->integer('user_id')))
             ->when($request->filled('type'), fn ($query) => $query->where('type', trim((string) $request->query('type'))))

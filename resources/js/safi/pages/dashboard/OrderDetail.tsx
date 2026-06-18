@@ -65,7 +65,8 @@ export default function OrderDetail() {
   const canPayOnline = !['paid', 'refunded', 'cancelled'].includes(order.paymentStatus || '')
     && !['cancelled', 'completed', 'voided'].includes(order.status)
     && order.items.length > 0
-    && order.totalAmount > 0;
+    && (order.cardAmount ?? order.totalAmount) > 0
+    && order.paymentStrategy !== 'deposit_100';
 
   const handleOnlinePayment = async () => {
     if (!order) {
@@ -132,10 +133,11 @@ export default function OrderDetail() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-5">
         <InfoCard label={t('orders.orderDate')} value={formatDate(order.createdAt, language)} />
         <InfoCard label={t('orders.items')} value={order.itemsCount.toLocaleString('ru-RU')} />
         <InfoCard label={t('orders.totalAmount')} value={formatCurrency(order.totalAmount)} />
+        <InfoCard label="Тип оплаты" value={order.paymentStrategyLabel || '100% карта'} />
         <InfoCard label={t('orders.paymentInfo')} value={order.paymentStatusLabel || t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: t('orders.notPaid') })} />
       </section>
 

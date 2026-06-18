@@ -1,11 +1,11 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowRightLeft, ArrowUpCircle, Info, Wallet } from 'lucide-react';
+import { ArrowUpCircle, Info, Wallet } from 'lucide-react';
 import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import PartnerTransferForm from '../../components/dashboard/PartnerTransferForm';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ApiError, createDashboardWithdrawal, createInternalWalletTransfer, EarningsSummary, getApiErrorState, getDashboardEarningsSummary, getDashboardOverview, getDashboardWithdrawals, getNumber, getPartnerTransfers, getPublicStatuses, getString, PartnerTransfer, Status } from '../../lib/api';
+import { ApiError, createDashboardWithdrawal, EarningsSummary, getApiErrorState, getDashboardEarningsSummary, getDashboardOverview, getDashboardWithdrawals, getNumber, getPartnerTransfers, getPublicStatuses, getString, PartnerTransfer, Status } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { withdrawalStatusLabel } from '../../lib/systemLabels';
 
@@ -54,16 +54,11 @@ export default function Bonuses() {
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [withdrawalAmount, setWithdrawalAmount] = useState(50000);
   const [withdrawalMethod, setWithdrawalMethod] = useState('card_account');
-  const [internalTransferAmount, setInternalTransferAmount] = useState('');
-  const [internalTransferComment, setInternalTransferComment] = useState('');
   const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
-  const [isSubmittingInternalTransfer, setIsSubmittingInternalTransfer] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
-  const [internalTransferMessage, setInternalTransferMessage] = useState('');
-  const [internalTransferError, setInternalTransferError] = useState('');
 
   const loadBonusData = useCallback(async () => {
     setIsLoading(true);
@@ -134,11 +129,6 @@ export default function Bonuses() {
     await refreshCurrentUser();
   }, [loadBonusData, refreshCurrentUser]);
 
-  const internalTransferAmountNumber = Number(internalTransferAmount);
-  const canSubmitInternalTransfer = Number.isFinite(internalTransferAmountNumber)
-    && internalTransferAmountNumber > 0
-    && internalTransferAmountNumber <= earningsSummary.availableToWithdraw
-    && !isSubmittingInternalTransfer;
   const weakLegPV = structure.weakLegPV || Math.min(structure.leftPV, structure.rightPV);
   const nextStatus = statuses.find((status) => status.pv > weakLegPV);
   const statusProgressTotal = nextStatus?.pv || statuses[statuses.length - 1]?.pv || Math.max(weakLegPV, 1);
@@ -165,45 +155,6 @@ export default function Bonuses() {
       }
     } finally {
       setIsSubmittingWithdrawal(false);
-    }
-  };
-
-  const submitInternalTransfer = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setInternalTransferMessage('');
-    setInternalTransferError('');
-
-    if (!Number.isFinite(internalTransferAmountNumber) || internalTransferAmountNumber <= 0) {
-      setInternalTransferError('Укажите сумму больше нуля.');
-      return;
-    }
-
-    if (internalTransferAmountNumber > earningsSummary.availableToWithdraw) {
-      setInternalTransferError('Недостаточно средств на основном балансе.');
-      return;
-    }
-
-    setIsSubmittingInternalTransfer(true);
-
-    try {
-      await createInternalWalletTransfer({
-        from: 'main',
-        to: 'deposit',
-        amount: internalTransferAmountNumber,
-        comment: internalTransferComment,
-      });
-      setInternalTransferAmount('');
-      setInternalTransferComment('');
-      setInternalTransferMessage('Перевод между счетами выполнен.');
-      await handleTransferSuccess();
-    } catch (caughtError) {
-      if (caughtError instanceof ApiError) {
-        setInternalTransferError(caughtError.message);
-      } else {
-        setInternalTransferError('Не удалось выполнить перевод между счетами.');
-      }
-    } finally {
-      setIsSubmittingInternalTransfer(false);
     }
   };
 
@@ -365,91 +316,6 @@ export default function Bonuses() {
               <div className="mt-8 flex gap-3 rounded-3xl border border-white/10 bg-white/[0.08] p-4 text-sm leading-6 text-white/75">
                 <Info className="mt-1 h-5 w-5 shrink-0 text-safi-gold" />
                 <p>Заявки проверяются администратором перед выплатой. Расчёт бинарного бонуса каждые 15 дней.</p>
-              </div>
-            </aside>
-          </section>
-
-          <section className="grid gap-8 lg:grid-cols-[1fr_0.9fr]">
-            <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
-              <h2 className="mb-7 flex items-center gap-3 font-serif text-3xl font-semibold text-safi-green">
-                <ArrowRightLeft className="h-6 w-6 text-safi-gold" />
-                Перевод между счетами
-              </h2>
-
-              {(internalTransferMessage || internalTransferError) && (
-                <div className={`mb-5 rounded-2xl border px-4 py-3 text-sm font-bold ${internalTransferError ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
-                  {internalTransferError || internalTransferMessage}
-                </div>
-              )}
-
-              <form className="space-y-5" onSubmit={submitInternalTransfer}>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <label className="block">
-                    <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Откуда</span>
-                    <input
-                      type="text"
-                      value="Основной баланс"
-                      disabled
-                      className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-green outline-none disabled:opacity-80"
-                    />
-                    <span className="mt-2 block text-xs font-bold text-safi-muted">Доступно: {earningsSummary.availableToWithdraw.toLocaleString('ru-RU')} ₸</span>
-                  </label>
-
-                  <label className="block">
-                    <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Куда</span>
-                    <input
-                      type="text"
-                      value="Депозитный баланс"
-                      disabled
-                      className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-green outline-none disabled:opacity-80"
-                    />
-                    <span className="mt-2 block text-xs font-bold text-safi-muted">Сейчас: {earningsSummary.depositBalance.toLocaleString('ru-RU')} ₸</span>
-                  </label>
-                </div>
-
-                <label className="block">
-                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Сумма</span>
-                  <input
-                    type="number"
-                    min="1"
-                    max={earningsSummary.availableToWithdraw || undefined}
-                    value={internalTransferAmount}
-                    onChange={(event) => setInternalTransferAmount(event.target.value)}
-                    className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-xl font-extrabold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25"
-                  />
-                  {internalTransferAmount !== '' && internalTransferAmountNumber > earningsSummary.availableToWithdraw && (
-                    <span className="mt-2 block text-xs font-bold text-red-600">Недостаточно средств на основном балансе.</span>
-                  )}
-                </label>
-
-                <label className="block">
-                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Комментарий</span>
-                  <textarea
-                    rows={3}
-                    value={internalTransferComment}
-                    onChange={(event) => setInternalTransferComment(event.target.value)}
-                    className="w-full resize-none rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25"
-                    placeholder="Необязательно"
-                  />
-                </label>
-
-                <button
-                  type="submit"
-                  disabled={!canSubmitInternalTransfer}
-                  className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-5 py-4 text-xs font-extrabold uppercase tracking-[0.16em] text-white shadow-[0_18px_38px_rgba(11,23,18,0.16)] transition-colors hover:bg-safi-green-hover disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  <ArrowRightLeft className="h-5 w-5" />
-                  {isSubmittingInternalTransfer ? 'Переводим...' : 'Перевести'}
-                </button>
-              </form>
-            </article>
-
-            <aside className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-              <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-muted">Правила перевода</div>
-              <div className="mt-5 space-y-4 text-sm font-bold leading-6 text-safi-muted">
-                <p>Можно перевести только с основного баланса на депозитный баланс.</p>
-                <p>Перевод с депозитного баланса на основной недоступен.</p>
-                <p>Cashback не является отдельным счётом: начисленный cashback уже находится на основном балансе.</p>
               </div>
             </aside>
           </section>

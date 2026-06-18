@@ -186,7 +186,10 @@ export default function AdminOrders() {
                   <div className="mt-1 text-xs text-safi-text/60">{order.phone || order.user?.phone || '-'}</div>
                 </td>
                 <td className="px-6 py-4 font-bold text-safi-green">{order.itemsCount.toLocaleString('ru-RU')}</td>
-                <td className="px-6 py-4 font-bold text-safi-green">{formatCurrency(order.totalAmount)}</td>
+                <td className="px-6 py-4">
+                  <div className="font-bold text-safi-green">{formatCurrency(order.totalAmount)}</div>
+                  <div className="mt-1 text-xs font-bold text-safi-text/60">{order.paymentStrategyLabel || '100% карта'}</div>
+                </td>
                 <td className="px-6 py-4">
                   {canManageStatus ? (
                     <select
@@ -238,6 +241,9 @@ export default function AdminOrders() {
                           <h3 className="font-serif text-xl font-semibold text-safi-green">{t('orders.paymentInfo')}</h3>
                           <div className="mt-4 grid gap-3 text-sm">
                             <Metric label={t('orders.paymentProvider')} value={order.paymentProvider || '-'} />
+                            <Metric label="Тип оплаты" value={order.paymentStrategyLabel || '100% карта'} />
+                            <Metric label="Картой" value={formatCurrency(order.cardAmount ?? order.totalAmount)} />
+                            <Metric label="Депозитом" value={formatCurrency(order.depositAmount ?? 0)} />
                             <Metric label={t('orders.paymentStatus')} value={t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: order.paymentStatus || 'unpaid' })} />
                             <Metric label={t('orders.paymentExternalId')} value={order.paymentExternalId || '-'} />
                             <Metric label={t('orders.paymentTransactionId')} value={order.paymentTransactionId || '-'} />

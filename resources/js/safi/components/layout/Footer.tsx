@@ -12,11 +12,12 @@ export function Footer() {
       <Container>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-12">
           <div>
-            <Link to="/" className="flex items-center mb-6">
+            <Link to="/" className="notranslate flex items-center mb-6" translate="no">
               <img
                 alt="Safi Life"
-                className="w-[120px] h-auto object-contain brightness-0 invert opacity-90 hover:opacity-100 transition-opacity"
+                className="notranslate w-[120px] h-auto object-contain brightness-0 invert opacity-90 hover:opacity-100 transition-opacity"
                 src="https://napaxiong.wordpress.com/wp-content/uploads/2026/04/safi-life.png"
+                translate="no"
               />
             </Link>
             <p className="text-sm text-safi-bg/70 mb-6 max-w-xs leading-relaxed">
@@ -63,14 +64,14 @@ export function Footer() {
               </div>
               <div className="flex flex-col">
                 <span className="text-[10px] text-safi-gold uppercase tracking-wider mb-1">Связь</span>
-                <a href="mailto:info@safilife.kz" className="hover:text-white transition-colors">info@safilife.kz</a>
+                <a href="mailto:info@safilife.kz" className="notranslate hover:text-white transition-colors" translate="no">info@safilife.kz</a>
               </div>
             </div>
           </div>
         </div>
 
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-safi-bg/50">
-          <p>© {new Date().getFullYear()} Safi Life. {t('footer.rights', 'Все права защищены.')}</p>
+          <p>© {new Date().getFullYear()} <span className="notranslate" translate="no">Safi Life</span>. {t('footer.rights', 'Все права защищены.')}</p>
           <div className="mt-4 md:mt-0 max-w-xl text-center md:text-right">
             <p>Информация на сайте носит ознакомительный характер. Потенциальный доход не гарантируется.</p>
           </div>

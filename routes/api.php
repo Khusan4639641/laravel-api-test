@@ -172,6 +172,8 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
 
         Route::middleware('role_permission:admin.transactions.read')->group(function (): void {
             Route::get('/transactions', [AdminTransactionController::class, 'index']);
+            Route::patch('/transactions/{transaction}', [AdminTransactionController::class, 'update']);
+            Route::delete('/transactions/{transaction}', [AdminTransactionController::class, 'destroy']);
         });
 
         Route::middleware('role_permission:admin.withdrawals.read')->group(function (): void {

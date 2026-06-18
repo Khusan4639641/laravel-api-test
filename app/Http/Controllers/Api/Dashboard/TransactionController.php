@@ -20,7 +20,7 @@ class TransactionController extends Controller
         $transactions = $request->user()
             ->walletTransactions()
             ->with('wallet')
-            ->whereNotIn('status', ['reversed', 'voided', 'cancelled'])
+            ->visible()
             ->latest()
             ->paginate($this->perPage($request));
 

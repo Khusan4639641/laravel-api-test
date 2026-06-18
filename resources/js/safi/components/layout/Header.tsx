@@ -180,11 +180,12 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-safi-green/10 bg-white/50 backdrop-blur-md shrink-0">
       <Container>
         <div className="flex h-20 items-center justify-between gap-4 xl:gap-8">
-          <Link to="/" className="flex items-center" onClick={closeMenu}>
+          <Link to="/" className="notranslate flex items-center" onClick={closeMenu} translate="no">
             <img 
               alt="Safi Life" 
-              className="w-[100px] h-[40px] object-contain shrink-0" 
+              className="notranslate w-[100px] h-[40px] object-contain shrink-0"
               src="https://napaxiong.wordpress.com/wp-content/uploads/2026/04/safi-life.png" 
+              translate="no"
             />
           </Link>
 

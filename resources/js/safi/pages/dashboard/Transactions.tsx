@@ -12,7 +12,7 @@ export default function Transactions() {
   const [filter, setFilter] = useState('Все');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<Array<{ id: string; date: string; typeCode: string; type: string; amount: string; affectsBalance: boolean; affectsBalanceLabel: string; statusCode: string; status: string; source: string; comment: string }>>([]);
+  const [transactions, setTransactions] = useState<Array<{ id: string; date: string; typeCode: string; type: string; amount: string; affectsBalance: boolean; affectsBalanceLabel: string; statusCode: string; status: string; source: string; comment: string; paymentStrategyLabel?: string }>>([]);
   const [dashboardSummary, setDashboardSummary] = useState({
     totalEarned: 0,
     available: 0,
@@ -55,6 +55,7 @@ export default function Transactions() {
           status: transactionStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel']) || statusCode),
           source: getString(record, ['description']) || 'Система',
           comment: getString(record, ['description']) || '',
+          paymentStrategyLabel: getString(record, ['payment_strategy_label', 'paymentStrategyLabel']),
         };
       }));
     } catch (caughtError) {
@@ -185,6 +186,9 @@ export default function Transactions() {
                   <td className="px-7 py-5">
                     <div className="font-bold text-safi-green">{transaction.source}</div>
                     <div className="mt-1 text-xs text-safi-muted">{transaction.comment}</div>
+                    {transaction.paymentStrategyLabel && (
+                      <div className="mt-2 text-xs font-bold text-safi-gold">{transaction.paymentStrategyLabel}</div>
+                    )}
                     {!transaction.affectsBalance && (
                       <div className="mt-2 inline-flex rounded-full bg-safi-cream px-2 py-1 text-[9px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">
                         {transaction.affectsBalanceLabel}
@@ -231,6 +235,9 @@ export default function Transactions() {
               </div>
               <div className="mt-4 flex items-end justify-between gap-4">
                 <p className="text-xs leading-6 text-safi-muted">{transaction.source}</p>
+                {transaction.paymentStrategyLabel && (
+                  <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-gold">{transaction.paymentStrategyLabel}</p>
+                )}
                 {!transaction.affectsBalance && (
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">{transaction.affectsBalanceLabel}</p>
                 )}

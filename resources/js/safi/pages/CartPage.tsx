@@ -5,11 +5,13 @@ import { ArrowLeft, CreditCard, Minus, Plus, ShieldCheck, ShoppingBag, Trash2 } 
 import { Button } from '../components/ui/Button';
 import { Container } from '../components/ui/Container';
 import { ToastItem, ToastStack, ToastType } from '../components/ui/Toast';
-import { ApiError, createDepositPurchase, createOrder, createTipTopPayPaymentIntent, getApiErrorState, getAuthToken, getPublicDepositProducts, getPublicProducts, getString, getTipTopPayStatus, me, OrderPayload, TipTopPayStatus, unwrapRecord } from '../lib/api';
+import { ApiError, createOrder, createTipTopPayPaymentIntent, getApiErrorState, getAuthToken, getNumber, getPublicDepositProducts, getPublicProducts, getString, getTipTopPayStatus, me, OrderPayload, TipTopPayStatus, unwrapRecord } from '../lib/api';
 import { getStockLimit, isDepositProduct, isProductOrderable, useCart } from '../context/CartContext';
 import { useTipTopPayWidget } from '../hooks/useTipTopPayWidget';
 
 const formatCurrency = (value: number) => `${value.toLocaleString('ru-RU')} ₸`;
+type CartPaymentStrategy = 'card_100' | 'card_50_deposit_50' | 'deposit_100';
+
 const emptyDeliveryForm = {
   recipientName: '',
   phone: '',
@@ -38,6 +40,8 @@ export default function CartPage() {
   const [checkoutMessage, setCheckoutMessage] = useState('');
   const [checkoutError, setCheckoutError] = useState('');
   const [tipTopStatus, setTipTopStatus] = useState<TipTopPayStatus | null>(null);
+  const [depositBalance, setDepositBalance] = useState(0);
+  const [paymentStrategy, setPaymentStrategy] = useState<CartPaymentStrategy>('card_100');
   const [deliveryForm, setDeliveryForm] = useState(emptyDeliveryForm);
   const { isWidgetLoading, startPayment } = useTipTopPayWidget();
 
@@ -95,6 +99,7 @@ export default function CartPage() {
           phone: current.phone || getString(user, ['phone']) || getString(profile, ['phone']) || '',
           city: current.city || getString(user, ['city']) || getString(profile, ['city']) || '',
         }));
+        setDepositBalance(getNumber(user, ['deposit_balance', 'depositBalance']) ?? 0);
       })
       .catch(() => {
         // Checkout validation still requires delivery fields if the profile cannot be loaded.
@@ -110,16 +115,58 @@ export default function CartPage() {
   const hasRegularItems = useMemo(() => items.some((item) => !isDepositProduct(item.product)), [items]);
   const isDepositCart = hasDepositItems && !hasRegularItems;
   const hasMixedItems = hasDepositItems && hasRegularItems;
+  const cardHalfAmount = Math.ceil(totalPrice / 2);
+  const depositHalfAmount = Math.max(0, totalPrice - cardHalfAmount);
+  const selectedCardAmount = paymentStrategy === 'card_50_deposit_50'
+    ? cardHalfAmount
+    : paymentStrategy === 'card_100' ? totalPrice : 0;
+  const selectedDepositAmount = paymentStrategy === 'deposit_100'
+    ? totalPrice
+    : paymentStrategy === 'card_50_deposit_50' ? depositHalfAmount : 0;
+  const depositCashbackAmount = Math.round(totalPrice * 0.2 * 100) / 100;
+  const hasEnoughDepositForFifty = depositBalance >= depositHalfAmount;
+  const hasEnoughDepositForSelected = depositBalance >= selectedDepositAmount;
+  const isTipTopPayAvailable = tipTopStatus === null || (tipTopStatus.enabled && tipTopStatus.currency === 'KZT' && tipTopStatus.publicTerminalIdSet);
+  const requiresOnlinePayment = paymentStrategy !== 'deposit_100';
+  const hasValidPaymentStrategy = isDepositCart
+    ? paymentStrategy === 'deposit_100'
+    : !hasMixedItems && (paymentStrategy === 'card_100' || paymentStrategy === 'card_50_deposit_50');
   const hasDeliveryRequiredFields = deliveryForm.recipientName.trim() !== ''
     && deliveryForm.phone.trim() !== ''
     && deliveryForm.city.trim() !== ''
     && deliveryForm.deliveryAddress.trim() !== '';
   const isCheckoutBusy = isCheckingOut || isStartingOnlinePayment || isWidgetLoading;
-  const canCheckout = items.length > 0 && invalidItems.length === 0 && !hasMixedItems && hasDeliveryRequiredFields && !isCheckoutBusy;
-  const isTipTopPayAvailable = tipTopStatus === null || (tipTopStatus.enabled && tipTopStatus.currency === 'KZT' && tipTopStatus.publicTerminalIdSet);
-  const canPayOnline = canCheckout && !isDepositCart && isTipTopPayAvailable;
+  const canCheckout = items.length > 0
+    && invalidItems.length === 0
+    && !hasMixedItems
+    && hasDeliveryRequiredFields
+    && hasValidPaymentStrategy
+    && hasEnoughDepositForSelected
+    && (!requiresOnlinePayment || isTipTopPayAvailable)
+    && !isCheckoutBusy;
+  const checkoutButtonLabel = paymentStrategy === 'deposit_100'
+    ? 'Оформить с депозита'
+    : paymentStrategy === 'card_50_deposit_50' ? 'Оплатить 50/50' : 'Купить картой';
+
+  useEffect(() => {
+    if (isDepositCart && paymentStrategy !== 'deposit_100') {
+      setPaymentStrategy('deposit_100');
+      return;
+    }
+
+    if (!isDepositCart && paymentStrategy === 'deposit_100') {
+      setPaymentStrategy('card_100');
+    }
+  }, [isDepositCart, paymentStrategy]);
 
   const handleIncrease = (productId: string) => {
+    const item = items.find((cartItem) => String(cartItem.product.id) === String(productId));
+
+    if (item && isDepositProduct(item.product) && totalPrice + item.product.price > depositBalance) {
+      showToast('Недостаточно средств на депозитном балансе.', 'error');
+      return;
+    }
+
     const result = incrementProduct(productId);
 
     if (!result.ok) {
@@ -139,6 +186,7 @@ export default function CartPage() {
     city: deliveryForm.city.trim(),
     delivery_address: deliveryForm.deliveryAddress.trim(),
     comment: deliveryForm.comment.trim(),
+    payment_strategy: paymentStrategy,
   });
 
   const validateCheckout = () => {
@@ -161,7 +209,27 @@ export default function CartPage() {
     }
 
     if (hasMixedItems) {
-      setCheckoutError(t('cart.mixedDepositCart', 'Депозитные товары оформляются отдельным заказом'));
+      setCheckoutError(t('cart.mixedDepositCart', 'Нельзя смешивать депозитные и обычные товары в одной корзине. Очистите корзину.'));
+      return false;
+    }
+
+    if (isDepositCart && paymentStrategy !== 'deposit_100') {
+      setCheckoutError('Депозитные товары можно оплатить только с депозитного баланса.');
+      return false;
+    }
+
+    if (!isDepositCart && paymentStrategy === 'deposit_100') {
+      setCheckoutError('Обычные товары нельзя оплатить только депозитом.');
+      return false;
+    }
+
+    if (!hasEnoughDepositForSelected) {
+      setCheckoutError('Недостаточно средств на депозитном балансе.');
+      return false;
+    }
+
+    if (requiresOnlinePayment && !isTipTopPayAvailable) {
+      setCheckoutError(t('orders.onlinePaymentUnavailable', 'Онлайн-оплата временно недоступна'));
       return false;
     }
 
@@ -181,61 +249,22 @@ export default function CartPage() {
     setIsCheckingOut(true);
 
     try {
-      if (isDepositCart) {
-        await createDepositPurchase(buildOrderPayload());
-      } else {
-        await createOrder(buildOrderPayload());
-      }
-
-      clearCart();
-      setDeliveryForm(emptyDeliveryForm);
-      const message = isDepositCart
-        ? t('cart.depositPurchaseCreated', 'Покупка с депозитного баланса выполнена.')
-        : t('orders.orderCreated');
-      setCheckoutMessage(message);
-      showToast(message);
-      navigate('/dashboard/orders', { state: { orderCreated: true } });
-    } catch (caughtError) {
-      const message = caughtError instanceof ApiError
-        ? caughtError.message
-        : getApiErrorState(caughtError).error;
-      setCheckoutError(message || t('cart.checkoutFailed', 'Не удалось оформить заказ.'));
-      showToast(message || t('cart.checkoutFailed', 'Не удалось оформить заказ.'), 'error');
-      await refreshProducts();
-    } finally {
-      setIsCheckingOut(false);
-    }
-  };
-
-  const handleOnlinePayment = async () => {
-    if (!validateCheckout()) {
-      return;
-    }
-
-    if (isDepositCart) {
-      const message = t('cart.depositOnlyOnlineBlocked', 'Этот товар доступен только за депозит');
-      setCheckoutError(message);
-      showToast(message, 'error');
-      return;
-    }
-
-    if (!isTipTopPayAvailable) {
-      const message = t('orders.onlinePaymentUnavailable', 'Онлайн-оплата временно недоступна');
-      setCheckoutError(message);
-      showToast(message, 'error');
-      return;
-    }
-
-    setIsStartingOnlinePayment(true);
-
-    try {
       const order = await createOrder(buildOrderPayload());
       clearCart();
       setDeliveryForm(emptyDeliveryForm);
+
+      if (paymentStrategy === 'deposit_100') {
+        const message = t('cart.depositPurchaseCreated', 'Покупка с депозитного баланса выполнена.');
+        setCheckoutMessage(message);
+        showToast(message);
+        navigate('/dashboard/orders', { state: { orderCreated: true } });
+        return;
+      }
+
+      setIsStartingOnlinePayment(true);
       showToast(t('orders.orderCreated'));
 
       const intent = await createTipTopPayPaymentIntent(order.id);
-
       await startPayment(intent, {
         onSuccess: () => {
           showToast(t('orders.paymentSubmitted'));
@@ -259,6 +288,7 @@ export default function CartPage() {
       showToast(message || t('orders.paymentStartError'), 'error');
       await refreshProducts();
     } finally {
+      setIsCheckingOut(false);
       setIsStartingOnlinePayment(false);
     }
   };
@@ -329,7 +359,9 @@ export default function CartPage() {
               const isInvalid = !isOrderable || (hasStockLimit && item.quantity > stockLimit);
               const isDepositItem = isDepositProduct(item.product);
               const canDecrease = item.quantity > 1;
-              const canIncrease = isOrderable && (!hasStockLimit || item.quantity < stockLimit);
+              const canIncrease = isOrderable
+                && (!hasStockLimit || item.quantity < stockLimit)
+                && (!isDepositItem || totalPrice + item.product.price <= depositBalance);
 
               return (
                 <div key={item.product.id} className="grid gap-5 rounded-[28px] border border-safi-green/5 bg-white p-4 shadow-sm md:grid-cols-[140px_minmax(0,1fr)] md:p-5">
@@ -461,7 +493,7 @@ export default function CartPage() {
                 <label className="flex items-center justify-between gap-4 rounded-2xl border border-safi-gold/30 bg-white/10 p-4">
                   <span>
                     <span className="block text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/50">Способ оплаты</span>
-                    <span className="mt-1 block font-bold text-white">Депозитный баланс</span>
+                    <span className="mt-1 block font-bold text-white">100% депозит</span>
                   </span>
                   <input
                     type="radio"
@@ -471,6 +503,39 @@ export default function CartPage() {
                     className="h-4 w-4 border-white/30 text-safi-gold"
                   />
                 </label>
+              )}
+              {!isDepositCart && !hasMixedItems && (
+                <div className="space-y-3">
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/50">Способ оплаты</div>
+                  <PaymentOption
+                    checked={paymentStrategy === 'card_100'}
+                    label="100% с карты"
+                    onChange={() => setPaymentStrategy('card_100')}
+                  />
+                  <PaymentOption
+                    checked={paymentStrategy === 'card_50_deposit_50'}
+                    disabled={!hasEnoughDepositForFifty}
+                    label="50% с карты / 50% с депозита"
+                    note={!hasEnoughDepositForFifty ? 'Недостаточно средств на депозитном балансе.' : undefined}
+                    onChange={() => setPaymentStrategy('card_50_deposit_50')}
+                  />
+                </div>
+              )}
+              <div className="rounded-2xl bg-white/5 p-4 text-xs font-bold leading-6 text-white/70">
+                <SummaryLine label="Сумма заказа" value={formatCurrency(totalPrice)} />
+                <SummaryLine label="К оплате картой" value={formatCurrency(selectedCardAmount)} />
+                <SummaryLine label="С депозита" value={formatCurrency(selectedDepositAmount)} />
+                {isDepositCart && (
+                  <>
+                    <SummaryLine label="Доступно на депозите" value={formatCurrency(depositBalance)} />
+                    <SummaryLine label="Cashback 20%" value={formatCurrency(depositCashbackAmount)} />
+                  </>
+                )}
+              </div>
+              {selectedDepositAmount > 0 && !hasEnoughDepositForSelected && (
+                <div className="rounded-2xl border border-red-300/30 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-100">
+                  Недостаточно средств на депозитном балансе.
+                </div>
               )}
               <div className="flex items-end justify-between border-t border-white/10 pt-5">
                 <span className="text-white/60">{t('cart.subtotal', 'Сумма')}</span>
@@ -484,24 +549,11 @@ export default function CartPage() {
               onClick={() => void handleCheckout()}
               className="mt-8 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-safi-gold bg-safi-gold px-8 py-4 text-sm font-bold uppercase tracking-widest text-safi-green shadow-lg transition-all hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isCheckingOut
-                ? isDepositCart ? t('cart.depositCheckoutLoading', 'Покупаем...') : t('cart.checkoutLoading', 'Оформляем...')
-                : isDepositCart ? t('cart.depositCheckout', 'Купить за депозит') : t('cart.checkout', 'Оформить заказ')}
+              {paymentStrategy !== 'deposit_100' && <CreditCard className="h-4 w-4" />}
+              {isCheckingOut || isWidgetLoading
+                ? paymentStrategy === 'deposit_100' ? t('cart.depositCheckoutLoading', 'Покупаем...') : t('orders.openingPayment', 'Открываем оплату...')
+                : checkoutButtonLabel}
             </button>
-
-            {!isDepositCart && (
-              <button
-                type="button"
-                disabled={!canPayOnline || isSyncing}
-                onClick={() => void handleOnlinePayment()}
-                className="mt-3 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/15 bg-white px-8 py-4 text-sm font-bold uppercase tracking-widest text-safi-green shadow-lg transition-all hover:bg-safi-cream disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <CreditCard className="h-4 w-4" />
-                {!isTipTopPayAvailable
-                  ? t('orders.onlinePaymentUnavailable', 'Онлайн-оплата временно недоступна')
-                  : isStartingOnlinePayment || isWidgetLoading ? t('orders.openingPayment') : t('orders.payOnline')}
-              </button>
-            )}
 
             <div className="mt-5 flex items-start gap-3 rounded-2xl bg-white/5 p-4 text-xs leading-relaxed text-white/60">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-safi-gold" />
@@ -510,6 +562,45 @@ export default function CartPage() {
           </aside>
         </div>
       </Container>
+    </div>
+  );
+}
+
+function PaymentOption({
+  checked,
+  disabled = false,
+  label,
+  note,
+  onChange,
+}: {
+  checked: boolean;
+  disabled?: boolean;
+  label: string;
+  note?: string;
+  onChange: () => void;
+}) {
+  return (
+    <label className={`flex cursor-pointer items-start justify-between gap-4 rounded-2xl border p-4 transition-colors ${checked ? 'border-safi-gold/60 bg-white/15' : 'border-white/10 bg-white/5'} ${disabled ? 'cursor-not-allowed opacity-55' : 'hover:bg-white/10'}`}>
+      <span>
+        <span className="block text-sm font-bold text-white">{label}</span>
+        {note && <span className="mt-1 block text-xs font-bold text-red-100">{note}</span>}
+      </span>
+      <input
+        type="radio"
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+        className="mt-1 h-4 w-4 border-white/30 text-safi-gold"
+      />
+    </label>
+  );
+}
+
+function SummaryLine({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span>{label}</span>
+      <span className="text-white">{value}</span>
     </div>
   );
 }

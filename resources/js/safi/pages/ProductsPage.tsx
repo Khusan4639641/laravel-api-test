@@ -53,7 +53,7 @@ export default function ProductsPage() {
 
     if (!result.ok) {
       showToast(result.reason === 'mixed_product_type'
-        ? t('cart.mixedDepositCart', 'Депозитные товары оформляются отдельным заказом')
+        ? t('cart.mixedDepositCart', 'Нельзя смешивать депозитные и обычные товары в одной корзине. Очистите корзину.')
         : result.reason === 'stock_limit'
           ? t('cart.stockLimitReached', 'Недостаточно товара на складе')
           : t('cart.outOfStock', 'Нет в наличии'), 'error');

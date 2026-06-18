@@ -86,6 +86,7 @@ export const endpoints = {
     order: (order: EndpointId) => `/admin/orders/${encodeEndpointId(order)}`,
     orderStatus: (order: EndpointId) => `/admin/orders/${encodeEndpointId(order)}/status`,
     transactions: '/admin/transactions',
+    transaction: (transaction: EndpointId) => `/admin/transactions/${encodeEndpointId(transaction)}`,
     bonuses: '/admin/bonuses',
     withdrawals: '/admin/withdrawals',
     approveWithdrawal: (withdrawal: EndpointId) => `/admin/withdrawals/${encodeEndpointId(withdrawal)}/approve`,

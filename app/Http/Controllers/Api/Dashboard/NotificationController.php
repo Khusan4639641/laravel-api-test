@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\WalletTransaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\DatabaseNotification;
@@ -15,15 +16,21 @@ class NotificationController extends Controller
         $notifications = $request->user()
             ->notifications()
             ->latest()
-            ->limit($limit)
+            ->limit($limit * 3)
             ->get()
+            ->filter(fn (DatabaseNotification $notification): bool => $this->isVisible($notification))
+            ->take($limit)
             ->map(fn (DatabaseNotification $notification): array => $this->serialize($notification))
             ->values();
 
         return response()->json([
             'notifications' => $notifications,
             'data' => $notifications,
-            'unread_count' => $request->user()->unreadNotifications()->count(),
+            'unread_count' => $request->user()
+                ->unreadNotifications()
+                ->get()
+                ->filter(fn (DatabaseNotification $notification): bool => $this->isVisible($notification))
+                ->count(),
         ]);
     }
 
@@ -44,5 +51,21 @@ class NotificationController extends Controller
             'read_at' => $notification->read_at?->toISOString(),
             'created_at' => $notification->created_at?->toISOString(),
         ];
+    }
+
+    private function isVisible(DatabaseNotification $notification): bool
+    {
+        $transactionId = $notification->data['transaction_id']
+            ?? $notification->data['wallet_transaction_id']
+            ?? null;
+
+        if (! $transactionId) {
+            return true;
+        }
+
+        return WalletTransaction::query()
+            ->whereKey($transactionId)
+            ->visible()
+            ->exists();
     }
 }
