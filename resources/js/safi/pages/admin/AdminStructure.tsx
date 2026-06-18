@@ -1,6 +1,6 @@
-import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Filter, Info, Network, Search } from 'lucide-react';
+import { Crosshair, Filter, Info, Maximize2, Minus, Network, Plus, RotateCcw, Search } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
@@ -91,6 +91,62 @@ interface RootOrphanPagination {
   hasPrev: boolean;
 }
 
+type TreeNodeSize = 'small' | 'normal' | 'large';
+type TreeDensity = 'compact' | 'normal' | 'wide';
+
+interface TreeViewSettings {
+  zoom: number;
+  nodeSize: TreeNodeSize;
+  density: TreeDensity;
+  showEmptySlots: boolean;
+}
+
+interface TreeSizeConfig {
+  width: number;
+  height: number;
+  avatar: string;
+  padding: string;
+  nameText: string;
+  metaText: string;
+  detailText: string;
+  pvText: string;
+}
+
+interface TreeDensityConfig {
+  horizontalGap: number;
+  verticalGap: number;
+}
+
+interface TreeLayoutItem {
+  id: string;
+  kind: 'node' | 'empty';
+  node: StructureNode | null;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  branch?: 'L' | 'R';
+  isRoot?: boolean;
+}
+
+interface TreeConnector {
+  id: string;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  isEmptyTarget: boolean;
+}
+
+interface TreeLayout {
+  width: number;
+  height: number;
+  rootCenterX: number;
+  rootY: number;
+  items: TreeLayoutItem[];
+  connectors: TreeConnector[];
+}
+
 const emptyStats: StructureStats = {
   directInvitedCount: 0,
   totalDownlineCount: 0,
@@ -101,6 +157,52 @@ const emptyStats: StructureStats = {
   weakLegPV: 0,
 };
 
+const treeSettingsStorageKey = 'safi_admin_structure_view_settings';
+const minTreeZoom = 0.35;
+const maxTreeZoom = 1.2;
+const defaultTreeViewSettings: TreeViewSettings = {
+  zoom: 0.75,
+  nodeSize: 'small',
+  density: 'compact',
+  showEmptySlots: true,
+};
+const treeNodeSizeConfigs: Record<TreeNodeSize, TreeSizeConfig> = {
+  small: {
+    width: 110,
+    height: 145,
+    avatar: 'h-8 w-8 text-sm',
+    padding: 'p-2',
+    nameText: 'text-[11px]',
+    metaText: 'text-[9px]',
+    detailText: 'text-[9px]',
+    pvText: 'text-[8px]',
+  },
+  normal: {
+    width: 140,
+    height: 176,
+    avatar: 'h-10 w-10 text-base',
+    padding: 'p-3',
+    nameText: 'text-xs',
+    metaText: 'text-[10px]',
+    detailText: 'text-[10px]',
+    pvText: 'text-[9px]',
+  },
+  large: {
+    width: 170,
+    height: 208,
+    avatar: 'h-12 w-12 text-lg',
+    padding: 'p-4',
+    nameText: 'text-sm',
+    metaText: 'text-[10px]',
+    detailText: 'text-[10px]',
+    pvText: 'text-[9px]',
+  },
+};
+const treeDensityConfigs: Record<TreeDensity, TreeDensityConfig> = {
+  compact: { horizontalGap: 32, verticalGap: 70 },
+  normal: { horizontalGap: 64, verticalGap: 90 },
+  wide: { horizontalGap: 100, verticalGap: 120 },
+};
 const defaultRootOrphanPageSize = 5;
 const pageSizeOptions = [defaultRootOrphanPageSize, 10, 20, 50, 100];
 const defaultRootOrphanPagination: RootOrphanPagination = {
@@ -134,6 +236,9 @@ function normalizeRootOrphanPerPage(value: string | null): number {
 export default function AdminStructure() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const treeScrollRef = useRef<HTMLDivElement | null>(null);
+  const treeProgrammaticScrollRef = useRef(false);
+  const treeUserScrolledRef = useRef(false);
   const selectedUserId = searchParams.get('root_id') || searchParams.get('user_id') || '';
   const selectedDepth = searchParams.get('depth') || '10';
   const rootOrphanPerPageParam = searchParams.get('per_page');
@@ -159,6 +264,7 @@ export default function AdminStructure() {
   const [searchMessage, setSearchMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [treeSettings, setTreeSettings] = useState<TreeViewSettings>(() => readTreeViewSettings());
 
   const loadStructure = async () => {
     setIsLoading(true);
@@ -219,6 +325,90 @@ export default function AdminStructure() {
       setIsRootOrphansLoading(false);
     }
   };
+
+  const nodeSizeConfig = treeNodeSizeConfigs[treeSettings.nodeSize];
+  const densityConfig = treeDensityConfigs[treeSettings.density];
+  const treeLayout = useMemo(
+    () => rootNode ? computeTreeLayout(rootNode, treeSettings, nodeSizeConfig, densityConfig) : null,
+    [rootNode, treeSettings.nodeSize, treeSettings.density, treeSettings.showEmptySlots, nodeSizeConfig, densityConfig],
+  );
+
+  const persistTreeSettings = useCallback((nextSettings: TreeViewSettings) => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    window.localStorage.setItem(treeSettingsStorageKey, JSON.stringify(nextSettings));
+  }, []);
+
+  const updateTreeSettings = useCallback((patch: Partial<TreeViewSettings>) => {
+    setTreeSettings((current) => {
+      const nextSettings = normalizeTreeViewSettings({ ...current, ...patch });
+
+      persistTreeSettings(nextSettings);
+
+      return nextSettings;
+    });
+  }, [persistTreeSettings]);
+
+  const centerTree = useCallback((zoomOverride?: number) => {
+    const container = treeScrollRef.current;
+
+    if (!container || !treeLayout) {
+      return;
+    }
+
+    const zoom = zoomOverride ?? treeSettings.zoom;
+    const nextScrollLeft = Math.max(0, treeLayout.rootCenterX * zoom - container.clientWidth / 2);
+    const nextScrollTop = Math.max(0, treeLayout.rootY * zoom - 40);
+
+    treeProgrammaticScrollRef.current = true;
+    container.scrollTo({ left: nextScrollLeft, top: nextScrollTop, behavior: 'smooth' });
+    window.setTimeout(() => {
+      treeProgrammaticScrollRef.current = false;
+    }, 450);
+  }, [treeLayout, treeSettings.zoom]);
+
+  const fitTreeToScreen = useCallback(() => {
+    const container = treeScrollRef.current;
+
+    if (!container || !treeLayout) {
+      return;
+    }
+
+    const nextZoom = clampNumber(
+      Math.min(container.clientWidth / treeLayout.width, container.clientHeight / treeLayout.height, 1),
+      minTreeZoom,
+      1,
+    );
+
+    updateTreeSettings({ zoom: nextZoom });
+    window.setTimeout(() => centerTree(nextZoom), 0);
+  }, [centerTree, treeLayout, updateTreeSettings]);
+
+  const resetTreeView = useCallback(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(treeSettingsStorageKey);
+    }
+
+    treeUserScrolledRef.current = false;
+    setTreeSettings(defaultTreeViewSettings);
+    window.setTimeout(() => centerTree(defaultTreeViewSettings.zoom), 0);
+  }, [centerTree]);
+
+  useEffect(() => {
+    treeUserScrolledRef.current = false;
+  }, [rootNode?.id]);
+
+  useEffect(() => {
+    if (!treeLayout || treeUserScrolledRef.current) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => centerTree(treeSettings.zoom), 80);
+
+    return () => window.clearTimeout(timeout);
+  }, [centerTree, treeLayout?.height, treeLayout?.width, rootNode?.id, treeSettings.zoom]);
 
   useEffect(() => {
     setQuery(selectedUserId);
@@ -285,7 +475,6 @@ export default function AdminStructure() {
   }, [query, selectedUserId]);
 
   const hasChildren = Boolean(rootNode?.children.left || rootNode?.children.right);
-  const treeCanvasWidth = useMemo(() => `${Math.max(1400, (Number(selectedDepth) || 10) * 360)}px`, [selectedDepth]);
   const rootOrphanTotalItems = rootOrphanPagination.filteredTotal ?? rootOrphanPagination.total ?? 0;
   const rootOrphanEffectiveLimit = Math.max(rootOrphanPagination.limit || rootOrphanLimit, 1);
   const rootOrphanEffectiveOffset = Math.max(rootOrphanPagination.offset || rootOrphanOffset, 0);
@@ -604,12 +793,21 @@ export default function AdminStructure() {
 
       {!isLoading && !error && rootNode && (
         <div className="rounded-[32px] border border-safi-green/5 bg-white p-4 shadow-sm md:p-6">
-          <div className="mb-4 flex flex-col gap-2 text-xs font-bold text-safi-text/50 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-2">
-              <Info className="h-4 w-4 shrink-0" />
-              <span>{adminText('a_0JjRgdC_0L7Q')}</span>
+          <div className="mb-4 flex flex-col gap-3">
+            <div className="flex flex-col gap-2 text-xs font-bold text-safi-text/50 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 shrink-0" />
+                <span>{adminText('a_0JjRgdC_0L7Q')}</span>
+              </div>
+              <span>{adminText('a_0JTQsNC90L3R_4')}{selectedDepth}</span>
             </div>
-            <span>{adminText('a_0JTQsNC90L3R_4')}{selectedDepth}</span>
+            <StructureTreeToolbar
+              settings={treeSettings}
+              onChange={updateTreeSettings}
+              onFit={fitTreeToScreen}
+              onCenter={() => centerTree()}
+              onReset={resetTreeView}
+            />
           </div>
           {depthInfo.hasDeeperNodes && (
             <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
@@ -617,17 +815,81 @@ export default function AdminStructure() {
             </div>
           )}
 
-          <div className="relative max-h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-auto rounded-[24px] border border-safi-border bg-white">
+          <div
+            ref={treeScrollRef}
+            onScroll={() => {
+              if (!treeProgrammaticScrollRef.current) {
+                treeUserScrolledRef.current = true;
+              }
+            }}
+            className="relative max-h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-auto rounded-[24px] border border-safi-border bg-white"
+          >
             {!hasChildren && (
               <div className="sticky bottom-5 left-5 z-10 mx-5 mt-5 rounded-2xl bg-[#F5F5F0] px-4 py-3 text-center text-xs font-bold text-safi-text/60">{adminText('a_0KMg0L_QsNGA')}</div>
             )}
 
-            <div
-              className="flex min-h-[700px] w-max items-start justify-center px-10 py-12"
-              style={{ minWidth: treeCanvasWidth }}
-            >
-              <TreeNode node={rootNode} isRoot onOpen={openNodeTree} />
-            </div>
+            {treeLayout && (
+              <div
+                className="relative"
+                style={{
+                  width: `${treeLayout.width * treeSettings.zoom}px`,
+                  height: `${treeLayout.height * treeSettings.zoom}px`,
+                }}
+              >
+                <div
+                  className="absolute left-0 top-0 bg-[radial-gradient(circle_at_1px_1px,rgba(35,74,58,0.08)_1px,transparent_0)] [background-size:28px_28px]"
+                  style={{
+                    width: `${treeLayout.width}px`,
+                    height: `${treeLayout.height}px`,
+                    transform: `scale(${treeSettings.zoom})`,
+                    transformOrigin: 'top left',
+                  }}
+                >
+                  <svg
+                    className="absolute inset-0"
+                    width={treeLayout.width}
+                    height={treeLayout.height}
+                    viewBox={`0 0 ${treeLayout.width} ${treeLayout.height}`}
+                    style={{ pointerEvents: 'none' }}
+                  >
+                    {treeLayout.connectors.map((connector) => {
+                      const midY = connector.fromY + Math.max((connector.toY - connector.fromY) / 2, 24);
+
+                      return (
+                        <path
+                          key={connector.id}
+                          d={`M ${connector.fromX} ${connector.fromY} V ${midY} H ${connector.toX} V ${connector.toY}`}
+                          fill="none"
+                          stroke={connector.isEmptyTarget ? 'rgba(35,74,58,0.18)' : 'rgba(35,74,58,0.32)'}
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeDasharray={connector.isEmptyTarget ? '6 7' : undefined}
+                        />
+                      );
+                    })}
+                  </svg>
+                  {treeLayout.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="absolute"
+                      style={{
+                        left: `${item.x}px`,
+                        top: `${item.y}px`,
+                        width: `${item.width}px`,
+                        height: `${item.height}px`,
+                      }}
+                    >
+                      {item.kind === 'node' && item.node ? (
+                        <TreeNodeCard node={item.node} isRoot={item.isRoot} onOpen={openNodeTree} sizeConfig={nodeSizeConfig} />
+                      ) : (
+                        <EmptyTreeSlotCard sizeConfig={nodeSizeConfig} branch={item.branch} />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -645,87 +907,430 @@ function SummaryCard({ label, value, subValue }: { label: string; value: string;
   );
 }
 
-function TreeNode({ node, isRoot, onOpen }: { node: StructureNode; isRoot?: boolean; onOpen: (userId: string) => void }) {
-  const hasChildren = Boolean(node.children.left || node.children.right);
+function StructureTreeToolbar({
+  settings,
+  onChange,
+  onFit,
+  onCenter,
+  onReset,
+}: {
+  settings: TreeViewSettings;
+  onChange: (patch: Partial<TreeViewSettings>) => void;
+  onFit: () => void;
+  onCenter: () => void;
+  onReset: () => void;
+}) {
+  const zoomPercent = Math.round(settings.zoom * 100);
 
   return (
-    <div className="flex flex-col items-center">
-      <button
-        type="button"
-        onClick={() => onOpen(node.userId)}
-        className={cn(
-          'w-48 shrink-0 cursor-pointer rounded-2xl bg-white p-4 text-center shadow-sm transition-transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-safi-green/20',
-          isRoot ? 'border-2 border-safi-gold shadow-md' : 'border border-safi-green/10'
-        )}
-        title={adminText('a_0J7RgtC60YDR_5')}
-      >
-        <div className={cn(
-          'mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full text-lg font-bold font-serif text-white',
-          node.packageCode === 'START' ? 'bg-blue-400' : node.packageCode === 'VIP' ? 'bg-purple-500' : 'bg-safi-gold'
-        )}>
-          {node.name.charAt(0)}
-        </div>
-        <div className="mb-1 w-full truncate text-sm font-bold text-safi-green" title={node.name}>{node.name}</div>
-        <div className="mb-2 rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-[10px] text-safi-text/50">{node.login || node.userId}</div>
-        <div className="mt-3 space-y-1 border-t border-safi-green/5 pt-3 text-left text-[10px] font-bold text-safi-text/70">
-          <div className="flex items-center justify-between gap-2">
-            <span>{adminText('Пакет')}:</span>
-            <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span>{adminText('Статус')}:</span>
-            <span className="truncate text-safi-green">{node.status}</span>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span>{adminText('Личный PV')}:</span>
-            <span className="text-safi-gold">{node.personalPV.toLocaleString('ru-RU')} PV</span>
-          </div>
-          <div className="grid grid-cols-2 gap-1 pt-1 text-center text-[9px] font-extrabold text-safi-green">
-            <div className="rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Левая ветка PV')}>
-              {adminText('Л')}: {formatCompactPv(node.leftBranchPV)}
-            </div>
-            <div className="rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Правая ветка PV')}>
-              {adminText('П')}: {formatCompactPv(node.rightBranchPV)}
-            </div>
-          </div>
-        </div>
-      </button>
-
-      {hasChildren && (
-        <div className="mt-6 flex flex-col items-center">
-          <div className="h-6 border-l-2 border-safi-green/20" />
-          <div className="relative grid grid-cols-2 gap-6 lg:gap-8">
-            <div className="absolute left-1/4 right-1/4 top-0 border-t-2 border-safi-green/20" />
-            <BranchColumn label={adminText('a_0JvQtdCy0LDR')}>
-              {node.children.left ? <TreeNode node={node.children.left} onOpen={onOpen} /> : <EmptyTreeSlot />}
-            </BranchColumn>
-            <BranchColumn label={adminText('a_0J_RgNCw0LLQ')}>
-              {node.children.right ? <TreeNode node={node.children.right} onOpen={onOpen} /> : <EmptyTreeSlot />}
-            </BranchColumn>
-          </div>
-        </div>
-      )}
+    <div className="flex flex-wrap items-center gap-2 rounded-[24px] border border-safi-border bg-safi-cream p-3">
+      <div className="flex items-center gap-1 rounded-full bg-white p-1">
+        <IconButton label="Уменьшить" onClick={() => onChange({ zoom: settings.zoom - 0.05 })}>
+          <Minus className="h-4 w-4" />
+        </IconButton>
+        {[0.5, 0.75, 1].map((zoom) => (
+          <button
+            key={zoom}
+            type="button"
+            onClick={() => onChange({ zoom })}
+            className={cn(
+              'h-8 rounded-full px-3 text-[10px] font-extrabold text-safi-green transition-colors',
+              Math.abs(settings.zoom - zoom) < 0.01 ? 'bg-safi-green text-white' : 'hover:bg-safi-green/10',
+            )}
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+        ))}
+        <IconButton label="Увеличить" onClick={() => onChange({ zoom: settings.zoom + 0.05 })}>
+          <Plus className="h-4 w-4" />
+        </IconButton>
+      </div>
+      <label className="flex min-w-[180px] items-center gap-2 rounded-full bg-white px-3 py-2 text-[10px] font-extrabold text-safi-green">
+        <span className="w-9 tabular-nums">{zoomPercent}%</span>
+        <input
+          type="range"
+          min={40}
+          max={120}
+          step={5}
+          value={Math.round(settings.zoom * 100)}
+          onChange={(event) => onChange({ zoom: Number(event.target.value) / 100 })}
+          className="w-28 accent-safi-green"
+        />
+      </label>
+      <SegmentedTreeControl
+        label="Карточки"
+        value={settings.nodeSize}
+        options={[
+          ['small', 'small'],
+          ['normal', 'normal'],
+          ['large', 'large'],
+        ]}
+        onChange={(value) => onChange({ nodeSize: value as TreeNodeSize })}
+      />
+      <SegmentedTreeControl
+        label="Плотность"
+        value={settings.density}
+        options={[
+          ['compact', 'compact'],
+          ['normal', 'normal'],
+          ['wide', 'wide'],
+        ]}
+        onChange={(value) => onChange({ density: value as TreeDensity })}
+      />
+      <label className="flex h-10 cursor-pointer items-center gap-2 rounded-full bg-white px-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-green">
+        <input
+          type="checkbox"
+          checked={settings.showEmptySlots}
+          onChange={(event) => onChange({ showEmptySlots: event.target.checked })}
+          className="h-4 w-4 accent-safi-green"
+        />
+        Свободные места
+      </label>
+      <div className="ml-auto flex flex-wrap items-center gap-2">
+        <ToolbarButton label="Вместить" onClick={onFit} icon={<Maximize2 className="h-4 w-4" />} />
+        <ToolbarButton label="Центрировать" onClick={onCenter} icon={<Crosshair className="h-4 w-4" />} />
+        <ToolbarButton label="Сбросить" onClick={onReset} icon={<RotateCcw className="h-4 w-4" />} />
+      </div>
     </div>
   );
 }
 
-function BranchColumn({ label, children }: { label: string; children: ReactNode }) {
+function SegmentedTreeControl({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: Array<[string, string]>;
+  onChange: (value: string) => void;
+}) {
   return (
-    <div className="relative flex min-w-[210px] shrink-0 flex-col items-center pt-6">
-      <div className="absolute top-0 h-6 border-l-2 border-safi-green/20" />
-      <div className="mb-2 rounded-full bg-white px-2 text-center text-[10px] font-bold text-safi-text/40">{label}</div>
+    <div className="flex items-center gap-1 rounded-full bg-white p-1 pl-3">
+      <span className="text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-muted">{label}</span>
+      {options.map(([optionValue, optionLabel]) => (
+        <button
+          key={optionValue}
+          type="button"
+          onClick={() => onChange(optionValue)}
+          className={cn(
+            'h-8 rounded-full px-3 text-[10px] font-extrabold text-safi-green transition-colors',
+            value === optionValue ? 'bg-safi-green text-white' : 'hover:bg-safi-green/10',
+          )}
+        >
+          {optionLabel}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function ToolbarButton({ label, onClick, icon }: { label: string; onClick: () => void; icon: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-10 items-center gap-2 rounded-full border border-safi-border bg-white px-3 text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="inline-flex h-8 w-8 items-center justify-center rounded-full text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+    >
       {children}
+    </button>
+  );
+}
+
+function TreeNodeCard({
+  node,
+  isRoot,
+  onOpen,
+  sizeConfig,
+}: {
+  node: StructureNode;
+  isRoot?: boolean;
+  onOpen: (userId: string) => void;
+  sizeConfig: TreeSizeConfig;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(node.userId)}
+      className={cn(
+        'flex h-full w-full cursor-pointer flex-col rounded-2xl bg-white text-center shadow-sm transition-transform hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-safi-green/20',
+        sizeConfig.padding,
+        isRoot ? 'border-2 border-safi-gold shadow-md' : 'border border-safi-green/10',
+      )}
+      title={adminText('a_0J7RgtC60YDR_5')}
+    >
+      <div className={cn(
+        'mx-auto mb-2 flex shrink-0 items-center justify-center rounded-full font-serif font-bold text-white',
+        sizeConfig.avatar,
+        node.packageCode === 'START' ? 'bg-blue-400' : node.packageCode === 'VIP' ? 'bg-purple-500' : 'bg-safi-gold',
+      )}>
+        {node.name.charAt(0)}
+      </div>
+      <div className={cn('mb-1 w-full truncate font-bold leading-tight text-safi-green', sizeConfig.nameText)} title={node.name}>{node.name}</div>
+      <div className={cn('mb-2 truncate rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-safi-text/50', sizeConfig.metaText)}>{node.login || node.userId}</div>
+      <div className={cn('min-h-0 flex-1 space-y-1 overflow-hidden border-t border-safi-green/5 pt-2 text-left font-bold text-safi-text/70', sizeConfig.detailText)}>
+        <div className="flex items-center justify-between gap-2">
+          <span>{adminText('Пакет')}:</span>
+          <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="max-w-[72px] truncate px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span>{adminText('Статус')}:</span>
+          <span className="truncate text-safi-green">{node.status}</span>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <span>{adminText('Личный PV')}:</span>
+          <span className="truncate text-safi-gold">{node.personalPV.toLocaleString('ru-RU')}</span>
+        </div>
+        <div className={cn('grid grid-cols-2 gap-1 pt-1 text-center font-extrabold text-safi-green', sizeConfig.pvText)}>
+          <div className="truncate rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Левая ветка PV')}>
+            {adminText('Л')}: {formatCompactPv(node.leftBranchPV)}
+          </div>
+          <div className="truncate rounded-lg bg-[#F5F5F0] px-1 py-1" title={adminText('Правая ветка PV')}>
+            {adminText('П')}: {formatCompactPv(node.rightBranchPV)}
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function EmptyTreeSlotCard({ sizeConfig, branch }: { sizeConfig: TreeSizeConfig; branch?: 'L' | 'R' }) {
+  return (
+    <div className={cn('flex h-full w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-safi-green/20 bg-[#F5F5F0]/60 text-center opacity-75', sizeConfig.padding)}>
+      <div className={cn('mb-2 flex items-center justify-center rounded-full bg-safi-green/5 pb-1 text-safi-green/40', sizeConfig.avatar)}>+</div>
+      <div className={cn('font-bold text-safi-text/50', sizeConfig.nameText)}>{adminText('a_0KHQstC-0LHQ')}</div>
+      {branch && <div className={cn('mt-1 font-mono text-safi-muted', sizeConfig.metaText)}>{branch === 'L' ? adminText('Л') : adminText('П')}</div>}
     </div>
   );
 }
 
-function EmptyTreeSlot() {
-  return (
-    <div className="flex w-48 shrink-0 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-safi-green/20 bg-[#F5F5F0]/50 p-4 text-center opacity-70">
-      <div className="mb-2 flex h-10 w-10 items-center justify-center rounded-full bg-safi-green/5 pb-1 text-xl text-safi-green/40">+</div>
-      <div className="text-xs font-bold text-safi-text/50">{adminText('a_0KHQstC-0LHQ')}</div>
-    </div>
+function computeTreeLayout(
+  root: StructureNode,
+  settings: TreeViewSettings,
+  sizeConfig: TreeSizeConfig,
+  densityConfig: TreeDensityConfig,
+): TreeLayout {
+  const widthCache = new Map<StructureNode, number>();
+  const items: TreeLayoutItem[] = [];
+  const connectors: TreeConnector[] = [];
+  const paddingX = Math.max(32, densityConfig.horizontalGap);
+  const paddingTop = 32;
+  const paddingBottom = 48;
+  let maxBottom = paddingTop + sizeConfig.height;
+  let rootCenterX = paddingX + sizeConfig.width / 2;
+
+  const emptySlotWidth = (node: StructureNode) => (
+    settings.showEmptySlots && Boolean(node.children.left || node.children.right) ? sizeConfig.width : 0
   );
+
+  const getNodeWidth = (node: StructureNode): number => {
+    const cachedWidth = widthCache.get(node);
+
+    if (typeof cachedWidth === 'number') {
+      return cachedWidth;
+    }
+
+    const leftWidth = node.children.left ? getNodeWidth(node.children.left) : emptySlotWidth(node);
+    const rightWidth = node.children.right ? getNodeWidth(node.children.right) : emptySlotWidth(node);
+    const childrenWidth = leftWidth + rightWidth + (leftWidth > 0 && rightWidth > 0 ? densityConfig.horizontalGap : 0);
+    const width = Math.max(sizeConfig.width, childrenWidth);
+
+    widthCache.set(node, width);
+
+    return width;
+  };
+
+  const addConnector = (
+    parentId: string,
+    parentX: number,
+    parentY: number,
+    childCenterX: number,
+    childY: number,
+    branch: 'L' | 'R',
+    isEmptyTarget: boolean,
+  ) => {
+    connectors.push({
+      id: `${parentId}-${branch}-${isEmptyTarget ? 'empty' : 'node'}`,
+      fromX: parentX + sizeConfig.width / 2,
+      fromY: parentY + sizeConfig.height,
+      toX: childCenterX,
+      toY: childY,
+      isEmptyTarget,
+    });
+  };
+
+  const addEmptySlot = (
+    parent: StructureNode,
+    branch: 'L' | 'R',
+    x: number,
+    y: number,
+    slotWidth: number,
+    parentX: number,
+    parentY: number,
+  ) => {
+    if (slotWidth <= 0) {
+      return;
+    }
+
+    const emptyX = x + slotWidth / 2 - sizeConfig.width / 2;
+
+    items.push({
+      id: `empty-${parent.userId}-${branch}`,
+      kind: 'empty',
+      node: null,
+      x: emptyX,
+      y,
+      width: sizeConfig.width,
+      height: sizeConfig.height,
+      branch,
+    });
+    addConnector(parent.userId, parentX, parentY, emptyX + sizeConfig.width / 2, y, branch, true);
+    maxBottom = Math.max(maxBottom, y + sizeConfig.height);
+  };
+
+  const layoutNode = (node: StructureNode, x: number, y: number, isRoot = false) => {
+    const subtreeWidth = getNodeWidth(node);
+    const nodeX = x + subtreeWidth / 2 - sizeConfig.width / 2;
+    const itemId = `node-${node.userId}-${node.id}`;
+
+    if (isRoot) {
+      rootCenterX = nodeX + sizeConfig.width / 2;
+    }
+
+    items.push({
+      id: itemId,
+      kind: 'node',
+      node,
+      x: nodeX,
+      y,
+      width: sizeConfig.width,
+      height: sizeConfig.height,
+      isRoot,
+    });
+    maxBottom = Math.max(maxBottom, y + sizeConfig.height);
+
+    const hasAnyChild = Boolean(node.children.left || node.children.right);
+
+    if (!hasAnyChild) {
+      return;
+    }
+
+    const childY = y + sizeConfig.height + densityConfig.verticalGap;
+    const leftWidth = node.children.left ? getNodeWidth(node.children.left) : emptySlotWidth(node);
+    const rightWidth = node.children.right ? getNodeWidth(node.children.right) : emptySlotWidth(node);
+    const hasBothSlots = leftWidth > 0 && rightWidth > 0;
+    let childX = x;
+
+    if (leftWidth > 0) {
+      if (node.children.left) {
+        layoutNode(node.children.left, childX, childY);
+        addConnector(
+          node.userId,
+          nodeX,
+          y,
+          childX + leftWidth / 2,
+          childY,
+          'L',
+          false,
+        );
+      } else {
+        addEmptySlot(node, 'L', childX, childY, leftWidth, nodeX, y);
+      }
+
+      childX += leftWidth + (hasBothSlots ? densityConfig.horizontalGap : 0);
+    }
+
+    if (rightWidth > 0) {
+      if (node.children.right) {
+        layoutNode(node.children.right, childX, childY);
+        addConnector(
+          node.userId,
+          nodeX,
+          y,
+          childX + rightWidth / 2,
+          childY,
+          'R',
+          false,
+        );
+      } else {
+        addEmptySlot(node, 'R', childX, childY, rightWidth, nodeX, y);
+      }
+    }
+  };
+
+  const rootWidth = getNodeWidth(root);
+
+  layoutNode(root, paddingX, paddingTop, true);
+
+  return {
+    width: Math.ceil(rootWidth + paddingX * 2),
+    height: Math.ceil(maxBottom + paddingBottom),
+    rootCenterX,
+    rootY: paddingTop,
+    items,
+    connectors,
+  };
+}
+
+function readTreeViewSettings(): TreeViewSettings {
+  if (typeof window === 'undefined') {
+    return defaultTreeViewSettings;
+  }
+
+  try {
+    const savedSettings = window.localStorage.getItem(treeSettingsStorageKey);
+
+    if (!savedSettings) {
+      return defaultTreeViewSettings;
+    }
+
+    const parsedSettings = JSON.parse(savedSettings);
+
+    return normalizeTreeViewSettings(isRecord(parsedSettings) ? parsedSettings as Partial<TreeViewSettings> : {});
+  } catch {
+    return defaultTreeViewSettings;
+  }
+}
+
+function normalizeTreeViewSettings(settings: Partial<TreeViewSettings>): TreeViewSettings {
+  return {
+    zoom: clampNumber(
+      Number.isFinite(Number(settings.zoom)) ? Number(settings.zoom) : defaultTreeViewSettings.zoom,
+      minTreeZoom,
+      maxTreeZoom,
+    ),
+    nodeSize: isTreeNodeSize(settings.nodeSize) ? settings.nodeSize : defaultTreeViewSettings.nodeSize,
+    density: isTreeDensity(settings.density) ? settings.density : defaultTreeViewSettings.density,
+    showEmptySlots: typeof settings.showEmptySlots === 'boolean' ? settings.showEmptySlots : defaultTreeViewSettings.showEmptySlots,
+  };
+}
+
+function isTreeNodeSize(value: unknown): value is TreeNodeSize {
+  return value === 'small' || value === 'normal' || value === 'large';
+}
+
+function isTreeDensity(value: unknown): value is TreeDensity {
+  return value === 'compact' || value === 'normal' || value === 'wide';
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }
 
 function normalizeStats(response: unknown): StructureStats {
