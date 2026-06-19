@@ -9,7 +9,8 @@ import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState, getRegis
 import { formatPv } from '../../lib/format';
 import { adminText } from '../../i18n/adminText';
 import { features } from '../../config/features';
-import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
+import { mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
+import { getPartnerPackageStatus, partnerPackageStatusLabel, type PartnerPackageStatus } from '../../lib/partnerStatus';
 
 interface AdminPartnerRow {
   id: string;
@@ -23,6 +24,8 @@ interface AdminPartnerRow {
   invitedCount: number;
   packageCode: string;
   package: string;
+  packageStatus: PartnerPackageStatus;
+  packageStatusLabel: string;
   statusCode: string;
   status: string;
   personalPV: number;
@@ -30,8 +33,6 @@ interface AdminPartnerRow {
   totalIncome: number;
   availableBalance: number;
   registrationDate: string;
-  accountStatusCode: string;
-  accountStatus: string;
 }
 
 interface SponsorOption {
@@ -409,7 +410,7 @@ export default function AdminPartners() {
 
       {!isLoading && !error && visiblePartners.length > 0 && (
         <section className="space-y-4">
-          <AdminTable headers={[adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0JrQvtC90YLQ'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0J_QsNC60LXR_5'), 'PV', adminText('a_0KTQuNC90LDQ'), adminText('a_0JDQutC60LDR'), adminText('a_0JTQtdC50YHR')]}>
+          <AdminTable headers={[adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0JrQvtC90YLQ'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0J_QsNC60LXR_5'), 'PV', adminText('a_0KTQuNC90LDQ'), adminText('a_0JTQtdC50YHR')]}>
             {visiblePartners.map((partner) => (
               <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
                 <td className="px-6 py-4">
@@ -430,6 +431,11 @@ export default function AdminPartners() {
                 </td>
                 <td className="px-6 py-4">
                   <div className="mb-2"><AdminBadge variant="gold">{partner.package}</AdminBadge></div>
+                  <div className="mb-2">
+                    <AdminBadge variant={partner.packageStatus === 'active' ? 'success' : 'warning'}>
+                      Пакет: {partner.packageStatusLabel}
+                    </AdminBadge>
+                  </div>
                   <AdminBadge variant="default">{partner.status}</AdminBadge>
                 </td>
                 <td className="px-6 py-4">
@@ -439,9 +445,6 @@ export default function AdminPartners() {
                 <td className="px-6 py-4">
                   <div className="text-sm font-bold text-safi-green">{adminText('a_0JHQsNC70LDQ_2')}{formatMoney(partner.availableBalance)}</div>
                   <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0JLRgdC10LPQ_3')}{formatMoney(partner.totalIncome)}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <AdminBadge variant={partner.accountStatus === adminText('a_0JDQutGC0LjQ_2') ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
@@ -848,8 +851,12 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
     const apiTotalBalance = getNumber(record, ['total_balance', 'totalBalance', 'total_earned', 'totalEarned', 'total_wallet_balance', 'totalWalletBalance']);
     const displayBalance = apiBalance ?? walletBalance;
     const displayTotalBalance = apiTotalBalance ?? totalWalletBalance;
-    const accountStatusCode = getString(record, ['account_status', 'accountStatus', 'state']) || 'active';
-    const packageCode = getString(packageRecord, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode', 'package']) || '';
+    const rawPackageCode = getString(record, ['package_code', 'packageCode'])
+      || getString(packageRecord, ['code', 'slug', 'id'])
+      || getString(record, ['package'])
+      || '';
+    const packageStatus = getPartnerPackageStatus(record, rawPackageCode);
+    const packageCode = packageStatus === 'active' ? rawPackageCode : '';
     const statusCode = getString(record, ['status']) || getString(record, ['status_code', 'statusCode']) || 'user';
 
     return {
@@ -863,16 +870,22 @@ function normalizePartners(response: unknown): AdminPartnerRow[] {
       sponsor: getString(sponsorRecord, ['name', 'login', 'partner_id', 'id']) || getString(record, ['sponsor_id', 'sponsorId']) || '-',
       invitedCount: getNumber(record, ['invited_count', 'invitedCount', 'invited_users_count', 'referrals_count', 'children_count']) ?? 0,
       packageCode,
-      package: packageLabel(packageCode, getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name', 'title']) || getString(record, ['package_name', 'packageName', 'package']) || '-'),
+      package: packageStatus === 'active'
+        ? packageLabel(packageCode, getString(record, ['package_name', 'packageName'])
+          || getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name', 'title'])
+          || '-')
+        : '-',
+      packageStatus,
+      packageStatusLabel: getString(record, ['package_status_label', 'packageStatusLabel']) || partnerPackageStatusLabel(packageStatus),
       statusCode,
-      status: mlmStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel', 'status_name', 'statusName']) || adminText('a_0KPRh9Cw0YHR')),
+      status: packageStatus === 'active'
+        ? mlmStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel', 'status_name', 'statusName']) || adminText('a_0KPRh9Cw0YHR'))
+        : 'Неактивен',
       personalPV,
       teamPV: leftPV + rightPV,
       totalIncome: displayTotalBalance,
       availableBalance: displayBalance,
       registrationDate: getString(record, ['registration_date', 'registrationDate', 'created_at', 'createdAt']) || '-',
-      accountStatusCode,
-      accountStatus: accountStatusLabel(accountStatusCode),
     };
   });
 }

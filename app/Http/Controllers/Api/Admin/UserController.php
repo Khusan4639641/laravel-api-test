@@ -152,10 +152,11 @@ class UserController extends Controller
                 ->count(),
             'active_partners' => User::query()
                 ->where('role', User::ROLE_USER)
-                ->where('account_status', 'active')
+                ->activeMlm()
                 ->count(),
             'vip_elite_partners' => User::query()
                 ->where('role', User::ROLE_USER)
+                ->activeMlm()
                 ->whereHas('currentPackage', fn ($query) => $query->whereIn('code', ['VIP', 'ELITE']))
                 ->count(),
             'total_balance' => $walletBalance,

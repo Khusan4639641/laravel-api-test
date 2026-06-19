@@ -8,6 +8,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncS
 import { getAdminStructure, getAdminStructureRootOrphans, getApiErrorState, getArray, getNumber, getString, searchAdminPartners, unwrapRecord } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
+import { getPartnerPackageStatus } from '../../lib/partnerStatus';
 
 interface StructureNode {
   id: string;
@@ -66,19 +67,6 @@ interface RootOrphanPartner {
   login: string;
   email: string;
   phone: string;
-  city: string;
-  sponsor: string;
-  childrenCount: number;
-  packageCode: string;
-  packageName: string;
-  statusCode: string;
-  status: string;
-  accountStatusCode: string;
-  accountStatus: string;
-  personalPV: number;
-  teamPV: number;
-  balance: number;
-  totalBalance: number;
   createdAt: string;
 }
 
@@ -221,19 +209,6 @@ const defaultRootOrphanPagination: RootOrphanPagination = {
   hasNext: false,
   hasPrev: false,
 };
-const mlmStatusFilterOptions = [
-  { value: '', label: 'Все статусы' },
-  { value: 'user', label: mlmStatusLabel('user', 'Партнёр') },
-  { value: 'manager', label: mlmStatusLabel('manager', 'Менеджер') },
-  { value: 'leader', label: mlmStatusLabel('leader', 'Лидер') },
-  { value: 'director', label: mlmStatusLabel('director', 'Директор') },
-  { value: 'bronze_director', label: mlmStatusLabel('bronze_director', 'Bronze Director') },
-  { value: 'silver_director', label: mlmStatusLabel('silver_director', 'Silver Director') },
-  { value: 'gold_director', label: mlmStatusLabel('gold_director', 'Gold Director') },
-  { value: 'platinum_director', label: mlmStatusLabel('platinum_director', 'Platinum Director') },
-  { value: 'emerald_director', label: mlmStatusLabel('emerald_director', 'Emerald Director') },
-  { value: 'diamond_director', label: mlmStatusLabel('diamond_director', 'Diamond Director') },
-];
 
 function normalizeRootOrphanPerPage(value: string | null): number {
   const parsedValue = Number(value);
@@ -247,7 +222,9 @@ export default function AdminStructure() {
   const treeScrollRef = useRef<HTMLDivElement | null>(null);
   const treeProgrammaticScrollRef = useRef(false);
   const treeUserScrolledRef = useRef(false);
-  const selectedUserId = searchParams.get('root_id') || searchParams.get('user_id') || '';
+  const rootIdFromUrl = searchParams.get('root_id')?.trim() || '';
+  const selectedRootId = /^\d+$/.test(rootIdFromUrl) ? Number(rootIdFromUrl) : null;
+  const selectedUserId = selectedRootId === null ? '' : String(selectedRootId);
   const selectedDepth = searchParams.get('depth') || '10';
   const rootOrphanPerPageParam = searchParams.get('per_page');
   const initialRootOrphanLimit = normalizeRootOrphanPerPage(rootOrphanPerPageParam);
@@ -255,9 +232,6 @@ export default function AdminStructure() {
   const [rootOrphanQuery, setRootOrphanQuery] = useState('');
   const [rootOrphanSearchTerm, setRootOrphanSearchTerm] = useState('');
   const [rootOrphanAccountStatus, setRootOrphanAccountStatus] = useState('');
-  const [rootOrphanStatus, setRootOrphanStatus] = useState('');
-  const [rootOrphanPackageCode, setRootOrphanPackageCode] = useState('');
-  const [rootOrphanSortDir, setRootOrphanSortDir] = useState<'asc' | 'desc'>('desc');
   const [rootOrphanLimit, setRootOrphanLimit] = useState(initialRootOrphanLimit);
   const [rootOrphanOffset, setRootOrphanOffset] = useState(defaultRootOrphanPagination.offset);
   const [rootOrphans, setRootOrphans] = useState<RootOrphanPartner[]>([]);
@@ -270,12 +244,21 @@ export default function AdminStructure() {
   const [searchResults, setSearchResults] = useState<PartnerSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchMessage, setSearchMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(selectedRootId !== null);
   const [error, setError] = useState<string | null>(null);
   const [treeSettings, setTreeSettings] = useState<TreeViewSettings>(() => readTreeViewSettings());
   const [treeNodeMeasurements, setTreeNodeMeasurements] = useState<Record<string, TreeNodeMeasurement>>({});
 
   const loadStructure = async () => {
+    if (selectedRootId === null) {
+      setIsLoading(false);
+      setError(null);
+      setRootNode(null);
+      setStats(emptyStats);
+      setDepthInfo({ hasDeeperNodes: false, hiddenNodesCount: 0 });
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
     setRootNode(null);
@@ -284,7 +267,7 @@ export default function AdminStructure() {
 
     try {
       const response = await getAdminStructure({
-        ...(selectedUserId ? { root_id: selectedUserId } : {}),
+        root_id: selectedUserId,
         depth: selectedDepth,
       });
       const root = normalizeRoot(response);
@@ -315,12 +298,8 @@ export default function AdminStructure() {
       const response = await getAdminStructureRootOrphans({
         ...(normalizedQuery ? { search: normalizedQuery } : {}),
         ...(rootOrphanAccountStatus ? { account_status: rootOrphanAccountStatus } : {}),
-        ...(rootOrphanStatus ? { status: rootOrphanStatus } : {}),
-        ...(rootOrphanPackageCode ? { package_code: rootOrphanPackageCode } : {}),
         limit: pageLimit,
         offset: pageOffset,
-        sort_by: 'children_count',
-        sort_dir: rootOrphanSortDir,
       });
       const normalizedRootOrphans = normalizeRootOrphans(response);
 
@@ -461,7 +440,7 @@ export default function AdminStructure() {
   useEffect(() => {
     setQuery(selectedUserId);
     void loadStructure();
-  }, [selectedUserId, selectedDepth]);
+  }, [selectedRootId, selectedDepth]);
 
   useEffect(() => {
     const nextLimit = normalizeRootOrphanPerPage(rootOrphanPerPageParam);
@@ -486,9 +465,6 @@ export default function AdminStructure() {
     rootOrphanLimit,
     rootOrphanOffset,
     rootOrphanAccountStatus,
-    rootOrphanStatus,
-    rootOrphanPackageCode,
-    rootOrphanSortDir,
   ]);
 
   useEffect(() => {
@@ -571,6 +547,8 @@ export default function AdminStructure() {
     const normalizedQuery = query.trim();
 
     if (!normalizedQuery) {
+      setSearchResults([]);
+      setSearchMessage('Введите ID партнёра.');
       return;
     }
 
@@ -622,8 +600,7 @@ export default function AdminStructure() {
         </div>
         <button
           type="submit"
-          disabled={!query.trim()}
-          className="w-full cursor-pointer rounded-xl bg-safi-green px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60 md:w-auto"
+          className="w-full cursor-pointer rounded-xl bg-safi-green px-6 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white md:w-auto"
         >{adminText('a_0J7RgtC60YDR_3')}</button>
       </form>
 
@@ -670,9 +647,12 @@ export default function AdminStructure() {
         </section>
       )}
 
-      {isLoading && <LoadingState />}
-      {!isLoading && error && <ErrorState description={error} onRetry={loadStructure} />}
-      {!isLoading && !error && !rootNode && (
+      {selectedRootId === null && (
+        <EmptyState title={adminText('a_0KHRgtGA0YPQ_3')} description="Выберите партнёра из списка или введите ID, чтобы открыть дерево." />
+      )}
+      {selectedRootId !== null && isLoading && <LoadingState />}
+      {selectedRootId !== null && !isLoading && error && <ErrorState description={error} onRetry={loadStructure} />}
+      {selectedRootId !== null && !isLoading && !error && !rootNode && (
         <EmptyState title={adminText('a_0KHRgtGA0YPQ_3')} description={adminText('a_0JHQuNC90LDR_3')} />
       )}
 
@@ -681,7 +661,7 @@ export default function AdminStructure() {
           <div>
             <h2 className="font-serif text-2xl font-bold text-safi-green">Партнёры без parent line</h2>
             <p className="mt-1 text-sm text-safi-text/60">
-              Root-orphans без Super Admin. Children count считает только партнёров.
+              Root-orphans без Super Admin.
             </p>
           </div>
           <div className="text-xs font-bold uppercase tracking-widest text-safi-text/45">
@@ -689,7 +669,7 @@ export default function AdminStructure() {
           </div>
         </div>
 
-        <div className="grid gap-3 rounded-[24px] border border-safi-border bg-safi-cream p-4 lg:grid-cols-[minmax(240px,1fr)_repeat(4,minmax(150px,190px))]">
+        <div className="grid gap-3 rounded-[24px] border border-safi-border bg-safi-cream p-4 lg:grid-cols-[minmax(240px,1fr)_minmax(150px,190px)]">
           <label className="relative">
             <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-safi-muted" />
             <input
@@ -716,42 +696,6 @@ export default function AdminStructure() {
               <option value="blocked">{accountStatusLabel('blocked')}</option>
             </select>
           </label>
-          <select
-            value={rootOrphanStatus}
-            onChange={(event) => {
-              setRootOrphanStatus(event.target.value);
-              resetRootOrphanPage();
-            }}
-            className="w-full cursor-pointer rounded-full border border-safi-border bg-white px-4 py-3 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
-          >
-            {mlmStatusFilterOptions.map((option) => (
-              <option key={option.value || 'all'} value={option.value}>{option.label}</option>
-            ))}
-          </select>
-          <select
-            value={rootOrphanPackageCode}
-            onChange={(event) => {
-              setRootOrphanPackageCode(event.target.value);
-              resetRootOrphanPage();
-            }}
-            className="w-full cursor-pointer rounded-full border border-safi-border bg-white px-4 py-3 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
-          >
-            <option value="">Все пакеты</option>
-            <option value="START">{packageLabel('START', 'START')}</option>
-            <option value="VIP">{packageLabel('VIP', 'VIP')}</option>
-            <option value="ELITE">{packageLabel('ELITE', 'ELITE')}</option>
-          </select>
-          <select
-            value={rootOrphanSortDir}
-            onChange={(event) => {
-              setRootOrphanSortDir(event.target.value === 'asc' ? 'asc' : 'desc');
-              resetRootOrphanPage();
-            }}
-            className="w-full cursor-pointer rounded-full border border-safi-border bg-white px-4 py-3 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
-          >
-            <option value="desc">children_count ↓</option>
-            <option value="asc">children_count ↑</option>
-          </select>
         </div>
 
         {isRootOrphansLoading && <LoadingState />}
@@ -764,7 +708,7 @@ export default function AdminStructure() {
 
         {!isRootOrphansLoading && !rootOrphansError && rootOrphans.length > 0 && (
           <>
-            <AdminTable headers={[adminText('a_0J_QsNGA0YLQ'), adminText('a_0JrQvtC90YLQ'), 'Parent line', 'children_count', adminText('a_0J_QsNC60LXR_4'), adminText('a_0KHRgtCw0YLR'), 'PV', adminText('a_0JHQsNC70LDQ'), adminText('a_0JTQtdC50YHR')]}>
+            <AdminTable headers={[adminText('a_0J_QsNGA0YLQ'), adminText('a_0JrQvtC90YLQ'), adminText('a_0JTQtdC50YHR')]}>
               {rootOrphans.map((partner) => (
                 <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
                   <td className="px-6 py-4">
@@ -782,32 +726,6 @@ export default function AdminStructure() {
                     <div className="text-sm text-safi-green">{partner.phone}</div>
                     <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
                     <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.login || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="inline-flex rounded-full bg-safi-cream px-3 py-1 text-xs font-bold text-safi-green">{partner.sponsor}</div>
-                    <div className="mt-1 text-[10px] text-safi-muted">{partner.city || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <button
-                      type="button"
-                      onClick={() => openNodeTree(partner.id)}
-                      className="cursor-pointer rounded-full border border-safi-green bg-white px-3 py-2 text-xs font-extrabold text-safi-green transition-colors hover:bg-safi-green hover:text-white"
-                    >
-                      {partner.childrenCount.toLocaleString('ru-RU')}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4"><AdminBadge variant="gold">{partner.packageName}</AdminBadge></td>
-                  <td className="px-6 py-4">
-                    <div className="mb-2"><AdminBadge variant="default">{partner.status}</AdminBadge></div>
-                    <AdminBadge variant={partner.accountStatusCode === 'active' ? 'success' : 'danger'}>{partner.accountStatus}</AdminBadge>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="font-bold text-safi-green">{adminText('Личный PV')}: {partner.personalPV.toLocaleString('ru-RU')}</div>
-                    <div className="mt-1 text-xs text-safi-muted">{adminText('Командный PV')}: {partner.teamPV.toLocaleString('ru-RU')}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-bold text-safi-green">{formatMoney(partner.balance)}</div>
-                    <div className="mt-1 text-[10px] text-safi-muted">{formatMoney(partner.totalBalance)}</div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end">
@@ -1140,7 +1058,10 @@ function TreeNodeCard({
       </div>
       <div className={cn('mt-1 shrink-0 text-center font-extrabold leading-none', sizeConfig.pvText)}>
         <div className="whitespace-nowrap text-safi-gold" title={adminText('Личный PV')} aria-label={adminText('Личный PV')}>
-          PV: {node.personalPV.toLocaleString('ru-RU')}
+          Личный PV: {node.personalPV.toLocaleString('ru-RU')}
+        </div>
+        <div className="mt-1 whitespace-nowrap text-safi-muted" title={adminText('Командный PV')} aria-label={adminText('Командный PV')}>
+          Командный PV: {node.teamPV.toLocaleString('ru-RU')}
         </div>
         <div className="mt-1 grid grid-cols-[max-content_max-content] justify-center gap-1 text-safi-green">
           <span
@@ -1542,17 +1463,6 @@ function normalizeRootOrphans(response: unknown): RootOrphanPartner[] {
   return getArray(response, ['root_orphans', 'partners', 'data']).map((item, index) => {
     const record = isRecord(item) ? item : {};
     const profile = isRecord(record.profile) ? record.profile : {};
-    const packageRecord = isRecord(record.package) ? record.package : isRecord(record.current_package) ? record.current_package : {};
-    const mlmStatus = isRecord(record.mlm_status) ? record.mlm_status : {};
-    const sponsor = isRecord(record.sponsor) ? record.sponsor : undefined;
-    const packageCode = String(getString(packageRecord, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode']) || '').toUpperCase();
-    const statusCode = getString(mlmStatus, ['code']) || getString(record, ['status']) || 'user';
-    const accountStatusCode = getString(record, ['account_status', 'accountStatus']) || 'active';
-    const leftPV = getNumber(record, ['left_pv', 'leftPV']) ?? 0;
-    const rightPV = getNumber(record, ['right_pv', 'rightPV']) ?? 0;
-    const personalPV = getNumber(record, ['package_pv', 'packagePv', 'personal_pv', 'personalPv', 'package_activity_pv', 'packageActivityPv'])
-      ?? getNumber(packageRecord, ['activity_pv', 'activityPv'])
-      ?? 0;
 
     return {
       id: getString(record, ['user_id', 'id']) || String(index + 1),
@@ -1560,19 +1470,6 @@ function normalizeRootOrphans(response: unknown): RootOrphanPartner[] {
       login: getString(record, ['login']) || '',
       email: getString(record, ['email']) || '-',
       phone: getString(record, ['phone']) || getString(profile, ['phone']) || '-',
-      city: getString(record, ['city']) || getString(profile, ['city']) || '-',
-      sponsor: sponsor ? (getString(sponsor, ['name', 'login', 'id']) || '-') : 'root-orphan',
-      childrenCount: getNumber(record, ['children_count', 'childrenCount', 'direct_children_count', 'directChildrenCount']) ?? 0,
-      packageCode,
-      packageName: packageLabel(packageCode, getString(packageRecord, ['label', 'name']) || getString(record, ['package_label', 'packageLabel']) || '-'),
-      statusCode,
-      status: mlmStatusLabel(statusCode, getString(mlmStatus, ['label']) || getString(record, ['status_label', 'statusLabel']) || '-'),
-      accountStatusCode,
-      accountStatus: accountStatusLabel(accountStatusCode),
-      personalPV,
-      teamPV: getNumber(record, ['team_pv', 'teamPv', 'total_pv', 'totalPv']) ?? leftPV + rightPV,
-      balance: getNumber(record, ['balance', 'wallet_balance', 'walletBalance', 'available_balance', 'availableBalance']) ?? 0,
-      totalBalance: getNumber(record, ['total_balance', 'totalBalance', 'total_wallet_balance', 'totalWalletBalance']) ?? 0,
       createdAt: getString(record, ['created_at', 'createdAt']) || '-',
     };
   });
@@ -1615,15 +1512,29 @@ function normalizeSponsor(record: Record<string, unknown>) {
 
 function normalizePackage(record: Record<string, unknown>) {
   const pkg = record.package && typeof record.package === 'object' ? record.package as Record<string, unknown> : undefined;
-  const code = getString(pkg, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode', 'package']) || '';
+  const rawCode = getString(record, ['package_code', 'packageCode'])
+    || getString(pkg, ['code', 'slug', 'id'])
+    || getString(record, ['package'])
+    || '';
+  const packageStatus = getPartnerPackageStatus(record, rawCode);
 
-  return packageLabel(code, getString(pkg, ['code_label', 'codeLabel', 'label', 'name']) || getString(record, ['package_label', 'packageLabel', 'package_name', 'packageName', 'package']) || '-');
+  if (packageStatus !== 'active') {
+    return '-';
+  }
+
+  return packageLabel(rawCode, getString(record, ['package_label', 'packageLabel', 'package_name', 'packageName'])
+    || getString(pkg, ['code_label', 'codeLabel', 'label', 'name'])
+    || '-');
 }
 
 function normalizePackageCode(record: Record<string, unknown>) {
   const pkg = record.package && typeof record.package === 'object' ? record.package as Record<string, unknown> : undefined;
+  const rawCode = getString(record, ['package_code', 'packageCode'])
+    || getString(pkg, ['code', 'slug', 'id'])
+    || getString(record, ['package'])
+    || '';
 
-  return String(getString(pkg, ['code', 'slug', 'id']) || getString(record, ['package_code', 'packageCode', 'package']) || '').toUpperCase();
+  return getPartnerPackageStatus(record, rawCode) === 'active' ? String(rawCode).toUpperCase() : '';
 }
 
 function normalizeMlmStatus(record: Record<string, unknown>) {
@@ -1631,7 +1542,7 @@ function normalizeMlmStatus(record: Record<string, unknown>) {
   const code = getString(mlmStatus, ['code']) || getString(record, ['status']);
   const label = getString(mlmStatus, ['label']) || getString(record, ['status_label', 'statusLabel']) || '-';
 
-  return mlmStatusLabel(code, label);
+  return getPartnerPackageStatus(record, normalizePackageCode(record)) === 'active' ? mlmStatusLabel(code, label) : 'Неактивен';
 }
 
 function normalizeNodeRecord(record: Record<string, unknown>, index = 0): StructureNode {
@@ -1681,10 +1592,6 @@ function normalizeRoot(response: unknown): StructureNode | null {
 
 function normalizeTreeNode(record: Record<string, unknown>): StructureNode {
   return normalizeNodeRecord(record);
-}
-
-function formatMoney(value: number) {
-  return `${value.toLocaleString('ru-RU')} ₸`;
 }
 
 function formatBranchPv(branch: 'л' | 'п', value: number) {

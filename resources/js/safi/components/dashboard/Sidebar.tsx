@@ -23,6 +23,7 @@ interface SidebarUser {
   role: string;
   partnerId: string;
   packageName: string;
+  packageStatusLabel: string;
   status: string;
 }
 
@@ -94,7 +95,7 @@ export function Sidebar({
             </div>
             <div className="rounded-2xl border border-safi-border bg-safi-cream px-3 py-2">
               <div className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">Статус</div>
-              <div className="mt-1 truncate font-serif text-lg font-semibold text-safi-green">{currentUser.status}</div>
+              <div className="mt-1 truncate font-serif text-lg font-semibold text-safi-green">{currentUser.packageStatusLabel}</div>
             </div>
           </div>
         </div>

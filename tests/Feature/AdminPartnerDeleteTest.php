@@ -229,7 +229,7 @@ class AdminPartnerDeleteTest extends TestCase
         $partner = $this->registerPartner('package-void-partner', $sponsor, 'left', $start);
         $transaction = WalletTransaction::query()
             ->where('user_id', $partner->id)
-            ->where('type', 'package_activation')
+            ->where('type', 'package_assignment')
             ->firstOrFail();
 
         $this->assertFalse((bool) $transaction->affects_balance);
@@ -240,7 +240,7 @@ class AdminPartnerDeleteTest extends TestCase
         $this->assertSame('voided', $transaction->refresh()->status);
         $this->assertSame(0, WalletTransaction::query()
             ->where('user_id', $partner->id)
-            ->where('type', 'package_activation')
+            ->where('type', 'package_assignment')
             ->where('status', 'completed')
             ->count());
     }
@@ -434,7 +434,7 @@ class AdminPartnerDeleteTest extends TestCase
             'branch' => $branch,
             'package_id' => $package->id,
             'role' => User::ROLE_USER,
-        ], source: 'test_registration');
+        ], source: 'admin_test_registration');
     }
 
     /**

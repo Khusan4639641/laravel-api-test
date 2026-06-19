@@ -27,8 +27,15 @@ class UserResource extends JsonResource
             ->where('type', 'partner_transfer_in')
             ->exists();
         $totalEarned = $totalEarned > 0 || $hasIncomingPartnerTransfer ? $totalEarned : $totalWalletBalance;
-        $package = $this->resource->relationLoaded('currentPackage') ? $this->currentPackage : null;
+        $this->resource->loadMissing('currentPackage');
+        $package = $this->currentPackage;
         $canInvite = $this->resource->canInvitePartners();
+        $isPartnerActive = $this->resource->isPartnerActive();
+        $packageStatus = $isPartnerActive ? 'active' : 'inactive';
+        $activePackageCode = $isPartnerActive ? $package?->code : null;
+        $activePackageName = $isPartnerActive && $package
+            ? SystemLabel::package($package->code, $package->name)
+            : null;
         $packageActivityPv = $package ? (float) $package->activityPv() : 0;
         $packageActivityAmount = $package ? (float) $package->volumeAmount() : 0;
         $leftPv = (float) ($this->left_pv ?? 0);
@@ -55,6 +62,11 @@ class UserResource extends JsonResource
             'role' => $this->role,
             'sponsor_id' => $this->sponsor_id,
             'current_package_id' => $this->current_package_id,
+            'is_partner_active' => $isPartnerActive,
+            'package_status' => $packageStatus,
+            'package_status_label' => $isPartnerActive ? 'Активен' : 'Неактивен',
+            'package_code' => $activePackageCode,
+            'package_name' => $activePackageName,
             'status' => $this->status,
             'status_label' => SystemLabel::mlmStatus($this->status),
             'account_status' => $this->account_status,

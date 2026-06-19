@@ -145,6 +145,7 @@ export default function Profile() {
             <div className="mt-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-safi-muted">{currentUser.partnerId}</div>
             <div className="mt-6 flex flex-wrap justify-center gap-2">
               <Badge variant="gold">{currentUser.packageName}</Badge>
+              <Badge variant={currentUser.packageStatus === 'active' ? 'success' : 'default'}>Пакет: {currentUser.packageStatusLabel}</Badge>
               <Badge variant="default">{currentUser.status}</Badge>
             </div>
           </article>

@@ -50,6 +50,7 @@ import {
 } from '../../lib/api';
 import { formatPv } from '../../lib/format';
 import { accountStatusLabel, mlmStatusLabel, packageLabel, transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
+import { getPartnerPackageStatus, partnerPackageStatusLabel, type PartnerPackageStatus } from '../../lib/partnerStatus';
 
 interface PartnerDetail {
   id: string;
@@ -65,6 +66,8 @@ interface PartnerDetail {
   packageId: string;
   packageCode: string;
   package: string;
+  packageStatus: PartnerPackageStatus;
+  packageStatusLabel: string;
   statusCode: string;
   status: string;
   personalPV: number;
@@ -112,6 +115,8 @@ const partnerDefaults: PartnerDetail = {
   packageId: '',
   packageCode: '',
   package: '-',
+  packageStatus: 'inactive',
+  packageStatusLabel: 'Неактивен',
   statusCode: 'user',
   status: '-',
   personalPV: 0,
@@ -516,7 +521,7 @@ export default function AdminPartnerDetail() {
             <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{partner.fullName}</h1>
             <div className="flex items-center gap-3">
               <span className="text-sm font-mono text-safi-text/70 bg-[#F5F5F0] px-2 py-0.5 rounded">{partner.login || partner.id}</span>
-              <AdminBadge variant={isBlocked ? 'danger' : 'success'}>{partner.accountStatusLabel}</AdminBadge>
+              <AdminBadge variant={isBlocked ? 'danger' : 'default'}>Аккаунт: {partner.accountStatusLabel}</AdminBadge>
             </div>
           </div>
         </div>
@@ -606,6 +611,11 @@ export default function AdminPartnerDetail() {
                 <div>
                   <div className="text-[10px] uppercase font-bold tracking-widest text-safi-text/50 mb-2">{adminText('a_0KLQtdC60YPR')}</div>
                   <AdminBadge variant="gold">{partner.package}</AdminBadge>
+                  <div className="mt-2">
+                    <AdminBadge variant={partner.packageStatus === 'active' ? 'success' : 'warning'}>
+                      Пакет: {partner.packageStatusLabel}
+                    </AdminBadge>
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -667,7 +677,7 @@ export default function AdminPartnerDetail() {
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-serif font-bold text-safi-green flex items-center gap-3">
                   <Network className="w-5 h-5 text-safi-gold" />{adminText('a_0J7QsdC30L7R')}</h3>
-                <Link to={`/admin/structure?user_id=${encodeURIComponent(partner.id)}`} className="cursor-pointer text-[10px] uppercase font-bold tracking-widest text-safi-gold hover:underline">{adminText('a_0J7RgtC60YDR')}</Link>
+                <Link to={`/admin/structure?root_id=${encodeURIComponent(partner.id)}`} className="cursor-pointer text-[10px] uppercase font-bold tracking-widest text-safi-gold hover:underline">{adminText('a_0J7RgtC60YDR')}</Link>
               </div>
 
               <div className="flex flex-col md:flex-row gap-6 items-center">
@@ -1172,7 +1182,12 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
   const apiTotalEarned = getNumber(user, ['total_earned', 'totalEarned', 'total_balance', 'totalBalance', 'total_wallet_balance', 'totalWalletBalance']);
   const availableBalance = apiAvailableBalance ?? walletBalance;
   const totalEarned = apiTotalEarned ?? totalWalletEarned;
-  const packageCode = getString(pkg, ['code', 'slug', 'id']) || getString(user, ['package_code', 'packageCode', 'package']) || '';
+  const rawPackageCode = getString(user, ['package_code', 'packageCode'])
+    || getString(pkg, ['code', 'slug', 'id'])
+    || getString(user, ['package'])
+    || '';
+  const packageStatus = getPartnerPackageStatus(user, rawPackageCode);
+  const packageCode = packageStatus === 'active' ? rawPackageCode : '';
   const statusCode = getString(user, ['status']) || 'user';
 
   return {
@@ -1188,9 +1203,15 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
     invitedCount: getNumber(user, ['invited_count', 'invited_users_count', 'referrals_count']) ?? 0,
     packageId: getString(user, ['current_package_id']) || '',
     packageCode,
-    package: packageLabel(packageCode, getString(pkg, ['code_label', 'codeLabel', 'label', 'name']) || '-'),
+    package: packageStatus === 'active'
+      ? packageLabel(packageCode, getString(user, ['package_name', 'packageName']) || getString(pkg, ['code_label', 'codeLabel', 'label', 'name']) || '-')
+      : '-',
+    packageStatus,
+    packageStatusLabel: getString(user, ['package_status_label', 'packageStatusLabel']) || partnerPackageStatusLabel(packageStatus),
     statusCode,
-    status: mlmStatusLabel(statusCode, getString(user, ['status_label', 'statusLabel']) || statusCode),
+    status: packageStatus === 'active'
+      ? mlmStatusLabel(statusCode, getString(user, ['status_label', 'statusLabel']) || statusCode)
+      : 'Неактивен',
     personalPV: packageActivityPV,
     teamPV: (getNumber(user, ['left_pv']) ?? 0) + (getNumber(user, ['right_pv']) ?? 0),
     leftPV: getNumber(user, ['left_pv']) ?? 0,

@@ -243,7 +243,8 @@ class StructureController extends Controller
         $mainBalance = (float) $wallets->where('type', 'main')->sum('balance');
         $totalBalance = (float) $wallets->whereIn('type', ['main', 'bonus', 'deposit'])->sum('balance');
         $package = $user->currentPackage;
-        $packageCode = $package?->code;
+        $isPartnerActive = $user->isPartnerActive();
+        $packageCode = $isPartnerActive ? $package?->code : null;
         $packagePv = $package ? (float) $package->activityPv() : 0;
         $statusCode = strtoupper((string) $user->status);
 
@@ -266,14 +267,18 @@ class StructureController extends Controller
                 'name' => $user->sponsor->name,
                 'login' => $user->sponsor->login,
             ] : null,
-            'package' => $package ? [
+            'is_partner_active' => $isPartnerActive,
+            'package_status' => $isPartnerActive ? 'active' : 'inactive',
+            'package_status_label' => $isPartnerActive ? 'Активен' : 'Неактивен',
+            'package' => $isPartnerActive && $package ? [
                 'id' => $package->id,
                 'code' => $packageCode,
                 'name' => $package->name,
                 'label' => SystemLabel::package($packageCode, $package->name, 'ru'),
             ] : null,
             'package_code' => $packageCode,
-            'package_label' => $package ? SystemLabel::package($packageCode, $package->name, 'ru') : '-',
+            'package_name' => $isPartnerActive && $package ? SystemLabel::package($packageCode, $package->name, 'ru') : null,
+            'package_label' => $isPartnerActive && $package ? SystemLabel::package($packageCode, $package->name, 'ru') : '-',
             'status' => $user->status,
             'status_label' => SystemLabel::mlmStatus($user->status, null, 'ru'),
             'mlm_status' => [
@@ -461,6 +466,8 @@ class StructureController extends Controller
         $rightBranchPv = (string) ($nodeVolume['right_branch_pv'] ?? '0.00');
         $weakLegPv = (float) ($nodeVolume['weak_leg_pv'] ?? min((float) $leftBranchPv, (float) $rightBranchPv));
         $packageCode = $package?->code;
+        $isPartnerActive = $user->isPartnerActive();
+        $activePackageCode = $isPartnerActive ? $packageCode : null;
         $personalPv = $branchVolumeService->getUserPersonalPv($user);
         $turnoverPv = $branchVolumeService->getUserTurnoverPvForBranch($user);
         $statusCode = strtoupper((string) $user->status);
@@ -478,16 +485,20 @@ class StructureController extends Controller
                 'name' => $sponsor->name,
                 'login' => $sponsor->login,
             ] : null,
-            'package' => $package ? [
+            'is_partner_active' => $isPartnerActive,
+            'package_status' => $isPartnerActive ? 'active' : 'inactive',
+            'package_status_label' => $isPartnerActive ? 'Активен' : 'Неактивен',
+            'package' => $isPartnerActive && $package ? [
                 'id' => $package->id,
-                'code' => $packageCode,
+                'code' => $activePackageCode,
                 'name' => $package->name,
-                'label' => SystemLabel::package($packageCode, $package->name, 'ru'),
+                'label' => SystemLabel::package($activePackageCode, $package->name, 'ru'),
                 'activity_pv' => $personalPv,
                 'turnover_pv' => $turnoverPv,
             ] : null,
-            'package_code' => $packageCode,
-            'package_label' => $package ? SystemLabel::package($packageCode, $package->name, 'ru') : '-',
+            'package_code' => $activePackageCode,
+            'package_name' => $isPartnerActive && $package ? SystemLabel::package($activePackageCode, $package->name, 'ru') : null,
+            'package_label' => $isPartnerActive && $package ? SystemLabel::package($activePackageCode, $package->name, 'ru') : '-',
             'status' => $user->status,
             'status_label' => SystemLabel::mlmStatus($user->status, null, 'ru'),
             'mlm_status' => [

@@ -73,6 +73,7 @@ export default function PackageStatus() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="gold">Пакет: {currentUser.packageName}</Badge>
+            <Badge variant={currentUser.packageStatus === 'active' ? 'success' : 'default'}>Пакет: {currentUser.packageStatusLabel}</Badge>
             <Badge variant="default">Статус: {currentUser.status}</Badge>
           </div>
         </div>

@@ -210,9 +210,11 @@ class StructureController extends Controller
         $package = $partner->currentPackage;
         $leftPv = (string) ($nodeVolume['left_branch_pv'] ?? $partner->left_pv ?? '0.00');
         $rightPv = (string) ($nodeVolume['right_branch_pv'] ?? $partner->right_pv ?? '0.00');
+        $isPartnerActive = $partner->isPartnerActive();
         $packagePv = $package ? (float) $package->activityPv() : 0;
         $line = (int) ($node?->getAttribute('relative_level') ?? $node?->depth ?? 1);
         $branch = $this->branchCode($node?->getAttribute('root_branch') ?? $node?->position);
+        $packageCode = $isPartnerActive ? $package?->code : null;
 
         return [
             'id' => $partner->id,
@@ -225,13 +227,17 @@ class StructureController extends Controller
             'line' => max($line, 1),
             'level' => max($line, 1),
             'depth' => max($line, 1),
-            'package' => $package ? [
+            'is_partner_active' => $isPartnerActive,
+            'package_status' => $isPartnerActive ? 'active' : 'inactive',
+            'package_status_label' => $isPartnerActive ? 'Активен' : 'Неактивен',
+            'package' => $isPartnerActive && $package ? [
                 'id' => $package->id,
-                'code' => $package->code,
+                'code' => $packageCode,
                 'name' => $package->name,
             ] : null,
-            'package_code' => $package?->code,
-            'package_label' => \App\Support\SystemLabel::package($package?->code, $package?->name),
+            'package_code' => $packageCode,
+            'package_name' => $isPartnerActive && $package ? \App\Support\SystemLabel::package($packageCode, $package->name) : null,
+            'package_label' => $isPartnerActive && $package ? \App\Support\SystemLabel::package($packageCode, $package->name) : '-',
             'status' => $partner->status,
             'status_label' => \App\Support\SystemLabel::mlmStatus($partner->status),
             'account_status' => $partner->account_status,
@@ -313,6 +319,7 @@ class StructureController extends Controller
         $left = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'L');
         $right = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'R');
         $line = max(($node->depth ?? 0) - $rootDepth, 0);
+        $isPartnerActive = $node->user?->isPartnerActive() ?? false;
 
         return [
             'id' => $node->user?->id,
@@ -320,7 +327,10 @@ class StructureController extends Controller
             'login' => $node->user?->login,
             'line' => $line,
             'branch' => $this->branchCode($node->getAttribute('root_branch') ?? $node->position),
-            'package' => $node->user?->currentPackage?->code,
+            'is_partner_active' => $isPartnerActive,
+            'package_status' => $isPartnerActive ? 'active' : 'inactive',
+            'package_status_label' => $isPartnerActive ? 'Активен' : 'Неактивен',
+            'package' => $isPartnerActive ? $node->user?->currentPackage?->code : null,
             'children' => [
                 'left' => $left ? $this->treeNode($left, $nodes, $rootDepth) : null,
                 'right' => $right ? $this->treeNode($right, $nodes, $rootDepth) : null,

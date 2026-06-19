@@ -44,7 +44,7 @@ class RegistrationPackageRulesTest extends TestCase
             ->assertCreated();
     }
 
-    public function test_register_with_package_choice_assigns_package_and_accrues_referral_bonus(): void
+    public function test_register_with_package_choice_does_not_activate_package_until_payment(): void
     {
         $start = $this->createPackage('START', 60000, 100);
         $sponsor = User::factory()->create(['current_package_id' => $start->id]);
@@ -57,11 +57,11 @@ class RegistrationPackageRulesTest extends TestCase
             ->assertCreated();
 
         $user = User::query()->where('login', 'start-not-paid')->firstOrFail();
-        $bonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
 
-        $this->assertSame($start->id, $user->current_package_id);
-        $this->assertSame('100.00', $user->total_pv);
-        $this->assertSame('5000.00', $bonus->amount);
+        $this->assertNull($user->current_package_id);
+        $this->assertFalse($user->isPartnerActive());
+        $this->assertSame('0.00', $user->total_pv);
+        $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'referral')->count());
     }
 
     public function test_seeded_package_values_match_business_tz(): void

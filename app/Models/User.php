@@ -71,7 +71,11 @@ class User extends Authenticatable
         return $query
             ->whereNull('deleted_at')
             ->where('account_status', 'active')
-            ->whereNotIn('role', [self::ROLE_SUPPORT, self::ROLE_ACCOUNTANT]);
+            ->whereNotIn('role', [self::ROLE_SUPPORT, self::ROLE_ACCOUNTANT])
+            ->whereHas('currentPackage', fn (Builder $packageQuery) => $packageQuery
+                ->where('is_active', true)
+                ->where('status', 'active')
+                ->whereIn('code', Package::PUBLIC_CODES));
     }
 
     /**
@@ -140,13 +144,25 @@ class User extends Authenticatable
 
     public function canInvitePartners(): bool
     {
+        return $this->isPartnerActive();
+    }
+
+    public function isPartnerActive(): bool
+    {
         $this->loadMissing('currentPackage');
         $package = $this->currentPackage;
 
-        return $package !== null
+        return ! $this->trashed()
+            && $this->account_status === 'active'
+            && $package !== null
             && $package->is_active
             && $package->status === 'active'
             && in_array(strtoupper((string) $package->code), Package::PUBLIC_CODES, true);
+    }
+
+    public function packageStatus(): string
+    {
+        return $this->isPartnerActive() ? 'active' : 'inactive';
     }
 
     public function sponsor(): BelongsTo

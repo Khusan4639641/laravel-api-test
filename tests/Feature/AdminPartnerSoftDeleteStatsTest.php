@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\BinaryNode;
 use App\Models\Order;
+use App\Models\Package;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
@@ -172,7 +173,29 @@ class AdminPartnerSoftDeleteStatsTest extends TestCase
             'email' => "{$login}@example.test",
             'role' => User::ROLE_USER,
             'account_status' => 'active',
+            'current_package_id' => $this->package()->id,
         ]);
+    }
+
+    private function package(): Package
+    {
+        return Package::query()->firstOrCreate(
+            ['code' => 'START'],
+            [
+                'name' => 'START',
+                'slug' => 'start',
+                'price' => 60000,
+                'pv' => 100,
+                'activity_pv' => 100,
+                'turnover_pv' => 100,
+                'referral_percent' => 10,
+                'binary_percent' => 7,
+                'sort_order' => 1,
+                'status' => 'active',
+                'is_active' => true,
+                'is_upgradeable' => true,
+            ],
+        );
     }
 
     private function superAdmin(): User

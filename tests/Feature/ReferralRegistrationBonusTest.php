@@ -16,7 +16,7 @@ class ReferralRegistrationBonusTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_public_referral_registration_with_start_gives_sponsor_5000(): void
+    public function test_public_referral_registration_with_start_choice_does_not_pay_until_package_payment(): void
     {
         $start = $this->createPackage('START');
         $sponsor = User::factory()->create(['login' => 'sponsor_start', 'current_package_id' => $start->id]);
@@ -27,15 +27,15 @@ class ReferralRegistrationBonusTest extends TestCase
             'package_id' => $start->id,
         ]))->assertCreated();
 
-        $bonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
-        $wallet = $sponsor->wallets()->where('type', 'main')->firstOrFail();
+        $user = User::query()->where('login', 'public-start')->firstOrFail();
 
-        $this->assertSame('5000.00', $bonus->amount);
-        $this->assertSame('50000.00', $bonus->metadata['base_amount']);
-        $this->assertSame('5000.00', $wallet->balance);
+        $this->assertNull($user->current_package_id);
+        $this->assertFalse($user->isPartnerActive());
+        $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'referral')->count());
+        $this->assertSame(0, WalletTransaction::query()->where('type', 'referral_bonus')->count());
     }
 
-    public function test_public_referral_registration_with_vip_gives_sponsor_15000(): void
+    public function test_public_referral_registration_with_vip_choice_does_not_activate_package_until_payment(): void
     {
         $vip = $this->createPackage('VIP');
         $sponsor = User::factory()->create(['login' => 'sponsor_vip', 'current_package_id' => $vip->id]);
@@ -47,16 +47,14 @@ class ReferralRegistrationBonusTest extends TestCase
         ]))->assertCreated();
 
         $user = User::query()->where('login', 'public-vip')->firstOrFail();
-        $bonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
-        $walletTransaction = WalletTransaction::query()->where('type', 'referral_bonus')->firstOrFail();
 
-        $this->assertSame($vip->id, $user->current_package_id);
-        $this->assertSame('300.00', $user->total_pv);
-        $this->assertSame('15000.00', $bonus->amount);
-        $this->assertSame('15000.00', $walletTransaction->amount);
+        $this->assertNull($user->current_package_id);
+        $this->assertSame('0.00', $user->total_pv);
+        $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'referral')->count());
+        $this->assertSame(0, WalletTransaction::query()->where('type', 'referral_bonus')->count());
     }
 
-    public function test_vip_referral_uses_pv_base_not_price(): void
+    public function test_vip_referral_choice_does_not_create_bonus_before_payment(): void
     {
         $vip = $this->createPackage('VIP');
         $sponsor = User::factory()->create(['login' => 'sponsor_pv_base', 'current_package_id' => $vip->id]);
@@ -67,11 +65,8 @@ class ReferralRegistrationBonusTest extends TestCase
             'package_id' => $vip->id,
         ]))->assertCreated();
 
-        $bonus = BonusTransaction::query()->where('bonus_type', 'referral')->firstOrFail();
-
-        $this->assertSame('150000.00', $bonus->metadata['base_amount']);
-        $this->assertSame('15000.00', $bonus->amount);
-        $this->assertNotSame('18000.00', $bonus->amount);
+        $this->assertSame(0, BonusTransaction::query()->where('bonus_type', 'referral')->count());
+        $this->assertSame(0, WalletTransaction::query()->where('type', 'referral_bonus')->count());
     }
 
     public function test_public_registration_without_ref_gives_no_referral_bonus(): void
@@ -121,7 +116,7 @@ class ReferralRegistrationBonusTest extends TestCase
         $this->assertSame(0, WalletTransaction::query()->where('type', 'referral_bonus')->count());
     }
 
-    public function test_new_user_package_transaction_has_affects_balance_false(): void
+    public function test_new_user_package_choice_does_not_create_package_transaction_before_payment(): void
     {
         $vip = $this->createPackage('VIP');
 
@@ -130,16 +125,15 @@ class ReferralRegistrationBonusTest extends TestCase
         ]))->assertCreated();
 
         $user = User::query()->where('login', 'package-tx')->firstOrFail();
-        $transaction = WalletTransaction::query()
+
+        $this->assertNull($user->current_package_id);
+        $this->assertSame(0, WalletTransaction::query()
             ->where('user_id', $user->id)
             ->where('type', 'package_activation')
-            ->firstOrFail();
-
-        $this->assertSame('180000.00', $transaction->amount);
-        $this->assertFalse((bool) $transaction->affects_balance);
+            ->count());
     }
 
-    public function test_sponsor_referral_transaction_has_affects_balance_true(): void
+    public function test_sponsor_referral_transaction_is_not_created_before_package_payment(): void
     {
         $start = $this->createPackage('START');
         $sponsor = User::factory()->create(['login' => 'sponsor_affects', 'current_package_id' => $start->id]);
@@ -150,13 +144,10 @@ class ReferralRegistrationBonusTest extends TestCase
             'package_id' => $start->id,
         ]))->assertCreated();
 
-        $transaction = WalletTransaction::query()->where('type', 'referral_bonus')->firstOrFail();
-
-        $this->assertSame($sponsor->id, $transaction->user_id);
-        $this->assertTrue((bool) $transaction->affects_balance);
+        $this->assertSame(0, WalletTransaction::query()->where('type', 'referral_bonus')->count());
     }
 
-    public function test_sponsor_balance_increases_by_referral_bonus(): void
+    public function test_sponsor_balance_does_not_increase_before_package_payment(): void
     {
         $vip = $this->createPackage('VIP');
         $sponsor = User::factory()->create(['login' => 'sponsor_balance', 'current_package_id' => $vip->id]);
@@ -170,7 +161,7 @@ class ReferralRegistrationBonusTest extends TestCase
 
         $wallet = $sponsor->wallets()->where('type', 'main')->firstOrFail();
 
-        $this->assertSame('15000.00', $wallet->refresh()->balance);
+        $this->assertSame('0.00', $wallet->refresh()->balance);
     }
 
     public function test_new_user_balance_does_not_increase_from_package_purchase(): void

@@ -194,7 +194,7 @@ class PartnerRegistrationService
         string $source,
         ?User $actor = null,
     ): void {
-        if (! $package) {
+        if (! $package || ! $this->shouldAssignInitialPackage($source)) {
             return;
         }
 
@@ -326,6 +326,11 @@ class PartnerRegistrationService
         }
 
         return $package;
+    }
+
+    private function shouldAssignInitialPackage(string $source): bool
+    {
+        return str_starts_with($source, 'admin') || str_starts_with($source, 'bulk');
     }
 
     private function packageTurnoverSource(Package $package): string

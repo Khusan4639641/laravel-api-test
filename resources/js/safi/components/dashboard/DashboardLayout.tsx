@@ -7,6 +7,7 @@ import { ApiError, clearAuthToken, getAuthToken, getDashboardNotifications, getM
 import { getCurrentLanguage } from '../../lib/language';
 import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
 import { mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
+import { getPartnerPackageStatus, partnerPackageStatusLabel, type PartnerPackageStatus } from '../../lib/partnerStatus';
 
 export interface DashboardCurrentUser {
   id?: string | number;
@@ -20,6 +21,8 @@ export interface DashboardCurrentUser {
   canInvite: boolean;
   packageCode?: string;
   packageName: string;
+  packageStatus: PartnerPackageStatus;
+  packageStatusLabel: string;
   statusCode?: string;
   status: string;
   sponsor: string;
@@ -56,8 +59,10 @@ const userDefaults: DashboardCurrentUser = {
   canInvite: false,
   packageCode: '',
   packageName: '-',
+  packageStatus: 'inactive',
+  packageStatusLabel: 'Неактивен',
   statusCode: 'user',
-  status: 'user',
+  status: 'Неактивен',
   sponsor: '-',
   registrationDate: '-',
   walletAvailable: 0,
@@ -67,8 +72,6 @@ const userDefaults: DashboardCurrentUser = {
   bonusesTotal: 0,
   referralsCount: 0,
 };
-const invitePackageCodes = new Set(['START', 'VIP', 'ELITE']);
-
 export function useDashboardContext() {
   return useOutletContext<DashboardContextValue>();
 }
@@ -280,7 +283,7 @@ export function DashboardLayout() {
             <div className="hidden items-center gap-3 border-l border-safi-border pl-4 sm:flex">
               <div className="text-right">
                 <div className="text-sm font-extrabold text-safi-green">{currentUser.name}</div>
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold">{currentUser.status}</div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold">{currentUser.packageStatusLabel}</div>
               </div>
               {currentUser.avatarUrl ? (
                 <img
@@ -399,19 +402,28 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
   const sponsorRecord = isRecord(record.sponsor) ? record.sponsor : undefined;
   const profileRecord = isRecord(record.profile) ? record.profile : undefined;
 
-  const packageCode = getString(packageRecord, ['code', 'slug', 'id'])
-    || getString(record, ['package_code', 'packageCode', 'package_id', 'package'])
+  const rawPackageCode = getString(record, ['package_code', 'packageCode'])
+    || getString(packageRecord, ['code', 'slug', 'id'])
+    || getString(record, ['package_id', 'package'])
     || '';
-  const packageName = packageLabel(packageCode, getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name', 'title'])
-    || getString(record, ['package_name', 'packageName', 'package_id', 'package'])
-    || userDefaults.packageName);
+  const packageStatus = getPartnerPackageStatus(record, rawPackageCode);
+  const packageCode = packageStatus === 'active' ? rawPackageCode : '';
+  const packageName = packageStatus === 'active'
+    ? packageLabel(packageCode, getString(record, ['package_name', 'packageName'])
+      || getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name', 'title'])
+      || userDefaults.packageName)
+    : userDefaults.packageName;
+  const packageStatusLabel = getString(record, ['package_status_label', 'packageStatusLabel'])
+    || partnerPackageStatusLabel(packageStatus);
   const statusCode = getString(record, ['status'])
     || getString(statusRecord, ['code', 'id'])
     || userDefaults.statusCode;
-  const statusName = mlmStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel'])
-    || getString(statusRecord, ['name_label', 'label', 'name', 'title'])
-    || getString(record, ['status_name', 'statusName', 'status'])
-    || userDefaults.status);
+  const statusName = packageStatus === 'active'
+    ? mlmStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel'])
+      || getString(statusRecord, ['name_label', 'label', 'name', 'title'])
+      || getString(record, ['status_name', 'statusName', 'status'])
+      || userDefaults.status)
+    : 'Неактивен';
   const sponsorName = getString(sponsorRecord, ['name', 'full_name'])
     || getString(record, ['sponsor_name', 'sponsorName', 'sponsor'])
     || userDefaults.sponsor;
@@ -420,8 +432,8 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
     || userDefaults.referralCode;
   const canInviteValue = record.can_invite ?? record.canInvite ?? record.referral_links_available ?? record.referralLinksAvailable;
   const canInvite = typeof canInviteValue === 'boolean'
-    ? canInviteValue
-    : invitePackageCodes.has(packageCode.toUpperCase());
+    ? canInviteValue && packageStatus === 'active'
+    : packageStatus === 'active';
 
   return {
     id: getString(record, ['id']) || getNumber(record, ['id']),
@@ -436,6 +448,8 @@ function normalizeCurrentUser(response: unknown): DashboardCurrentUser {
     canInvite,
     packageCode,
     packageName,
+    packageStatus,
+    packageStatusLabel,
     statusCode,
     status: statusName,
     sponsor: sponsorName,

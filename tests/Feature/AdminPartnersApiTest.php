@@ -71,18 +71,22 @@ class AdminPartnersApiTest extends TestCase
 
         $this->assertSame(3, $summary['total_partners']);
         $this->assertSame(2, $summary['active_partners']);
-        $this->assertSame(2, $summary['vip_elite_partners']);
+        $this->assertSame(1, $summary['vip_elite_partners']);
     }
 
     public function test_admin_partners_summary_counts_active_partners(): void
     {
+        $start = $this->createPackage('START');
+
         User::factory()->count(2)->create([
             'role' => User::ROLE_USER,
             'account_status' => 'active',
+            'current_package_id' => $start->id,
         ]);
         User::factory()->create([
             'role' => User::ROLE_USER,
             'account_status' => 'blocked',
+            'current_package_id' => $start->id,
         ]);
 
         $summary = $this->adminSummaryPayload();

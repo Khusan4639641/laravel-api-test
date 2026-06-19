@@ -92,14 +92,10 @@ class AdminPartnerCreateParityTest extends TestCase
         $this->assertSame(0, WalletTransaction::query()->where('type', 'referral_bonus')->count());
     }
 
-    public function test_admin_single_create_with_referral_checkbox_true_pays_same_referral_as_public_registration(): void
+    public function test_admin_single_create_with_referral_checkbox_true_pays_referral_for_assigned_package(): void
     {
         $vip = $this->createPackage('VIP');
         $adminSponsor = User::factory()->create(['login' => 'admin_sponsor']);
-        $publicSponsor = User::factory()->create([
-            'login' => 'public_sponsor',
-            'current_package_id' => $vip->id,
-        ]);
 
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
 
@@ -110,18 +106,10 @@ class AdminPartnerCreateParityTest extends TestCase
             'pay_referral_bonus' => true,
         ]))->assertCreated();
 
-        $this->postJson('/api/register', $this->publicPayload('public-referral', [
-            'referral_code' => $publicSponsor->login,
-            'branch' => 'left',
-            'package_id' => $vip->id,
-        ]))->assertCreated();
-
         $adminBonus = BonusTransaction::query()->where('user_id', $adminSponsor->id)->firstOrFail();
-        $publicBonus = BonusTransaction::query()->where('user_id', $publicSponsor->id)->firstOrFail();
 
         $this->assertSame('15000.00', $adminBonus->amount);
-        $this->assertSame($publicBonus->amount, $adminBonus->amount);
-        $this->assertSame($publicBonus->metadata['base_amount'], $adminBonus->metadata['base_amount']);
+        $this->assertSame('150000.00', $adminBonus->metadata['base_amount']);
     }
 
     public function test_admin_single_create_with_referral_checkbox_true_does_not_duplicate_referral_bonus(): void

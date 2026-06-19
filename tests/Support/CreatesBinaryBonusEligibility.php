@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Models\BinaryNode;
+use App\Models\Package;
 use App\Models\PvTransaction;
 use App\Models\User;
 
@@ -32,6 +33,7 @@ trait CreatesBinaryBonusEligibility
             'role' => User::ROLE_USER,
             'account_status' => 'active',
             'sponsor_id' => $user->id,
+            'current_package_id' => $this->binaryEligibilityPackage()->id,
         ]);
 
         $this->createChildNode($sponsorNode, $referral, $position);
@@ -99,5 +101,26 @@ trait CreatesBinaryBonusEligibility
             'pv' => $pv,
             'is_bonusable' => true,
         ]);
+    }
+
+    private function binaryEligibilityPackage(): Package
+    {
+        return Package::query()->firstOrCreate(
+            ['code' => 'START'],
+            [
+                'name' => 'START',
+                'slug' => 'start',
+                'price' => 60000,
+                'pv' => 100,
+                'activity_pv' => 100,
+                'turnover_pv' => 100,
+                'referral_percent' => 10,
+                'binary_percent' => 7,
+                'sort_order' => 1,
+                'status' => 'active',
+                'is_active' => true,
+                'is_upgradeable' => true,
+            ],
+        );
     }
 }

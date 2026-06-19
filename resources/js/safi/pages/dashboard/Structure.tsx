@@ -4,9 +4,10 @@ import { Badge, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getApiErrorState, getArray, getDashboardStructure, getNumber, getString } from '../../lib/api';
-import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
+import { mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 import { buildReferralBranchUrl, type ReferralBranch } from '../../lib/referrals';
 import { cn } from '../../lib/utils';
+import { getPartnerPackageStatus, partnerPackageStatusLabel, type PartnerPackageStatus } from '../../lib/partnerStatus';
 
 type BranchFilter = 'all' | 'left' | 'right';
 type PaginationItem = number | 'ellipsis';
@@ -20,6 +21,8 @@ interface StructurePartnerRow {
   line: number;
   branch: string;
   package: string;
+  packageStatus: PartnerPackageStatus;
+  packageStatusLabel: string;
   status: string;
   personalPV: number;
   leftPV: number;
@@ -109,6 +112,14 @@ export default function Structure() {
           ?? getNumber(node, ['right_branch_pv', 'rightBranchPv', 'right_pv', 'rightPV', 'right_volume', 'rightVolume'])
           ?? 0;
         const id = getString(user, ['id']) || getString(node, ['user_id', 'userId']) || String(index + 1);
+        const rawPackageCode = getString(user, ['package_code', 'packageCode'])
+          || getString(packageRecord, ['code', 'slug', 'id'])
+          || getString(user, ['package'])
+          || '';
+        const packageStatus = getPartnerPackageStatus(user, rawPackageCode);
+        const packageStatusLabel = getString(user, ['package_status_label', 'packageStatusLabel'])
+          || partnerPackageStatusLabel(packageStatus);
+        const packageCode = packageStatus === 'active' ? rawPackageCode : '';
 
         return {
           name: getString(user, ['name']) || `Partner ${index + 1}`,
@@ -118,13 +129,19 @@ export default function Structure() {
           phone: getString(user, ['phone']) || '',
           line: getNumber(node, ['line', 'level', 'depth']) ?? getNumber(user, ['line', 'level', 'depth']) ?? 0,
           branch,
-          package: packageLabel(getString(packageRecord, ['code', 'slug', 'id']), getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name']) || '-'),
-          status: mlmStatusLabel(getString(user, ['status']), getString(user, ['status_label', 'statusLabel']) || '-'),
+          package: packageStatus === 'active'
+            ? packageLabel(packageCode, getString(user, ['package_name', 'packageName']) || getString(packageRecord, ['code_label', 'codeLabel', 'label', 'name']) || '-')
+            : '-',
+          packageStatus,
+          packageStatusLabel,
+          status: packageStatus === 'active'
+            ? mlmStatusLabel(getString(user, ['status']), getString(user, ['status_label', 'statusLabel']) || '-')
+            : 'Неактивен',
           personalPV,
           leftPV,
           rightPV,
           teamPV: getNumber(user, ['team_pv', 'teamPV']) ?? leftPV + rightPV,
-          activity: accountStatusLabel(getString(user, ['account_status', 'accountStatus']), getString(user, ['account_status_label', 'accountStatusLabel']) || accountStatusLabel('active')),
+          activity: packageStatusLabel,
           createdAt: formatDate(getString(user, ['registered_at', 'registeredAt', 'created_at', 'createdAt']) || getString(node, ['registered_at', 'registeredAt', 'created_at', 'createdAt'])),
         };
       });
@@ -200,6 +217,7 @@ export default function Structure() {
           </div>
           <div className="flex flex-wrap gap-2">
             <Badge variant="gold">Пакет: {currentUser.packageName}</Badge>
+            <Badge variant={currentUser.packageStatus === 'active' ? 'success' : 'default'}>Пакет: {currentUser.packageStatusLabel}</Badge>
             <Badge variant="default">Статус: {currentUser.status}</Badge>
           </div>
         </div>
@@ -352,7 +370,7 @@ export default function Structure() {
                     <div className="mt-1 text-xs text-safi-muted">Командный PV: {partner.teamPV.toLocaleString('ru-RU')}</div>
                   </td>
                   <td className="px-7 py-5 text-center">
-                    <Badge variant={partner.activity === 'Активен' ? 'success' : 'default'}>{partner.activity}</Badge>
+                    <Badge variant={partner.packageStatus === 'active' ? 'success' : 'default'}>{partner.activity}</Badge>
                     {partner.createdAt && <div className="mt-2 text-xs text-safi-muted">{partner.createdAt}</div>}
                   </td>
                 </tr>
