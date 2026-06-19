@@ -157,6 +157,7 @@ return [
         'admin.reports' => ['accountant', 'super_admin'],
         'admin.partners.create' => ['super_admin'],
         'admin.partners.manage' => ['admin', 'super_admin'],
+        'admin.partners.balance' => ['super_admin'],
         'admin.withdrawals.manage' => ['accountant', 'super_admin'],
     ],
 ];

@@ -244,6 +244,7 @@ class StructureController extends Controller
         $totalBalance = (float) $wallets->whereIn('type', ['main', 'bonus', 'deposit'])->sum('balance');
         $package = $user->currentPackage;
         $packageCode = $package?->code;
+        $packagePv = $package ? (float) $package->activityPv() : 0;
         $statusCode = strtoupper((string) $user->status);
 
         return [
@@ -282,7 +283,9 @@ class StructureController extends Controller
             'left_pv' => $user->left_pv,
             'right_pv' => $user->right_pv,
             'total_pv' => $user->total_pv,
-            'personal_pv' => $package ? (float) $package->activityPv() : 0,
+            'personal_pv' => $packagePv,
+            'package_pv' => $packagePv,
+            'package_activity_pv' => $packagePv,
             'team_pv' => (float) ($user->left_pv ?? 0) + (float) ($user->right_pv ?? 0),
             'balance' => $mainBalance,
             'total_balance' => $totalBalance,
@@ -498,6 +501,7 @@ class StructureController extends Controller
             'weak_leg_pv' => $weakLegPv,
             'team_pv' => (float) $leftBranchPv + (float) $rightBranchPv,
             'personal_pv' => $personalPv,
+            'package_pv' => $personalPv,
             'package_activity_pv' => $personalPv,
             'turnover_pv' => $turnoverPv,
             'total_pv' => $user->total_pv,

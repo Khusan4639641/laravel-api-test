@@ -37,7 +37,7 @@ class AdminStructureBranchPvTest extends TestCase
             ->assertJsonPath('root.weak_leg_pv', 100);
     }
 
-    public function test_admin_structure_uses_only_same_direction_nested_branch(): void
+    public function test_admin_structure_uses_full_direct_child_subtree_volume(): void
     {
         [$start, $vip] = [$this->package('START', 100, 100), $this->package('VIP', 300, 300)];
         $root = $this->user('Root', 'nestedroot');
@@ -53,13 +53,13 @@ class AdminStructureBranchPvTest extends TestCase
             ->assertOk()
             ->assertJsonPath('summary.left_count', 2)
             ->assertJsonPath('summary.right_count', 0)
-            ->assertJsonPath('summary.left_pv', '100.00')
+            ->assertJsonPath('summary.left_pv', '400.00')
             ->assertJsonPath('summary.right_pv', '0.00')
             ->assertJsonPath('summary.weak_leg_pv', 0)
             ->assertJsonPath('root.children.left.right_branch_pv', '300.00');
     }
 
-    public function test_elite_contributes_turnover_pv_to_branch_not_price_or_activity_pv(): void
+    public function test_elite_contributes_package_pv_to_structure_not_price_or_upgrade_delta(): void
     {
         $elite = $this->package('ELITE', 500, 200, 300000);
         $root = $this->user('Root', 'eliteroot');
@@ -71,15 +71,16 @@ class AdminStructureBranchPvTest extends TestCase
 
         $response = $this->getJson("/api/admin/structure?user_id={$root->id}")
             ->assertOk()
-            ->assertJsonPath('summary.left_pv', '200.00')
-            ->assertJsonPath('root.left_branch_pv', '200.00')
+            ->assertJsonPath('summary.left_pv', '500.00')
+            ->assertJsonPath('root.left_branch_pv', '500.00')
             ->assertJsonPath('root.children.left.personal_pv', 500)
+            ->assertJsonPath('root.children.left.package_pv', 500)
             ->assertJsonPath('root.children.left.left_branch_pv', '0.00')
             ->assertJsonPath('root.children.left.right_branch_pv', '0.00')
             ->assertJsonPath('root.children.left.weak_leg_pv', 0)
             ->assertJsonPath('root.children.left.package.turnover_pv', 200);
 
-        $this->assertNotSame('500.00', $response->json('summary.left_pv'));
+        $this->assertNotSame('200.00', $response->json('summary.left_pv'));
         $this->assertNotSame('300000.00', $response->json('summary.left_pv'));
     }
 
@@ -99,7 +100,7 @@ class AdminStructureBranchPvTest extends TestCase
 
         $this->getJson("/api/admin/structure?user_id={$root->id}")
             ->assertOk()
-            ->assertJsonPath('root.left_branch_pv', '100.00')
+            ->assertJsonPath('root.left_branch_pv', '400.00')
             ->assertJsonPath('root.right_branch_pv', '0.00')
             ->assertJsonPath('root.children.left.id', $nodeA->id)
             ->assertJsonPath('root.children.left.left_branch_pv', '100.00')
@@ -107,7 +108,7 @@ class AdminStructureBranchPvTest extends TestCase
             ->assertJsonPath('root.children.left.weak_leg_pv', 100);
     }
 
-    public function test_parent_branch_excludes_opposite_child_branch_and_own_package_pv(): void
+    public function test_parent_branch_includes_direct_child_package_and_both_child_branches(): void
     {
         [$start, $vip] = [$this->package('START', 100, 100), $this->package('VIP', 300, 300)];
         $root0061 = $this->user('0061', 'node0061', $start);
@@ -125,17 +126,50 @@ class AdminStructureBranchPvTest extends TestCase
 
         $response = $this->getJson("/api/admin/structure?user_id={$root0061->id}")
             ->assertOk()
-            ->assertJsonPath('root.right_branch_pv', '500.00')
+            ->assertJsonPath('root.right_branch_pv', '600.00')
             ->assertJsonPath('root.left_branch_pv', '0.00')
-            ->assertJsonPath('root.children.right.right_branch_pv', '400.00')
+            ->assertJsonPath('root.children.right.right_branch_pv', '500.00')
             ->assertJsonPath('root.children.right.left_branch_pv', '0.00')
             ->assertJsonPath('root.children.right.children.right.left_branch_pv', '100.00')
             ->assertJsonPath('root.children.right.children.right.right_branch_pv', '100.00')
             ->assertJsonPath('root.children.right.children.right.children.right.left_branch_pv', '0.00')
             ->assertJsonPath('root.children.right.children.right.children.right.right_branch_pv', '0.00');
 
-        $this->assertNotSame('900.00', $response->json('root.right_branch_pv'));
-        $this->assertNotSame('500.00', $response->json('root.children.right.right_branch_pv'));
+        $this->assertNotSame('300000.00', $response->json('root.right_branch_pv'));
+    }
+
+    public function test_parent_branch_matches_full_subtree_examples_for_0021(): void
+    {
+        $start = $this->package('START', 100, 100);
+        $vip = $this->package('VIP', 300, 300);
+        $elite = $this->package('ELITE', 500, 200, 300000);
+
+        $root0021 = $this->user('0021', 'node0021');
+        $node0061 = $this->user('0061', 'node0061example', $start);
+        $node0051 = $this->user('0051', 'node0051example', $start);
+        $rootNode = $this->node($root0021);
+        $node0061Node = $this->node($node0061, $rootNode, 'L');
+        $node0051Node = $this->node($node0051, $rootNode, 'R');
+
+        $this->node($this->user('0061 left VIP', 'node0061left', $vip), $node0061Node, 'L');
+        $this->node($this->user('0061 right ELITE', 'node0061right', $elite), $node0061Node, 'R');
+
+        $node0051Left = $this->node($this->user('0051 left VIP', 'node0051left', $vip), $node0051Node, 'L');
+        $this->node($this->user('0051 left child VIP', 'node0051leftchild', $vip), $node0051Left, 'L');
+        $this->node($this->user('0051 right VIP', 'node0051right', $vip), $node0051Node, 'R');
+
+        Sanctum::actingAs($this->admin());
+
+        $this->getJson("/api/admin/structure?user_id={$root0021->id}")
+            ->assertOk()
+            ->assertJsonPath('root.children.left.personal_pv', 100)
+            ->assertJsonPath('root.children.left.left_branch_pv', '300.00')
+            ->assertJsonPath('root.children.left.right_branch_pv', '500.00')
+            ->assertJsonPath('root.children.right.personal_pv', 100)
+            ->assertJsonPath('root.children.right.left_branch_pv', '600.00')
+            ->assertJsonPath('root.children.right.right_branch_pv', '300.00')
+            ->assertJsonPath('root.left_branch_pv', '900.00')
+            ->assertJsonPath('root.right_branch_pv', '1000.00');
     }
 
     public function test_tree_node_includes_package_and_status_labels(): void

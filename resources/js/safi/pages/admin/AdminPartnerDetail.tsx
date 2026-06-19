@@ -29,6 +29,7 @@ import {
   ApiError,
   AdminPartnerDeletePreview,
   blockAdminPartner,
+  changeAdminPartnerBalance,
   changeAdminPartnerPackage,
   changeAdminPartnerPassword,
   changeAdminPartnerStatus,
@@ -156,6 +157,7 @@ export default function AdminPartnerDetail() {
   const [actionLoading, setActionLoading] = useState('');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [balanceModalOpen, setBalanceModalOpen] = useState(false);
   const [packageModalOpen, setPackageModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [binaryRecalculateModalOpen, setBinaryRecalculateModalOpen] = useState(false);
@@ -167,6 +169,8 @@ export default function AdminPartnerDetail() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [passwordForm, setPasswordForm] = useState({ password: '', password_confirmation: '' });
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string[]>>({});
+  const [balanceForm, setBalanceForm] = useState<{ mode: 'set' | 'adjust'; amount: string; comment: string }>({ mode: 'set', amount: '', comment: '' });
+  const [balanceErrors, setBalanceErrors] = useState<Record<string, string[]>>({});
   const [credentials, setCredentials] = useState<Credentials | null>(null);
   const [selectedPackageId, setSelectedPackageId] = useState('');
   const [applyPackageBusinessEffects, setApplyPackageBusinessEffects] = useState(true);
@@ -174,6 +178,7 @@ export default function AdminPartnerDetail() {
   const [applyStatusBonusEffects, setApplyStatusBonusEffects] = useState(false);
   const isBlocked = partner.accountStatus === 'blocked';
   const canCalculateBinary = ['admin', 'super_admin'].includes(currentUser.role.toLowerCase());
+  const canUpdateBalance = currentUser.role.toLowerCase() === 'super_admin';
   const canDeletePartner = currentUser.role.toLowerCase() === 'super_admin';
 
   const weakBranch = useMemo(() => (partner.leftPV < partner.rightPV ? adminText('a_0JvQtdCy0LDR') : adminText('a_0J_RgNCw0LLQ')), [partner.leftPV, partner.rightPV]);
@@ -266,6 +271,55 @@ export default function AdminPartnerDetail() {
         showToast(caughtError.message, 'error');
       } else {
         showToast(adminText('a_0J3QtSDRg9C0_10'), 'error');
+      }
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const openBalanceModal = () => {
+    setBalanceForm({
+      mode: 'set',
+      amount: Number.isFinite(partner.availableBalance) ? String(partner.availableBalance) : '',
+      comment: '',
+    });
+    setBalanceErrors({});
+    setBalanceModalOpen(true);
+  };
+
+  const submitBalance = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setActionLoading('balance');
+    setBalanceErrors({});
+
+    try {
+      const response = await changeAdminPartnerBalance(partner.id, {
+        mode: balanceForm.mode,
+        amount: Number(balanceForm.amount),
+        comment: balanceForm.comment.trim() || undefined,
+      });
+      const record = isRecord(response) ? response : {};
+      const data = isRecord(record.data) ? record.data : {};
+      const nextBalance = getNumber(data, ['new_balance', 'newBalance'])
+        ?? getNumber(record, ['new_balance', 'newBalance'])
+        ?? partner.availableBalance;
+
+      setPartner((current) => ({
+        ...current,
+        availableBalance: nextBalance,
+      }));
+      setBalanceModalOpen(false);
+      setBalanceForm({ mode: 'set', amount: '', comment: '' });
+      showToast('Баланс обновлён');
+
+      const transactionsResponse = await getAdminPartnerTransactions(partner.id, 10);
+      setTransactions(normalizeTransactions(transactionsResponse));
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setBalanceErrors(caughtError.errors || {});
+        showToast(caughtError.message, 'error');
+      } else {
+        showToast('Не удалось обновить баланс', 'error');
       }
     } finally {
       setActionLoading('');
@@ -438,6 +492,16 @@ export default function AdminPartnerDetail() {
     setCredentials(null);
   };
 
+  const closeBalanceModal = () => {
+    if (actionLoading === 'balance') {
+      return;
+    }
+
+    setBalanceModalOpen(false);
+    setBalanceForm({ mode: 'set', amount: '', comment: '' });
+    setBalanceErrors({});
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <ToastStack toasts={toasts} onDismiss={(toastId) => setToasts((current) => current.filter((toast) => toast.id !== toastId))} />
@@ -465,6 +529,17 @@ export default function AdminPartnerDetail() {
             className="flex cursor-pointer items-center gap-2 rounded-xl bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <KeyRound className="w-4 h-4" />{adminText('a_0JjQt9C80LXQ')}</button>
+          {canUpdateBalance && (
+            <button
+              type="button"
+              onClick={openBalanceModal}
+              disabled={!partner.id || isLoading || actionLoading === 'balance'}
+              className="flex cursor-pointer items-center gap-2 rounded-xl bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <CreditCard className="w-4 h-4" />
+              {actionLoading === 'balance' ? 'Сохранение...' : 'Изменить баланс'}
+            </button>
+          )}
           <button
             type="button"
             onClick={toggleBlock}
@@ -598,14 +673,14 @@ export default function AdminPartnerDetail() {
               <div className="flex flex-col md:flex-row gap-6 items-center">
                 <div className="w-full flex-1 p-6 bg-[#F5F5F0] rounded-2xl flex flex-col items-center justify-center text-center">
                   <div className="text-[10px] uppercase font-bold tracking-widest text-safi-text/50 mb-2">{adminText('a_0JvQtdCy0LDR_2')}</div>
-                  <div className="text-2xl font-bold text-safi-green">{formatPv(partner.leftPV)}</div>
+                  <div className="text-2xl font-bold text-safi-green">{formatBranchPv('л', partner.leftPV)}</div>
                 </div>
 
                 <div className="w-12 h-12 rounded-full border border-safi-green/10 flex items-center justify-center shrink-0">VS</div>
 
                 <div className="w-full flex-1 p-6 bg-[#F5F5F0] rounded-2xl flex flex-col items-center justify-center text-center">
                   <div className="text-[10px] uppercase font-bold tracking-widest text-safi-text/50 mb-2">{adminText('a_0J_RgNCw0LLQ_2')}</div>
-                  <div className="text-2xl font-bold text-safi-green">{formatPv(partner.rightPV)}</div>
+                  <div className="text-2xl font-bold text-safi-green">{formatBranchPv('п', partner.rightPV)}</div>
                 </div>
               </div>
 
@@ -739,6 +814,56 @@ export default function AdminPartnerDetail() {
               className="w-full cursor-pointer rounded-xl bg-safi-green px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               {actionLoading === 'package' ? adminText('a_0KHQvtGF0YDQ_2') : adminText('a_0KHQvtGF0YDQ')}
+            </button>
+          </form>
+        </Modal>
+      )}
+
+      {balanceModalOpen && (
+        <Modal title="Изменить баланс" onClose={closeBalanceModal}>
+          <form className="space-y-5" onSubmit={submitBalance}>
+            <div className="rounded-2xl border border-safi-green/10 bg-[#F5F5F0] p-4 text-sm font-bold text-safi-green">
+              Текущий баланс: {partner.availableBalance.toLocaleString('ru-RU')} ₸
+            </div>
+            <FormField label="Режим" error={balanceErrors.mode?.[0]}>
+              <select
+                value={balanceForm.mode}
+                onChange={(event) => setBalanceForm((current) => ({ ...current, mode: event.target.value === 'adjust' ? 'adjust' : 'set' }))}
+                className={inputClass}
+                disabled={actionLoading === 'balance'}
+              >
+                <option value="set">Установить баланс</option>
+                <option value="adjust">Скорректировать на сумму</option>
+              </select>
+            </FormField>
+            <FormField label={balanceForm.mode === 'set' ? 'Новый баланс' : 'Сумма корректировки'} error={balanceErrors.amount?.[0]}>
+              <input
+                type="number"
+                step="0.01"
+                min={balanceForm.mode === 'set' ? 0 : undefined}
+                value={balanceForm.amount}
+                onChange={(event) => setBalanceForm((current) => ({ ...current, amount: event.target.value }))}
+                className={inputClass}
+                disabled={actionLoading === 'balance'}
+                required
+              />
+            </FormField>
+            <FormField label="Комментарий" error={balanceErrors.comment?.[0]}>
+              <textarea
+                value={balanceForm.comment}
+                onChange={(event) => setBalanceForm((current) => ({ ...current, comment: event.target.value }))}
+                className={`${inputClass} min-h-[96px] resize-none`}
+                maxLength={1000}
+                disabled={actionLoading === 'balance'}
+                placeholder="Manual correction"
+              />
+            </FormField>
+            <button
+              type="submit"
+              disabled={actionLoading === 'balance' || !balanceForm.amount}
+              className="w-full cursor-pointer rounded-xl bg-safi-green px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {actionLoading === 'balance' ? 'Сохранение...' : 'Сохранить баланс'}
             </button>
           </form>
         </Modal>
@@ -1030,7 +1155,7 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
   const accountStatus = normalizeAccountStatus(getString(user, ['account_status']));
   const walletBalance = getNumber(user, ['wallet_balance', 'walletBalance', 'balance', 'main_balance'])
     ?? getWalletBalance(wallets, 'main');
-  const packageActivityPV = getNumber(user, ['package_activity_pv', 'packageActivityPv'])
+  const packageActivityPV = getNumber(user, ['package_pv', 'packagePv', 'package_activity_pv', 'packageActivityPv'])
     ?? getNumber(pkg, ['activity_pv', 'activityPv', 'pv'])
     ?? 0;
   const packageActivityAmount = getNumber(user, ['package_activity_amount', 'packageActivityAmount'])
@@ -1110,6 +1235,10 @@ function formatTransactionAmount(direction: string, amount: number) {
   }
 
   return `${amount.toLocaleString('ru-RU')} ₸`;
+}
+
+function formatBranchPv(branch: 'л' | 'п', value: number) {
+  return `${branch}:${value.toLocaleString('ru-RU')}PV`;
 }
 
 function normalizeCredentials(response: unknown, partner: PartnerDetail): Credentials {

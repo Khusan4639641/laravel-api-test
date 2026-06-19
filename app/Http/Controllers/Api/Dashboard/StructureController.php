@@ -210,6 +210,7 @@ class StructureController extends Controller
         $package = $partner->currentPackage;
         $leftPv = (string) ($nodeVolume['left_branch_pv'] ?? $partner->left_pv ?? '0.00');
         $rightPv = (string) ($nodeVolume['right_branch_pv'] ?? $partner->right_pv ?? '0.00');
+        $packagePv = $package ? (float) $package->activityPv() : 0;
         $line = (int) ($node?->getAttribute('relative_level') ?? $node?->depth ?? 1);
         $branch = $this->branchCode($node?->getAttribute('root_branch') ?? $node?->position);
 
@@ -235,7 +236,9 @@ class StructureController extends Controller
             'status_label' => \App\Support\SystemLabel::mlmStatus($partner->status),
             'account_status' => $partner->account_status,
             'account_status_label' => \App\Support\SystemLabel::accountStatus($partner->account_status),
-            'personal_pv' => $package ? (float) $package->activityPv() : 0,
+            'personal_pv' => $packagePv,
+            'package_pv' => $packagePv,
+            'package_activity_pv' => $packagePv,
             'team_pv' => (float) $leftPv + (float) $rightPv,
             'left_pv' => number_format((float) $leftPv, 2, '.', ''),
             'right_pv' => number_format((float) $rightPv, 2, '.', ''),

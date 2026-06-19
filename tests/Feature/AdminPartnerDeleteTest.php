@@ -354,7 +354,7 @@ class AdminPartnerDeleteTest extends TestCase
 
     public function test_deleted_users_excluded_from_status_calculation(): void
     {
-        $start = $this->createPackage('START', ['turnover_pv' => 1000]);
+        $start = $this->createPackage('START', ['activity_pv' => 1000, 'turnover_pv' => 1000]);
         $sponsor = User::factory()->create(['login' => 'status_exclusion_sponsor']);
         $left = $this->registerPartner('status-exclusion-left', $sponsor, 'left', $start);
         $this->registerPartner('status-exclusion-right', $sponsor, 'right', $start);

@@ -116,7 +116,7 @@ class DashboardBranchVolumeService
 
     /**
      * @param  Collection<int, BinaryNode>  $nodes
-     * @return array<int, array{left_branch_pv: string, right_branch_pv: string, weak_leg_pv: float, subtree_turnover_pv: string}>
+     * @return array<int, array{left_branch_pv: string, right_branch_pv: string, weak_leg_pv: float, subtree_turnover_pv: string, subtree_package_pv?: string}>
      */
     public function calculateNodeBranchVolumes(Collection $nodes): array
     {
@@ -145,7 +145,9 @@ class DashboardBranchVolumeService
                 'left_branch_pv' => $leftPv,
                 'right_branch_pv' => $rightPv,
                 'weak_leg_pv' => (float) $weakLegPv,
-                'subtree_turnover_pv' => $fallbackVolumes[$node->id]['subtree_turnover_pv'] ?? '0.00',
+                'subtree_turnover_pv' => $fallbackVolumes[$node->id]['subtree_package_pv']
+                    ?? $fallbackVolumes[$node->id]['subtree_turnover_pv']
+                    ?? '0.00',
             ];
         }
 
@@ -356,7 +358,7 @@ class DashboardBranchVolumeService
 
     /**
      * @param  Collection<int, BinaryNode>  $nodes
-     * @return array<int, array{left_branch_pv: string, right_branch_pv: string, weak_leg_pv: float, subtree_turnover_pv: string}>
+     * @return array<int, array{left_branch_pv: string, right_branch_pv: string, weak_leg_pv: float, subtree_turnover_pv: string, subtree_package_pv: string}>
      */
     private function calculatePackageFallbackNodeVolumes(Collection $nodes): array
     {
@@ -379,25 +381,25 @@ class DashboardBranchVolumeService
 
             foreach ($childrenByParentId[$node->id] ?? [] as $child) {
                 $childVolumes = $calculateDirectionalPv($child);
-                $childOwnPv = $this->nodeTurnoverPv($child);
-                $childSubtreePv = $childVolumes['subtree_turnover_pv'];
+                $childSubtreePv = $childVolumes['subtree_package_pv'];
                 $subtreeChildrenPv = bcadd($subtreeChildrenPv, $childSubtreePv, 2);
 
                 if ($child->position === 'L') {
-                    $leftPv = bcadd($leftPv, bcadd($childOwnPv, $childVolumes['left_branch_pv'], 2), 2);
+                    $leftPv = bcadd($leftPv, $childSubtreePv, 2);
                 } elseif ($child->position === 'R') {
-                    $rightPv = bcadd($rightPv, bcadd($childOwnPv, $childVolumes['right_branch_pv'], 2), 2);
+                    $rightPv = bcadd($rightPv, $childSubtreePv, 2);
                 }
             }
 
             $weakLegPv = $this->minDecimal($leftPv, $rightPv);
-            $ownTurnoverPv = $this->nodeTurnoverPv($node);
-            $subtreeTurnoverPv = bcadd($ownTurnoverPv, $subtreeChildrenPv, 2);
+            $ownPackagePv = $this->nodePackagePv($node);
+            $subtreePackagePv = bcadd($ownPackagePv, $subtreeChildrenPv, 2);
             $volumes[$node->id] = [
                 'left_branch_pv' => $leftPv,
                 'right_branch_pv' => $rightPv,
                 'weak_leg_pv' => (float) $weakLegPv,
-                'subtree_turnover_pv' => $subtreeTurnoverPv,
+                'subtree_turnover_pv' => $subtreePackagePv,
+                'subtree_package_pv' => $subtreePackagePv,
             ];
 
             return $volumes[$node->id];
@@ -412,7 +414,7 @@ class DashboardBranchVolumeService
         return $volumes;
     }
 
-    private function nodeTurnoverPv(BinaryNode $node): string
+    private function nodePackagePv(BinaryNode $node): string
     {
         $user = $node->user;
 
@@ -420,7 +422,7 @@ class DashboardBranchVolumeService
             return '0.00';
         }
 
-        return $this->decimal($user->currentPackage->turnoverPv());
+        return $this->decimal($user->currentPackage->activityPv());
     }
 
     private function descendantsQuery(?string $path)
@@ -459,12 +461,12 @@ class DashboardBranchVolumeService
         $transactionPv = $this->decimal($transactionPv);
         $fallbackPv = $this->decimal($fallbackPv);
 
-        if (bccomp($transactionPv, '0.00', 2) > 0) {
-            return $transactionPv;
-        }
-
         if (bccomp($fallbackPv, '0.00', 2) > 0) {
             return $fallbackPv;
+        }
+
+        if (bccomp($transactionPv, '0.00', 2) > 0) {
+            return $transactionPv;
         }
 
         return $allowCachedFallback ? $cachedPv : '0.00';

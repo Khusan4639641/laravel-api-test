@@ -260,6 +260,10 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
             Route::delete('/partners/{user}', [AdminPartnerController::class, 'destroy']);
         });
 
+        Route::middleware('role_permission:admin.partners.balance')->group(function (): void {
+            Route::patch('/partners/{user}/balance', [AdminPartnerController::class, 'balance']);
+        });
+
         Route::middleware('role_permission:admin.reports')->group(function (): void {
             Route::get('/reports/summary', [AdminReportController::class, 'summary']);
         });

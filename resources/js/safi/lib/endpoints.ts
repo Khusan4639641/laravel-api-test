@@ -65,6 +65,7 @@ export const endpoints = {
     partner: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}`,
     partnerStatus: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/status`,
     partnerPackage: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/package`,
+    partnerBalance: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/balance`,
     partnerBlock: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/block`,
     partnerUnblock: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/unblock`,
     partnerNote: (user: EndpointId) => `/admin/partners/${encodeEndpointId(user)}/note`,

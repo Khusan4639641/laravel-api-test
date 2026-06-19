@@ -99,7 +99,7 @@ export default function Structure() {
               ? node.package as Record<string, unknown>
               : {};
         const branch = branchLabel(getString(node, ['branch', 'position']) || getString(user, ['branch', 'position']));
-        const personalPV = getNumber(user, ['personal_pv', 'personalPV', 'package_activity_pv', 'packageActivityPv'])
+        const personalPV = getNumber(user, ['package_pv', 'packagePv', 'personal_pv', 'personalPV', 'package_activity_pv', 'packageActivityPv'])
           ?? getNumber(packageRecord, ['activity_pv', 'activityPv', 'pv'])
           ?? 0;
         const leftPV = getNumber(user, ['left_branch_pv', 'leftBranchPv', 'left_pv', 'leftPV', 'left_volume', 'leftVolume'])
@@ -218,8 +218,8 @@ export default function Structure() {
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard title="Всего партнеров" value={structure.totalPartners} icon={<Users className="h-5 w-5" />} />
         <StatCard title="Малая ветка PV" value={`${structure.weakLegPV.toLocaleString('ru-RU')} PV`} />
-        <BranchCard title="Левая ветка" partners={structure.leftPartners} pv={structure.leftPV} weak={structure.weakLeg === 'left'} />
-        <BranchCard title="Правая ветка" partners={structure.rightPartners} pv={structure.rightPV} weak={structure.weakLeg === 'right'} />
+        <BranchCard title="Левая ветка" partners={structure.leftPartners} pv={structure.leftPV} branch="л" weak={structure.weakLeg === 'left'} />
+        <BranchCard title="Правая ветка" partners={structure.rightPartners} pv={structure.rightPV} branch="п" weak={structure.weakLeg === 'right'} />
       </section>
 
       <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
@@ -346,8 +346,8 @@ export default function Structure() {
                   <td className="px-7 py-5 text-right">
                     <div className="font-extrabold text-safi-gold">Личный PV: {partner.personalPV.toLocaleString('ru-RU')}</div>
                     <div className="mt-2 flex flex-wrap justify-end gap-1 text-[10px] font-extrabold text-safi-green">
-                      <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Левая ветка PV" aria-label="Левая ветка PV">{formatPv(partner.leftPV)}</span>
-                      <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Правая ветка PV" aria-label="Правая ветка PV">{formatPv(partner.rightPV)}</span>
+                      <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Левая ветка PV" aria-label="Левая ветка PV">{formatBranchPv('л', partner.leftPV)}</span>
+                      <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Правая ветка PV" aria-label="Правая ветка PV">{formatBranchPv('п', partner.rightPV)}</span>
                     </div>
                     <div className="mt-1 text-xs text-safi-muted">Командный PV: {partner.teamPV.toLocaleString('ru-RU')}</div>
                   </td>
@@ -558,7 +558,7 @@ function formatDate(value?: string) {
   return date.toLocaleDateString('ru-RU');
 }
 
-function BranchCard({ title, partners, pv, weak }: { title: string; partners: number; pv: number; weak: boolean }) {
+function BranchCard({ title, partners, pv, branch, weak }: { title: string; partners: number; pv: number; branch: 'л' | 'п'; weak: boolean }) {
   return (
     <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
       <div className="mb-5 flex items-center justify-between gap-3">
@@ -571,7 +571,7 @@ function BranchCard({ title, partners, pv, weak }: { title: string; partners: nu
           <div className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">Партнеров</div>
         </div>
         <div>
-          <div className="font-serif text-3xl font-semibold text-safi-gold">{pv.toLocaleString('ru-RU')}</div>
+          <div className="font-serif text-3xl font-semibold text-safi-gold">{formatBranchPv(branch, pv)}</div>
           <div className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">PV</div>
         </div>
       </div>
@@ -635,22 +635,22 @@ function Node({
       {hasBranchPair && (
         <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-extrabold">
           <span className={cn('whitespace-nowrap rounded-full px-2 py-1', root ? 'bg-white/12 text-white' : 'bg-safi-cream text-safi-green')} title="Левая ветка PV" aria-label="Левая ветка PV">
-            {formatPv(leftPV)}
+            {formatBranchPv('л', leftPV)}
           </span>
           <span className={cn('whitespace-nowrap rounded-full px-2 py-1', root ? 'bg-white/12 text-white' : 'bg-safi-cream text-safi-green')} title="Правая ветка PV" aria-label="Правая ветка PV">
-            {formatPv(rightPV)}
+            {formatBranchPv('п', rightPV)}
           </span>
         </div>
       )}
       {typeof branchPV === 'number' && branchPVLabel && (
         <div className="mt-3 whitespace-nowrap rounded-full bg-safi-cream px-2 py-1 text-[10px] font-extrabold text-safi-green" title={branchPVLabel === 'Л' ? 'Левая ветка PV' : 'Правая ветка PV'} aria-label={branchPVLabel === 'Л' ? 'Левая ветка PV' : 'Правая ветка PV'}>
-          {formatPv(branchPV)}
+          {formatBranchPv(branchPVLabel === 'Л' ? 'л' : 'п', branchPV)}
         </div>
       )}
     </div>
   );
 }
 
-function formatPv(value: number) {
-  return `${value.toLocaleString('ru-RU')} PV`;
+function formatBranchPv(branch: 'л' | 'п', value: number) {
+  return `${branch}:${value.toLocaleString('ru-RU')}PV`;
 }

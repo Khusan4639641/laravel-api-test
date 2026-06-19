@@ -68,6 +68,8 @@ class UserResource extends JsonResource
             'remaining_left_pv' => $this->remaining_left_pv,
             'remaining_right_pv' => $this->remaining_right_pv,
             'total_pv' => $this->total_pv,
+            'personal_pv' => $packageActivityPv,
+            'package_pv' => $packageActivityPv,
             'invited_count' => $invitedCount,
             'balance' => $mainBalance,
             'wallet_balance' => $mainBalance,

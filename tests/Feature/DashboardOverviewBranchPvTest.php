@@ -67,7 +67,7 @@ class DashboardOverviewBranchPvTest extends TestCase
             ->assertJsonPath('structure.weak_leg_pv', 0);
     }
 
-    public function test_elite_child_contributes_turnover_pv_not_price_or_activity_pv(): void
+    public function test_elite_child_contributes_package_pv_not_price_or_upgrade_delta(): void
     {
         $elite = $this->package('ELITE', 500, 200, 300000);
         $tree = app(BinaryTreeService::class);
@@ -81,11 +81,11 @@ class DashboardOverviewBranchPvTest extends TestCase
 
         $response = $this->getJson('/api/dashboard/overview')
             ->assertOk()
-            ->assertJsonPath('structure.left_pv', '200.00')
+            ->assertJsonPath('structure.left_pv', '500.00')
             ->assertJsonPath('structure.right_pv', '0.00');
 
         $this->assertNotSame('300000.00', $response->json('structure.left_pv'));
-        $this->assertNotSame('500.00', $response->json('structure.left_pv'));
+        $this->assertNotSame('200.00', $response->json('structure.left_pv'));
     }
 
     public function test_dashboard_structure_summary_returns_same_branch_pv_as_overview(): void

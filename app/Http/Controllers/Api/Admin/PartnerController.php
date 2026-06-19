@@ -8,10 +8,12 @@ use App\Http\Resources\BinaryNodeResource;
 use App\Http\Resources\BonusTransactionResource;
 use App\Http\Resources\UserResource;
 use App\Http\Resources\WalletTransactionResource;
+use App\Models\AdminActionLog;
 use App\Models\BinaryNode;
 use App\Models\Package;
 use App\Models\User;
 use App\Models\UserProfile;
+use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\BonusService;
 use App\Services\PackageService;
@@ -20,9 +22,11 @@ use App\Services\PartnerRegistrationService;
 use App\Services\StatusBonusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PartnerController extends Controller
 {
@@ -212,6 +216,118 @@ class PartnerController extends Controller
 
         return response()->json([
             'user' => UserResource::make($this->loadPartner($user->refresh())),
+        ]);
+    }
+
+    public function balance(Request $request, User $user): JsonResponse
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403, 'Only super admin can update partner balance.');
+
+        $validated = $request->validate([
+            'mode' => ['required', 'string', Rule::in(['set', 'adjust'])],
+            'amount' => ['required', 'numeric'],
+            'comment' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $mode = (string) $validated['mode'];
+        $amount = $this->decimal($validated['amount']);
+        $comment = trim((string) ($validated['comment'] ?? ''));
+
+        if ($mode === 'set' && bccomp($amount, '0.00', 2) < 0) {
+            throw ValidationException::withMessages([
+                'amount' => ['Set amount must be greater than or equal to zero.'],
+            ]);
+        }
+
+        $result = DB::transaction(function () use ($request, $user, $mode, $amount, $comment): array {
+            $wallet = Wallet::query()->firstOrCreate(
+                [
+                    'user_id' => $user->id,
+                    'type' => 'main',
+                ],
+                [
+                    'currency' => 'KZT',
+                    'balance' => 0,
+                    'hold_balance' => 0,
+                    'status' => 'active',
+                ],
+            );
+
+            $wallet = Wallet::query()
+                ->whereKey($wallet->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $oldBalance = $this->decimal($wallet->balance);
+            $newBalance = $mode === 'set'
+                ? $amount
+                : $this->decimal(bcadd($oldBalance, $amount, 2));
+
+            if (bccomp($newBalance, '0.00', 2) < 0) {
+                throw ValidationException::withMessages([
+                    'amount' => ['Balance cannot be negative.'],
+                ]);
+            }
+
+            $delta = $this->decimal(bcsub($newBalance, $oldBalance, 2));
+            $transaction = null;
+
+            if (bccomp($delta, '0.00', 2) !== 0) {
+                $wallet->forceFill(['balance' => $newBalance])->save();
+
+                $transaction = $wallet->transactions()->create([
+                    'user_id' => $user->id,
+                    'type' => 'manual_adjustment',
+                    'direction' => bccomp($delta, '0.00', 2) > 0 ? 'credit' : 'debit',
+                    'amount' => ltrim($delta, '-'),
+                    'balance_before' => $oldBalance,
+                    'balance_after' => $newBalance,
+                    'status' => WalletTransaction::STATUS_COMPLETED,
+                    'affects_balance' => true,
+                    'description' => $comment !== '' ? $comment : null,
+                    'metadata' => [
+                        'mode' => $mode,
+                        'requested_amount' => $amount,
+                        'delta' => $delta,
+                        'admin_id' => $request->user()?->id,
+                    ],
+                ]);
+            }
+
+            AdminActionLog::query()->create([
+                'admin_id' => $request->user()?->id,
+                'target_user_id' => $user->id,
+                'action' => 'balance_update',
+                'reason' => $comment !== '' ? $comment : null,
+                'metadata' => [
+                    'mode' => $mode,
+                    'amount' => $amount,
+                    'old_balance' => $oldBalance,
+                    'new_balance' => $newBalance,
+                    'delta' => $delta,
+                    'wallet_id' => $wallet->id,
+                    'wallet_transaction_id' => $transaction?->id,
+                    'self_update' => (int) ($request->user()?->id ?? 0) === (int) $user->id,
+                ],
+            ]);
+
+            return [
+                'user_id' => $user->id,
+                'old_balance' => $oldBalance,
+                'new_balance' => $newBalance,
+                'wallet_transaction' => $transaction,
+            ];
+        });
+
+        return response()->json([
+            'message' => 'Balance updated',
+            'data' => [
+                'user_id' => $result['user_id'],
+                'old_balance' => (float) $result['old_balance'],
+                'new_balance' => (float) $result['new_balance'],
+            ],
+            'user' => UserResource::make($this->loadPartner($user->refresh())),
+            'recent_transactions' => WalletTransactionResource::collection($this->recentTransactions($user)),
         ]);
     }
 
@@ -420,6 +536,11 @@ class PartnerController extends Controller
     private function ensureSuperAdmin(Request $request): void
     {
         abort_unless($request->user()?->isSuperAdmin(), 403, 'Only super admin can delete partners.');
+    }
+
+    private function decimal(mixed $value): string
+    {
+        return number_format((float) $value, 2, '.', '');
     }
 
     private function uniqueActivePhoneRule(?int $ignoreUserId = null): \Closure

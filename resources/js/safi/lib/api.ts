@@ -69,6 +69,12 @@ export interface AdminPartnerBulkPayload {
   partners: AdminPartnerPayload[];
 }
 
+export interface AdminPartnerBalancePayload {
+  mode: 'set' | 'adjust';
+  amount: number;
+  comment?: string;
+}
+
 export interface AdminPartnerDeletePreview {
   user?: {
     id?: string | number;
@@ -981,6 +987,17 @@ export async function changeAdminPartnerPackage<T = unknown>(
   return apiRequest<T>(endpoints.admin.partnerPackage(userId), {
     method: 'PATCH',
     body: { package_id: packageId, apply_business_effects: applyBusinessEffects },
+    auth: true,
+  });
+}
+
+export async function changeAdminPartnerBalance<T = unknown>(
+  userId: string | number,
+  payload: AdminPartnerBalancePayload,
+) {
+  return apiRequest<T>(endpoints.admin.partnerBalance(userId), {
+    method: 'PATCH',
+    body: compactPayload(payload),
     auth: true,
   });
 }

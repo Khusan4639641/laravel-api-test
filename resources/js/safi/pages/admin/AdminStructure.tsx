@@ -659,12 +659,12 @@ export default function AdminStructure() {
           <SummaryCard
             label={adminText('Левая ветка')}
             value={`${stats.leftBranchCount.toLocaleString('ru-RU')} ${adminText('Партнёров').toLowerCase()}`}
-            subValue={`${stats.leftPV.toLocaleString('ru-RU')} PV`}
+            subValue={formatBranchPv('л', stats.leftPV)}
           />
           <SummaryCard
             label={adminText('Правая ветка')}
             value={`${stats.rightBranchCount.toLocaleString('ru-RU')} ${adminText('Партнёров').toLowerCase()}`}
-            subValue={`${stats.rightPV.toLocaleString('ru-RU')} PV`}
+            subValue={formatBranchPv('п', stats.rightPV)}
           />
           <SummaryCard label={adminText('Малая ветка PV')} value={`${stats.weakLegPV.toLocaleString('ru-RU')} PV`} />
         </section>
@@ -1148,14 +1148,14 @@ function TreeNodeCard({
             title={adminText('Левая ветка PV')}
             aria-label={adminText('Левая ветка PV')}
           >
-            {formatCompactPv(node.leftBranchPV)}
+            {formatBranchPv('л', node.leftBranchPV)}
           </span>
           <span
             className="min-w-max whitespace-nowrap rounded-full bg-[#F5F5F0] px-1 py-1 text-center leading-none"
             title={adminText('Правая ветка PV')}
             aria-label={adminText('Правая ветка PV')}
           >
-            {formatCompactPv(node.rightBranchPV)}
+            {formatBranchPv('п', node.rightBranchPV)}
           </span>
         </div>
       </div>
@@ -1550,7 +1550,7 @@ function normalizeRootOrphans(response: unknown): RootOrphanPartner[] {
     const accountStatusCode = getString(record, ['account_status', 'accountStatus']) || 'active';
     const leftPV = getNumber(record, ['left_pv', 'leftPV']) ?? 0;
     const rightPV = getNumber(record, ['right_pv', 'rightPV']) ?? 0;
-    const personalPV = getNumber(record, ['personal_pv', 'personalPv', 'package_activity_pv', 'packageActivityPv'])
+    const personalPV = getNumber(record, ['package_pv', 'packagePv', 'personal_pv', 'personalPv', 'package_activity_pv', 'packageActivityPv'])
       ?? getNumber(packageRecord, ['activity_pv', 'activityPv'])
       ?? 0;
 
@@ -1653,7 +1653,7 @@ function normalizeNodeRecord(record: Record<string, unknown>, index = 0): Struct
     packageCode: normalizePackageCode(record),
     packageName: normalizePackage(record),
     status: normalizeMlmStatus(record),
-    personalPV: getNumber(record, ['personal_pv', 'personalPv', 'package_activity_pv', 'packageActivityPv']) ?? 0,
+    personalPV: getNumber(record, ['package_pv', 'packagePv', 'personal_pv', 'personalPv', 'package_activity_pv', 'packageActivityPv']) ?? 0,
     teamPV: getNumber(record, ['team_pv', 'teamPv'])
       ?? (leftBranchPV + rightBranchPV),
     weakLegPV: getNumber(record, ['weak_leg_pv', 'weakLegPv'])
@@ -1687,6 +1687,6 @@ function formatMoney(value: number) {
   return `${value.toLocaleString('ru-RU')} ₸`;
 }
 
-function formatCompactPv(value: number) {
-  return `${value.toLocaleString('ru-RU')} PV`;
+function formatBranchPv(branch: 'л' | 'п', value: number) {
+  return `${branch}:${value.toLocaleString('ru-RU')}PV`;
 }
