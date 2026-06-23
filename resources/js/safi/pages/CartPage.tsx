@@ -159,6 +159,14 @@ export default function CartPage() {
     }
   }, [isDepositCart, paymentStrategy]);
 
+  const handleDecrease = (productId: string) => {
+    const result = decrementProduct(productId);
+
+    if (!result.ok) {
+      showToast(t('cart.outOfStock', 'Нет в наличии'), 'error');
+    }
+  };
+
   const handleIncrease = (productId: string) => {
     const item = items.find((cartItem) => String(cartItem.product.id) === String(productId));
 
@@ -359,9 +367,7 @@ export default function CartPage() {
               const isInvalid = !isOrderable || (hasStockLimit && item.quantity > stockLimit);
               const isDepositItem = isDepositProduct(item.product);
               const canDecrease = item.quantity > 1;
-              const canIncrease = isOrderable
-                && (!hasStockLimit || item.quantity < stockLimit)
-                && (!isDepositItem || totalPrice + item.product.price <= depositBalance);
+              const canAttemptIncrease = !isInvalid;
 
               return (
                 <div key={item.product.id} className="grid gap-5 rounded-[28px] border border-safi-green/5 bg-white p-4 shadow-sm md:grid-cols-[140px_minmax(0,1fr)] md:p-5">
@@ -410,7 +416,7 @@ export default function CartPage() {
                         <div className="flex w-fit items-center rounded-xl border border-safi-green/10 bg-[#F5F5F0] p-1">
                           <button
                             type="button"
-                            onClick={() => decrementProduct(item.product.id)}
+                            onClick={() => handleDecrease(item.product.id)}
                             disabled={!canDecrease}
                             className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-safi-green transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                             aria-label="-"
@@ -420,7 +426,7 @@ export default function CartPage() {
                           <span className="min-w-10 text-center text-sm font-bold text-safi-green">{item.quantity}</span>
                           <button
                             type="button"
-                            disabled={!canIncrease || isInvalid}
+                            disabled={!canAttemptIncrease}
                             onClick={() => handleIncrease(item.product.id)}
                             className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg text-safi-green transition-colors hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
                             aria-label="+"

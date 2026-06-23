@@ -142,13 +142,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         return { ok: false, reason: 'missing_product' };
       }
 
-      if (!isProductOrderable(currentItem.product)) {
+      const isIncrease = nextQuantity > currentItem.quantity;
+
+      if (isIncrease && !isProductOrderable(currentItem.product)) {
         return { ok: false, reason: 'out_of_stock' };
       }
 
       const stockLimit = getStockLimit(currentItem.product);
 
-      if (stockLimit !== null && nextQuantity > stockLimit) {
+      if (isIncrease && stockLimit !== null && nextQuantity > stockLimit) {
         return { ok: false, reason: 'stock_limit' };
       }
 

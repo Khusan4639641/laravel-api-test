@@ -39,6 +39,152 @@ class CartPaymentStrategyTest extends TestCase
         $this->assertSame('3000.00', $this->walletFor($user, 'deposit')->balance);
     }
 
+    public function test_cart_item_quantity_can_be_increased_and_summary_recalculates(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->product('Cart Increase', 1000);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            ...$this->basePayload(),
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('order.items_count', 2)
+            ->assertJsonPath('order.subtotal_amount', '2000.00')
+            ->assertJsonPath('order.total_amount', '2000.00')
+            ->assertJsonPath('order.items.0.quantity', 2)
+            ->assertJsonPath('order.items.0.total_price', '2000.00');
+
+        $this->assertSame(8, $product->refresh()->stock_quantity);
+    }
+
+    public function test_cart_item_quantity_can_be_decreased_and_summary_recalculates(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->product('Cart Decrease', 1000);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            ...$this->basePayload(),
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('order.items_count', 1)
+            ->assertJsonPath('order.subtotal_amount', '1000.00')
+            ->assertJsonPath('order.total_amount', '1000.00')
+            ->assertJsonPath('order.items.0.quantity', 1)
+            ->assertJsonPath('order.items.0.total_price', '1000.00');
+
+        $this->assertSame(9, $product->refresh()->stock_quantity);
+    }
+
+    public function test_cart_quantity_cannot_go_below_one(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->product('Cart Min Quantity', 1000);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            ...$this->basePayload(),
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 0],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('items.0.quantity');
+
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertSame(10, $product->refresh()->stock_quantity);
+    }
+
+    public function test_cart_quantity_cannot_increase_above_stock(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->product('Cart Stock Limit', 1000, false, 1);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            ...$this->basePayload(),
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('items');
+
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertSame(1, $product->refresh()->stock_quantity);
+    }
+
+    public function test_deposit_only_cart_quantity_cannot_be_increased_if_deposit_balance_is_insufficient(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->product('Deposit Cart Low Balance', 1000, true);
+        $this->wallet($user, 'deposit', 1000);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            ...$this->basePayload(),
+            'payment_strategy' => Order::PAYMENT_STRATEGY_DEPOSIT_100,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 2],
+            ],
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('amount');
+
+        $this->assertDatabaseCount('orders', 0);
+        $this->assertSame('1000.00', $this->walletFor($user, 'deposit')->balance);
+        $this->assertSame(10, $product->refresh()->stock_quantity);
+    }
+
+    public function test_deposit_only_cart_quantity_can_be_decreased_to_available_balance(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->product('Deposit Cart Decrease', 1000, true);
+        $this->wallet($user, 'deposit', 1000);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/orders', [
+            ...$this->basePayload(),
+            'payment_strategy' => Order::PAYMENT_STRATEGY_DEPOSIT_100,
+            'items' => [
+                ['product_id' => $product->id, 'quantity' => 1],
+            ],
+        ])
+            ->assertCreated()
+            ->assertJsonPath('order.items_count', 1)
+            ->assertJsonPath('order.deposit_amount', '1000.00')
+            ->assertJsonPath('order.total_amount', '1000.00')
+            ->assertJsonPath('order.items.0.quantity', 1);
+
+        $this->assertSame('0.00', $this->walletFor($user, 'deposit')->balance);
+        $this->assertSame(9, $product->refresh()->stock_quantity);
+    }
+
+    public function test_cart_quantity_controls_keep_limit_feedback_clickable(): void
+    {
+        $cartPage = file_get_contents(resource_path('js/safi/pages/CartPage.tsx'));
+        $cartContext = file_get_contents(resource_path('js/safi/context/CartContext.tsx'));
+
+        $this->assertStringContainsString('onClick={() => handleDecrease(item.product.id)}', $cartPage);
+        $this->assertStringContainsString('disabled={!canAttemptIncrease}', $cartPage);
+        $this->assertStringContainsString('Недостаточно средств на депозитном балансе.', $cartPage);
+        $this->assertStringContainsString('const isIncrease = nextQuantity > currentItem.quantity;', $cartContext);
+        $this->assertStringContainsString('if (isIncrease && stockLimit !== null && nextQuantity > stockLimit)', $cartContext);
+    }
+
     public function test_checkout_rejects_mixed_regular_and_deposit_products(): void
     {
         $user = User::factory()->create();
@@ -99,14 +245,14 @@ class CartPaymentStrategyTest extends TestCase
         $this->assertSame('4999.00', $this->walletFor($user, 'deposit')->balance);
     }
 
-    private function product(string $name, int $price, bool $depositOnly = false): Product
+    private function product(string $name, int $price, bool $depositOnly = false, int $stockQuantity = 10): Product
     {
         return Product::query()->create([
             'name' => $name,
             'sku' => 'CART-'.uniqid(),
             'price' => $price,
             'pv' => 2,
-            'stock_quantity' => 10,
+            'stock_quantity' => $stockQuantity,
             'status' => 'active',
             'is_deposit_product' => $depositOnly,
         ]);
