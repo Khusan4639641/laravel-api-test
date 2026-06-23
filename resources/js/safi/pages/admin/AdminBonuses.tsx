@@ -4,7 +4,7 @@ import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
-import { calculateAdminBinaryBonuses, deleteAdminBonus, getAdminBonuses, getApiErrorState, getNumber, getString, recalculateAdminBonuses, updateAdminBonus } from '../../lib/api';
+import { deleteAdminBonus, getAdminBonuses, getApiErrorState, getNumber, getString, recalculateAdminBinaryBonuses, updateAdminBonus } from '../../lib/api';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { adminText } from '../../i18n/adminText';
 import { defaultPaginationMeta, getPaginatedItems, normalizePaginationMeta } from '../../lib/pagination';
@@ -14,8 +14,6 @@ import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLa
 export default function AdminBonuses() {
   const { currentUser } = useAdminContext();
   const isSuperAdmin = currentUser.role === 'super_admin';
-  const today = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [bonuses, setBonuses] = useState<Array<{ id: string; date: string; partnerId: string; partnerName: string; type: string; basis: string; percentage: string; amount: string; rawAmount: number; status: string }>>([]);
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -26,10 +24,6 @@ export default function AdminBonuses() {
   const [meta, setMeta] = useState<PaginationMeta>(defaultPaginationMeta);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isCalculating, setIsCalculating] = useState(false);
-  const [dateFrom, setDateFrom] = useState(monthStart);
-  const [dateTo, setDateTo] = useState(today);
-  const [forceRecalculation, setForceRecalculation] = useState(false);
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [editBonus, setEditBonus] = useState<{ id: string; amount: number } | null>(null);
   const [deleteBonusId, setDeleteBonusId] = useState<string | null>(null);
@@ -100,38 +94,23 @@ export default function AdminBonuses() {
     void loadBonuses();
   }, [debouncedSearch, typeFilter, statusFilter, page, perPage]);
 
-  const calculateBinaryBonuses = async () => {
-    setIsCalculating(true);
-
-    try {
-      const response = await calculateAdminBinaryBonuses();
-      const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
-      const calculatedCount = Number(record.calculated_count ?? 0);
-
-      showToast(calculatedCount > 0 ? `Бинарные бонусы рассчитаны: ${calculatedCount}` : 'Нет доступного PV для расчёта', calculatedCount > 0 ? 'success' : 'error');
-      await loadBonuses();
-    } catch (caughtError) {
-      showToast(getApiErrorState(caughtError).error || 'Не удалось рассчитать бинарные бонусы', 'error');
-    } finally {
-      setIsCalculating(false);
-    }
-  };
-
-  const recalculateBonusesForPeriod = async () => {
+  const recalculateBinaryBonusesForAllPartners = async () => {
     setIsRecalculating(true);
 
     try {
-      const response = await recalculateAdminBonuses({ date_from: dateFrom, date_to: dateTo, force: forceRecalculation });
+      const response = await recalculateAdminBinaryBonuses();
       const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
       const processed = Number(record.processed_count ?? 0);
       const recalculated = Number(record.recalculated_count ?? 0);
       const created = Number(record.created_count ?? 0);
       const updated = Number(record.updated_count ?? 0);
+      const skipped = Number(record.skipped_count ?? 0);
+      const failed = Number(record.failed_count ?? 0);
 
-      showToast(`Перерасчёт выполнен: обработано ${processed}, создано ${created}, обновлено ${updated}, всего ${recalculated}`);
+      showToast(`Массовый расчёт выполнен: обработано ${processed}, создано ${created}, обновлено ${updated}, пропущено ${skipped}, ошибок ${failed}, всего ${recalculated}`, failed > 0 ? 'error' : 'success');
       await loadBonuses();
     } catch (caughtError) {
-      showToast(getApiErrorState(caughtError).error || 'Не удалось выполнить перерасчёт за период', 'error');
+      showToast(getApiErrorState(caughtError).error || 'Не удалось выполнить массовый бинарный расчёт', 'error');
     } finally {
       setIsRecalculating(false);
     }
@@ -201,46 +180,13 @@ export default function AdminBonuses() {
           <p className="text-sm text-safi-text/70">{adminText('a_0J3QsNGH0LjR')}</p>
         </div>
         <div className="flex w-full flex-col gap-3 md:w-auto">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
-              className="rounded-xl bg-white px-4 py-3 text-xs font-bold text-safi-green outline-none ring-1 ring-safi-green/10 focus:ring-safi-green/30"
-              aria-label="Дата начала"
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
-              className="rounded-xl bg-white px-4 py-3 text-xs font-bold text-safi-green outline-none ring-1 ring-safi-green/10 focus:ring-safi-green/30"
-              aria-label="Дата окончания"
-            />
-            <label className="flex min-h-12 cursor-pointer items-center gap-3 rounded-xl bg-white px-4 py-3 text-xs font-bold text-safi-green ring-1 ring-safi-green/10">
-              <input
-                type="checkbox"
-                checked={forceRecalculation}
-                onChange={(event) => setForceRecalculation(event.target.checked)}
-                className="h-4 w-4 accent-safi-green"
-              />
-              <span>Полный перерасчёт всех пользователей</span>
-            </label>
-            <button
-              type="button"
-              onClick={recalculateBonusesForPeriod}
-              disabled={isRecalculating}
-              className="cursor-pointer rounded-xl border border-safi-green bg-white px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isRecalculating ? 'Перерасчёт...' : 'Запустить перерасчёт'}
-            </button>
-          </div>
           <button
             type="button"
-            onClick={calculateBinaryBonuses}
-            disabled={isCalculating}
+            onClick={recalculateBinaryBonusesForAllPartners}
+            disabled={isRecalculating}
             className="cursor-pointer rounded-xl bg-safi-green px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isCalculating ? adminText('a_0KHQvtGF0YDQ_2') : 'Запустить бинарный расчёт'}
+            {isRecalculating ? adminText('a_0KHQvtGF0YDQ_2') : 'Запустить массовый бинарный расчёт'}
           </button>
         </div>
       </div>

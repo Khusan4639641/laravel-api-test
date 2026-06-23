@@ -505,50 +505,83 @@ class BonusService
     }
 
     /**
-     * @return array{processed_count: int, recalculated_count: int, skipped_count: int, results: array<int, array<string, mixed>>}
+     * @return array{processed_count: int, recalculated_count: int, created_count: int, updated_count: int, skipped_count: int, failed_count: int, results: array<int, array<string, mixed>>}
      */
-    public function recalculateBinaryBonusesForPeriod(User $admin, CarbonInterface $dateFrom, CarbonInterface $dateTo): array
+    public function recalculateBinaryBonusesForAllPartners(User $admin): array
     {
         $processed = 0;
         $recalculated = 0;
+        $created = 0;
+        $updated = 0;
+        $failed = 0;
         $results = [];
 
         User::query()
             ->where('role', User::ROLE_USER)
-            ->activeAccount()
-            ->whereHas('currentPackage')
+            ->activeMlm()
             ->orderBy('id')
-            ->chunkById(100, function ($users) use ($admin, $dateFrom, $dateTo, &$processed, &$recalculated, &$results): void {
+            ->chunkById(100, function ($users) use ($admin, &$processed, &$recalculated, &$created, &$updated, &$failed, &$results): void {
                 foreach ($users as $user) {
                     $processed++;
-                    $result = $this->recalculateBinaryBonus($user, $admin, $dateFrom, $dateTo);
-                    $bonusTransaction = $result['bonus_transaction'];
 
-                    if ($bonusTransaction) {
-                        $metadata = is_array($bonusTransaction->metadata) ? $bonusTransaction->metadata : [];
-                        $metadata['period_recalculation'] = [
-                            'date_from' => $dateFrom->toDateString(),
-                            'date_to' => $dateTo->toDateString(),
-                            'admin_id' => $admin->id,
-                            'requested_at' => now()->toISOString(),
+                    try {
+                        $hadCurrentRun = BinaryBonusRun::query()
+                            ->where('user_id', $user->id)
+                            ->whereIn('status', ['completed', 'pending'])
+                            ->where('period_end', '>', now())
+                            ->exists();
+                        $result = $this->recalculateBinaryBonus($user, $admin);
+                        $bonusTransaction = $result['bonus_transaction'];
+                        $action = 'skipped';
+
+                        if ($bonusTransaction) {
+                            $metadata = is_array($bonusTransaction->metadata) ? $bonusTransaction->metadata : [];
+                            $metadata['bulk_recalculation'] = [
+                                'admin_id' => $admin->id,
+                                'requested_at' => now()->toISOString(),
+                            ];
+                            $bonusTransaction->forceFill(['metadata' => $metadata])->save();
+                            $recalculated++;
+
+                            if ($hadCurrentRun) {
+                                $updated++;
+                                $action = 'updated';
+                            } else {
+                                $created++;
+                                $action = 'created';
+                            }
+                        }
+
+                        $results[] = [
+                            'user_id' => $user->id,
+                            'message' => $result['message'],
+                            'eligible' => (bool) ($result['data']['eligible'] ?? false),
+                            'bonus_transaction_id' => $bonusTransaction?->id,
+                            'action' => $action,
                         ];
-                        $bonusTransaction->forceFill(['metadata' => $metadata])->save();
-                        $recalculated++;
-                    }
+                    } catch (\Throwable $exception) {
+                        report($exception);
+                        $failed++;
 
-                    $results[] = [
-                        'user_id' => $user->id,
-                        'message' => $result['message'],
-                        'eligible' => (bool) ($result['data']['eligible'] ?? false),
-                        'bonus_transaction_id' => $bonusTransaction?->id,
-                    ];
+                        $results[] = [
+                            'user_id' => $user->id,
+                            'message' => 'Ошибка перерасчёта',
+                            'eligible' => false,
+                            'bonus_transaction_id' => null,
+                            'action' => 'failed',
+                            'error' => $exception->getMessage(),
+                        ];
+                    }
                 }
             });
 
         return [
             'processed_count' => $processed,
             'recalculated_count' => $recalculated,
-            'skipped_count' => max($processed - $recalculated, 0),
+            'created_count' => $created,
+            'updated_count' => $updated,
+            'skipped_count' => max($processed - $recalculated - $failed, 0),
+            'failed_count' => $failed,
             'results' => $results,
         ];
     }

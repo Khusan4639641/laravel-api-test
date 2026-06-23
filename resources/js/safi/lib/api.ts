@@ -1067,10 +1067,9 @@ export async function calculateAdminBinaryBonuses<T = unknown>() {
   });
 }
 
-export async function recalculateAdminBonuses<T = unknown>(payload: { date_from: string; date_to: string; force?: boolean }) {
+export async function recalculateAdminBinaryBonuses<T = unknown>() {
   return apiRequest<T>(`${endpoints.admin.bonuses}/binary/recalculate`, {
     method: 'POST',
-    body: payload,
     auth: true,
   });
 }

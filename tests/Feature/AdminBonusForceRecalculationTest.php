@@ -22,7 +22,7 @@ class AdminBonusForceRecalculationTest extends TestCase
     use CreatesBinaryBonusEligibility;
     use RefreshDatabase;
 
-    public function test_force_recalculation_updates_already_calculated_binary_bonus_and_adjusts_wallets(): void
+    public function test_mass_recalculation_updates_already_calculated_binary_bonus_and_adjusts_wallets(): void
     {
         [$dateFrom, $dateTo] = $this->period();
         $partner = $this->rootWithPackage('ELITE');
@@ -32,17 +32,14 @@ class AdminBonusForceRecalculationTest extends TestCase
         $seeded = $this->seedPeriodBinaryPayout($partner, $dateFrom, $dateTo, '2000.00', '100000.00', '90000.00', '10000.00');
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
 
-        $this->postJson($this->endpoint(), [
-            'date_from' => $dateFrom->toDateString(),
-            'date_to' => $dateTo->toDateString(),
-            'force' => true,
-        ])
+        $this->postJson($this->endpoint())
             ->assertOk()
-            ->assertJsonPath('force', true)
-            ->assertJsonPath('processed_count', 1)
+            ->assertJsonPath('processed_count', 3)
             ->assertJsonPath('updated_count', 1)
             ->assertJsonPath('created_count', 0)
-            ->assertJsonPath('recalculated_count', 1);
+            ->assertJsonPath('recalculated_count', 1)
+            ->assertJsonPath('skipped_count', 2)
+            ->assertJsonPath('failed_count', 0);
 
         $bonus = $seeded['bonus']->refresh();
         $run = $seeded['run']->refresh();
@@ -69,7 +66,36 @@ class AdminBonusForceRecalculationTest extends TestCase
         ]);
     }
 
-    public function test_force_recalculation_is_idempotent_for_same_period(): void
+    public function test_mass_recalculation_processes_all_eligible_partners(): void
+    {
+        $first = $this->rootWithPackage('ELITE');
+        ['left' => $firstLeftBuyer, 'right' => $firstRightBuyer] = $this->makeBinaryBonusEligible($first);
+        $this->pv($first, $firstLeftBuyer, 'L', 1200);
+        $this->pv($first, $firstRightBuyer, 'R', 1200);
+
+        $second = $this->rootWithPackage('VIP');
+        ['left' => $secondLeftBuyer, 'right' => $secondRightBuyer] = $this->makeBinaryBonusEligible($second);
+        $this->pv($second, $secondLeftBuyer, 'L', 1000);
+        $this->pv($second, $secondRightBuyer, 'R', 1000);
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $this->postJson($this->endpoint())
+            ->assertOk()
+            ->assertJsonPath('processed_count', 6)
+            ->assertJsonPath('created_count', 2)
+            ->assertJsonPath('updated_count', 0)
+            ->assertJsonPath('recalculated_count', 2)
+            ->assertJsonPath('skipped_count', 4)
+            ->assertJsonPath('failed_count', 0);
+
+        $this->assertWalletBalance($first, 'main', '54000.00');
+        $this->assertWalletBalance($first, 'deposit', '6000.00');
+        $this->assertWalletBalance($second, 'main', '36000.00');
+        $this->assertWalletBalance($second, 'deposit', '4000.00');
+    }
+
+    public function test_mass_recalculation_is_idempotent_for_current_period(): void
     {
         [$dateFrom, $dateTo] = $this->period();
         $partner = $this->rootWithPackage('ELITE');
@@ -78,18 +104,16 @@ class AdminBonusForceRecalculationTest extends TestCase
         $this->pv($partner, $rightBuyer, 'R', 1000);
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
 
-        $payload = [
-            'date_from' => $dateFrom->toDateString(),
-            'date_to' => $dateTo->toDateString(),
-            'force' => true,
-        ];
-
-        $this->postJson($this->endpoint(), $payload)
+        $this->postJson($this->endpoint())
             ->assertOk()
-            ->assertJsonPath('created_count', 1);
-        $this->postJson($this->endpoint(), $payload)
+            ->assertJsonPath('processed_count', 3)
+            ->assertJsonPath('created_count', 1)
+            ->assertJsonPath('skipped_count', 2);
+        $this->postJson($this->endpoint())
             ->assertOk()
-            ->assertJsonPath('updated_count', 1);
+            ->assertJsonPath('processed_count', 3)
+            ->assertJsonPath('updated_count', 1)
+            ->assertJsonPath('skipped_count', 2);
 
         $this->assertSame(1, BinaryBonusRun::query()->where('user_id', $partner->id)->count());
         $this->assertSame(1, BonusTransaction::query()->where('user_id', $partner->id)->where('bonus_type', 'binary')->count());
@@ -172,24 +196,18 @@ class AdminBonusForceRecalculationTest extends TestCase
             ->assertJsonCount(0, 'notifications');
     }
 
-    public function test_period_recalculation_validates_required_date_range(): void
+    public function test_mass_recalculation_does_not_require_date_range(): void
     {
         Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
 
-        $this->postJson($this->endpoint(), [
-            'date_to' => '2026-06-15',
-            'force' => true,
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('date_from');
-
-        $this->postJson($this->endpoint(), [
-            'date_from' => '2026-06-15',
-            'date_to' => '2026-06-01',
-            'force' => true,
-        ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('date_to');
+        $this->postJson($this->endpoint())
+            ->assertOk()
+            ->assertJsonPath('processed_count', 0)
+            ->assertJsonPath('recalculated_count', 0)
+            ->assertJsonPath('created_count', 0)
+            ->assertJsonPath('updated_count', 0)
+            ->assertJsonPath('skipped_count', 0)
+            ->assertJsonPath('failed_count', 0);
     }
 
     /**
@@ -198,8 +216,8 @@ class AdminBonusForceRecalculationTest extends TestCase
     private function period(): array
     {
         return [
-            CarbonImmutable::parse('2026-06-01')->startOfDay(),
-            CarbonImmutable::parse('2026-06-15')->endOfDay(),
+            CarbonImmutable::now()->subDay()->startOfDay(),
+            CarbonImmutable::now()->addDays(14)->endOfDay(),
         ];
     }
 

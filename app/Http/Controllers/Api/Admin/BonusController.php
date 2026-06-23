@@ -9,7 +9,6 @@ use App\Models\BonusTransaction;
 use App\Models\User;
 use App\Services\BonusAdminAdjustmentService;
 use App\Services\BonusService;
-use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -121,24 +120,12 @@ class BonusController extends Controller
         ]);
     }
 
-    public function recalculatePeriod(Request $request): JsonResponse
+    public function recalculateAllBinary(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'date_from' => ['required', 'date'],
-            'date_to' => ['required', 'date', 'after_or_equal:date_from'],
-            'force' => ['sometimes', 'boolean'],
-        ]);
-
-        $dateFrom = CarbonImmutable::parse($validated['date_from'])->startOfDay();
-        $dateTo = CarbonImmutable::parse($validated['date_to'])->endOfDay();
-        $force = (bool) ($validated['force'] ?? false);
-        $result = $this->bonusService->recalculateBinaryBonusesForPeriod($request->user(), $dateFrom, $dateTo, $force);
+        $result = $this->bonusService->recalculateBinaryBonusesForAllPartners($request->user());
 
         return response()->json([
-            'message' => $force ? 'Бонусы за период полностью пересчитаны' : 'Бонусы за период рассчитаны',
-            'date_from' => $dateFrom->toDateString(),
-            'date_to' => $dateTo->toDateString(),
-            'force' => $force,
+            'message' => 'Массовый перерасчёт бинарного бонуса выполнен',
             ...$result,
         ]);
     }
