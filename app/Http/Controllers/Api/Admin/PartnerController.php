@@ -16,6 +16,7 @@ use App\Models\UserProfile;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
 use App\Services\BonusService;
+use App\Services\DashboardBranchVolumeService;
 use App\Services\PackageService;
 use App\Services\PartnerDeletionService;
 use App\Services\PartnerRegistrationService;
@@ -49,6 +50,7 @@ class PartnerController extends Controller
         private readonly StatusBonusService $statusBonusService,
         private readonly PartnerRegistrationService $partnerRegistrationService,
         private readonly PartnerDeletionService $partnerDeletionService,
+        private readonly DashboardBranchVolumeService $branchVolumeService,
     ) {
     }
 
@@ -466,8 +468,16 @@ class PartnerController extends Controller
 
     private function loadPartner(User $user): User
     {
-        return $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
+        $partner = $user->load(['profile', 'wallets', 'currentPackage', 'sponsor', 'binaryNode'])
             ->loadCount(['referrals', 'invitedUsers as invited_count']);
+
+        $branchVolumes = $this->branchVolumeService->getVolumesForRoot($partner);
+
+        return $partner->setRawAttributes([
+            ...$partner->getAttributes(),
+            'left_pv' => $branchVolumes['left_pv'],
+            'right_pv' => $branchVolumes['right_pv'],
+        ], true);
     }
 
     private function recentTransactions(User $user, int $limit = 10)

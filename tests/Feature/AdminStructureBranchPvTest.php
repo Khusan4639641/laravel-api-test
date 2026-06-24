@@ -251,6 +251,38 @@ class AdminStructureBranchPvTest extends TestCase
         $this->assertSame($response->json('summary.weak_leg_pv'), $response->json('root.weak_leg_pv'));
     }
 
+    public function test_admin_partner_detail_branch_pv_matches_structure_summary(): void
+    {
+        [$start, $vip, $elite] = [
+            $this->package('START', 100, 100),
+            $this->package('VIP', 300, 300),
+            $this->package('ELITE', 500, 200, 300000),
+        ];
+        $root = $this->user('Root', 'partnerdetailroot', $elite);
+        $root->forceFill([
+            'left_pv' => 9999,
+            'right_pv' => 8888,
+        ])->save();
+        $left = $this->user('Left Start', 'partnerdetailleft', $start);
+        $right = $this->user('Right Vip', 'partnerdetailright', $vip);
+        $rootNode = $this->node($root);
+        $this->node($left, $rootNode, 'L');
+        $this->node($right, $rootNode, 'R');
+
+        Sanctum::actingAs($this->admin());
+
+        $structure = $this->getJson("/api/admin/structure?root_id={$root->id}")
+            ->assertOk();
+        $partner = $this->getJson("/api/admin/partners/{$root->id}")
+            ->assertOk();
+
+        $this->assertSame('100.00', $structure->json('summary.left_pv'));
+        $this->assertSame('300.00', $structure->json('summary.right_pv'));
+        $this->assertSame($structure->json('summary.left_pv'), $partner->json('user.left_pv'));
+        $this->assertSame($structure->json('summary.right_pv'), $partner->json('user.right_pv'));
+        $this->assertSame($structure->json('summary.weak_leg_pv'), $partner->json('user.weak_leg_pv'));
+    }
+
     public function test_staff_users_are_excluded_from_branch_counts_and_pv(): void
     {
         $start = $this->package('START', 100, 100);
