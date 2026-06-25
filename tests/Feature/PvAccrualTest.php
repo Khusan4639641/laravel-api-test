@@ -16,7 +16,7 @@ class PvAccrualTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_package_activation_stops_at_first_opposite_branch_turn(): void
+    public function test_package_activation_propagates_through_internal_branch_turn(): void
     {
         $treeService = app(BinaryTreeService::class);
         $root = User::factory()->create();
@@ -36,10 +36,10 @@ class PvAccrualTest extends TestCase
         $leftChild->refresh();
         $rightGrandchild->refresh();
 
-        $this->assertSame('0.00', $root->left_pv);
+        $this->assertSame('300.00', $root->left_pv);
         $this->assertSame('0.00', $root->right_pv);
-        $this->assertSame('0.00', $root->remaining_left_pv);
-        $this->assertSame('0.00', $root->total_pv);
+        $this->assertSame('300.00', $root->remaining_left_pv);
+        $this->assertSame('300.00', $root->total_pv);
 
         $this->assertSame('0.00', $leftChild->left_pv);
         $this->assertSame('300.00', $leftChild->right_pv);
@@ -50,7 +50,8 @@ class PvAccrualTest extends TestCase
         $this->assertSame('0.00', $rightGrandchild->right_pv);
         $this->assertSame('300.00', $rightGrandchild->total_pv);
         $this->assertPvTransaction($rightGrandchild, $leftChild, 'package_vip', 'R', '300.00', true);
-        $this->assertSame(1, PvTransaction::query()->where('buyer_id', $rightGrandchild->id)->count());
+        $this->assertPvTransaction($rightGrandchild, $root, 'package_vip', 'L', '300.00', true);
+        $this->assertSame(2, PvTransaction::query()->where('buyer_id', $rightGrandchild->id)->count());
     }
 
     public function test_package_activation_continues_up_same_direction_branch(): void
@@ -126,7 +127,7 @@ class PvAccrualTest extends TestCase
         $this->assertSame('100.00', $user->total_pv);
     }
 
-    public function test_product_order_pv_stops_at_first_opposite_branch_turn_without_buyer_branch_pv(): void
+    public function test_product_order_pv_propagates_through_internal_branch_turn_without_buyer_branch_pv(): void
     {
         $treeService = app(BinaryTreeService::class);
         $root = User::factory()->create();
@@ -165,9 +166,9 @@ class PvAccrualTest extends TestCase
         $this->assertSame('20.00', $directParent->right_pv);
         $this->assertSame('20.00', $directParent->remaining_right_pv);
 
-        $this->assertSame('0.00', $root->left_pv);
+        $this->assertSame('20.00', $root->left_pv);
         $this->assertSame('0.00', $root->right_pv);
-        $this->assertSame('0.00', $root->remaining_left_pv);
+        $this->assertSame('20.00', $root->remaining_left_pv);
 
         $order = Order::query()->firstOrFail();
 
@@ -176,7 +177,8 @@ class PvAccrualTest extends TestCase
         $this->assertTrue($order->metadata['pv_turnover']['is_bonusable']);
         $this->assertSame('10000.00', $order->metadata['pv_turnover']['meta']['turnover_amount']);
         $this->assertPvTransaction($buyer, $directParent, 'product_order', 'R', '20.00', true, $order);
-        $this->assertSame(1, PvTransaction::query()->where('buyer_id', $buyer->id)->where('source', 'product_order')->count());
+        $this->assertPvTransaction($buyer, $root, 'product_order', 'L', '20.00', true, $order);
+        $this->assertSame(2, PvTransaction::query()->where('buyer_id', $buyer->id)->where('source', 'product_order')->count());
     }
 
     public function test_elite_upgrade_propagates_only_two_hundred_non_bonusable_pv_to_uplines(): void
@@ -213,10 +215,11 @@ class PvAccrualTest extends TestCase
 
         $this->assertSame('200.00', $directParent->left_pv);
         $this->assertSame('0.00', $directParent->remaining_left_pv);
-        $this->assertSame('0.00', $root->right_pv);
+        $this->assertSame('200.00', $root->right_pv);
         $this->assertSame('0.00', $root->remaining_right_pv);
         $this->assertPvTransaction($buyer, $directParent, 'package_elite_upgrade', 'L', '200.00', false);
-        $this->assertSame(1, PvTransaction::query()->where('buyer_id', $buyer->id)->where('source', 'package_elite_upgrade')->count());
+        $this->assertPvTransaction($buyer, $root, 'package_elite_upgrade', 'R', '200.00', false);
+        $this->assertSame(2, PvTransaction::query()->where('buyer_id', $buyer->id)->where('source', 'package_elite_upgrade')->count());
     }
 
     private function assertPvTransaction(

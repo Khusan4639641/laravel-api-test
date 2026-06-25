@@ -48,6 +48,39 @@ class AdminBinaryRecalculateButtonTest extends TestCase
             'type' => 'binary_bonus_deposit',
             'amount' => '10000.00',
         ]);
+        $this->assertDatabaseHas('admin_action_logs', [
+            'target_user_id' => $partner->id,
+            'action' => 'binary_recalculate_partner',
+        ]);
+    }
+
+    public function test_recalculate_counts_internal_branch_pv_for_selected_partner(): void
+    {
+        $partner = $this->rootWithPackage('ELITE');
+        ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($partner);
+        $internalBuyer = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'account_status' => 'active',
+            'current_package_id' => Package::query()->where('code', 'START')->firstOrFail()->id,
+        ]);
+        $leftNode = $leftBuyer->binaryNode()->where('is_active', true)->firstOrFail();
+        $this->createChildNode($leftNode, $internalBuyer, 'R');
+        $this->pv($leftBuyer, $internalBuyer, 'R', 800);
+        $this->pv($partner, $rightBuyer, 'R', 1000);
+        $this->actingAdmin();
+
+        $this->postJson($this->endpoint($partner))
+            ->assertOk()
+            ->assertJsonPath('message', 'Бинар пересчитан')
+            ->assertJsonPath('data.left_pv_total', '800.00')
+            ->assertJsonPath('data.right_pv_total', '1000.00')
+            ->assertJsonPath('data.weak_leg_pv', '800.00')
+            ->assertJsonPath('data.binary_total', '40000.00')
+            ->assertJsonPath('data.main_wallet_amount', '36000.00')
+            ->assertJsonPath('data.deposit_amount', '4000.00');
+
+        $this->assertWalletBalance($partner, 'main', '36000.00');
+        $this->assertWalletBalance($partner, 'deposit', '4000.00');
     }
 
     public function test_repeat_click_does_not_duplicate_binary(): void

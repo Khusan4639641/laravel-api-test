@@ -93,6 +93,42 @@ class AdminBonusForceRecalculationTest extends TestCase
         $this->assertWalletBalance($first, 'deposit', '6000.00');
         $this->assertWalletBalance($second, 'main', '36000.00');
         $this->assertWalletBalance($second, 'deposit', '4000.00');
+        $this->assertDatabaseHas('admin_action_logs', [
+            'action' => 'binary_recalculate_all',
+        ]);
+    }
+
+    public function test_mass_recalculation_counts_internal_branch_pv(): void
+    {
+        $partner = $this->rootWithPackage('ELITE');
+        ['left' => $leftBuyer, 'right' => $rightBuyer] = $this->makeBinaryBonusEligible($partner);
+        $internalBuyer = User::factory()->create([
+            'role' => User::ROLE_USER,
+            'account_status' => 'active',
+            'current_package_id' => Package::query()->where('code', 'START')->firstOrFail()->id,
+        ]);
+        $leftNode = $leftBuyer->binaryNode()->where('is_active', true)->firstOrFail();
+        $this->createChildNode($leftNode, $internalBuyer, 'R');
+        $this->pv($leftBuyer, $internalBuyer, 'R', 900);
+        $this->pv($partner, $rightBuyer, 'R', 900);
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
+
+        $this->postJson($this->endpoint())
+            ->assertOk()
+            ->assertJsonPath('processed_count', 4)
+            ->assertJsonPath('created_count', 1)
+            ->assertJsonPath('updated_count', 0)
+            ->assertJsonPath('recalculated_count', 1)
+            ->assertJsonPath('skipped_count', 3)
+            ->assertJsonPath('failed_count', 0);
+
+        $run = BinaryBonusRun::query()->where('user_id', $partner->id)->firstOrFail();
+        $this->assertSame('900.00', $run->weak_leg_pv);
+        $this->assertSame('900.00', $run->metadata['diagnostics']['left_total_pv']);
+        $this->assertSame('900.00', $run->metadata['diagnostics']['right_total_pv']);
+        $this->assertWalletBalance($partner, 'main', '40500.00');
+        $this->assertWalletBalance($partner, 'deposit', '4500.00');
     }
 
     public function test_mass_recalculation_is_idempotent_for_current_period(): void

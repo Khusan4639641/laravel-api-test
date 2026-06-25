@@ -7,6 +7,7 @@ import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import { deleteAdminTransaction, getAdminTransactions, getApiErrorState, getNumber, getString, recalculateAdminBinaryBonuses, updateAdminTransactionAmount } from '../../lib/api';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { adminText } from '../../i18n/adminText';
+import { formatAdminDateTime } from '../../lib/adminDateTime';
 import { defaultPaginationMeta, getPaginatedItems, normalizePaginationMeta } from '../../lib/pagination';
 import type { PaginationMeta } from '../../lib/pagination';
 import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
@@ -496,7 +497,7 @@ function normalizeTransactionRow(item: unknown, index: number): TransactionRow {
 
   return {
     id: getString(trx, ['id']) || String(index + 1),
-    date: getString(trx, ['created_at']) || '-',
+    date: formatAdminDateTime(getString(trx, ['updated_at', 'updatedAt', 'update_date', 'updateDate', 'created_at', 'createdAt'])),
     partnerId: getString(user, ['id', 'login']) || getString(trx, ['user_id']) || '-',
     partnerName: getString(user, ['name']) || '-',
     type: transactionTypeLabel(rawType, getString(trx, ['type_label', 'typeLabel']) || rawType),

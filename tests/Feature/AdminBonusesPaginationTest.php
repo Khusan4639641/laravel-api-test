@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\BonusTransaction;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -72,6 +73,47 @@ class AdminBonusesPaginationTest extends TestCase
             ->assertJsonPath('meta.last_page', 3);
     }
 
+    public function test_admin_bonuses_are_ordered_by_updated_at_desc_and_include_updated_at(): void
+    {
+        $partner = User::factory()->create();
+        $freshlyUpdated = $this->createBonusWithDates($partner, 'referral_bonus', 100, 'completed', now()->subDays(10), now()->subMinute());
+        $staleUpdated = $this->createBonusWithDates($partner, 'referral_bonus', 100, 'completed', now(), now()->subDays(3));
+        $middleUpdated = $this->createBonusWithDates($partner, 'referral_bonus', 100, 'completed', now()->subDays(5), now()->subDay());
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
+
+        $response = $this->getJson('/api/admin/bonuses?per_page=10')
+            ->assertOk();
+
+        $this->assertSame(
+            [$freshlyUpdated->id, $middleUpdated->id, $staleUpdated->id],
+            collect($response->json('bonuses'))->pluck('id')->take(3)->all()
+        );
+        $this->assertNotEmpty($response->json('bonuses.0.updated_at'));
+    }
+
+    public function test_bonus_search_type_and_status_filters_keep_updated_at_desc_order(): void
+    {
+        $partner = User::factory()->create([
+            'login' => 'updated-order-bonus-login',
+        ]);
+        $olderMatch = $this->createBonusWithDates($partner, 'referral_bonus', 100, 'completed', now()->subDays(10), now()->subHours(5));
+        $newerMatch = $this->createBonusWithDates($partner, 'referral_bonus', 100, 'completed', now()->subDays(8), now()->subMinutes(5));
+        $this->createBonusWithDates($partner, 'referral_bonus', 100, 'pending', now()->subDays(9), now()->subMinute());
+        $this->createBonusWithDates($partner, 'binary_bonus_main', 100, 'completed', now()->subDays(9), now()->subMinutes(2));
+
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_SUPER_ADMIN]));
+
+        $response = $this->getJson('/api/admin/bonuses?search=updated-order-bonus-login&type=referral_bonus&status=completed&per_page=10')
+            ->assertOk()
+            ->assertJsonCount(2, 'bonuses');
+
+        $this->assertSame(
+            [$newerMatch->id, $olderMatch->id],
+            collect($response->json('bonuses'))->pluck('id')->all()
+        );
+    }
+
     public function test_search_finds_bonus_globally(): void
     {
         $this->createBonuses(User::factory()->create(), 30);
@@ -134,9 +176,20 @@ class AdminBonusesPaginationTest extends TestCase
 
     private function createBonus(User $user, string $type, int $amount, string $status, int $minutesAgo): BonusTransaction
     {
-        $createdAt = now()->subMinutes($minutesAgo);
+        $date = now()->subMinutes($minutesAgo);
 
-        return BonusTransaction::query()->create([
+        return $this->createBonusWithDates($user, $type, $amount, $status, $date, $date);
+    }
+
+    private function createBonusWithDates(
+        User $user,
+        string $type,
+        int $amount,
+        string $status,
+        CarbonInterface $createdAt,
+        CarbonInterface $updatedAt,
+    ): BonusTransaction {
+        $bonus = BonusTransaction::query()->create([
             'user_id' => $user->id,
             'bonus_type' => $type,
             'amount' => $amount,
@@ -145,8 +198,13 @@ class AdminBonusesPaginationTest extends TestCase
             'matched_pv' => 0,
             'status' => $status,
             'calculated_at' => $createdAt,
-            'created_at' => $createdAt,
-            'updated_at' => $createdAt,
         ]);
+
+        BonusTransaction::withoutTimestamps(fn () => $bonus->forceFill([
+            'created_at' => $createdAt,
+            'updated_at' => $updatedAt,
+        ])->save());
+
+        return $bonus->refresh();
     }
 }

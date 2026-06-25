@@ -157,6 +157,37 @@ class PackageActivationTransactionTest extends TestCase
         $this->assertSame('0.00', $child->wallets()->where('type', 'main')->firstOrFail()->balance);
     }
 
+    public function test_upline_receives_turnover_pv_from_internal_binary_branch(): void
+    {
+        $root = User::factory()->create();
+        $left = User::factory()->create();
+        $buyer = User::factory()->create();
+        $start = $this->package('START');
+        $tree = app(BinaryTreeService::class);
+        $tree->placeUser($root);
+        $tree->placeUser($left, $root, 'L');
+        $tree->placeUser($buyer, $left, 'R');
+
+        Sanctum::actingAs($buyer);
+
+        $this->postJson("/api/packages/{$start->id}/activate")->assertOk();
+
+        $this->assertSame('100.00', $root->refresh()->left_pv);
+        $this->assertSame('100.00', $left->refresh()->right_pv);
+        $this->assertDatabaseHas('pv_transactions', [
+            'buyer_id' => $buyer->id,
+            'upline_id' => $root->id,
+            'branch' => 'L',
+            'pv' => '100.00',
+        ]);
+        $this->assertDatabaseHas('pv_transactions', [
+            'buyer_id' => $buyer->id,
+            'upline_id' => $left->id,
+            'branch' => 'R',
+            'pv' => '100.00',
+        ]);
+    }
+
     public function test_user_sees_package_purchase_transaction_in_dashboard_transactions(): void
     {
         $user = User::factory()->create();

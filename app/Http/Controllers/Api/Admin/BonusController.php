@@ -62,7 +62,7 @@ class BonusController extends Controller
                         });
                 });
             })
-            ->latest()
+            ->orderByDesc('updated_at')
             ->paginate($this->perPage($request));
 
         return $this->paginated($bonuses, BonusTransactionResource::class, 'bonuses', $request);

@@ -32,7 +32,7 @@ class TransactionController extends Controller
 
         $transactions = (clone $baseQuery)
             ->with(['user.profile', 'wallet'])
-            ->latest()
+            ->orderByDesc('updated_at')
             ->paginate($this->perPage($request));
 
         return $this->paginated($transactions, WalletTransactionResource::class, 'transactions', $request, [

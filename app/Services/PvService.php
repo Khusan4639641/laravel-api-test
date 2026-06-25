@@ -55,8 +55,6 @@ class PvService
         $this->recordTurnoverAudit($sourceOrder, $pv, $source, $meta, $isBonusable);
 
         $node = $buyer->binaryNode()->where('is_active', true)->first();
-        $directionalBranch = null;
-
         while ($node?->parent_id) {
             /** @var BinaryNode $currentNode */
             $currentNode = $node;
@@ -67,12 +65,6 @@ class PvService
             }
 
             if (! in_array($currentNode->position, ['L', 'R'], true)) {
-                break;
-            }
-
-            $directionalBranch ??= $currentNode->position;
-
-            if ($currentNode->position !== $directionalBranch) {
                 break;
             }
 

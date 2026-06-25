@@ -17,7 +17,7 @@ class BinaryBonusFrontendTest extends TestCase
         $this->assertStringContainsString('Бинар в ожидании', $overview);
         $this->assertStringContainsString("t('earningsSummary.pendingBinary')", $bonuses);
         $this->assertStringContainsString('"pendingBinary": "Бинар в ожидании"', $ru);
-        $this->assertStringContainsString('Запустить бинарный расчёт', $adminBonuses);
+        $this->assertStringContainsString('Запустить массовый бинарный расчёт', $adminBonuses);
         $this->assertStringContainsString('canCalculateBinary', $adminPartnerDetail);
     }
 
@@ -32,7 +32,7 @@ class BinaryBonusFrontendTest extends TestCase
             $contents = $this->frontendFile($relativePath);
 
             $this->assertStringNotContainsString('Рассчитать бинар', $contents);
-            $this->assertStringNotContainsString('Запустить бинарный расчёт', $contents);
+            $this->assertStringNotContainsString('Запустить массовый бинарный расчёт', $contents);
             $this->assertStringNotContainsString('calculateAdminBinary', $contents);
         }
     }

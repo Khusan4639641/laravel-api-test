@@ -9,6 +9,11 @@ use Illuminate\Support\Collection;
 
 class DashboardBranchVolumeService
 {
+    public function __construct(
+        private readonly BinaryTreeSideResolver $treeSideResolver,
+    ) {
+    }
+
     /**
      * @return array{left_count: int, right_count: int, left_pv: string, right_pv: string, weak_leg_pv: float, total_pv: string, weak_leg: string, left_branch_pv: string, right_branch_pv: string}
      */
@@ -335,25 +340,14 @@ class DashboardBranchVolumeService
             return false;
         }
 
-        $relativePath = substr($buyerPath, strlen($uplinePath) + 1);
-        $relativeUserIds = array_values(array_filter(explode('.', $relativePath), fn (string $id): bool => $id !== ''));
+        $rootSide = $this->treeSideResolver->getRootSideForDescendant((int) $uplineNode->user_id, (int) $buyerNode->user_id);
+        $expectedRootSide = match ($branch) {
+            'L' => 'left',
+            'R' => 'right',
+            default => null,
+        };
 
-        if ($relativeUserIds === []) {
-            return false;
-        }
-
-        $positions = BinaryNode::query()
-            ->whereIn('user_id', array_map('intval', $relativeUserIds))
-            ->where('is_active', true)
-            ->pluck('position', 'user_id');
-
-        foreach ($relativeUserIds as $userId) {
-            if (strtoupper((string) $positions->get((int) $userId)) !== $branch) {
-                return false;
-            }
-        }
-
-        return true;
+        return $rootSide === $expectedRootSide;
     }
 
     /**

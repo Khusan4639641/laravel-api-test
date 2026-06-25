@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\AdminActionLog;
 use App\Models\BonusTransaction;
 use App\Models\BinaryBonusCalculation;
 use App\Models\BinaryBonusRun;
 use App\Models\BinaryNode;
 use App\Models\PvTransaction;
+use App\Models\Package;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Notifications\BonusAccruedNotification;
@@ -27,6 +29,7 @@ class BonusService
     public function __construct(
         private readonly WalletService $walletService,
         private readonly DashboardBranchVolumeService $branchVolumeService,
+        private readonly BinaryTreeSideResolver $treeSideResolver,
     ) {
     }
 
@@ -346,6 +349,13 @@ class BonusService
 
             if (! $currentRun) {
                 if (! $preview['eligible'] || bccomp($preview['binary_total'], '0', 2) <= 0) {
+                    $this->logBinaryRecalculationCompleted($user, $preview);
+                    $this->writeBinaryRecalculationAudit($admin, $user, 'binary_recalculate_partner', 'Binary recalculation skipped', [
+                        'eligible' => false,
+                        'reason' => $preview['reason'],
+                        'preview' => $this->binaryRecalculationAuditPreview($preview),
+                    ]);
+
                     return [
                         'message' => 'Бинар не начислен',
                         'data' => $this->recalculationResponseData($user, null, $preview, '0.00', '0.00'),
@@ -355,6 +365,13 @@ class BonusService
 
                 $bonusTransaction = $this->calculateBinaryBonus($user, $periodStart, $periodEnd);
                 $currentRun = $this->currentBinaryRun($user->refresh(), $periodStart, $periodEnd);
+                $this->logBinaryRecalculationCompleted($user, $preview);
+                $this->writeBinaryRecalculationAudit($admin, $user, 'binary_recalculate_partner', 'Binary recalculation created', [
+                    'binary_bonus_run_id' => $currentRun?->id,
+                    'bonus_transaction_id' => $bonusTransaction?->id,
+                    'eligible' => true,
+                    'preview' => $this->binaryRecalculationAuditPreview($preview),
+                ]);
 
                 return [
                     'message' => 'Бинар пересчитан',
@@ -496,6 +513,17 @@ class BonusService
                 ],
             ]);
 
+            $this->logBinaryRecalculationCompleted($user, $preview);
+            $this->writeBinaryRecalculationAudit($admin, $user, 'binary_recalculate_partner', 'Binary recalculation updated', [
+                'binary_bonus_run_id' => $currentRun->id,
+                'bonus_transaction_id' => $bonusTransaction->id,
+                'eligible' => $preview['eligible'],
+                'reason' => $preview['reason'],
+                'adjustment_main' => $adjustmentMain,
+                'adjustment_deposit' => $adjustmentDeposit,
+                'preview' => $this->binaryRecalculationAuditPreview($preview),
+            ]);
+
             return [
                 'message' => $preview['eligible'] ? 'Бинар пересчитан' : 'Бинар не начислен',
                 'data' => $this->recalculationResponseData($user, $currentRun, $preview, $adjustmentMain, $adjustmentDeposit),
@@ -515,6 +543,15 @@ class BonusService
         $updated = 0;
         $failed = 0;
         $results = [];
+        $total = User::query()
+            ->where('role', User::ROLE_USER)
+            ->activeMlm()
+            ->count();
+
+        Log::info('Binary recalculation all started', [
+            'admin_id' => $admin->id,
+            'total' => $total,
+        ]);
 
         User::query()
             ->where('role', User::ROLE_USER)
@@ -561,6 +598,10 @@ class BonusService
                         ];
                     } catch (\Throwable $exception) {
                         report($exception);
+                        Log::error('Binary recalculation partner failed', [
+                            'partner_id' => $user->id,
+                            'message' => $exception->getMessage(),
+                        ]);
                         $failed++;
 
                         $results[] = [
@@ -575,7 +616,7 @@ class BonusService
                 }
             });
 
-        return [
+        $summary = [
             'processed_count' => $processed,
             'recalculated_count' => $recalculated,
             'created_count' => $created,
@@ -584,6 +625,26 @@ class BonusService
             'failed_count' => $failed,
             'results' => $results,
         ];
+
+        Log::info('Binary recalculation all completed', [
+            'admin_id' => $admin->id,
+            'total' => $total,
+            'processed' => $processed,
+            'recalculated' => $recalculated,
+            'failed' => $failed,
+        ]);
+
+        $this->writeBinaryRecalculationAudit($admin, null, 'binary_recalculate_all', 'Mass binary recalculation completed', [
+            'total' => $total,
+            'processed_count' => $processed,
+            'recalculated_count' => $recalculated,
+            'created_count' => $created,
+            'updated_count' => $updated,
+            'skipped_count' => $summary['skipped_count'],
+            'failed_count' => $failed,
+        ]);
+
+        return $summary;
     }
 
     private function hasActiveBinaryRun(User $user): bool
@@ -705,24 +766,36 @@ class BonusService
 
         return [
             'user_id' => $user->id,
+            'partner_id' => $user->id,
             'period_id' => $run?->id,
             'left_pv_total' => $diagnostics['left_total_pv'],
             'right_pv_total' => $diagnostics['right_total_pv'],
+            'left_total_pv' => $diagnostics['left_total_pv'],
+            'right_total_pv' => $diagnostics['right_total_pv'],
             'left_pv_excluded_deleted' => $diagnostics['left_excluded_deleted_pv'],
             'right_pv_excluded_deleted' => $diagnostics['right_excluded_deleted_pv'],
             'left_pv_excluded_non_bonusable' => $diagnostics['left_excluded_non_bonusable_pv'],
             'right_pv_excluded_non_bonusable' => $diagnostics['right_excluded_non_bonusable_pv'],
             'left_pv_bonusable' => $diagnostics['left_bonusable_pv'],
             'right_pv_bonusable' => $diagnostics['right_bonusable_pv'],
+            'left_nodes_count' => (int) ($diagnostics['left_nodes_count'] ?? 0),
+            'right_nodes_count' => (int) ($diagnostics['right_nodes_count'] ?? 0),
             'left_used_prior_pv' => $diagnostics['left_used_prior_pv'],
             'right_used_prior_pv' => $diagnostics['right_used_prior_pv'],
+            'used_left_pv' => $preview['eligible'] ? $preview['weak_leg_pv'] : '0.00',
+            'used_right_pv' => $preview['eligible'] ? $preview['weak_leg_pv'] : '0.00',
             'left_pv_available' => $diagnostics['left_available_pv'],
             'right_pv_available' => $diagnostics['right_available_pv'],
+            'left_available_pv' => $diagnostics['left_available_pv'],
+            'right_available_pv' => $diagnostics['right_available_pv'],
             'weak_leg_pv' => $preview['weak_leg_pv'],
+            'matched_pv' => $preview['weak_leg_pv'],
             'binary_percent' => $preview['binary_percent'],
             'binary_total' => $preview['binary_total'],
+            'bonus_total' => $preview['binary_total'],
             'main_wallet_amount' => $preview['main_wallet_amount'],
             'deposit_amount' => $preview['deposit_amount'],
+            'main_amount' => $preview['main_wallet_amount'],
             'adjustment_main' => $this->decimal($adjustmentMain),
             'adjustment_deposit' => $this->decimal($adjustmentDeposit),
             'eligible' => $preview['eligible'],
@@ -912,10 +985,9 @@ class BonusService
      */
     private function binaryPvSnapshot(User $user, ?int $ignoredRunId = null): array
     {
-        $hasPvTransactions = PvTransaction::query()
-            ->where('upline_id', $user->id)
-            ->whereIn('branch', ['L', 'R'])
-            ->exists();
+        $left = $this->branchPvComponents($user, 'L', $ignoredRunId);
+        $right = $this->branchPvComponents($user, 'R', $ignoredRunId);
+        $hasPvTransactions = $left['has_transactions'] || $right['has_transactions'];
 
         if (! $hasPvTransactions) {
             $branchVolumes = $this->branchVolumeService->getBranchVolumes($user);
@@ -942,15 +1014,14 @@ class BonusService
                 'right_excluded_non_bonusable_pv' => '0.00',
                 'left_bonusable_pv' => $leftTotalPv,
                 'right_bonusable_pv' => $rightTotalPv,
+                'left_nodes_count' => $this->branchBuyerCount($user, 'L'),
+                'right_nodes_count' => $this->branchBuyerCount($user, 'R'),
                 'left_used_prior_pv' => $leftUsedPriorPv,
                 'right_used_prior_pv' => $rightUsedPriorPv,
                 'left_available_pv' => $leftAvailablePv,
                 'right_available_pv' => $rightAvailablePv,
             ];
         }
-
-        $left = $this->branchPvComponents($user, 'L', $ignoredRunId);
-        $right = $this->branchPvComponents($user, 'R', $ignoredRunId);
 
         return [
             'uses_pv_transactions' => true,
@@ -968,6 +1039,8 @@ class BonusService
             'right_excluded_non_bonusable_pv' => $right['excluded_non_bonusable_pv'],
             'left_bonusable_pv' => $left['bonusable_pv'],
             'right_bonusable_pv' => $right['bonusable_pv'],
+            'left_nodes_count' => $left['nodes_count'],
+            'right_nodes_count' => $right['nodes_count'],
             'left_used_prior_pv' => $left['used_prior_pv'],
             'right_used_prior_pv' => $right['used_prior_pv'],
             'left_available_pv' => $left['available_pv'],
@@ -976,42 +1049,310 @@ class BonusService
     }
 
     /**
-     * @return array<string, string>
+     * @return array<string, string|bool>
      */
     private function branchPvComponents(User $user, string $branch, ?int $ignoredRunId = null): array
     {
-        $baseQuery = PvTransaction::query()
-            ->where('upline_id', $user->id)
-            ->whereColumn('buyer_id', '!=', 'upline_id')
-            ->where('branch', $branch);
+        $transactions = $this->branchPvTransactions($user, $branch);
+        $totalPv = '0.00';
+        $excludedVoidedPv = '0.00';
+        $excludedInactiveOrDeletedPv = '0.00';
+        $excludedNonBonusablePv = '0.00';
+        $excludedEliteNonBonusablePv = '0.00';
+        $bonusablePv = '0.00';
 
-        $nonVoidedQuery = (clone $baseQuery)->whereNull('voided_at');
-        $activeBuyerQuery = (clone $nonVoidedQuery)
-            ->whereHas('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER));
-        $totalPv = $this->sumPv($nonVoidedQuery);
-        $excludedVoidedPv = $this->sumPv((clone $baseQuery)->whereNotNull('voided_at'));
-        $excludedInactiveOrDeletedPv = $this->sumPv(
-            (clone $nonVoidedQuery)->whereDoesntHave('buyer', fn ($query) => $query->activeMlm()->where('role', User::ROLE_USER))
-        );
-        $excludedNonBonusablePv = $this->sumPv((clone $activeBuyerQuery)->where('is_bonusable', false));
-        $excludedEliteNonBonusablePv = $this->sumPv(
-            (clone $activeBuyerQuery)
-                ->where('is_bonusable', false)
-                ->where('source', 'package_elite_upgrade')
-        );
-        $bonusablePv = $this->sumPv((clone $activeBuyerQuery)->where('is_bonusable', true));
+        foreach ($transactions as $transaction) {
+            $pv = $this->decimal((string) $transaction->pv);
+
+            if ($transaction->voided_at !== null) {
+                $excludedVoidedPv = bcadd($excludedVoidedPv, $pv, 2);
+
+                continue;
+            }
+
+            $totalPv = bcadd($totalPv, $pv, 2);
+
+            if (! $this->pvBuyerHasActiveAccount($transaction->buyer)) {
+                $excludedInactiveOrDeletedPv = bcadd($excludedInactiveOrDeletedPv, $pv, 2);
+
+                continue;
+            }
+
+            if (! $transaction->is_bonusable) {
+                $excludedNonBonusablePv = bcadd($excludedNonBonusablePv, $pv, 2);
+
+                if ($transaction->source === 'package_elite_upgrade') {
+                    $excludedEliteNonBonusablePv = bcadd($excludedEliteNonBonusablePv, $pv, 2);
+                }
+
+                continue;
+            }
+
+            if (! $this->pvBuyerHasActiveMlmPackage($transaction->buyer)) {
+                $excludedInactiveOrDeletedPv = bcadd($excludedInactiveOrDeletedPv, $pv, 2);
+
+                continue;
+            }
+
+            $bonusablePv = bcadd($bonusablePv, $pv, 2);
+        }
+
         $usedPriorPv = $this->usedPriorBinaryPv($user, $branch, $ignoredRunId);
         $availablePv = $this->positiveOrZero(bcsub($bonusablePv, $usedPriorPv, 2));
 
         return [
-            'total_pv' => $totalPv,
-            'excluded_voided_pv' => $excludedVoidedPv,
-            'excluded_inactive_or_deleted_pv' => $excludedInactiveOrDeletedPv,
-            'excluded_non_bonusable_pv' => $excludedNonBonusablePv,
-            'excluded_elite_non_bonusable_pv' => $excludedEliteNonBonusablePv,
-            'bonusable_pv' => $bonusablePv,
+            'has_transactions' => $transactions->isNotEmpty(),
+            'nodes_count' => $this->branchBuyerCount($user, $branch),
+            'total_pv' => $this->decimal($totalPv),
+            'excluded_voided_pv' => $this->decimal($excludedVoidedPv),
+            'excluded_inactive_or_deleted_pv' => $this->decimal($excludedInactiveOrDeletedPv),
+            'excluded_non_bonusable_pv' => $this->decimal($excludedNonBonusablePv),
+            'excluded_elite_non_bonusable_pv' => $this->decimal($excludedEliteNonBonusablePv),
+            'bonusable_pv' => $this->decimal($bonusablePv),
             'used_prior_pv' => $usedPriorPv,
             'available_pv' => $availablePv,
+        ];
+    }
+
+    /**
+     * @return \Illuminate\Support\Collection<int, PvTransaction>
+     */
+    private function branchPvTransactions(User $user, string $branch)
+    {
+        $context = $this->branchBuyerContext($user, $branch);
+        $directBranchTransactions = PvTransaction::query()
+            ->with(['buyer' => fn ($query) => $query->withTrashed()->with('currentPackage')])
+            ->where('upline_id', $user->id)
+            ->whereColumn('buyer_id', '!=', 'upline_id')
+            ->where('branch', $branch)
+            ->orderBy('id')
+            ->get();
+
+        if ($context['buyer_ids'] === []) {
+            return $directBranchTransactions;
+        }
+
+        $candidateUplineIds = array_values(array_unique(array_filter([
+            $user->id,
+            ...array_values($context['canonical_upline_ids']),
+        ])));
+
+        $transactions = PvTransaction::query()
+            ->with(['buyer' => fn ($query) => $query->withTrashed()->with('currentPackage')])
+            ->whereIn('buyer_id', $context['buyer_ids'])
+            ->whereIn('upline_id', $candidateUplineIds ?: [0])
+            ->whereColumn('buyer_id', '!=', 'upline_id')
+            ->orderByRaw('CASE WHEN upline_id = ? THEN 0 ELSE 1 END', [$user->id])
+            ->orderBy('id')
+            ->get()
+            ->filter(function (PvTransaction $transaction) use ($user, $context): bool {
+                $buyerId = (int) $transaction->buyer_id;
+                $canonicalUplineId = $context['canonical_upline_ids'][$buyerId] ?? null;
+
+                return (int) $transaction->upline_id === (int) $user->id
+                    || ($canonicalUplineId !== null && (int) $transaction->upline_id === (int) $canonicalUplineId);
+            })
+            ->concat($directBranchTransactions);
+
+        $unique = [];
+
+        foreach ($transactions as $transaction) {
+            $key = $this->pvTransactionEventKey($transaction);
+            $existing = $unique[$key] ?? null;
+
+            if (! $existing || (int) $transaction->upline_id === (int) $user->id) {
+                $unique[$key] = $transaction;
+            }
+        }
+
+        return collect(array_values($unique));
+    }
+
+    /**
+     * @return array{buyer_ids: array<int, int>, canonical_upline_ids: array<int, int>}
+     */
+    private function branchBuyerContext(User $user, string $branch): array
+    {
+        $expectedRootSide = match ($branch) {
+            'L' => 'left',
+            'R' => 'right',
+            default => null,
+        };
+        $rootSideByUserId = $this->treeSideResolver->getRootSideMapForDescendants((int) $user->id);
+        $buyerIds = array_keys(array_filter(
+            $rootSideByUserId,
+            fn (string $rootSide): bool => $rootSide === $expectedRootSide,
+        ));
+
+        if ($buyerIds === []) {
+            return ['buyer_ids' => [], 'canonical_upline_ids' => []];
+        }
+
+        $nodes = BinaryNode::query()
+            ->whereIn('user_id', $buyerIds)
+            ->where('is_active', true)
+            ->get(['id', 'user_id', 'parent_id']);
+
+        if ($nodes->isEmpty()) {
+            return ['buyer_ids' => [], 'canonical_upline_ids' => []];
+        }
+
+        $parentUserIds = BinaryNode::withTrashed()
+            ->whereIn('id', $nodes->pluck('parent_id')->filter()->unique()->values())
+            ->pluck('user_id', 'id');
+        $canonicalUplineIds = [];
+
+        foreach ($nodes as $node) {
+            $buyerId = (int) $node->user_id;
+
+            if ($buyerId <= 0 || $buyerId === (int) $user->id) {
+                continue;
+            }
+
+            $parentUserId = (int) ($parentUserIds->get((int) $node->parent_id) ?? 0);
+
+            if ($parentUserId > 0) {
+                $canonicalUplineIds[$buyerId] = $parentUserId;
+            }
+        }
+
+        return [
+            'buyer_ids' => array_values(array_unique($buyerIds)),
+            'canonical_upline_ids' => $canonicalUplineIds,
+        ];
+    }
+
+    private function pvTransactionEventKey(PvTransaction $transaction): string
+    {
+        if ($transaction->source_order_id) {
+            return 'order:'.$transaction->source_order_id;
+        }
+
+        $metadata = is_array($transaction->metadata) ? $transaction->metadata : [];
+        $packageIdentity = array_filter([
+            'package_id' => $metadata['package_id'] ?? null,
+            'package_code' => $metadata['package_code'] ?? null,
+            'current_package_id' => $metadata['current_package_id'] ?? null,
+            'current_package_code' => $metadata['current_package_code'] ?? null,
+            'from_package_id' => $metadata['from_package_id'] ?? null,
+            'from_package_code' => $metadata['from_package_code'] ?? null,
+            'to_package_id' => $metadata['to_package_id'] ?? null,
+            'to_package_code' => $metadata['to_package_code'] ?? null,
+            'activity_pv' => $metadata['activity_pv'] ?? null,
+            'turnover_pv' => $metadata['turnover_pv'] ?? null,
+            'additional_pv' => $metadata['additional_pv'] ?? null,
+            'manual_assignment' => $metadata['manual_assignment'] ?? null,
+            'registration_source' => $metadata['registration_source'] ?? null,
+        ], fn ($value): bool => $value !== null && $value !== '');
+
+        if (str_starts_with((string) $transaction->source, 'package_') || $packageIdentity !== []) {
+            return 'package:'.implode(':', [
+                $transaction->buyer_id,
+                $transaction->source,
+                $this->decimal((string) $transaction->pv),
+                (int) $transaction->is_bonusable,
+                md5(json_encode($packageIdentity)),
+            ]);
+        }
+
+        return 'generic:'.implode(':', [
+            $transaction->buyer_id,
+            $transaction->source,
+            $this->decimal((string) $transaction->pv),
+            (int) $transaction->is_bonusable,
+            optional($transaction->created_at)->format('Y-m-d H:i:s'),
+            md5(json_encode($metadata)),
+        ]);
+    }
+
+    private function pvBuyerHasActiveAccount(?User $buyer): bool
+    {
+        if (! $buyer || $buyer->trashed() || $buyer->account_status !== 'active' || $buyer->role !== User::ROLE_USER) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function pvBuyerHasActiveMlmPackage(?User $buyer): bool
+    {
+        if (! $buyer) {
+            return false;
+        }
+
+        $package = $buyer->currentPackage;
+
+        return $package !== null
+            && $package->is_active
+            && $package->status === 'active'
+            && in_array(strtoupper((string) $package->code), Package::PUBLIC_CODES, true);
+    }
+
+    private function branchBuyerCount(User $user, string $branch): int
+    {
+        $expectedRootSide = match ($branch) {
+            'L' => 'left',
+            'R' => 'right',
+            default => null,
+        };
+
+        if ($expectedRootSide === null) {
+            return 0;
+        }
+
+        return count(array_filter(
+            $this->treeSideResolver->getRootSideMapForDescendants((int) $user->id),
+            fn (string $rootSide): bool => $rootSide === $expectedRootSide,
+        ));
+    }
+
+    private function logBinaryRecalculationCompleted(User $user, array $preview): void
+    {
+        $diagnostics = $preview['diagnostics'];
+
+        Log::info('Binary recalculation partner completed', [
+            'partner_id' => $user->id,
+            'left_total_pv' => $diagnostics['left_total_pv'],
+            'right_total_pv' => $diagnostics['right_total_pv'],
+            'left_nodes_count' => (int) ($diagnostics['left_nodes_count'] ?? 0),
+            'right_nodes_count' => (int) ($diagnostics['right_nodes_count'] ?? 0),
+            'matched_pv' => $preview['weak_leg_pv'],
+            'bonus_total' => $preview['binary_total'],
+            'eligible' => $preview['eligible'],
+            'reason' => $preview['reason'],
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $metadata
+     */
+    private function writeBinaryRecalculationAudit(User $admin, ?User $target, string $action, string $reason, array $metadata): void
+    {
+        AdminActionLog::query()->create([
+            'admin_id' => $admin->id,
+            'target_user_id' => $target?->id,
+            'action' => $action,
+            'reason' => $reason,
+            'metadata' => $metadata,
+        ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function binaryRecalculationAuditPreview(array $preview): array
+    {
+        $diagnostics = $preview['diagnostics'];
+
+        return [
+            'left_total_pv' => $diagnostics['left_total_pv'],
+            'right_total_pv' => $diagnostics['right_total_pv'],
+            'left_available_pv' => $diagnostics['left_available_pv'],
+            'right_available_pv' => $diagnostics['right_available_pv'],
+            'left_nodes_count' => (int) ($diagnostics['left_nodes_count'] ?? 0),
+            'right_nodes_count' => (int) ($diagnostics['right_nodes_count'] ?? 0),
+            'matched_pv' => $preview['weak_leg_pv'],
+            'bonus_total' => $preview['binary_total'],
         ];
     }
 
@@ -1024,11 +1365,6 @@ class BonusService
             ->whereIn('status', ['completed', 'pending'])
             ->when($ignoredRunId, fn ($query) => $query->whereKeyNot($ignoredRunId))
             ->sum($column));
-    }
-
-    private function sumPv($query): string
-    {
-        return $this->decimal((string) $query->sum('pv'));
     }
 
     public function accrueDepositPurchaseCashback(
