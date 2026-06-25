@@ -65,7 +65,7 @@ return [
     |
     */
 
-    'timezone' => env('DB_TIMEZONE', '+05:00'),
+    'timezone' => env('DB_TIMEZONE', 'Asia/Tashkent'),
 
     /*
     |--------------------------------------------------------------------------
