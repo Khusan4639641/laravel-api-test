@@ -65,8 +65,7 @@ return [
     |
     */
 
-    'timezone' => env('DB_TIMEZONE', 'Asia/Tashkent'),
-
+    'timezone' => env('APP_TIMEZONE', 'Asia/Tashkent'),
     /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
