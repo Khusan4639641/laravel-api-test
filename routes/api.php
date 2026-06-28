@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\Auth\ForgotPasswordController;
+use App\Http\Controllers\Api\Admin\ForgotPasswordRequestController as AdminForgotPasswordRequestController;
 use App\Http\Controllers\Api\Admin\BonusController as AdminBonusController;
 use App\Http\Controllers\Api\Admin\FaqController as AdminFaqController;
 use App\Http\Controllers\Api\Admin\NewsController as AdminNewsController;
@@ -71,6 +73,10 @@ Route::get('/products/deposit', [ProductController::class, 'deposit']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login', [AuthController::class, 'login']);
+Route::middleware('throttle:6,1')->prefix('auth/forgot-password')->group(function (): void {
+    Route::post('/check-email', [ForgotPasswordController::class, 'checkEmail']);
+    Route::post('/request', [ForgotPasswordController::class, 'store']);
+});
 
 Route::prefix('payments/tiptoppay')->group(function (): void {
     Route::get('/status', [TipTopPayWebhookController::class, 'status']);
@@ -112,6 +118,8 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
         Route::get('/notifications', [DashboardNotificationController::class, 'index']);
         Route::get('/packages', DashboardPackageController::class);
         Route::get('/partners/search', DashboardPartnerSearchController::class);
+        Route::get('/partner-transfers', [DashboardPartnerTransferController::class, 'index']);
+        Route::post('/partner-transfers', [DashboardPartnerTransferController::class, 'store']);
         Route::get('/wallet/transfers', [DashboardPartnerTransferController::class, 'index']);
         Route::post('/wallet/transfers', [DashboardPartnerTransferController::class, 'store']);
         Route::post('/wallets/internal-transfer', DashboardInternalWalletTransferController::class);
@@ -200,6 +208,13 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
             Route::get('/statuses', AdminStatusController::class);
         });
 
+        Route::middleware('role_permission:admin.forgot_password.manage')->group(function (): void {
+            Route::get('/forgot-password-requests', [AdminForgotPasswordRequestController::class, 'index']);
+            Route::get('/forgot-password-requests/{forgotPasswordRequest}', [AdminForgotPasswordRequestController::class, 'show']);
+            Route::post('/forgot-password-requests/{forgotPasswordRequest}/reset-password', [AdminForgotPasswordRequestController::class, 'resetPassword']);
+            Route::patch('/forgot-password-requests/{forgotPasswordRequest}/cancel', [AdminForgotPasswordRequestController::class, 'cancel']);
+        });
+
         Route::middleware('role_permission:admin.bonuses.manage')->group(function (): void {
             Route::post('/bonuses/binary/calculate', [AdminBonusController::class, 'calculateBinary']);
             Route::post('/bonuses/binary/recalculate', [AdminBonusController::class, 'recalculateAllBinary']);
@@ -258,6 +273,10 @@ Route::middleware(['auth:sanctum', 'account_active'])->group(function (): void {
             Route::patch('/partners/{user}/note', [AdminPartnerController::class, 'note']);
             Route::post('/partners/{user}/change-password', [AdminPartnerController::class, 'changePassword']);
             Route::delete('/partners/{user}', [AdminPartnerController::class, 'destroy']);
+        });
+
+        Route::middleware('role_permission:admin.partners.identity')->group(function (): void {
+            Route::patch('/partners/{user}/identity', [AdminPartnerController::class, 'identity']);
         });
 
         Route::middleware('role_permission:admin.partners.balance')->group(function (): void {

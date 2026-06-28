@@ -55,6 +55,7 @@ return [
                 '/admin',
                 '/admin/partners',
                 '/admin/partners/:id',
+                '/admin/forgot-password',
                 '/admin/structure',
                 '/admin/transactions',
                 '/admin/withdrawals',
@@ -69,6 +70,7 @@ return [
             'menu' => [
                 ['path' => '/admin', 'label' => 'Обзор', 'icon' => 'bar-chart'],
                 ['path' => '/admin/partners', 'label' => 'Партнёры', 'icon' => 'users'],
+                ['path' => '/admin/forgot-password', 'label' => 'Забыли пароль', 'icon' => 'key-round'],
                 ['path' => '/admin/structure', 'label' => 'Структура', 'icon' => 'network'],
                 ['path' => '/admin/transactions', 'label' => 'Транзакции', 'icon' => 'credit-card'],
                 ['path' => '/admin/withdrawals', 'label' => 'Заявки на вывод', 'icon' => 'arrow-up-circle'],
@@ -109,6 +111,7 @@ return [
                 '/admin/partners',
                 '/admin/partners/:id',
                 '/admin/partners/bulk-create',
+                '/admin/forgot-password',
                 '/admin/structure',
                 '/admin/transactions',
                 '/admin/withdrawals',
@@ -126,6 +129,7 @@ return [
             'menu' => [
                 ['path' => '/admin', 'label' => 'Обзор', 'icon' => 'bar-chart'],
                 ['path' => '/admin/partners', 'label' => 'Партнёры', 'icon' => 'users'],
+                ['path' => '/admin/forgot-password', 'label' => 'Забыли пароль', 'icon' => 'key-round'],
                 ['path' => '/admin/structure', 'label' => 'Структура', 'icon' => 'network'],
                 ['path' => '/admin/transactions', 'label' => 'Транзакции', 'icon' => 'credit-card'],
                 ['path' => '/admin/withdrawals', 'label' => 'Заявки на вывод', 'icon' => 'arrow-up-circle'],
@@ -157,7 +161,9 @@ return [
         'admin.reports' => ['accountant', 'super_admin'],
         'admin.partners.create' => ['super_admin'],
         'admin.partners.manage' => ['admin', 'super_admin'],
+        'admin.partners.identity' => ['super_admin'],
         'admin.partners.balance' => ['super_admin'],
+        'admin.forgot_password.manage' => ['admin', 'super_admin'],
         'admin.withdrawals.manage' => ['accountant', 'super_admin'],
     ],
 ];

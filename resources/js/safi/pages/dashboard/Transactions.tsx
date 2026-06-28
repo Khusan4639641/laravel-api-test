@@ -3,16 +3,52 @@ import { ArrowDownToLine, ArrowUpFromLine, Calendar, CreditCard, Filter, Refresh
 import { Badge, StatCard } from '../../components/dashboard/ui';
 import { cn } from '../../lib/utils';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { getApiErrorState, getArray, getDashboardTransactions, getNumber, getString } from '../../lib/api';
+import { getApiErrorState, getDashboardTransactions, getNumber, getString } from '../../lib/api';
+import { getPaginatedItems, normalizePaginationMeta, type PaginationMeta } from '../../lib/pagination';
 import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
 
-const filters = ['Все', 'Начисления', 'Выводы', 'Кэшбэк'];
+type TransactionFilter = 'all' | 'credits' | 'withdrawals' | 'cashback';
+type PaginationItem = number | 'ellipsis';
+
+interface TransactionRow {
+  id: string;
+  date: string;
+  typeCode: string;
+  type: string;
+  amount: string;
+  affectsBalance: boolean;
+  affectsBalanceLabel: string;
+  statusCode: string;
+  status: string;
+  source: string;
+  comment: string;
+  paymentStrategyLabel?: string;
+}
+
+const filters: Array<{ label: string; value: TransactionFilter }> = [
+  { label: 'Все', value: 'all' },
+  { label: 'Начисления', value: 'credits' },
+  { label: 'Выводы', value: 'withdrawals' },
+  { label: 'Кэшбэк', value: 'cashback' },
+];
+const defaultTransactionsMeta: PaginationMeta = {
+  current_page: 1,
+  last_page: 1,
+  per_page: 10,
+  total: 0,
+  from: 0,
+  to: 0,
+};
+const perPageOptions = [10, 20, 50];
 
 export default function Transactions() {
-  const [filter, setFilter] = useState('Все');
+  const [filter, setFilter] = useState<TransactionFilter>('all');
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [transactions, setTransactions] = useState<Array<{ id: string; date: string; typeCode: string; type: string; amount: string; affectsBalance: boolean; affectsBalanceLabel: string; statusCode: string; status: string; source: string; comment: string; paymentStrategyLabel?: string }>>([]);
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [transactionsMeta, setTransactionsMeta] = useState<PaginationMeta>(defaultTransactionsMeta);
   const [dashboardSummary, setDashboardSummary] = useState({
     totalEarned: 0,
     available: 0,
@@ -26,7 +62,11 @@ export default function Transactions() {
     setError(null);
 
     try {
-      const response = await getDashboardTransactions();
+      const response = await getDashboardTransactions({
+        page,
+        per_page: perPage,
+        ...(filter !== 'all' ? { filter } : {}),
+      });
       const summaryRecord = response && typeof response === 'object' && 'summary' in response
         ? (response as Record<string, unknown>).summary
         : {};
@@ -37,7 +77,8 @@ export default function Transactions() {
         pending: getNumber(summary, ['pending']) ?? 0,
         withdrawn: getNumber(summary, ['withdrawn']) ?? 0,
       });
-      setTransactions(getArray(response, ['transactions']).map((item, index) => {
+      const rows = getPaginatedItems(response, 'transactions');
+      setTransactions(rows.map((item, index) => {
         const record = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const direction = getString(record, ['direction']) || 'credit';
         const amount = getNumber(record, ['amount']) ?? 0;
@@ -45,7 +86,7 @@ export default function Transactions() {
         const statusCode = getString(record, ['status']) || 'completed';
         return {
           id: getString(record, ['id']) || String(index + 1),
-          date: getString(record, ['created_at']) || '',
+          date: getString(record, ['created_at', 'createdAt']) || '-',
           typeCode: rawType,
           type: transactionTypeLabel(rawType, getString(record, ['type_label', 'typeLabel']) || rawType),
           amount: formatTransactionAmount(direction, amount),
@@ -58,34 +99,32 @@ export default function Transactions() {
           paymentStrategyLabel: getString(record, ['payment_strategy_label', 'paymentStrategyLabel']),
         };
       }));
+      setTransactionsMeta(normalizePaginationMeta(response, 'transactions', page, perPage, rows.length));
     } catch (caughtError) {
       setTransactions([]);
+      setTransactionsMeta({ ...defaultTransactionsMeta, per_page: perPage });
       setDashboardSummary({ totalEarned: 0, available: 0, pending: 0, withdrawn: 0 });
       setError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [filter, page, perPage]);
 
   useEffect(() => {
     void loadTransactions();
   }, [loadTransactions]);
 
-  const visibleTransactions = useMemo(() => {
-    if (filter === 'Все') {
-      return transactions;
+  const visibleTransactions = transactions;
+  const paginationItems = getPaginationItems(transactionsMeta.current_page, transactionsMeta.last_page);
+  const canGoPrev = transactionsMeta.current_page > 1 && !isLoading;
+  const canGoNext = transactionsMeta.current_page < transactionsMeta.last_page && !isLoading;
+  const changePage = (nextPage: number) => {
+    if (nextPage < 1 || nextPage > transactionsMeta.last_page || nextPage === transactionsMeta.current_page || isLoading) {
+      return;
     }
 
-    if (filter === 'Начисления') {
-      return transactions.filter((transaction) => transaction.affectsBalance && transaction.amount.startsWith('+'));
-    }
-
-    if (filter === 'Выводы') {
-      return transactions.filter((transaction) => transaction.typeCode.includes('withdrawal') || transaction.typeCode.includes('payout'));
-    }
-
-    return transactions.filter((transaction) => transaction.typeCode.includes('cashback'));
-  }, [filter, transactions]);
+    setPage(nextPage);
+  };
 
   return (
     <div className="space-y-8">
@@ -128,15 +167,18 @@ export default function Transactions() {
             <div className="flex gap-2 overflow-x-auto">
               {filters.map((item) => (
                 <button
-                  key={item}
+                  key={item.value}
                   type="button"
-                  onClick={() => setFilter(item)}
+                  onClick={() => {
+                    setFilter(item.value);
+                    setPage(1);
+                  }}
                   className={cn(
                     'shrink-0 rounded-full border px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.16em] transition-colors',
-                    filter === item ? 'border-safi-green bg-safi-green text-white' : 'border-safi-border bg-safi-cream text-safi-muted hover:text-safi-green'
+                    filter === item.value ? 'border-safi-green bg-safi-green text-white' : 'border-safi-border bg-safi-cream text-safi-muted hover:text-safi-green'
                   )}
                 >
-                  {item}
+                  {item.label}
                 </button>
               ))}
             </div>
@@ -179,7 +221,7 @@ export default function Transactions() {
               {visibleTransactions.map((transaction) => (
                 <tr key={transaction.id} className="transition-colors hover:bg-safi-cream/70">
                   <td className="px-7 py-5">
-                    <div className="font-extrabold text-safi-green">{transaction.date.split(' ')[0]}</div>
+                    <div className="font-extrabold text-safi-green">{transaction.date}</div>
                     <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{transaction.id}</div>
                   </td>
                   <td className="px-7 py-5 font-extrabold text-safi-green">{transaction.type}</td>
@@ -248,11 +290,133 @@ export default function Transactions() {
             </article>
           ))}
         </div>
+
+        <div className="flex flex-col gap-4 border-t border-safi-border bg-white px-5 py-4 md:px-7">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="text-sm font-bold text-safi-muted">
+              Показано: <span className="text-safi-green">{transactionsMeta.total > 0 ? `${transactionsMeta.from}-${transactionsMeta.to}` : '0'}</span>
+              {' '}из <span className="text-safi-green">{transactionsMeta.total.toLocaleString('ru-RU')}</span>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+                Показывать по
+                <select
+                  value={perPage}
+                  onChange={(event) => {
+                    setPerPage(Number(event.target.value));
+                    setPage(1);
+                  }}
+                  disabled={isLoading}
+                  className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Показывать по"
+                >
+                  {perPageOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="flex w-full items-center justify-between gap-2 sm:w-auto lg:hidden">
+                <button
+                  type="button"
+                  onClick={() => changePage(transactionsMeta.current_page - 1)}
+                  disabled={!canGoPrev}
+                  className="rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Назад
+                </button>
+                <div className="text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
+                  Страница {transactionsMeta.current_page} из {transactionsMeta.last_page}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => changePage(transactionsMeta.current_page + 1)}
+                  disabled={!canGoNext}
+                  className="rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Вперёд
+                </button>
+              </div>
+
+              <div className="hidden flex-wrap items-center gap-1 lg:flex">
+                <button
+                  type="button"
+                  onClick={() => changePage(transactionsMeta.current_page - 1)}
+                  disabled={!canGoPrev}
+                  className="flex h-9 min-w-9 items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-sm font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Назад"
+                >
+                  ‹
+                </button>
+                {paginationItems.map((item, index) => item === 'ellipsis' ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="flex h-9 min-w-9 items-center justify-center px-2 text-sm font-extrabold text-safi-muted"
+                    aria-hidden="true"
+                  >
+                    …
+                  </span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => changePage(item)}
+                    disabled={item === transactionsMeta.current_page || isLoading}
+                    aria-current={item === transactionsMeta.current_page ? 'page' : undefined}
+                    className={[
+                      'flex h-9 min-w-9 items-center justify-center rounded-full border px-3 text-xs font-extrabold transition-colors disabled:cursor-default',
+                      item === transactionsMeta.current_page
+                        ? 'border-safi-green bg-safi-green text-white shadow-[0_8px_22px_rgba(29,78,54,0.18)]'
+                        : 'border-safi-border bg-safi-cream text-safi-green hover:border-safi-green hover:bg-white disabled:opacity-60',
+                    ].join(' ')}
+                  >
+                    {item}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => changePage(transactionsMeta.current_page + 1)}
+                  disabled={!canGoNext}
+                  className="flex h-9 min-w-9 items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-sm font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Вперёд"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
         </>
       )}
     </div>
   );
+}
+
+function getPaginationItems(currentPage: number, totalPages: number): PaginationItem[] {
+  const safeTotalPages = Math.max(1, Math.floor(totalPages));
+  const safeCurrentPage = Math.min(Math.max(Math.floor(currentPage), 1), safeTotalPages);
+
+  if (safeTotalPages <= 7) {
+    return pageRange(1, safeTotalPages);
+  }
+
+  if (safeCurrentPage <= 4) {
+    return [...pageRange(1, 5), 'ellipsis', safeTotalPages];
+  }
+
+  if (safeCurrentPage >= safeTotalPages - 3) {
+    return [1, 'ellipsis', ...pageRange(safeTotalPages - 4, safeTotalPages)];
+  }
+
+  return [1, 'ellipsis', safeCurrentPage - 1, safeCurrentPage, safeCurrentPage + 1, 'ellipsis', safeTotalPages];
+}
+
+function pageRange(start: number, end: number): number[] {
+  return Array.from({ length: end - start + 1 }, (_, index) => start + index);
 }
 
 function formatTransactionAmount(direction: string, amount: number) {

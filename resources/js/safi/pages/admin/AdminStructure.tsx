@@ -4,6 +4,7 @@ import { Crosshair, Filter, Info, Maximize2, Minus, Network, Plus, RotateCcw, Se
 import { cn } from '../../lib/utils';
 import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
+import { StructureTreeCanvas } from '../../components/structure/StructureTreeCanvas';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getAdminStructure, getAdminStructureRootOrphans, getApiErrorState, getArray, getNumber, getString, searchAdminPartners, unwrapRecord } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
@@ -758,101 +759,20 @@ export default function AdminStructure() {
       </section>
 
       {!isLoading && !error && rootNode && (
-        <div className="rounded-[32px] border border-safi-green/5 bg-white p-4 shadow-sm md:p-6">
-          <div className="mb-4 flex flex-col gap-3">
-            <div className="flex flex-col gap-2 text-xs font-bold text-safi-text/50 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 shrink-0" />
-                <span>{adminText('a_0JjRgdC_0L7Q')}</span>
-              </div>
-              <span>{adminText('a_0JTQsNC90L3R_4')}{selectedDepth}</span>
-            </div>
-            <StructureTreeToolbar
-              settings={treeSettings}
-              onChange={updateTreeSettings}
-              onFit={fitTreeToScreen}
-              onCenter={() => centerTree()}
-              onReset={resetTreeView}
-            />
-          </div>
-          {depthInfo.hasDeeperNodes && (
-            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
-              Есть ещё партнёры глубже текущей глубины дерева: {depthInfo.hiddenNodesCount.toLocaleString('ru-RU')}. Увеличьте depth в URL до 10 или используйте список выше.
-            </div>
+        <StructureTreeCanvas
+          rootNode={rootNode}
+          storageKey={treeSettingsStorageKey}
+          infoText={(
+            <>
+              <Info className="h-4 w-4 shrink-0" />
+              <span>{adminText('a_0JjRgdC_0L7Q')}</span>
+            </>
           )}
-
-          <div
-            ref={treeScrollRef}
-            onScroll={() => {
-              if (!treeProgrammaticScrollRef.current) {
-                treeUserScrolledRef.current = true;
-              }
-            }}
-            className="relative max-h-[calc(100vh-260px)] min-h-[540px] overflow-x-auto overflow-y-auto rounded-[24px] border border-safi-border bg-white"
-          >
-            {!hasChildren && (
-              <div className="sticky bottom-5 left-5 z-10 mx-5 mt-5 rounded-2xl bg-[#F5F5F0] px-4 py-3 text-center text-xs font-bold text-safi-text/60">{adminText('a_0KMg0L_QsNGA')}</div>
-            )}
-
-            {treeLayout && treeBounds && (
-              <div
-                className="relative"
-                style={{
-                  width: `${treeBounds.width * treeSettings.zoom}px`,
-                  height: `${treeBounds.height * treeSettings.zoom}px`,
-                }}
-              >
-                <div
-                  className="absolute left-0 top-0 bg-[radial-gradient(circle_at_1px_1px,rgba(35,74,58,0.08)_1px,transparent_0)] [background-size:28px_28px]"
-                  style={{
-                    width: `${treeBounds.width}px`,
-                    height: `${treeBounds.height}px`,
-                    transform: `scale(${treeSettings.zoom})`,
-                    transformOrigin: 'top left',
-                  }}
-                >
-                  <svg
-                    className="absolute inset-0"
-                    width={treeBounds.width}
-                    height={treeBounds.height}
-                    viewBox={`0 0 ${treeBounds.width} ${treeBounds.height}`}
-                    style={{ pointerEvents: 'none' }}
-                  >
-                    {treeLayout.connectors.map((connector) => {
-                      const connectorPath = getTreeConnectorPath(connector, treeItemsById, treeNodeMeasurements);
-
-                      return (
-                        <path
-                          key={connector.id}
-                          d={connectorPath}
-                          fill="none"
-                          stroke={connector.isEmptyTarget ? 'rgba(35,74,58,0.18)' : 'rgba(35,74,58,0.32)'}
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeDasharray={connector.isEmptyTarget ? '6 7' : undefined}
-                        />
-                      );
-                    })}
-                  </svg>
-                  {treeLayout.items.map((item) => (
-                    <MeasuredTreeItem
-                      key={item.id}
-                      item={item}
-                      onMeasure={updateTreeNodeMeasurement}
-                    >
-                      {item.kind === 'node' && item.node ? (
-                        <TreeNodeCard node={item.node} isRoot={item.isRoot} onOpen={openNodeTree} sizeConfig={nodeSizeConfig} />
-                      ) : (
-                        <EmptyTreeSlotCard sizeConfig={nodeSizeConfig} branch={item.branch} />
-                      )}
-                    </MeasuredTreeItem>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+          depthLabel={`${adminText('a_0JTQsNC90L3R_4')}${selectedDepth}`}
+          depthInfo={depthInfo}
+          emptyMessage={adminText('a_0KMg0L_QsNGA')}
+          onOpenNode={openNodeTree}
+        />
       )}
     </div>
   );

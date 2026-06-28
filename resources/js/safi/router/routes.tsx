@@ -41,6 +41,7 @@ const AdminHome = React.lazy(() => import('../pages/admin/AdminHome'));
 const AdminPartners = React.lazy(() => import('../pages/admin/AdminPartners'));
 const AdminPartnersBulkCreate = React.lazy(() => import('../pages/admin/AdminPartnersBulkCreate'));
 const AdminPartnerDetail = React.lazy(() => import('../pages/admin/AdminPartnerDetail'));
+const AdminForgotPassword = React.lazy(() => import('../pages/admin/AdminForgotPassword'));
 const AdminStructure = React.lazy(() => import('../pages/admin/AdminStructure'));
 const AdminTransactions = React.lazy(() => import('../pages/admin/AdminTransactions'));
 const AdminWithdrawals = React.lazy(() => import('../pages/admin/AdminWithdrawals'));
@@ -116,6 +117,7 @@ export function AppRouter() {
             <Route path="partners" element={<AdminPartners />} />
             <Route path="partners/bulk-create" element={<AdminPartnersBulkCreate />} />
             <Route path="partners/:id" element={<AdminPartnerDetail />} />
+            <Route path="forgot-password" element={<AdminForgotPassword />} />
             <Route path="structure" element={<AdminStructure />} />
             <Route path="transactions" element={<AdminTransactions />} />
             <Route path="withdrawals" element={<AdminWithdrawals />} />

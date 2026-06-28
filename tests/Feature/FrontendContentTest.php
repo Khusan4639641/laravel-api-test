@@ -73,11 +73,14 @@ class FrontendContentTest extends TestCase
         $features = file_get_contents(resource_path('js/safi/config/features.ts'));
         $routes = file_get_contents(resource_path('js/safi/router/routes.tsx'));
         $overview = file_get_contents(resource_path('js/safi/pages/dashboard/Overview.tsx'));
+        $permissions = file_get_contents(resource_path('js/safi/lib/permissions.ts'));
 
         $this->assertStringContainsString('support: true', $features);
         $this->assertStringContainsString('floatingExternalContacts: false', $features);
         $this->assertStringContainsString('path="support"', $routes);
         $this->assertStringContainsString('to="/dashboard/support"', $overview);
+        $this->assertStringContainsString('ensureDashboardSupportRoute', $permissions);
+        $this->assertStringContainsString("path: '/dashboard/support'", $permissions);
     }
 
     public function test_floating_and_public_external_support_contacts_are_not_rendered(): void
@@ -123,12 +126,14 @@ class FrontendContentTest extends TestCase
         $structure = file_get_contents(resource_path('js/safi/pages/dashboard/Structure.tsx'));
         $referrals = file_get_contents(resource_path('js/safi/lib/referrals.ts'));
 
-        foreach ([$overview, $structure] as $contents) {
-            $this->assertStringContainsString('buildReferralBranchUrl', $contents);
-            $this->assertStringContainsString('Реферальные ссылки станут доступны после активации пакета.', $contents);
-            $this->assertStringContainsString('link ? (', $contents);
-            $this->assertStringNotContainsString('window.location.origin}/login', $contents);
-        }
+        $this->assertStringContainsString('buildReferralBranchUrl', $overview);
+        $this->assertStringContainsString('Реферальные ссылки станут доступны после активации пакета.', $overview);
+        $this->assertStringContainsString('link ? (', $overview);
+        $this->assertStringNotContainsString('window.location.origin}/login', $overview);
+
+        $this->assertStringNotContainsString('buildReferralBranchUrl', $structure);
+        $this->assertStringNotContainsString('Реферальные ссылки', $structure);
+        $this->assertStringNotContainsString('link ? (', $structure);
 
         $this->assertStringContainsString('/register-ref-branch?ref=', $referrals);
         $this->assertStringContainsString('branch=${branch}', $referrals);
@@ -187,5 +192,21 @@ class FrontendContentTest extends TestCase
         $this->assertStringContainsString("t('earningsSummary.totalEarned')", $bonuses);
         $this->assertStringContainsString('"earningsSummary"', $ru);
         $this->assertStringContainsString('"Всего заработано"', $ru);
+    }
+
+    public function test_dashboard_bonuses_embeds_partner_transfer_in_withdrawal_method_form(): void
+    {
+        $bonuses = file_get_contents(resource_path('js/safi/pages/dashboard/Bonuses.tsx'));
+        $api = file_get_contents(resource_path('js/safi/lib/api.ts'));
+        $endpoints = file_get_contents(resource_path('js/safi/lib/endpoints.ts'));
+
+        $this->assertStringContainsString('<option value="partner_transfer">Перевод партнёру</option>', $bonuses);
+        $this->assertStringContainsString("withdrawalMethod === 'partner_transfer'", $bonuses);
+        $this->assertStringContainsString('AsyncPartnerSelect', $bonuses);
+        $this->assertStringContainsString('createPartnerTransfer', $bonuses);
+        $this->assertStringContainsString('Перевести партнёру', $bonuses);
+        $this->assertStringNotContainsString('<PartnerTransferForm', $bonuses);
+        $this->assertStringContainsString("partnerTransfers: '/dashboard/partner-transfers'", $endpoints);
+        $this->assertStringContainsString('endpoints.dashboard.partnerTransfers', $api);
     }
 }

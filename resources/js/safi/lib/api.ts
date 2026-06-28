@@ -37,6 +37,15 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface ForgotPasswordCheckEmailPayload {
+  email: string;
+}
+
+export interface ForgotPasswordRequestPayload {
+  email: string;
+  phone: string;
+}
+
 export interface RegisterPayload {
   name: string;
   login: string;
@@ -73,6 +82,13 @@ export interface AdminPartnerBalancePayload {
   mode: 'set' | 'adjust';
   amount: number;
   comment?: string;
+}
+
+export interface AdminPartnerIdentityPayload {
+  first_name?: string;
+  last_name?: string;
+  phone: string;
+  email: string;
 }
 
 export interface AdminPartnerDeletePreview {
@@ -123,7 +139,8 @@ export interface TransferPartner {
 }
 
 export interface PartnerTransferPayload {
-  recipient_user_id: number;
+  recipient_user_id?: number;
+  recipient_id?: number;
   amount: number;
   comment?: string;
   idempotency_key?: string;
@@ -511,6 +528,22 @@ export async function login(payload: LoginPayload) {
   return response;
 }
 
+export async function checkForgotPasswordEmail<T = unknown>(payload: ForgotPasswordCheckEmailPayload) {
+  return apiRequest<T>(endpoints.auth.forgotPasswordCheckEmail, {
+    method: 'POST',
+    body: compactPayload(payload),
+    auth: false,
+  });
+}
+
+export async function createForgotPasswordRequest<T = unknown>(payload: ForgotPasswordRequestPayload) {
+  return apiRequest<T>(endpoints.auth.forgotPasswordRequest, {
+    method: 'POST',
+    body: compactPayload(payload),
+    auth: false,
+  });
+}
+
 export async function register(payload: RegisterPayload) {
   const response = await apiRequest<AuthResponse>(endpoints.auth.register, {
     method: 'POST',
@@ -630,8 +663,8 @@ export async function getDashboardStructure<T = unknown>(params: ApiQueryParams 
   });
 }
 
-export async function getDashboardTransactions<T = unknown>() {
-  return apiRequest<T>(endpoints.dashboard.transactions, {
+export async function getDashboardTransactions<T = unknown>(params: ApiQueryParams = {}) {
+  return apiRequest<T>(buildEndpointWithParams(endpoints.dashboard.transactions, params), {
     method: 'GET',
     auth: true,
   });
@@ -709,7 +742,7 @@ export async function searchTransferPartners(q: string, limit = 20) {
 }
 
 export async function getPartnerTransfers(params: ApiQueryParams = {}) {
-  const response = await apiRequest(buildEndpointWithParams(endpoints.dashboard.walletTransfers, params), {
+  const response = await apiRequest(buildEndpointWithParams(endpoints.dashboard.partnerTransfers, params), {
     method: 'GET',
     auth: true,
   });
@@ -718,7 +751,7 @@ export async function getPartnerTransfers(params: ApiQueryParams = {}) {
 }
 
 export async function createPartnerTransfer<T = unknown>(payload: PartnerTransferPayload) {
-  return apiRequest<T>(endpoints.dashboard.walletTransfers, {
+  return apiRequest<T>(endpoints.dashboard.partnerTransfers, {
     method: 'POST',
     body: compactPayload(payload),
     auth: true,
@@ -965,6 +998,14 @@ export async function changeAdminPartnerPassword<T = unknown>(userId: string | n
   });
 }
 
+export async function updateAdminPartnerIdentity<T = unknown>(userId: string | number, payload: AdminPartnerIdentityPayload) {
+  return apiRequest<T>(endpoints.admin.partnerIdentity(userId), {
+    method: 'PATCH',
+    body: compactPayload(payload),
+    auth: true,
+  });
+}
+
 export async function blockAdminPartner<T = unknown>(userId: string | number) {
   return apiRequest<T>(endpoints.admin.partnerBlock(userId), {
     method: 'PATCH',
@@ -1086,6 +1127,42 @@ export async function deleteAdminBonus<T = unknown>(bonusId: string | number, pa
   return apiRequest<T>(`${endpoints.admin.bonuses}/${encodeEndpointId(bonusId)}`, {
     method: 'DELETE',
     body: payload,
+    auth: true,
+  });
+}
+
+export async function getAdminForgotPasswordRequests<T = unknown>(params: ApiQueryParams = {}) {
+  return apiRequest<T>(buildEndpointWithParams(endpoints.admin.forgotPasswordRequests, params), {
+    method: 'GET',
+    auth: true,
+  });
+}
+
+export async function getAdminForgotPasswordRequest<T = unknown>(requestId: string | number) {
+  return apiRequest<T>(endpoints.admin.forgotPasswordRequest(requestId), {
+    method: 'GET',
+    auth: true,
+  });
+}
+
+export async function resetAdminForgotPasswordRequest<T = unknown>(
+  requestId: string | number,
+  payload: { password: string; password_confirmation: string },
+) {
+  return apiRequest<T>(endpoints.admin.resetForgotPasswordRequest(requestId), {
+    method: 'POST',
+    body: payload,
+    auth: true,
+  });
+}
+
+export async function cancelAdminForgotPasswordRequest<T = unknown>(
+  requestId: string | number,
+  payload: { admin_note?: string } = {},
+) {
+  return apiRequest<T>(endpoints.admin.cancelForgotPasswordRequest(requestId), {
+    method: 'PATCH',
+    body: compactPayload(payload),
     auth: true,
   });
 }

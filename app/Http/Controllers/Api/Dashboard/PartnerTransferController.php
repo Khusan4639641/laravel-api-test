@@ -32,6 +32,12 @@ class PartnerTransferController extends Controller
 
     public function store(Request $request, PartnerTransferService $partnerTransferService): JsonResponse
     {
+        if (! $request->has('recipient_user_id') && $request->has('recipient_id')) {
+            $request->merge([
+                'recipient_user_id' => $request->input('recipient_id'),
+            ]);
+        }
+
         $requestedSourceWallet = $request->input('from', $request->input('wallet', $request->input('from_wallet')));
         $requestedSourceWallet = is_string($requestedSourceWallet)
             ? mb_strtolower(trim($requestedSourceWallet))
@@ -50,6 +56,13 @@ class PartnerTransferController extends Controller
             'amount' => ['required', 'numeric', 'gt:0'],
             'comment' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'idempotency_key' => ['sometimes', 'nullable', 'string', 'max:120'],
+        ], [
+            'recipient_user_id.required' => 'Выберите партнёра.',
+            'recipient_user_id.integer' => 'Партнёр не найден.',
+            'amount.required' => 'Введите сумму перевода.',
+            'amount.numeric' => 'Введите корректную сумму перевода.',
+            'amount.gt' => 'Сумма перевода должна быть больше нуля.',
+            'comment.max' => 'Комментарий не должен быть длиннее 1000 символов.',
         ]);
 
         $transfer = $partnerTransferService->transfer(
@@ -61,15 +74,18 @@ class PartnerTransferController extends Controller
         );
 
         return response()->json([
-            'message' => 'Перевод выполнен',
+            'message' => 'Перевод успешно выполнен.',
             'data' => [
                 'transfer_id' => $transfer->id,
                 'uuid' => $transfer->uuid,
                 'sender_id' => $transfer->sender_user_id,
                 'recipient_id' => $transfer->recipient_user_id,
+                'sender_transaction_id' => $transfer->sender_transaction_id,
+                'recipient_transaction_id' => $transfer->recipient_transaction_id,
                 'amount' => (float) $transfer->amount,
                 'currency' => $transfer->currency,
                 'status' => $transfer->status,
+                'sender_balance' => $this->mainBalance($transfer->sender_user_id),
                 'sender_available_balance' => $this->mainBalance($transfer->sender_user_id),
                 'recipient_available_balance' => $this->mainBalance($transfer->recipient_user_id),
             ],

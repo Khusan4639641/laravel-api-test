@@ -1,11 +1,11 @@
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowUpCircle, Info, Wallet } from 'lucide-react';
+import { ArrowRightLeft, ArrowUpCircle, Info, Wallet } from 'lucide-react';
 import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
-import PartnerTransferForm from '../../components/dashboard/PartnerTransferForm';
+import AsyncPartnerSelect from '../../components/AsyncPartnerSelect';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { ApiError, createDashboardWithdrawal, EarningsSummary, getApiErrorState, getDashboardEarningsSummary, getDashboardOverview, getDashboardWithdrawals, getNumber, getPartnerTransfers, getPublicStatuses, getString, PartnerTransfer, Status } from '../../lib/api';
+import { ApiError, createDashboardWithdrawal, createPartnerTransfer, EarningsSummary, getApiErrorState, getDashboardEarningsSummary, getDashboardOverview, getDashboardWithdrawals, getNumber, getPartnerTransfers, getPublicStatuses, getString, PartnerTransfer, Status, TransferPartner } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { withdrawalStatusLabel } from '../../lib/systemLabels';
 
@@ -19,6 +19,8 @@ interface WithdrawalItem {
   paymentDate: string;
   comment?: string;
 }
+
+type WithdrawalMethod = 'card_account' | 'ip_account' | 'partner_transfer';
 
 const emptyEarningsSummary: EarningsSummary = {
   totalEarned: 0,
@@ -53,8 +55,11 @@ export default function Bonuses() {
   const [structure, setStructure] = useState({ leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [withdrawalAmount, setWithdrawalAmount] = useState(50000);
-  const [withdrawalMethod, setWithdrawalMethod] = useState('card_account');
+  const [withdrawalMethod, setWithdrawalMethod] = useState<WithdrawalMethod>('card_account');
+  const [transferRecipient, setTransferRecipient] = useState<TransferPartner | null>(null);
+  const [transferComment, setTransferComment] = useState('');
   const [isSubmittingWithdrawal, setIsSubmittingWithdrawal] = useState(false);
+  const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [message, setMessage] = useState('');
@@ -133,9 +138,17 @@ export default function Bonuses() {
   const nextStatus = statuses.find((status) => status.pv > weakLegPV);
   const statusProgressTotal = nextStatus?.pv || statuses[statuses.length - 1]?.pv || Math.max(weakLegPV, 1);
   const statusProgressPercent = statusProgressTotal > 0 ? Math.min(100, Math.max(0, (weakLegPV / statusProgressTotal) * 100)) : 0;
+  const isPartnerTransferMode = withdrawalMethod === 'partner_transfer';
+  const isSubmittingOperation = isPartnerTransferMode ? isSubmittingTransfer : isSubmittingWithdrawal;
 
   const submitWithdrawal = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (isPartnerTransferMode) {
+      await submitPartnerTransfer();
+      return;
+    }
+
     setIsSubmittingWithdrawal(true);
     setMessage('');
     setError('');
@@ -155,6 +168,49 @@ export default function Bonuses() {
       }
     } finally {
       setIsSubmittingWithdrawal(false);
+    }
+  };
+
+  const submitPartnerTransfer = async () => {
+    setMessage('');
+    setError('');
+
+    if (!transferRecipient) {
+      setError('Выберите партнёра.');
+      return;
+    }
+
+    if (!Number.isFinite(withdrawalAmount) || withdrawalAmount <= 0) {
+      setError('Сумма перевода должна быть больше нуля.');
+      return;
+    }
+
+    if (withdrawalAmount > balance.available) {
+      setError('Недостаточно средств для перевода.');
+      return;
+    }
+
+    setIsSubmittingTransfer(true);
+
+    try {
+      await createPartnerTransfer({
+        recipient_id: transferRecipient.id,
+        amount: withdrawalAmount,
+        comment: transferComment,
+      });
+      setMessage('Перевод успешно выполнен.');
+      setTransferRecipient(null);
+      setTransferComment('');
+      setWithdrawalAmount(50000);
+      await handleTransferSuccess();
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setError(caughtError.message || 'Не удалось выполнить перевод. Попробуйте позже.');
+      } else {
+        setError('Не удалось выполнить перевод. Попробуйте позже.');
+      }
+    } finally {
+      setIsSubmittingTransfer(false);
     }
   };
 
@@ -276,36 +332,70 @@ export default function Bonuses() {
 
               <form className="space-y-6" onSubmit={submitWithdrawal}>
                 <label className="block">
-                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Сумма вывода</span>
-                  <input
-                    type="number"
-                    min="10000"
-                    value={withdrawalAmount}
-                    onChange={(event) => setWithdrawalAmount(Number(event.target.value))}
-                    className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-xl font-extrabold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25"
-                  />
-                  <span className="mt-2 block text-xs font-bold text-safi-muted">Доступно: {balance.available.toLocaleString('ru-RU')} ₸</span>
-                </label>
-
-                <label className="block">
                   <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Способ вывода</span>
                   <select
                     value={withdrawalMethod}
-                    onChange={(event) => setWithdrawalMethod(event.target.value)}
+                    onChange={(event) => {
+                      setWithdrawalMethod(event.target.value as WithdrawalMethod);
+                      setMessage('');
+                      setError('');
+                    }}
+                    disabled={isSubmittingOperation}
                     className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25"
                   >
                     <option value="card_account">Карта партнера</option>
                     <option value="ip_account">Счет ИП</option>
+                    <option value="partner_transfer">Перевод партнёру</option>
                   </select>
                 </label>
 
+                {isPartnerTransferMode && (
+                  <label className="block">
+                    <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Партнёр-получатель</span>
+                    <AsyncPartnerSelect value={transferRecipient} onChange={setTransferRecipient} disabled={isSubmittingTransfer} />
+                  </label>
+                )}
+
+                <label className="block">
+                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
+                    {isPartnerTransferMode ? 'Сумма перевода' : 'Сумма вывода'}
+                  </span>
+                  <input
+                    type="number"
+                    min={isPartnerTransferMode ? 1 : 10000}
+                    max={balance.available || undefined}
+                    value={withdrawalAmount}
+                    disabled={isSubmittingOperation}
+                    onChange={(event) => setWithdrawalAmount(Number(event.target.value))}
+                    className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-xl font-extrabold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25 disabled:cursor-not-allowed disabled:opacity-70"
+                  />
+                  <span className="mt-2 block text-xs font-bold text-safi-muted">Доступно: {balance.available.toLocaleString('ru-RU')} ₸</span>
+                </label>
+
+                {isPartnerTransferMode && (
+                  <label className="block">
+                    <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Комментарий</span>
+                    <textarea
+                      value={transferComment}
+                      disabled={isSubmittingTransfer}
+                      onChange={(event) => setTransferComment(event.target.value)}
+                      placeholder="Назначение перевода"
+                      rows={3}
+                      maxLength={500}
+                      className="w-full resize-none rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25 disabled:cursor-not-allowed disabled:opacity-70"
+                    />
+                  </label>
+                )}
+
                 <button
                   type="submit"
-                  disabled={isSubmittingWithdrawal}
+                  disabled={isSubmittingOperation}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-5 py-4 text-xs font-extrabold uppercase tracking-[0.16em] text-white shadow-[0_18px_38px_rgba(11,23,18,0.16)] transition-colors hover:bg-safi-green-hover disabled:opacity-60"
                 >
-                  <ArrowUpCircle className="h-5 w-5" />
-                  {isSubmittingWithdrawal ? 'Отправляем...' : 'Отправить заявку'}
+                  {isPartnerTransferMode ? <ArrowRightLeft className="h-5 w-5" /> : <ArrowUpCircle className="h-5 w-5" />}
+                  {isPartnerTransferMode
+                    ? (isSubmittingTransfer ? 'Переводим...' : 'Перевести партнёру')
+                    : (isSubmittingWithdrawal ? 'Отправляем...' : 'Отправить заявку')}
                 </button>
               </form>
             </article>
@@ -319,8 +409,6 @@ export default function Bonuses() {
               </div>
             </aside>
           </section>
-
-          <PartnerTransferForm availableBalance={balance.available} onSuccess={handleTransferSuccess} />
 
           <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             <div className="border-b border-safi-border bg-safi-cream p-6 md:p-7">

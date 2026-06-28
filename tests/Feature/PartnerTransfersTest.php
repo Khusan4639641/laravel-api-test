@@ -33,19 +33,55 @@ class PartnerTransfersTest extends TestCase
             'comment' => 'Test transfer',
         ])
             ->assertCreated()
-            ->assertJsonPath('message', 'Перевод выполнен')
+            ->assertJsonPath('message', 'Перевод успешно выполнен.')
             ->assertJsonPath('data.sender_id', $sender->id)
             ->assertJsonPath('data.recipient_id', $recipient->id)
             ->assertJsonPath('data.amount', 50000)
             ->assertJsonPath('data.status', 'completed')
+            ->assertJsonPath('data.sender_balance', 125000)
             ->assertJsonPath('data.sender_available_balance', 125000)
             ->assertJsonPath('data.recipient_available_balance', 50000);
 
         $this->assertSame('125000.00', $this->mainWallet($sender)->balance);
         $this->assertSame('50000.00', $this->mainWallet($recipient)->balance);
-        $this->assertSame(1, PartnerTransfer::query()->where('status', 'completed')->count());
-        $this->assertSame(1, WalletTransaction::query()->where('user_id', $sender->id)->where('type', 'partner_transfer_out')->count());
-        $this->assertSame(1, WalletTransaction::query()->where('user_id', $recipient->id)->where('type', 'partner_transfer_in')->count());
+        $transfer = PartnerTransfer::query()->where('status', 'completed')->firstOrFail();
+        $senderTransaction = WalletTransaction::query()->where('user_id', $sender->id)->where('type', 'partner_transfer_out')->firstOrFail();
+        $recipientTransaction = WalletTransaction::query()->where('user_id', $recipient->id)->where('type', 'partner_transfer_in')->firstOrFail();
+
+        $this->assertSame($transfer->id, $senderTransaction->source_id);
+        $this->assertSame($transfer->id, $recipientTransaction->source_id);
+        $this->assertSame($senderTransaction->id, $transfer->sender_transaction_id);
+        $this->assertSame($recipientTransaction->id, $transfer->recipient_transaction_id);
+        $this->assertSame($transfer->id, $senderTransaction->metadata['transfer_id']);
+        $this->assertSame($transfer->id, $recipientTransaction->metadata['transfer_id']);
+    }
+
+    public function test_partner_transfer_endpoint_accepts_recipient_id_alias(): void
+    {
+        [$sender, $recipient] = $this->partnersWithWallets(175000, 0);
+
+        Sanctum::actingAs($sender);
+
+        $this->postJson('/api/dashboard/partner-transfers', [
+            'recipient_id' => $recipient->id,
+            'amount' => 50000,
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.recipient_id', $recipient->id)
+            ->assertJsonPath('data.sender_balance', 125000);
+
+        $this->assertSame('125000.00', $this->mainWallet($sender)->balance);
+        $this->assertSame('50000.00', $this->mainWallet($recipient)->balance);
+    }
+
+    public function test_guest_cannot_transfer_money_to_partner(): void
+    {
+        [, $recipient] = $this->partnersWithWallets(175000, 0);
+
+        $this->postJson('/api/dashboard/partner-transfers', [
+            'recipient_id' => $recipient->id,
+            'amount' => 50000,
+        ])->assertUnauthorized();
     }
 
     public function test_transfer_does_not_create_withdrawal_request(): void
@@ -91,7 +127,7 @@ class PartnerTransfersTest extends TestCase
             'amount' => 50000,
         ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Недостаточно средств');
+            ->assertJsonPath('message', 'Недостаточно средств для перевода.');
 
         $this->assertSame('1000.00', $this->mainWallet($sender)->balance);
         $this->assertSame('0.00', $this->mainWallet($recipient)->balance);
@@ -108,7 +144,7 @@ class PartnerTransfersTest extends TestCase
             'amount' => 500,
         ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Нельзя переводить средства самому себе');
+            ->assertJsonPath('message', 'Нельзя переводить средства самому себе.');
     }
 
     public function test_sender_cannot_transfer_to_deleted_recipient(): void
@@ -123,7 +159,7 @@ class PartnerTransfersTest extends TestCase
             'amount' => 500,
         ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Получатель недоступен для перевода');
+            ->assertJsonPath('message', 'Партнёр недоступен для перевода.');
     }
 
     public function test_sender_cannot_transfer_to_blocked_recipient(): void
@@ -138,7 +174,7 @@ class PartnerTransfersTest extends TestCase
             'amount' => 500,
         ])
             ->assertUnprocessable()
-            ->assertJsonPath('message', 'Получатель недоступен для перевода');
+            ->assertJsonPath('message', 'Партнёр недоступен для перевода.');
     }
 
     public function test_transfer_is_atomic(): void
@@ -279,6 +315,26 @@ class PartnerTransfersTest extends TestCase
         $this->assertSame(1, PartnerTransfer::query()->count());
         $this->assertSame(1, WalletTransaction::query()->where('type', 'partner_transfer_out')->count());
         $this->assertSame(1, WalletTransaction::query()->where('type', 'partner_transfer_in')->count());
+    }
+
+    public function test_transfer_creates_dashboard_notifications_for_sender_and_recipient(): void
+    {
+        [$sender, $recipient] = $this->partnersWithWallets(175000, 0);
+
+        Sanctum::actingAs($sender);
+
+        $this->postJson('/api/dashboard/partner-transfers', [
+            'recipient_id' => $recipient->id,
+            'amount' => 50000,
+        ])->assertCreated();
+
+        $senderNotification = $sender->notifications()->firstOrFail();
+        $recipientNotification = $recipient->notifications()->firstOrFail();
+
+        $this->assertSame('partner_transfer_out', $senderNotification->data['type']);
+        $this->assertSame('partner_transfer_in', $recipientNotification->data['type']);
+        $this->assertStringContainsString('Вы перевели партнёру', $senderNotification->data['message']['ru']);
+        $this->assertStringContainsString('Вам поступил перевод от партнёра', $recipientNotification->data['message']['ru']);
     }
 
     public function test_admin_can_see_partner_transfer_transactions(): void

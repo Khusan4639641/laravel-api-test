@@ -26,15 +26,16 @@ export const fallbackPermissions: RolePermissions = {
 
 export function normalizePermissions(response: unknown): RolePermissions {
   const record = isRecord(response) ? response : {};
+  const role = getString(record, ['role']) || fallbackPermissions.role;
   const allowedRoutes = getStringArray(record.allowed_routes) || getStringArray(record.allowedRoutes) || fallbackPermissions.allowed_routes;
   const menu = normalizeMenu(record.menu);
 
   return {
-    role: getString(record, ['role']) || fallbackPermissions.role,
+    role,
     label: getString(record, ['label']) || fallbackPermissions.label,
     redirect_after_login: getString(record, ['redirect_after_login', 'redirectAfterLogin']) || fallbackPermissions.redirect_after_login,
-    allowed_routes: filterFeatureRoutes(allowedRoutes),
-    menu: filterFeatureMenu(menu),
+    allowed_routes: ensureDashboardSupportRoute(role, filterFeatureRoutes(allowedRoutes)),
+    menu: ensureDashboardSupportMenu(role, filterFeatureMenu(menu)),
   };
 }
 
@@ -76,6 +77,7 @@ const menuTranslationKeys: Record<string, string> = {
   '/dashboard/support': 'menu.support',
   '/admin': 'menu.adminOverview',
   '/admin/partners': 'menu.partners',
+  '/admin/forgot-password': 'menu.forgotPassword',
   '/admin/structure': 'menu.structure',
   '/admin/transactions': 'menu.transactions',
   '/admin/withdrawals': 'menu.withdrawals',
@@ -122,6 +124,29 @@ function filterFeatureMenu(menu: PermissionMenuItem[]) {
   }
 
   return menu.filter((item) => !isSupportFrontendPath(item.path));
+}
+
+function ensureDashboardSupportRoute(role: string, routes: string[]) {
+  if (!features.support || role !== 'user' || routes.includes('/dashboard/support')) {
+    return routes;
+  }
+
+  return [...routes, '/dashboard/support'];
+}
+
+function ensureDashboardSupportMenu(role: string, menu: PermissionMenuItem[]) {
+  if (!features.support || role !== 'user' || menu.some((item) => item.path === '/dashboard/support')) {
+    return menu;
+  }
+
+  return [
+    ...menu,
+    {
+      path: '/dashboard/support',
+      label: 'Поддержка',
+      icon: 'help-circle',
+    },
+  ];
 }
 
 function normalizePath(value: string) {

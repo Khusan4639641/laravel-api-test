@@ -86,6 +86,15 @@ class StructureController extends Controller
         ];
 
         $canInvite = $this->canInvite($user);
+        $treeNodeVolumes = $nodeVolumes;
+
+        if ($rootNode) {
+            $treeNodeVolumes[$rootNode->id] = [
+                'left_branch_pv' => $branchVolumes['left_pv'],
+                'right_branch_pv' => $branchVolumes['right_pv'],
+                'weak_leg_pv' => $branchVolumes['weak_leg_pv'],
+            ];
+        }
 
         return response()->json([
             'summary' => $summary,
@@ -100,7 +109,7 @@ class StructureController extends Controller
                 'can_invite' => $canInvite,
                 ...$summary,
             ],
-            'tree' => $this->tree($user, $rootNode, $descendantNodes, $rootDepth),
+            'tree' => $this->tree($user, $rootNode, $descendantNodes, $rootDepth, $treeNodeVolumes),
             'partners' => $partnersPayload,
             'data' => $partnersPayload['data'],
             'links' => $partnersPayload['links'],
@@ -290,50 +299,111 @@ class StructureController extends Controller
      * @param  Collection<int, BinaryNode>  $nodes
      * @return array<string, mixed>
      */
-    private function tree(User $rootUser, ?BinaryNode $rootNode, Collection $nodes, int $rootDepth): array
+    private function tree(User $rootUser, ?BinaryNode $rootNode, Collection $nodes, int $rootDepth, array $nodeVolumes): array
     {
         if (! $rootNode) {
-            return [
-                'id' => $rootUser->id,
-                'name' => $rootUser->name,
-                'login' => $rootUser->login,
-                'line' => 0,
-                'branch' => null,
-                'children' => [
-                    'left' => null,
-                    'right' => null,
-                ],
-            ];
+            return $this->userOnlyTreeNode($rootUser);
         }
 
-        return $this->treeNode($rootNode, $nodes->prepend($rootNode), $rootDepth);
+        return $this->treeNode($rootNode, $nodes->prepend($rootNode), $rootDepth, $nodeVolumes, true);
     }
 
     /**
      * @param  Collection<int, BinaryNode>  $nodes
      * @return array<string, mixed>
      */
-    private function treeNode(BinaryNode $node, Collection $nodes, int $rootDepth): array
+    private function treeNode(BinaryNode $node, Collection $nodes, int $rootDepth, array $nodeVolumes, bool $isRoot = false): array
     {
         $node->loadMissing(['user.currentPackage']);
         $left = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'L');
         $right = $nodes->first(fn (BinaryNode $child): bool => (int) $child->parent_id === (int) $node->id && $child->position === 'R');
         $line = max(($node->depth ?? 0) - $rootDepth, 0);
-        $isPartnerActive = $node->user?->isPartnerActive() ?? false;
+        $user = $node->user;
+        $package = $user?->currentPackage;
+        $isPartnerActive = $user?->isPartnerActive() ?? false;
+        $packageCode = $isPartnerActive ? $package?->code : null;
+        $nodeVolume = $nodeVolumes[$node->id] ?? null;
+        $leftPv = (string) ($nodeVolume['left_branch_pv'] ?? $user?->left_pv ?? '0.00');
+        $rightPv = (string) ($nodeVolume['right_branch_pv'] ?? $user?->right_pv ?? '0.00');
+        $personalPv = $package ? (float) $package->activityPv() : 0;
 
         return [
-            'id' => $node->user?->id,
-            'name' => $node->user?->name,
-            'login' => $node->user?->login,
+            'id' => $user?->id,
+            'user_id' => $user?->id,
+            'binary_node_id' => $node->id,
+            'name' => $user?->name,
+            'login' => $user?->login,
             'line' => $line,
+            'level' => $line,
             'branch' => $this->branchCode($node->getAttribute('root_branch') ?? $node->position),
+            'position' => $this->branchCode($node->position),
+            'is_root' => $isRoot,
             'is_partner_active' => $isPartnerActive,
             'package_status' => $isPartnerActive ? 'active' : 'inactive',
             'package_status_label' => $isPartnerActive ? 'Активен' : 'Неактивен',
-            'package' => $isPartnerActive ? $node->user?->currentPackage?->code : null,
+            'package' => $packageCode,
+            'package_code' => $packageCode,
+            'package_name' => $isPartnerActive && $package ? \App\Support\SystemLabel::package($packageCode, $package->name) : null,
+            'package_label' => $isPartnerActive && $package ? \App\Support\SystemLabel::package($packageCode, $package->name) : '-',
+            'status' => $user?->status,
+            'status_label' => \App\Support\SystemLabel::mlmStatus($user?->status),
+            'personal_pv' => $personalPv,
+            'package_pv' => $personalPv,
+            'package_activity_pv' => $personalPv,
+            'left_pv' => number_format((float) $leftPv, 2, '.', ''),
+            'right_pv' => number_format((float) $rightPv, 2, '.', ''),
+            'left_branch_pv' => number_format((float) $leftPv, 2, '.', ''),
+            'right_branch_pv' => number_format((float) $rightPv, 2, '.', ''),
+            'team_pv' => (float) $leftPv + (float) $rightPv,
             'children' => [
-                'left' => $left ? $this->treeNode($left, $nodes, $rootDepth) : null,
-                'right' => $right ? $this->treeNode($right, $nodes, $rootDepth) : null,
+                'left' => $left ? $this->treeNode($left, $nodes, $rootDepth, $nodeVolumes) : null,
+                'right' => $right ? $this->treeNode($right, $nodes, $rootDepth, $nodeVolumes) : null,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function userOnlyTreeNode(User $user): array
+    {
+        $user->loadMissing('currentPackage');
+        $package = $user->currentPackage;
+        $isPartnerActive = $user->isPartnerActive();
+        $packageCode = $isPartnerActive ? $package?->code : null;
+        $personalPv = $package ? (float) $package->activityPv() : 0;
+
+        return [
+            'id' => $user->id,
+            'user_id' => $user->id,
+            'binary_node_id' => null,
+            'name' => $user->name,
+            'login' => $user->login,
+            'line' => 0,
+            'level' => 0,
+            'branch' => null,
+            'position' => null,
+            'is_root' => true,
+            'is_partner_active' => $isPartnerActive,
+            'package_status' => $isPartnerActive ? 'active' : 'inactive',
+            'package_status_label' => $isPartnerActive ? 'Активен' : 'Неактивен',
+            'package' => $packageCode,
+            'package_code' => $packageCode,
+            'package_name' => $isPartnerActive && $package ? \App\Support\SystemLabel::package($packageCode, $package->name) : null,
+            'package_label' => $isPartnerActive && $package ? \App\Support\SystemLabel::package($packageCode, $package->name) : '-',
+            'status' => $user->status,
+            'status_label' => \App\Support\SystemLabel::mlmStatus($user->status),
+            'personal_pv' => $personalPv,
+            'package_pv' => $personalPv,
+            'package_activity_pv' => $personalPv,
+            'left_pv' => number_format((float) ($user->left_pv ?? 0), 2, '.', ''),
+            'right_pv' => number_format((float) ($user->right_pv ?? 0), 2, '.', ''),
+            'left_branch_pv' => number_format((float) ($user->left_pv ?? 0), 2, '.', ''),
+            'right_branch_pv' => number_format((float) ($user->right_pv ?? 0), 2, '.', ''),
+            'team_pv' => (float) ($user->left_pv ?? 0) + (float) ($user->right_pv ?? 0),
+            'children' => [
+                'left' => null,
+                'right' => null,
             ],
         ];
     }

@@ -17,10 +17,24 @@ class TransactionController extends Controller
 
     public function __invoke(Request $request): JsonResponse
     {
+        $filter = $this->filter($request);
+
         $transactions = $request->user()
             ->walletTransactions()
             ->with('wallet')
+            ->where('user_id', $request->user()->id)
             ->visible()
+            ->when($filter === 'credits', fn ($query) => $query
+                ->where('affects_balance', true)
+                ->where('direction', 'credit'))
+            ->when($filter === 'withdrawals', fn ($query) => $query
+                ->where(function ($typeQuery): void {
+                    $typeQuery
+                        ->where('type', 'like', '%withdrawal%')
+                        ->orWhere('type', 'like', '%payout%');
+                }))
+            ->when($filter === 'cashback', fn ($query) => $query
+                ->where('type', 'like', '%cashback%'))
             ->latest()
             ->paginate($this->perPage($request));
 
@@ -80,5 +94,13 @@ class TransactionController extends Controller
         }
 
         return $value === '' ? '0' : $value;
+    }
+
+    private function filter(Request $request): string
+    {
+        return match ((string) $request->query('filter', 'all')) {
+            'credits', 'withdrawals', 'cashback' => (string) $request->query('filter'),
+            default => 'all',
+        };
     }
 }

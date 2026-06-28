@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Support\SystemLabel;
+use Carbon\CarbonInterface;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -42,8 +43,15 @@ class WalletTransactionResource extends JsonResource
             'metadata' => $this->metadata,
             'wallet' => new WalletResource($this->whenLoaded('wallet')),
             'user' => new UserResource($this->whenLoaded('user')),
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
+            'created_at' => $this->formatDateTime($this->created_at),
+            'updated_at' => $this->formatDateTime($this->updated_at),
         ];
+    }
+
+    private function formatDateTime(?CarbonInterface $date): ?string
+    {
+        return $date?->copy()
+            ->timezone(config('app.timezone', 'Asia/Tashkent'))
+            ->format('Y-m-d H:i:s');
     }
 }

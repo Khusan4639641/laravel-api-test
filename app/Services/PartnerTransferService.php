@@ -6,6 +6,7 @@ use App\Models\PartnerTransfer;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Models\WalletTransaction;
+use App\Notifications\PartnerTransferCompletedNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -30,13 +31,13 @@ class PartnerTransferService
 
         if (bccomp($amount, '0', 2) <= 0) {
             throw ValidationException::withMessages([
-                'amount' => 'Сумма перевода должна быть больше нуля',
+                'amount' => 'Сумма перевода должна быть больше нуля.',
             ]);
         }
 
         if ((int) $sender->id === $recipientUserId) {
             throw ValidationException::withMessages([
-                'recipient_user_id' => 'Нельзя переводить средства самому себе',
+                'recipient_user_id' => 'Нельзя переводить средства самому себе.',
             ]);
         }
 
@@ -84,13 +85,13 @@ class PartnerTransferService
 
             if (! $senderWallet || ! $recipientWallet) {
                 throw ValidationException::withMessages([
-                    'wallet' => 'Кошелек недоступен',
+                    'wallet' => 'Кошелек недоступен.',
                 ]);
             }
 
             if (bccomp((string) $senderWallet->balance, $amount, 2) < 0) {
                 throw ValidationException::withMessages([
-                    'amount' => 'Недостаточно средств',
+                    'amount' => 'Недостаточно средств для перевода.',
                 ]);
             }
 
@@ -146,7 +147,12 @@ class PartnerTransferService
                 'recipient_transaction_id' => $recipientTransaction->id,
             ])->save();
 
-            return $transfer->refresh()->load(['sender', 'recipient', 'senderTransaction', 'recipientTransaction']);
+            $transfer = $transfer->refresh()->load(['sender', 'recipient', 'senderTransaction', 'recipientTransaction']);
+
+            $lockedSender->notify(new PartnerTransferCompletedNotification($transfer, 'outgoing'));
+            $recipient->notify(new PartnerTransferCompletedNotification($transfer, 'incoming'));
+
+            return $transfer;
         });
     }
 
@@ -164,13 +170,13 @@ class PartnerTransferService
 
         if (! $recipient) {
             throw ValidationException::withMessages([
-                'recipient_user_id' => 'Получатель не найден',
+                'recipient_user_id' => 'Партнёр не найден.',
             ]);
         }
 
         if ($recipient->trashed() || $recipient->account_status !== 'active' || $recipient->role !== User::ROLE_USER) {
             throw ValidationException::withMessages([
-                'recipient_user_id' => 'Получатель недоступен для перевода',
+                'recipient_user_id' => 'Партнёр недоступен для перевода.',
             ]);
         }
 

@@ -57,6 +57,8 @@ class UserResource extends JsonResource
             'can_invite' => (bool) $canInvite,
             'referral_links_available' => (bool) $canInvite,
             'email' => $this->email,
+            'first_name' => $this->resource->relationLoaded('profile') ? $this->profile?->first_name : null,
+            'last_name' => $this->resource->relationLoaded('profile') ? $this->profile?->last_name : null,
             'phone' => $this->resource->relationLoaded('profile') ? $this->profile?->phone : null,
             'city' => $this->resource->relationLoaded('profile') ? $this->profile?->city : null,
             'role' => $this->role,

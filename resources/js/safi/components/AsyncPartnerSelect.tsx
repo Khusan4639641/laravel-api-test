@@ -94,7 +94,7 @@ export default function AsyncPartnerSelect({ value, onChange, disabled = false }
           type="text"
           value={query}
           disabled={disabled}
-          placeholder="Выберите партнёра"
+          placeholder="Поиск по ID, имени, login, email или телефону"
           onFocus={() => {
             if (query.trim().length >= 2) {
               setIsOpen(true);
@@ -147,10 +147,10 @@ export default function AsyncPartnerSelect({ value, onChange, disabled = false }
               className="w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-safi-cream"
             >
               <span className="block text-sm font-extrabold text-safi-green">
-                {partner.name} · ID {partner.id}
+                #{partner.id} — {partner.name}
               </span>
               <span className="mt-1 block text-xs font-bold text-safi-muted">
-                {[partner.phone, partner.email].filter(Boolean).join(' · ') || partner.login || 'Партнёр Safi'}
+                {[partner.login && `login: ${partner.login}`, partner.email, partner.phone].filter(Boolean).join(' · ') || 'Партнёр Safi'}
               </span>
             </button>
           ))}
@@ -161,5 +161,5 @@ export default function AsyncPartnerSelect({ value, onChange, disabled = false }
 }
 
 function partnerLabel(partner: TransferPartner) {
-  return `${partner.name} · ID ${partner.id}`;
+  return `#${partner.id} — ${partner.name}`;
 }

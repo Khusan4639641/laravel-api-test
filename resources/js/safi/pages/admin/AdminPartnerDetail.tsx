@@ -46,6 +46,7 @@ import {
   recalculateAdminPartnerBinaryBonus,
   saveAdminPartnerNote,
   unblockAdminPartner,
+  updateAdminPartnerIdentity,
   unwrapRecord,
 } from '../../lib/api';
 import { formatPv } from '../../lib/format';
@@ -56,6 +57,8 @@ interface PartnerDetail {
   id: string;
   login: string;
   fullName: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   email: string;
   avatarUrl: string;
@@ -105,6 +108,8 @@ const partnerDefaults: PartnerDetail = {
   id: '',
   login: '',
   fullName: '-',
+  firstName: '',
+  lastName: '',
   phone: '-',
   email: '-',
   avatarUrl: '',
@@ -162,6 +167,7 @@ export default function AdminPartnerDetail() {
   const [actionLoading, setActionLoading] = useState('');
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [identityModalOpen, setIdentityModalOpen] = useState(false);
   const [balanceModalOpen, setBalanceModalOpen] = useState(false);
   const [packageModalOpen, setPackageModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
@@ -174,6 +180,8 @@ export default function AdminPartnerDetail() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [passwordForm, setPasswordForm] = useState({ password: '', password_confirmation: '' });
   const [passwordErrors, setPasswordErrors] = useState<Record<string, string[]>>({});
+  const [identityForm, setIdentityForm] = useState({ first_name: '', last_name: '', phone: '', email: '' });
+  const [identityErrors, setIdentityErrors] = useState<Record<string, string[]>>({});
   const [balanceForm, setBalanceForm] = useState<{ mode: 'set' | 'adjust'; amount: string; comment: string }>({ mode: 'set', amount: '', comment: '' });
   const [balanceErrors, setBalanceErrors] = useState<Record<string, string[]>>({});
   const [credentials, setCredentials] = useState<Credentials | null>(null);
@@ -185,6 +193,7 @@ export default function AdminPartnerDetail() {
   const canCalculateBinary = ['admin', 'super_admin'].includes(currentUser.role.toLowerCase());
   const canUpdateBalance = currentUser.role.toLowerCase() === 'super_admin';
   const canDeletePartner = currentUser.role.toLowerCase() === 'super_admin';
+  const canUpdateIdentity = currentUser.role.toLowerCase() === 'super_admin';
 
   const weakBranch = useMemo(() => (partner.leftPV < partner.rightPV ? adminText('a_0JvQtdCy0LDR') : adminText('a_0J_RgNCw0LLQ')), [partner.leftPV, partner.rightPV]);
 
@@ -276,6 +285,39 @@ export default function AdminPartnerDetail() {
         showToast(caughtError.message, 'error');
       } else {
         showToast(adminText('a_0J3QtSDRg9C0_10'), 'error');
+      }
+    } finally {
+      setActionLoading('');
+    }
+  };
+
+  const openIdentityModal = () => {
+    setIdentityForm({
+      first_name: partner.firstName,
+      last_name: partner.lastName,
+      phone: partner.phone === '-' ? '' : partner.phone,
+      email: partner.email === '-' ? '' : partner.email,
+    });
+    setIdentityErrors({});
+    setIdentityModalOpen(true);
+  };
+
+  const submitIdentity = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setActionLoading('identity');
+    setIdentityErrors({});
+
+    try {
+      await updateAdminPartnerIdentity(partner.id, identityForm);
+      setIdentityModalOpen(false);
+      showToast('Данные пользователя обновлены.');
+      await refreshPartnerAfterAction();
+    } catch (caughtError) {
+      if (caughtError instanceof ApiError) {
+        setIdentityErrors(caughtError.errors || {});
+        showToast(caughtError.message, 'error');
+      } else {
+        showToast('Не удалось обновить данные пользователя.', 'error');
       }
     } finally {
       setActionLoading('');
@@ -497,6 +539,16 @@ export default function AdminPartnerDetail() {
     setCredentials(null);
   };
 
+  const closeIdentityModal = () => {
+    if (actionLoading === 'identity') {
+      return;
+    }
+
+    setIdentityModalOpen(false);
+    setIdentityForm({ first_name: '', last_name: '', phone: '', email: '' });
+    setIdentityErrors({});
+  };
+
   const closeBalanceModal = () => {
     if (actionLoading === 'balance') {
       return;
@@ -527,6 +579,17 @@ export default function AdminPartnerDetail() {
         </div>
 
         <div className="flex flex-wrap gap-2">
+          {canUpdateIdentity && (
+            <button
+              type="button"
+              onClick={openIdentityModal}
+              disabled={!partner.id || isLoading || actionLoading === 'identity'}
+              className="flex cursor-pointer items-center gap-2 rounded-xl bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <Edit className="w-4 h-4" />
+              {actionLoading === 'identity' ? 'Сохранение...' : 'Редактировать данные'}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setPasswordModalOpen(true)}
@@ -743,6 +806,60 @@ export default function AdminPartnerDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {identityModalOpen && (
+        <Modal title="Редактировать пользователя" onClose={closeIdentityModal}>
+          <form className="space-y-5" onSubmit={submitIdentity}>
+            <div className="grid gap-4 md:grid-cols-2">
+              <FormField label="Имя" error={identityErrors.first_name?.[0]}>
+                <input
+                  type="text"
+                  value={identityForm.first_name}
+                  onChange={(event) => setIdentityForm((current) => ({ ...current, first_name: event.target.value }))}
+                  className={inputClass}
+                  disabled={actionLoading === 'identity'}
+                />
+              </FormField>
+              <FormField label="Фамилия" error={identityErrors.last_name?.[0]}>
+                <input
+                  type="text"
+                  value={identityForm.last_name}
+                  onChange={(event) => setIdentityForm((current) => ({ ...current, last_name: event.target.value }))}
+                  className={inputClass}
+                  disabled={actionLoading === 'identity'}
+                />
+              </FormField>
+            </div>
+            <FormField label="Телефон" error={identityErrors.phone?.[0]}>
+              <input
+                type="tel"
+                value={identityForm.phone}
+                onChange={(event) => setIdentityForm((current) => ({ ...current, phone: event.target.value }))}
+                className={inputClass}
+                disabled={actionLoading === 'identity'}
+                required
+              />
+            </FormField>
+            <FormField label="Email" error={identityErrors.email?.[0]}>
+              <input
+                type="email"
+                value={identityForm.email}
+                onChange={(event) => setIdentityForm((current) => ({ ...current, email: event.target.value }))}
+                className={inputClass}
+                disabled={actionLoading === 'identity'}
+                required
+              />
+            </FormField>
+            <button
+              type="submit"
+              disabled={actionLoading === 'identity'}
+              className="w-full cursor-pointer rounded-xl bg-safi-green px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {actionLoading === 'identity' ? 'Сохранение...' : 'Сохранить'}
+            </button>
+          </form>
+        </Modal>
       )}
 
       {passwordModalOpen && (
@@ -1156,6 +1273,15 @@ function initials(name: string) {
     .join('') || 'S';
 }
 
+function splitName(name: string) {
+  const parts = name === '-' ? [] : name.split(/\s+/).filter(Boolean);
+
+  return {
+    firstName: parts[0] || '',
+    lastName: parts.slice(1).join(' '),
+  };
+}
+
 function normalizePartner(response: unknown, fallbackId: string): PartnerDetail {
   const user = unwrapRecord(response, ['user']);
   const profile = isRecord(user.profile) ? user.profile : {};
@@ -1189,11 +1315,20 @@ function normalizePartner(response: unknown, fallbackId: string): PartnerDetail 
   const packageStatus = getPartnerPackageStatus(user, rawPackageCode);
   const packageCode = packageStatus === 'active' ? rawPackageCode : '';
   const statusCode = getString(user, ['status']) || 'user';
+  const fullName = getString(user, ['name']) || '-';
+  const firstName = getString(user, ['first_name', 'firstName'])
+    || getString(profile, ['first_name', 'firstName'])
+    || splitName(fullName).firstName;
+  const lastName = getString(user, ['last_name', 'lastName'])
+    || getString(profile, ['last_name', 'lastName'])
+    || splitName(fullName).lastName;
 
   return {
     id: getString(user, ['id']) || fallbackId,
     login: getString(user, ['login']) || fallbackId,
-    fullName: getString(user, ['name']) || '-',
+    fullName,
+    firstName,
+    lastName,
     phone: getString(user, ['phone']) || getString(profile, ['phone']) || '-',
     email: getString(user, ['email']) || '-',
     avatarUrl: getString(user, ['avatar_url', 'avatarUrl']) || getString(profile, ['avatar_url', 'avatarUrl']) || '',

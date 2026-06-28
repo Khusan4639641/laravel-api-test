@@ -62,6 +62,35 @@ class DashboardStructurePartnersListTest extends TestCase
         $this->assertSame(2, $partners->firstWhere('id', $leftChild->id)['line']);
     }
 
+    public function test_user_can_fetch_own_dashboard_tree_with_descendants(): void
+    {
+        $service = app(BinaryTreeService::class);
+        $root = $this->partner('Tree Root', 'tree_root');
+        $left = $this->partner('Tree Left', 'tree_left', $root);
+        $right = $this->partner('Tree Right', 'tree_right', $root);
+        $leftGrandchild = $this->partner('Tree Left Grandchild', 'tree_left_grandchild', $left);
+
+        $service->placeUser($root, null);
+        $service->placeUser($left, $root, 'L');
+        $service->placeUser($right, $root, 'R');
+        $service->placeUser($leftGrandchild, $left, 'L');
+
+        Sanctum::actingAs($root);
+
+        $this->getJson('/api/dashboard/structure')
+            ->assertOk()
+            ->assertJsonPath('tree.id', $root->id)
+            ->assertJsonPath('tree.is_root', true)
+            ->assertJsonPath('tree.children.left.id', $left->id)
+            ->assertJsonPath('tree.children.right.id', $right->id)
+            ->assertJsonPath('tree.children.left.children.left.id', $leftGrandchild->id)
+            ->assertJsonPath('tree.children.left.line', 1)
+            ->assertJsonPath('tree.children.left.children.left.line', 2)
+            ->assertJsonPath('tree.children.left.package_code', 'START')
+            ->assertJsonPath('tree.children.left.left_pv', '100.00')
+            ->assertJsonPath('tree.children.left.right_pv', '0.00');
+    }
+
     public function test_total_partners_is_consistent_with_returned_partners(): void
     {
         $service = app(BinaryTreeService::class);
@@ -101,6 +130,79 @@ class DashboardStructurePartnersListTest extends TestCase
 
         $this->assertTrue($ids->contains($partnerA->id));
         $this->assertFalse($ids->contains($partnerB->id));
+    }
+
+    public function test_user_cannot_switch_to_foreign_structure_with_query_parameters(): void
+    {
+        $service = app(BinaryTreeService::class);
+        $rootA = $this->partner('Root A Query', 'root_a_query');
+        $rootB = $this->partner('Root B Query', 'root_b_query');
+        $partnerA = $this->partner('Partner A Query', 'partner_a_query', $rootA);
+        $partnerB = $this->partner('Partner B Query', 'partner_b_query', $rootB);
+
+        $service->placeUser($rootA, null);
+        $service->placeUser($rootB, null);
+        $service->placeUser($partnerA, $rootA, 'L');
+        $service->placeUser($partnerB, $rootB, 'L');
+
+        Sanctum::actingAs($rootA);
+
+        $response = $this->getJson("/api/dashboard/structure?root_id={$rootB->id}&user_id={$rootB->id}")
+            ->assertOk()
+            ->assertJsonPath('structure.root_user_id', $rootA->id)
+            ->assertJsonPath('summary.total_partners', 1);
+
+        $ids = collect($response->json('partners.data'))->pluck('id');
+
+        $this->assertTrue($ids->contains($partnerA->id));
+        $this->assertFalse($ids->contains($partnerB->id));
+        $this->assertFalse($ids->contains($rootB->id));
+
+        $treeIds = $this->treeIds($response->json('tree'));
+
+        $this->assertContains($rootA->id, $treeIds);
+        $this->assertContains($partnerA->id, $treeIds);
+        $this->assertNotContains($rootB->id, $treeIds);
+        $this->assertNotContains($partnerB->id, $treeIds);
+    }
+
+    public function test_user_cannot_switch_to_parent_structure_with_query_parameters(): void
+    {
+        $service = app(BinaryTreeService::class);
+        $root = $this->partner('Parent Root', 'parent_root_query');
+        $child = $this->partner('Child Root', 'child_root_query', $root);
+        $sibling = $this->partner('Sibling Partner', 'sibling_query', $root);
+        $grandchild = $this->partner('Grandchild Partner', 'grandchild_query', $child);
+
+        $service->placeUser($root, null);
+        $service->placeUser($child, $root, 'L');
+        $service->placeUser($sibling, $root, 'R');
+        $service->placeUser($grandchild, $child, 'L');
+
+        Sanctum::actingAs($child);
+
+        $response = $this->getJson("/api/dashboard/structure?root_id={$root->id}")
+            ->assertOk()
+            ->assertJsonPath('structure.root_user_id', $child->id)
+            ->assertJsonPath('summary.total_partners', 1);
+
+        $ids = collect($response->json('partners.data'))->pluck('id');
+
+        $this->assertTrue($ids->contains($grandchild->id));
+        $this->assertFalse($ids->contains($root->id));
+        $this->assertFalse($ids->contains($sibling->id));
+
+        $treeIds = $this->treeIds($response->json('tree'));
+
+        $this->assertContains($child->id, $treeIds);
+        $this->assertContains($grandchild->id, $treeIds);
+        $this->assertNotContains($root->id, $treeIds);
+        $this->assertNotContains($sibling->id, $treeIds);
+    }
+
+    public function test_guest_cannot_access_dashboard_structure_tree(): void
+    {
+        $this->getJson('/api/dashboard/structure')->assertUnauthorized();
     }
 
     public function test_empty_state_is_only_for_user_without_partners(): void
@@ -155,5 +257,24 @@ class DashboardStructurePartnersListTest extends TestCase
         ]);
 
         return $user;
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    private function treeIds(mixed $node): array
+    {
+        if (! is_array($node)) {
+            return [];
+        }
+
+        $ids = isset($node['id']) ? [(int) $node['id']] : [];
+        $children = is_array($node['children'] ?? null) ? $node['children'] : [];
+
+        return [
+            ...$ids,
+            ...$this->treeIds($children['left'] ?? null),
+            ...$this->treeIds($children['right'] ?? null),
+        ];
     }
 }

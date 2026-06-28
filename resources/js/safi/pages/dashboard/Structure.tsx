@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, Filter, Search, Users } from 'lucide-react';
+import { Filter, Network, Search, Users } from 'lucide-react';
 import { Badge, StatCard } from '../../components/dashboard/ui';
-import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
+import { useDashboardContext, type DashboardCurrentUser } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { getApiErrorState, getArray, getDashboardStructure, getNumber, getString } from '../../lib/api';
 import { mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
-import { buildReferralBranchUrl, type ReferralBranch } from '../../lib/referrals';
-import { cn } from '../../lib/utils';
 import { getPartnerPackageStatus, partnerPackageStatusLabel, type PartnerPackageStatus } from '../../lib/partnerStatus';
+import { StructureTreeCanvas } from '../../components/structure/StructureTreeCanvas';
 
 type BranchFilter = 'all' | 'left' | 'right';
 type PaginationItem = number | 'ellipsis';
@@ -30,6 +29,30 @@ interface StructurePartnerRow {
   teamPV: number;
   activity: string;
   createdAt: string;
+}
+
+interface StructureTreeNode {
+  id: string;
+  userId: string;
+  name: string;
+  login: string;
+  line: number;
+  branch: string | null;
+  packageCode: string;
+  packageName: string;
+  packageStatus: PartnerPackageStatus;
+  packageStatusLabel: string;
+  status: string;
+  personalPV: number;
+  leftPV: number;
+  rightPV: number;
+  leftBranchPV: number;
+  rightBranchPV: number;
+  teamPV: number;
+  children: {
+    left: StructureTreeNode | null;
+    right: StructureTreeNode | null;
+  };
 }
 
 interface PartnersMeta {
@@ -63,12 +86,9 @@ export default function Structure() {
   const [error, setError] = useState<string | null>(null);
   const [structure, setStructure] = useState({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
   const [partners, setPartners] = useState<StructurePartnerRow[]>([]);
+  const [treeRoot, setTreeRoot] = useState<StructureTreeNode | null>(null);
   const [partnersMeta, setPartnersMeta] = useState<PartnersMeta>(defaultPartnersMeta);
-  const [canInvite, setCanInvite] = useState(currentUser.canInvite);
-  const [referralLinks, setReferralLinks] = useState<Record<ReferralBranch, string>>({
-    left: currentUser.canInvite ? buildReferralBranchUrl(currentUser.referralCode, 'left') : '',
-    right: currentUser.canInvite ? buildReferralBranchUrl(currentUser.referralCode, 'right') : '',
-  });
+  const [isTreeVisible, setIsTreeVisible] = useState(false);
 
   const loadStructure = useCallback(async () => {
     setIsPartnersLoading(true);
@@ -84,12 +104,6 @@ export default function Structure() {
       const record = response && typeof response === 'object' ? response as Record<string, unknown> : {};
       const summaryRecord = record.summary && typeof record.summary === 'object' ? record.summary as Record<string, unknown> : {};
       const structureRecord = record.structure && typeof record.structure === 'object' ? record.structure as Record<string, unknown> : summaryRecord;
-      const referralLinksRecord = record.referral_links && typeof record.referral_links === 'object' ? record.referral_links as Record<string, unknown> : {};
-      const inviteAvailable = typeof record.can_invite === 'boolean'
-        ? record.can_invite
-        : typeof structureRecord.can_invite === 'boolean'
-          ? structureRecord.can_invite
-          : currentUser.canInvite;
       const list = getStructurePartners(record).map((item, index) => {
         const node = item && typeof item === 'object' ? item as Record<string, unknown> : {};
         const nestedUser = node.user && typeof node.user === 'object' ? node.user as Record<string, unknown> : null;
@@ -147,14 +161,9 @@ export default function Structure() {
       });
       setPartners(list);
       setPartnersMeta(getPartnersMeta(record));
-      setCanInvite(inviteAvailable);
-      setReferralLinks({
-        left: inviteAvailable ? (getString(referralLinksRecord, ['left']) || buildReferralBranchUrl(currentUser.referralCode, 'left')) : '',
-        right: inviteAvailable ? (getString(referralLinksRecord, ['right']) || buildReferralBranchUrl(currentUser.referralCode, 'right')) : '',
-      });
       const leftPV = getNumber(structureRecord, ['left_pv', 'leftPV', 'left_branch_pv', 'leftBranchPv']) ?? 0;
       const rightPV = getNumber(structureRecord, ['right_pv', 'rightPV', 'right_branch_pv', 'rightBranchPv']) ?? 0;
-      setStructure({
+      const nextStructure = {
         totalPartners: getNumber(structureRecord, ['total_partners']) ?? list.length,
         leftPartners: getNumber(structureRecord, ['left_count', 'left_partners']) ?? list.filter((partner) => partner.branch === 'Левая ветка').length,
         rightPartners: getNumber(structureRecord, ['right_count', 'right_partners']) ?? list.filter((partner) => partner.branch === 'Правая ветка').length,
@@ -163,19 +172,35 @@ export default function Structure() {
         weakLegPV: getNumber(structureRecord, ['weak_leg_pv', 'weakLegPv', 'weak_leg_branch_pv', 'weakLegBranchPv'])
           ?? Math.min(leftPV, rightPV),
         weakLeg: getString(structureRecord, ['weak_leg']) || 'left',
-      });
+      };
+      setStructure(nextStructure);
+      setTreeRoot(normalizeTreeNode(record.tree) ?? currentUserTreeRoot(currentUser, nextStructure));
     } catch (caughtError) {
       setPartners([]);
+      setTreeRoot(null);
       setPartnersMeta(defaultPartnersMeta);
       setStructure({ totalPartners: 0, leftPartners: 0, rightPartners: 0, leftPV: 0, rightPV: 0, weakLegPV: 0, weakLeg: 'left' });
-      setCanInvite(false);
-      setReferralLinks({ left: '', right: '' });
       setError(getApiErrorState(caughtError).error);
     } finally {
       setIsLoading(false);
       setIsPartnersLoading(false);
     }
-  }, [branchFilter, currentUser.canInvite, currentUser.referralCode, page, perPage, searchTerm]);
+  }, [
+    branchFilter,
+    currentUser.id,
+    currentUser.login,
+    currentUser.name,
+    currentUser.packageCode,
+    currentUser.packageName,
+    currentUser.packageStatus,
+    currentUser.packageStatusLabel,
+    currentUser.partnerId,
+    currentUser.personalPV,
+    currentUser.status,
+    page,
+    perPage,
+    searchTerm,
+  ]);
 
   useEffect(() => {
     void loadStructure();
@@ -212,7 +237,7 @@ export default function Structure() {
             <span className="safi-kicker">Structure</span>
             <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Моя структура</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-              Бинарная структура, реферальный код и список партнеров.
+              Бинарная структура и список партнеров.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -238,37 +263,6 @@ export default function Structure() {
         <StatCard title="Малая ветка PV" value={`${structure.weakLegPV.toLocaleString('ru-RU')} PV`} />
         <BranchCard title="Левая ветка" partners={structure.leftPartners} pv={structure.leftPV} branch="л" weak={structure.weakLeg === 'left'} />
         <BranchCard title="Правая ветка" partners={structure.rightPartners} pv={structure.rightPV} branch="п" weak={structure.weakLeg === 'right'} />
-      </section>
-
-      <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
-        <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-          <h2 className="font-serif text-3xl font-semibold text-safi-green">Реферальные ссылки</h2>
-          <div className="mt-6 space-y-4">
-            <ReferralBox label="Левая ветка" link={canInvite ? referralLinks.left : ''} />
-            <ReferralBox label="Правая ветка" link={canInvite ? referralLinks.right : ''} />
-          </div>
-        </article>
-
-        <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-          <h2 className="font-serif text-3xl font-semibold text-safi-green">Бинарное дерево</h2>
-          <div className="mt-6 rounded-[28px] border border-dashed border-safi-border bg-safi-cream p-6">
-            <div className="mx-auto max-w-lg">
-              <Node
-                name={currentUser.name}
-                label={currentUser.partnerId}
-                root
-                personalPV={currentUser.personalPV}
-                leftPV={structure.leftPV}
-                rightPV={structure.rightPV}
-              />
-              <div className="mx-auto h-8 w-px bg-safi-border" />
-              <div className="grid grid-cols-2 gap-5">
-                <Node name="Левая ветка" label={`${structure.leftPartners} партнеров`} branchPVLabel="Л" branchPV={structure.leftPV} />
-                <Node name="Правая ветка" label={`${structure.rightPartners} партнеров`} branchPVLabel="П" branchPV={structure.rightPV} />
-              </div>
-            </div>
-          </div>
-        </article>
       </section>
 
       <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -482,10 +476,120 @@ export default function Structure() {
           </div>
         </div>
       </section>
+
+      <section className="min-w-0 rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <h2 className="font-serif text-3xl font-semibold text-safi-green">Бинарное дерево</h2>
+          <button
+            type="button"
+            onClick={() => setIsTreeVisible((visible) => !visible)}
+            className="inline-flex items-center justify-center gap-2 rounded-full border border-safi-green bg-safi-green px-5 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-white transition-colors hover:bg-white hover:text-safi-green"
+            aria-expanded={isTreeVisible}
+          >
+            <Network className="h-4 w-4" />
+            {isTreeVisible ? 'Скрыть дерево' : 'Показать дерево'}
+          </button>
+        </div>
+        {isTreeVisible && <DashboardStructureTree root={treeRoot} totalPartners={structure.totalPartners} />}
+      </section>
         </>
       )}
     </div>
   );
+}
+
+function DashboardStructureTree({ root, totalPartners }: { root: StructureTreeNode | null; totalPartners: number }) {
+  return (
+    <div className="mt-6 space-y-4">
+      <StructureTreeCanvas
+        rootNode={root}
+        framed={false}
+        storageKey="safi_dashboard_structure_view_settings"
+        emptyMessage="В вашей структуре пока нет нижестоящих партнёров."
+      />
+      <div className="text-xs font-bold text-safi-muted">
+        В дереве показан текущий пользователь и нижестоящие партнёры: {totalPartners.toLocaleString('ru-RU')}.
+      </div>
+    </div>
+  );
+}
+
+function normalizeTreeNode(value: unknown): StructureTreeNode | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const packageRecord = record.package && typeof record.package === 'object' && !Array.isArray(record.package)
+    ? record.package as Record<string, unknown>
+    : {};
+  const childrenRecord = record.children && typeof record.children === 'object' && !Array.isArray(record.children)
+    ? record.children as Record<string, unknown>
+    : {};
+  const rawPackageCode = getString(record, ['package_code', 'packageCode'])
+    || (typeof record.package === 'string' ? record.package : '')
+    || getString(packageRecord, ['code', 'slug', 'id'])
+    || '';
+  const packageStatus = getPartnerPackageStatus(record, rawPackageCode);
+  const leftPV = getNumber(record, ['left_pv', 'leftPV', 'left_branch_pv', 'leftBranchPv']) ?? 0;
+  const rightPV = getNumber(record, ['right_pv', 'rightPV', 'right_branch_pv', 'rightBranchPv']) ?? 0;
+
+  return {
+    id: getString(record, ['id', 'user_id', 'userId']) || '-',
+    userId: getString(record, ['user_id', 'userId', 'id']) || '-',
+    name: getString(record, ['name']) || 'Партнёр',
+    login: getString(record, ['login']) || '',
+    line: getNumber(record, ['line', 'level', 'depth']) ?? 0,
+    branch: getString(record, ['branch', 'position']) || null,
+    packageCode: rawPackageCode,
+    packageName: packageStatus === 'active'
+      ? packageLabel(rawPackageCode, getString(record, ['package_label', 'packageLabel', 'package_name', 'packageName']) || getString(packageRecord, ['name', 'label']) || '-')
+      : '-',
+    packageStatus,
+    packageStatusLabel: getString(record, ['package_status_label', 'packageStatusLabel']) || partnerPackageStatusLabel(packageStatus),
+    status: packageStatus === 'active'
+      ? mlmStatusLabel(getString(record, ['status']), getString(record, ['status_label', 'statusLabel']) || '-')
+      : 'Неактивен',
+    personalPV: getNumber(record, ['personal_pv', 'personalPV', 'package_pv', 'packagePv', 'package_activity_pv', 'packageActivityPv']) ?? 0,
+    leftPV,
+    rightPV,
+    leftBranchPV: leftPV,
+    rightBranchPV: rightPV,
+    teamPV: getNumber(record, ['team_pv', 'teamPV']) ?? leftPV + rightPV,
+    children: {
+      left: normalizeTreeNode(childrenRecord.left),
+      right: normalizeTreeNode(childrenRecord.right),
+    },
+  };
+}
+
+function currentUserTreeRoot(
+  currentUser: DashboardCurrentUser,
+  structure: { leftPV: number; rightPV: number },
+): StructureTreeNode {
+  return {
+    id: String(currentUser.id || currentUser.partnerId || '-'),
+    userId: String(currentUser.id || currentUser.partnerId || '-'),
+    name: currentUser.name,
+    login: currentUser.login || currentUser.partnerId,
+    line: 0,
+    branch: null,
+    packageCode: currentUser.packageCode || '',
+    packageName: currentUser.packageName,
+    packageStatus: currentUser.packageStatus,
+    packageStatusLabel: currentUser.packageStatusLabel,
+    status: currentUser.status,
+    personalPV: currentUser.personalPV,
+    leftPV: structure.leftPV,
+    rightPV: structure.rightPV,
+    leftBranchPV: structure.leftPV,
+    rightBranchPV: structure.rightPV,
+    teamPV: structure.leftPV + structure.rightPV,
+    children: {
+      left: null,
+      right: null,
+    },
+  };
 }
 
 function branchLabel(branch?: string) {
@@ -581,7 +685,7 @@ function BranchCard({ title, partners, pv, branch, weak }: { title: string; part
     <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{title}</div>
-        {weak && <Badge variant="warning">Слабая</Badge>}
+        {weak && <Badge variant="warning">Малая</Badge>}
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -594,78 +698,6 @@ function BranchCard({ title, partners, pv, branch, weak }: { title: string; part
         </div>
       </div>
     </article>
-  );
-}
-
-function ReferralBox({ label, link }: { label: string; link: string }) {
-  return (
-    <div className="rounded-3xl border border-safi-border bg-safi-cream p-5">
-      <div className="mb-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>
-      {link ? (
-        <>
-          <div className="truncate font-mono text-xs text-safi-green">{link}</div>
-          <button
-            type="button"
-            onClick={() => navigator.clipboard.writeText(link)}
-            className="mt-4 inline-flex items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:text-safi-green"
-          >
-            <Copy className="h-4 w-4" />
-            Копировать
-          </button>
-        </>
-      ) : (
-        <div className="text-xs leading-5 text-safi-muted">Реферальные ссылки станут доступны после активации пакета.</div>
-      )}
-    </div>
-  );
-}
-
-function Node({
-  name,
-  label,
-  root = false,
-  personalPV,
-  leftPV,
-  rightPV,
-  branchPV,
-  branchPVLabel,
-}: {
-  name: string;
-  label: string;
-  root?: boolean;
-  personalPV?: number;
-  leftPV?: number;
-  rightPV?: number;
-  branchPV?: number;
-  branchPVLabel?: 'Л' | 'П';
-}) {
-  const hasBranchPair = typeof leftPV === 'number' && typeof rightPV === 'number';
-
-  return (
-    <div className={`rounded-3xl border p-5 text-center ${root ? 'border-safi-green bg-safi-green text-white' : 'border-safi-border bg-white text-safi-green'}`}>
-      <div className={`font-serif text-xl font-semibold ${root ? 'text-white' : 'text-safi-green'}`}>{name}</div>
-      <div className={`mt-2 text-[10px] font-extrabold uppercase tracking-[0.14em] ${root ? 'text-white/70' : 'text-safi-muted'}`}>{label}</div>
-      {typeof personalPV === 'number' && (
-        <div className={`mt-3 text-xs font-extrabold ${root ? 'text-safi-gold' : 'text-safi-gold'}`}>
-          PV: {personalPV.toLocaleString('ru-RU')}
-        </div>
-      )}
-      {hasBranchPair && (
-        <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-extrabold">
-          <span className={cn('whitespace-nowrap rounded-full px-2 py-1', root ? 'bg-white/12 text-white' : 'bg-safi-cream text-safi-green')} title="Левая ветка PV" aria-label="Левая ветка PV">
-            {formatBranchPv('л', leftPV)}
-          </span>
-          <span className={cn('whitespace-nowrap rounded-full px-2 py-1', root ? 'bg-white/12 text-white' : 'bg-safi-cream text-safi-green')} title="Правая ветка PV" aria-label="Правая ветка PV">
-            {formatBranchPv('п', rightPV)}
-          </span>
-        </div>
-      )}
-      {typeof branchPV === 'number' && branchPVLabel && (
-        <div className="mt-3 whitespace-nowrap rounded-full bg-safi-cream px-2 py-1 text-[10px] font-extrabold text-safi-green" title={branchPVLabel === 'Л' ? 'Левая ветка PV' : 'Правая ветка PV'} aria-label={branchPVLabel === 'Л' ? 'Левая ветка PV' : 'Правая ветка PV'}>
-          {formatBranchPv(branchPVLabel === 'Л' ? 'л' : 'п', branchPV)}
-        </div>
-      )}
-    </div>
   );
 }
 

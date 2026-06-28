@@ -194,12 +194,12 @@ export default function Overview() {
         <StatCard
           title="Левая ветка"
           value={`${structure.leftPV.toLocaleString('ru-RU')} PV`}
-          trend={{ value: structure.weakLeg === 'left' ? 'слабая' : 'активная', isPositive: structure.weakLeg !== 'left' }}
+          trend={{ value: structure.weakLeg === 'left' ? 'малая' : 'активная', isPositive: structure.weakLeg !== 'left' }}
         />
         <StatCard
           title="Правая ветка"
           value={`${structure.rightPV.toLocaleString('ru-RU')} PV`}
-          trend={{ value: structure.weakLeg === 'right' ? 'слабая' : 'активная', isPositive: structure.weakLeg !== 'right' }}
+          trend={{ value: structure.weakLeg === 'right' ? 'малая' : 'активная', isPositive: structure.weakLeg !== 'right' }}
         />
       </section>
 

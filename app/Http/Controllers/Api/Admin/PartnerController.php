@@ -154,6 +154,82 @@ class PartnerController extends Controller
         ]);
     }
 
+    public function identity(Request $request, User $user): JsonResponse
+    {
+        abort_unless($request->user()?->isSuperAdmin(), 403, 'Only super admin can update user identity.');
+
+        $validated = $request->validate([
+            'first_name' => ['nullable', 'string', 'max:255'],
+            'last_name' => ['nullable', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'max:50', $this->uniqueActivePhoneRule($user->id)],
+            'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->whereNull('deleted_at')->ignore($user->id)],
+        ]);
+
+        $profile = $user->profile()->first();
+        $firstName = trim((string) ($validated['first_name'] ?? ''));
+        $lastName = trim((string) ($validated['last_name'] ?? ''));
+        $fullName = trim("{$firstName} {$lastName}");
+
+        if ($fullName === '') {
+            throw ValidationException::withMessages([
+                'first_name' => ['Введите имя или фамилию.'],
+            ]);
+        }
+
+        $oldValues = [
+            'name' => $user->name,
+            'first_name' => $profile?->first_name,
+            'last_name' => $profile?->last_name,
+            'phone' => $profile?->phone,
+            'email' => $user->email,
+        ];
+
+        DB::transaction(function () use ($request, $user, $validated, $firstName, $lastName, $fullName, $oldValues): void {
+            $user->forceFill([
+                'name' => $fullName,
+                'email' => $validated['email'],
+            ])->save();
+
+            $user->profile()->updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'first_name' => $firstName,
+                    'last_name' => $lastName,
+                    'phone' => trim((string) $validated['phone']),
+                ],
+            );
+
+            $newValues = [
+                'name' => $fullName,
+                'first_name' => $firstName,
+                'last_name' => $lastName,
+                'phone' => trim((string) $validated['phone']),
+                'email' => $validated['email'],
+            ];
+
+            AdminActionLog::query()->create([
+                'admin_id' => $request->user()?->id,
+                'target_user_id' => $user->id,
+                'action' => 'user_identity_updated',
+                'reason' => null,
+                'metadata' => [
+                    'changed_fields' => collect($newValues)
+                        ->filter(fn ($value, string $key) => ($oldValues[$key] ?? null) !== $value)
+                        ->keys()
+                        ->values()
+                        ->all(),
+                    'old' => $oldValues,
+                    'new' => $newValues,
+                ],
+            ]);
+        });
+
+        return response()->json([
+            'message' => 'Данные пользователя обновлены.',
+            'user' => UserResource::make($this->loadPartner($user->refresh())),
+        ]);
+    }
+
     public function status(Request $request, User $user): JsonResponse
     {
         $validated = $request->validate([
