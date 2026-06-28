@@ -335,7 +335,7 @@ class BonusService
     /**
      * @return array{message: string, data: array<string, mixed>, bonus_transaction: ?BonusTransaction}
      */
-    public function recalculateBinaryBonus(User $user, User $admin, ?CarbonInterface $periodStart = null, ?CarbonInterface $periodEnd = null): array
+    public function recalculateBinaryBonus(User $user, ?User $admin, ?CarbonInterface $periodStart = null, ?CarbonInterface $periodEnd = null): array
     {
         return DB::transaction(function () use ($user, $admin, $periodStart, $periodEnd): array {
             $user = User::query()
@@ -405,7 +405,7 @@ class BonusService
                 'weak_leg_pv' => $preview['weak_leg_pv'],
                 'excluded_deleted_pv' => bcadd($preview['diagnostics']['left_excluded_deleted_pv'], $preview['diagnostics']['right_excluded_deleted_pv'], 2),
                 'excluded_non_bonusable_pv' => bcadd($preview['diagnostics']['left_excluded_non_bonusable_pv'], $preview['diagnostics']['right_excluded_non_bonusable_pv'], 2),
-                'recalculated_by_admin_id' => $admin->id,
+                'recalculated_by_admin_id' => $admin?->id,
                 'recalculated_at' => now()->toISOString(),
             ];
 
@@ -533,9 +533,9 @@ class BonusService
     }
 
     /**
-     * @return array{processed_count: int, recalculated_count: int, created_count: int, updated_count: int, skipped_count: int, failed_count: int, results: array<int, array<string, mixed>>}
+     * @return array{total_count: int, total: int, processed_count: int, processed: int, recalculated_count: int, created_count: int, updated_count: int, skipped_count: int, skipped: int, failed_count: int, failed: int, errors: array<int, array<string, mixed>>, results: array<int, array<string, mixed>>}
      */
-    public function recalculateBinaryBonusesForAllPartners(User $admin): array
+    public function recalculateBinaryBonusesForAllPartners(?User $admin, string $source = 'admin_api'): array
     {
         $processed = 0;
         $recalculated = 0;
@@ -543,13 +543,15 @@ class BonusService
         $updated = 0;
         $failed = 0;
         $results = [];
+        $errors = [];
         $total = User::query()
             ->where('role', User::ROLE_USER)
             ->activeMlm()
             ->count();
 
         Log::info('Binary recalculation all started', [
-            'admin_id' => $admin->id,
+            'source' => $source,
+            'admin_id' => $admin?->id,
             'total' => $total,
         ]);
 
@@ -557,7 +559,7 @@ class BonusService
             ->where('role', User::ROLE_USER)
             ->activeMlm()
             ->orderBy('id')
-            ->chunkById(100, function ($users) use ($admin, &$processed, &$recalculated, &$created, &$updated, &$failed, &$results): void {
+            ->chunkById(100, function ($users) use ($admin, $source, &$processed, &$recalculated, &$created, &$updated, &$failed, &$results, &$errors): void {
                 foreach ($users as $user) {
                     $processed++;
 
@@ -574,7 +576,8 @@ class BonusService
                         if ($bonusTransaction) {
                             $metadata = is_array($bonusTransaction->metadata) ? $bonusTransaction->metadata : [];
                             $metadata['bulk_recalculation'] = [
-                                'admin_id' => $admin->id,
+                                'source' => $source,
+                                'admin_id' => $admin?->id,
                                 'requested_at' => now()->toISOString(),
                             ];
                             $bonusTransaction->forceFill(['metadata' => $metadata])->save();
@@ -599,6 +602,7 @@ class BonusService
                     } catch (\Throwable $exception) {
                         report($exception);
                         Log::error('Binary recalculation partner failed', [
+                            'source' => $source,
                             'partner_id' => $user->id,
                             'message' => $exception->getMessage(),
                         ]);
@@ -612,36 +616,51 @@ class BonusService
                             'action' => 'failed',
                             'error' => $exception->getMessage(),
                         ];
+                        $errors[] = [
+                            'user_id' => $user->id,
+                            'message' => $exception->getMessage(),
+                        ];
                     }
                 }
             });
 
+        $skipped = max($processed - $recalculated - $failed, 0);
         $summary = [
+            'total_count' => $total,
+            'total' => $total,
             'processed_count' => $processed,
+            'processed' => $processed,
             'recalculated_count' => $recalculated,
             'created_count' => $created,
             'updated_count' => $updated,
-            'skipped_count' => max($processed - $recalculated - $failed, 0),
+            'skipped_count' => $skipped,
+            'skipped' => $skipped,
             'failed_count' => $failed,
+            'failed' => $failed,
+            'errors' => $errors,
             'results' => $results,
         ];
 
         Log::info('Binary recalculation all completed', [
-            'admin_id' => $admin->id,
+            'source' => $source,
+            'admin_id' => $admin?->id,
             'total' => $total,
             'processed' => $processed,
+            'skipped' => $skipped,
             'recalculated' => $recalculated,
             'failed' => $failed,
         ]);
 
-        $this->writeBinaryRecalculationAudit($admin, null, 'binary_recalculate_all', 'Mass binary recalculation completed', [
+        $this->writeBinaryRecalculationAudit($admin, null, $this->binaryRecalculationAllAuditAction($source), 'Mass binary recalculation completed', [
+            'source' => $source,
             'total' => $total,
             'processed_count' => $processed,
             'recalculated_count' => $recalculated,
             'created_count' => $created,
             'updated_count' => $updated,
-            'skipped_count' => $summary['skipped_count'],
+            'skipped_count' => $skipped,
             'failed_count' => $failed,
+            'errors' => $errors,
         ]);
 
         return $summary;
@@ -1326,15 +1345,24 @@ class BonusService
     /**
      * @param  array<string, mixed>  $metadata
      */
-    private function writeBinaryRecalculationAudit(User $admin, ?User $target, string $action, string $reason, array $metadata): void
+    private function writeBinaryRecalculationAudit(?User $admin, ?User $target, string $action, string $reason, array $metadata): void
     {
         AdminActionLog::query()->create([
-            'admin_id' => $admin->id,
+            'admin_id' => $admin?->id,
             'target_user_id' => $target?->id,
             'action' => $action,
             'reason' => $reason,
             'metadata' => $metadata,
         ]);
+    }
+
+    private function binaryRecalculationAllAuditAction(string $source): string
+    {
+        return match ($source) {
+            'scheduler' => 'binary_recalculate_all_scheduled',
+            'command' => 'binary_recalculate_all_command',
+            default => 'binary_recalculate_all',
+        };
     }
 
     /**
