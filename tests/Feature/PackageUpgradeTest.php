@@ -164,7 +164,7 @@ class PackageUpgradeTest extends TestCase
         ]);
         $this->assertDatabaseHas('bonus_transactions', [
             'user_id' => $user->id,
-            'bonus_type' => 'status',
+            'bonus_type' => 'status_bonus',
             'amount' => '250000.00',
         ]);
     }

@@ -424,7 +424,7 @@ class PartnerDeletionService
                     ->orWhere(function ($uplineBonusQuery) use ($affectedUplineIds): void {
                         $uplineBonusQuery
                             ->whereIn('user_id', $affectedUplineIds ?: [0])
-                            ->whereIn('bonus_type', ['binary', 'status', 'bonus_x2']);
+                            ->whereIn('bonus_type', ['binary', 'status', 'status_bonus', 'bonus_x2']);
                     });
             })
             ->orderBy('id')

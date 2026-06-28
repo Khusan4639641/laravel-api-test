@@ -237,10 +237,23 @@ class PartnerController extends Controller
             'apply_bonus_effects' => ['sometimes', 'boolean'],
         ]);
 
+        $oldStatus = (string) $user->status;
         $user->forceFill(['status' => $validated['status']])->save();
 
-        if ($request->boolean('apply_bonus_effects', false)) {
-            $this->statusBonusService->awardManualStatusBonus($user, $validated['status']);
+        AdminActionLog::query()->create([
+            'admin_id' => $request->user()?->id,
+            'target_user_id' => $user->id,
+            'action' => 'manual_status_assigned',
+            'reason' => null,
+            'metadata' => [
+                'old_status' => $oldStatus,
+                'new_status' => $validated['status'],
+                'apply_bonus_effects' => $request->boolean('apply_bonus_effects', false),
+            ],
+        ]);
+
+        if ($this->shouldAwardManualStatusBonus($request, $oldStatus, $validated['status'])) {
+            $this->statusBonusService->awardManualStatusBonuses($user, $validated['status'], $request->user());
         }
 
         return response()->json([
@@ -617,6 +630,30 @@ class PartnerController extends Controller
     private function shouldPayReferralBonus(array $validated): bool
     {
         return filter_var($validated['pay_referral_bonus'] ?? false, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    private function shouldAwardManualStatusBonus(Request $request, string $oldStatus, string $newStatus): bool
+    {
+        if (! $request->user()?->isSuperAdmin()) {
+            return false;
+        }
+
+        if ($request->boolean('apply_bonus_effects', false)) {
+            return true;
+        }
+
+        $directorRank = $this->partnerStatusRank('director');
+        $oldRank = $this->partnerStatusRank($oldStatus);
+        $newRank = $this->partnerStatusRank($newStatus);
+
+        return $newRank >= $directorRank && $newRank > $oldRank;
+    }
+
+    private function partnerStatusRank(string $status): int
+    {
+        $index = array_search($status, self::PARTNER_STATUSES, true);
+
+        return $index === false ? 0 : $index + 1;
     }
 
     private function ensureSuperAdmin(Request $request): void

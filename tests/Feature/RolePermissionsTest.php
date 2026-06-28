@@ -31,8 +31,12 @@ class RolePermissionsTest extends TestCase
         $this->assertSame('/admin', $permissions['redirect_after_login']);
         $this->assertContains('/admin', $permissions['allowed_routes']);
         $this->assertContains('/admin/support', $permissions['allowed_routes']);
+        $this->assertContains('/admin/forgot-password', $permissions['allowed_routes']);
         $this->assertContains('/support', $permissions['allowed_routes']);
-        $this->assertSame(['/admin/support'], array_column($permissions['menu'], 'path'));
+        $this->assertSame(['/admin/support', '/admin/forgot-password'], array_column($permissions['menu'], 'path'));
+        $this->assertNotContains('/admin/partners', $permissions['allowed_routes']);
+        $this->assertNotContains('/admin/bonuses', $permissions['allowed_routes']);
+        $this->assertNotContains('/admin/transactions', $permissions['allowed_routes']);
         $this->assertNotContains('/admin/products', $permissions['allowed_routes']);
         $this->assertNotContains('/dashboard', $permissions['allowed_routes']);
     }

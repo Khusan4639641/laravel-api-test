@@ -60,7 +60,7 @@ class TransactionNotificationTextFactory
         return match ($bonusType) {
             'referral' => 'referral_bonus',
             'binary' => 'binary_bonus',
-            'status' => 'status_bonus',
+            'status', 'status_bonus' => 'status_bonus',
             'cashback' => 'cashback',
             default => 'bonus_accrued',
         };

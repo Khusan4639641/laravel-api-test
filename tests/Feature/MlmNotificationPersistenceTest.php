@@ -105,7 +105,7 @@ class MlmNotificationPersistenceTest extends TestCase
         $notification = $this->latestNotificationOfType($user->refresh(), 'status_bonus');
 
         $this->assertNotNull($notification);
-        $this->assertSame('status', $notification->data['bonus_type']);
+        $this->assertSame('status_bonus', $notification->data['bonus_type']);
         $this->assertSame('250000.00', $notification->data['amount']);
         $this->assertLocalizedPayload($notification->data);
     }

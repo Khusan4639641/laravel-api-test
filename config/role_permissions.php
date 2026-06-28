@@ -39,12 +39,14 @@ return [
             'allowed_routes' => [
                 '/admin',
                 '/admin/support',
+                '/admin/forgot-password',
                 '/support',
                 '/support/tickets',
                 '/support/profile',
             ],
             'menu' => [
                 ['path' => '/admin/support', 'label' => 'Обращения', 'icon' => 'message-square'],
+                ['path' => '/admin/forgot-password', 'label' => 'Забыли пароль', 'icon' => 'key-round'],
             ],
         ],
 
@@ -163,7 +165,7 @@ return [
         'admin.partners.manage' => ['admin', 'super_admin'],
         'admin.partners.identity' => ['super_admin'],
         'admin.partners.balance' => ['super_admin'],
-        'admin.forgot_password.manage' => ['admin', 'super_admin'],
+        'admin.forgot_password.manage' => ['support', 'admin', 'super_admin'],
         'admin.withdrawals.manage' => ['accountant', 'super_admin'],
     ],
 ];

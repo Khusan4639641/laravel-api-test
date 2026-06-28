@@ -469,7 +469,9 @@ class PackageService
         $user->loadMissing('currentPackage');
 
         if ($user->currentPackage?->code === 'ELITE') {
-            $this->statusBonusService->checkMissedStatusBonuses($user);
+            $this->statusBonusService->syncForUser($user, [
+                'source' => 'package_elite_status_bonus_check',
+            ]);
         }
     }
 

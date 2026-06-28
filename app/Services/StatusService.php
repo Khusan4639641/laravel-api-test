@@ -148,7 +148,9 @@ class StatusService
 
         $user = $user->refresh();
 
-        app(StatusBonusService::class)->awardEligible($user);
+        app(StatusBonusService::class)->syncForUser($user, [
+            'source' => 'status_bonus_listener',
+        ]);
 
         if ($user->sponsor_id) {
             $sponsor = $user->sponsor()->activeAccount()->first();

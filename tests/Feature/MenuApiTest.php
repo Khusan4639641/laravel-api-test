@@ -50,7 +50,8 @@ class MenuApiTest extends TestCase
 
         $this->assertContains('/admin', $permissions['allowed_routes']);
         $this->assertContains('/admin/support', $permissions['allowed_routes']);
-        $this->assertSame(['/admin/support'], array_column($permissions['menu'], 'path'));
+        $this->assertContains('/admin/forgot-password', $permissions['allowed_routes']);
+        $this->assertSame(['/admin/support', '/admin/forgot-password'], array_column($permissions['menu'], 'path'));
     }
 
     public function test_menu_changes_by_role(): void
@@ -68,6 +69,9 @@ class MenuApiTest extends TestCase
         $superAdminMenu = $this->getJson('/api/me/permissions')->assertOk()->json('menu');
 
         $this->assertContains('/admin/support', array_column($supportMenu, 'path'));
+        $this->assertContains('/admin/forgot-password', array_column($supportMenu, 'path'));
+        $this->assertNotContains('/admin/partners', array_column($supportMenu, 'path'));
+        $this->assertNotContains('/admin/bonuses', array_column($supportMenu, 'path'));
         $this->assertNotContains('/admin/settings', array_column($supportMenu, 'path'));
         $this->assertContains('/admin/products', array_column($adminMenu, 'path'));
         $this->assertNotContains('/admin/settings', array_column($adminMenu, 'path'));

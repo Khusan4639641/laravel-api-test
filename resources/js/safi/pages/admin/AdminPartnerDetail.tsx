@@ -1015,7 +1015,7 @@ export default function AdminPartnerDetail() {
               />
               <span>
                 <span className="block font-bold">Применить бонусные начисления</span>
-                <span className="mt-1 block text-xs leading-5 text-safi-muted">Если выбранный статус имеет денежный бонус, будет создана транзакция status_bonus.</span>
+                <span className="mt-1 block text-xs leading-5 text-safi-muted">Для ELITE партнёра при повышении до Директора или выше статусный бонус начисляется автоматически. Чекбокс нужен для ручного применения бонусов к другим статусам.</span>
               </span>
             </label>
             <button

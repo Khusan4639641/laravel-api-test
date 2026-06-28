@@ -42,7 +42,7 @@ class StatusBonusRulesTest extends TestCase
 
         $this->assertDatabaseHas('bonus_transactions', [
             'user_id' => $user->id,
-            'bonus_type' => 'status',
+            'bonus_type' => 'status_bonus',
             'amount' => '100000.00',
         ]);
     }
@@ -62,7 +62,7 @@ class StatusBonusRulesTest extends TestCase
 
         $this->assertSame(0, BonusTransaction::query()
             ->where('user_id', $user->id)
-            ->where('bonus_type', 'status')
+            ->where('bonus_type', 'status_bonus')
             ->where('amount', '400000.00')
             ->count());
     }
@@ -94,7 +94,7 @@ class StatusBonusRulesTest extends TestCase
 
         $this->assertDatabaseHas('bonus_transactions', [
             'user_id' => $user->id,
-            'bonus_type' => 'status',
+            'bonus_type' => 'status_bonus',
             'amount' => '250000.00',
         ]);
     }
@@ -114,7 +114,7 @@ class StatusBonusRulesTest extends TestCase
 
         $this->assertSame(0, BonusTransaction::query()
             ->where('user_id', $user->id)
-            ->where('bonus_type', 'status')
+            ->where('bonus_type', 'status_bonus')
             ->where('amount', '750000.00')
             ->count());
     }
@@ -139,7 +139,7 @@ class StatusBonusRulesTest extends TestCase
             ->count());
         $this->assertSame(1, BonusTransaction::query()
             ->where('user_id', $user->id)
-            ->where('bonus_type', 'status')
+            ->where('bonus_type', 'status_bonus')
             ->where('amount', '100000.00')
             ->count());
     }

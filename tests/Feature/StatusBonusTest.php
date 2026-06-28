@@ -36,7 +36,7 @@ class StatusBonusTest extends TestCase
         ]);
         $this->assertDatabaseHas('bonus_transactions', [
             'user_id' => $user->id,
-            'bonus_type' => 'status',
+            'bonus_type' => 'status_bonus',
             'amount' => '250000.00',
             'status' => 'completed',
         ]);
@@ -107,7 +107,35 @@ class StatusBonusTest extends TestCase
         ]);
         $this->assertDatabaseHas('bonus_transactions', [
             'user_id' => $user->id,
-            'bonus_type' => 'status',
+            'bonus_type' => 'status_bonus',
+            'amount' => '250000.00',
+            'status' => 'completed',
+        ]);
+    }
+
+    public function test_status_recalculation_triggers_status_bonus_sync_when_pv_crosses_director_threshold(): void
+    {
+        $this->seed(StatusBonusDefinitionSeeder::class);
+
+        $elite = $this->createPackage('ELITE');
+        $user = User::factory()->create([
+            'current_package_id' => $elite->id,
+            'left_pv' => 5000,
+            'right_pv' => 5100,
+            'status' => 'user',
+        ]);
+
+        app(StatusService::class)->recalculate($user);
+
+        $this->assertSame('director', $user->refresh()->status);
+        $this->assertDatabaseHas('user_status_bonuses', [
+            'user_id' => $user->id,
+            'status_code' => 'director',
+            'amount' => '250000.00',
+        ]);
+        $this->assertDatabaseHas('bonus_transactions', [
+            'user_id' => $user->id,
+            'bonus_type' => 'status_bonus',
             'amount' => '250000.00',
             'status' => 'completed',
         ]);
