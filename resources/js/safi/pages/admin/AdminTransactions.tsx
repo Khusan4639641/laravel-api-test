@@ -4,7 +4,6 @@ import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { Search, Filter, Download, Pencil, Trash2, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { deleteAdminTransaction, getAdminTransactions, getApiErrorState, getNumber, getString, updateAdminTransactionAmount } from '../../lib/api';
@@ -285,131 +284,78 @@ export default function AdminTransactions() {
             />
           ) : (
             <>
-              <MobileDataList>
-                {transactions.map((trx) => (
-                  <MobileDataCard key={trx.id}>
-                    <MobileDataHeader
-                      title={`#${trx.id}`}
-                      meta={trx.date}
-                      action={<AdminBadge variant={transactionBadgeVariant(trx.statusCode)}>{trx.status}</AdminBadge>}
-                    />
-                    <MobileDataRow label={adminText('partner_id_header')}>
-                      <div>{trx.partnerName}</div>
-                      <div className="mt-1 font-mono text-xs text-safi-muted">{trx.partnerId}</div>
-                    </MobileDataRow>
-                    <MobileDataRow label={adminText('a_0KLQuNC_INC-')}>
-                      <div>{trx.type}</div>
-                      {!trx.affectsBalance && <div className="mt-1 text-xs text-safi-muted">{trx.affectsBalanceLabel}</div>}
-                    </MobileDataRow>
-                    <MobileDataRow label={adminText('a_0KHRg9C80LzQ')}>
-                      <span className={trx.amount.startsWith('+') ? 'text-green-600' : trx.amount.startsWith('-') ? 'text-red-500' : 'text-safi-green'}>{trx.amount}</span>
-                    </MobileDataRow>
-                    <MobileDataRow label={adminText('a_0JjRgdGC0L7R_3')}>
+              <AdminTable headers={[
+                adminText('transaction_id_date'),
+                adminText('partner_id_header'),
+                adminText('a_0KLQuNC_INC-'),
+                adminText('a_0KHRg9C80LzQ'),
+                adminText('a_0KHRgtCw0YLR'),
+                adminText('a_0JjRgdGC0L7R_3'),
+                ...(showActions ? ['Действия'] : []),
+              ]}>
+                {transactions.map((trx, i) => (
+                  <tr key={i} className="hover:bg-safi-green/5 transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-safi-text">{trx.id}</div>
+                      <div className="text-xs text-safi-text/50 mt-1">{trx.date}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-safi-green">{trx.partnerName}</div>
+                      <div className="text-[10px] font-mono text-safi-text/50 mt-1">{trx.partnerId}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-bold">{trx.type}</div>
+                      {!trx.affectsBalance && (
+                        <div className="mt-1 inline-flex rounded-full bg-[#F5F5F0] px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-safi-text/50">
+                          {trx.affectsBalanceLabel}
+                        </div>
+                      )}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className={`font-bold ${trx.amount.startsWith('+') ? 'text-green-600' : trx.amount.startsWith('-') ? 'text-red-500' : 'text-safi-text'}`}>
+                        {trx.amount}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <AdminBadge variant={transactionBadgeVariant(trx.statusCode)}>
+                        {trx.status}
+                      </AdminBadge>
+                    </td>
+                    <td className="px-6 py-4 text-xs text-safi-text/70 max-w-[200px] truncate">
                       <div>{trx.comment || '-'}</div>
-                      {trx.paymentStrategyLabel && <div className="mt-1 text-xs text-safi-gold">{trx.paymentStrategyLabel}</div>}
-                    </MobileDataRow>
+                      {trx.paymentStrategyLabel && (
+                        <div className="mt-1 font-bold text-safi-gold">{trx.paymentStrategyLabel}</div>
+                      )}
+                    </td>
                     {showActions && (
-                      <MobileCardActions>
-                        {canEditTransactions && (
-                          <button
-                            type="button"
-                            onClick={() => openEditModal(trx)}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-safi-border bg-white px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-green"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                            Изменить
-                          </button>
-                        )}
-                        {canDeleteTransactions && (
-                          <button
-                            type="button"
-                            onClick={() => openDeleteModal(trx)}
-                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-red-600"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                            Удалить
-                          </button>
-                        )}
-                      </MobileCardActions>
-                    )}
-                  </MobileDataCard>
-                ))}
-              </MobileDataList>
-
-              <div className="hidden md:block">
-                <AdminTable headers={[
-                  adminText('transaction_id_date'),
-                  adminText('partner_id_header'),
-                  adminText('a_0KLQuNC_INC-'),
-                  adminText('a_0KHRg9C80LzQ'),
-                  adminText('a_0KHRgtCw0YLR'),
-                  adminText('a_0JjRgdGC0L7R_3'),
-                  ...(showActions ? ['Действия'] : []),
-                ]}>
-                  {transactions.map((trx, i) => (
-                    <tr key={i} className="hover:bg-safi-green/5 transition-colors group">
                       <td className="px-6 py-4">
-                        <div className="font-bold text-safi-text">{trx.id}</div>
-                        <div className="text-xs text-safi-text/50 mt-1">{trx.date}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="font-bold text-safi-green">{trx.partnerName}</div>
-                        <div className="text-[10px] font-mono text-safi-text/50 mt-1">{trx.partnerId}</div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-bold">{trx.type}</div>
-                        {!trx.affectsBalance && (
-                          <div className="mt-1 inline-flex rounded-full bg-[#F5F5F0] px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-safi-text/50">
-                            {trx.affectsBalanceLabel}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className={`font-bold ${trx.amount.startsWith('+') ? 'text-green-600' : trx.amount.startsWith('-') ? 'text-red-500' : 'text-safi-text'}`}>
-                          {trx.amount}
+                        <div className="flex flex-wrap gap-2">
+                          {canEditTransactions && (
+                            <button
+                              type="button"
+                              onClick={() => openEditModal(trx)}
+                              className="inline-flex items-center gap-2 rounded-xl border border-safi-border bg-white px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white"
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Изменить
+                            </button>
+                          )}
+                          {canDeleteTransactions && (
+                            <button
+                              type="button"
+                              onClick={() => openDeleteModal(trx)}
+                              className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-red-600 transition-colors hover:border-red-200 hover:bg-red-100"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Удалить
+                            </button>
+                          )}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <AdminBadge variant={transactionBadgeVariant(trx.statusCode)}>
-                          {trx.status}
-                        </AdminBadge>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-safi-text/70 max-w-[200px] truncate">
-                        <div>{trx.comment || '-'}</div>
-                        {trx.paymentStrategyLabel && (
-                          <div className="mt-1 font-bold text-safi-gold">{trx.paymentStrategyLabel}</div>
-                        )}
-                      </td>
-                      {showActions && (
-                        <td className="px-6 py-4">
-                          <div className="flex flex-wrap gap-2">
-                            {canEditTransactions && (
-                              <button
-                                type="button"
-                                onClick={() => openEditModal(trx)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-safi-border bg-white px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                                Изменить
-                              </button>
-                            )}
-                            {canDeleteTransactions && (
-                              <button
-                                type="button"
-                                onClick={() => openDeleteModal(trx)}
-                                className="inline-flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-red-600 transition-colors hover:border-red-200 hover:bg-red-100"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Удалить
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </AdminTable>
-              </div>
+                    )}
+                  </tr>
+                ))}
+              </AdminTable>
             </>
           )}
 

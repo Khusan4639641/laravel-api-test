@@ -5,7 +5,6 @@ import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
-import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState, getRegistrationPackages, Package, searchAdminSponsors } from '../../lib/api';
 import { formatPv } from '../../lib/format';
 import { adminText } from '../../i18n/adminText';
@@ -411,100 +410,55 @@ export default function AdminPartners() {
 
       {!isLoading && !error && visiblePartners.length > 0 && (
         <section className="space-y-4">
-          <MobileDataList>
+          <AdminTable headers={[adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0JrQvtC90YLQ'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0J_QsNC60LXR_5'), 'PV', adminText('a_0KTQuNC90LDQ'), adminText('a_0JTQtdC50YHR')]}>
             {visiblePartners.map((partner) => (
-              <MobileDataCard key={partner.id}>
-                <MobileDataHeader
-                  title={<Link to={`/admin/partners/${partner.id}`} className="hover:text-safi-gold">{partner.fullName}</Link>}
-                  meta={<>ID {partner.id} · {partner.registrationDate}</>}
-                  action={<AdminBadge variant={partner.packageStatus === 'active' ? 'success' : 'warning'}>{partner.packageStatusLabel}</AdminBadge>}
-                />
-                <MobileDataRow label="Контакты">
-                  <div>{partner.phone || '-'}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{partner.email || '-'}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{partner.city || '-'}</div>
-                </MobileDataRow>
-                <MobileDataRow label={adminText('a_0KHQv9C-0L3R_2')}>
-                  <div>{partner.sponsor || '-'}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{adminText('a_0J_RgNC40LPQ')}{partner.invitedCount}</div>
-                </MobileDataRow>
-                <MobileDataRow label={adminText('a_0J_QsNC60LXR_5')}>
-                  <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
-                    <AdminBadge variant="gold">{partner.package}</AdminBadge>
-                    <AdminBadge variant="default">{partner.status}</AdminBadge>
+              <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
+                <td className="px-6 py-4">
+                  <Link to={`/admin/partners/${partner.id}`} className="block cursor-pointer hover:opacity-80">
+                    <div className="font-bold text-safi-green">{partner.fullName}</div>
+                    <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</div>
+                    <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0KDQtdCzOg')}{partner.registrationDate}</div>
+                  </Link>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm text-safi-green">{partner.phone}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
+                  <div className="mt-1 text-[10px] text-safi-muted">{partner.city}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="inline-block rounded-full bg-safi-cream px-3 py-1 font-mono text-xs font-bold text-safi-green">{partner.sponsor}</div>
+                  <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0J_RgNC40LPQ')}{partner.invitedCount}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="mb-2"><AdminBadge variant="gold">{partner.package}</AdminBadge></div>
+                  <div className="mb-2">
+                    <AdminBadge variant={partner.packageStatus === 'active' ? 'success' : 'warning'}>
+                      Пакет: {partner.packageStatusLabel}
+                    </AdminBadge>
                   </div>
-                </MobileDataRow>
-                <MobileDataRow label="PV">
-                  <div>{adminText('a_0Js6')}{formatPv(partner.personalPV)}</div>
+                  <AdminBadge variant="default">{partner.status}</AdminBadge>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm">{adminText('a_0Js6')}<span className="font-bold text-safi-green">{formatPv(partner.personalPV)}</span></div>
                   <div className="mt-1 text-xs text-safi-muted">{adminText('a_0Jo6')}{formatPv(partner.teamPV)}</div>
-                </MobileDataRow>
-                <MobileDataRow label={adminText('a_0KTQuNC90LDQ')}>
-                  <div>{adminText('a_0JHQsNC70LDQ_2')}{formatMoney(partner.availableBalance)}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{adminText('a_0JLRgdC10LPQ_3')}{formatMoney(partner.totalIncome)}</div>
-                </MobileDataRow>
-                <MobileCardActions>
-                  <Link to={`/admin/partners/${partner.id}`} className="inline-flex items-center justify-center gap-2 rounded-xl border border-safi-border bg-white px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green">
-                    <Eye className="h-4 w-4" />{adminText('a_0J7RgtC60YDR_2')}
-                  </Link>
-                  <Link to={`/admin/structure?root_id=${encodeURIComponent(partner.id)}`} className="inline-flex items-center justify-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green">
-                    <Network className="h-4 w-4" />Дерево
-                  </Link>
-                </MobileCardActions>
-              </MobileDataCard>
-            ))}
-          </MobileDataList>
-
-          <div className="hidden md:block">
-            <AdminTable headers={[adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0JrQvtC90YLQ'), adminText('a_0KHQv9C-0L3R_2'), adminText('a_0J_QsNC60LXR_5'), 'PV', adminText('a_0KTQuNC90LDQ'), adminText('a_0JTQtdC50YHR')]}>
-              {visiblePartners.map((partner) => (
-                <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
-                  <td className="px-6 py-4">
-                    <Link to={`/admin/partners/${partner.id}`} className="block cursor-pointer hover:opacity-80">
-                      <div className="font-bold text-safi-green">{partner.fullName}</div>
-                      <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</div>
-                      <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0KDQtdCzOg')}{partner.registrationDate}</div>
+                </td>
+                <td className="px-6 py-4">
+                  <div className="text-sm font-bold text-safi-green">{adminText('a_0JHQsNC70LDQ_2')}{formatMoney(partner.availableBalance)}</div>
+                  <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0JLRgdC10LPQ_3')}{formatMoney(partner.totalIncome)}</div>
+                </td>
+                <td className="px-6 py-4 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <Link to={`/admin/partners/${partner.id}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title={adminText('a_0J7RgtC60YDR_2')}>
+                      <Eye className="h-4 w-4" />
                     </Link>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-safi-green">{partner.phone}</div>
-                    <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
-                    <div className="mt-1 text-[10px] text-safi-muted">{partner.city}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="inline-block rounded-full bg-safi-cream px-3 py-1 font-mono text-xs font-bold text-safi-green">{partner.sponsor}</div>
-                    <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0J_RgNC40LPQ')}{partner.invitedCount}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="mb-2"><AdminBadge variant="gold">{partner.package}</AdminBadge></div>
-                    <div className="mb-2">
-                      <AdminBadge variant={partner.packageStatus === 'active' ? 'success' : 'warning'}>
-                        Пакет: {partner.packageStatusLabel}
-                      </AdminBadge>
-                    </div>
-                    <AdminBadge variant="default">{partner.status}</AdminBadge>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm">{adminText('a_0Js6')}<span className="font-bold text-safi-green">{formatPv(partner.personalPV)}</span></div>
-                    <div className="mt-1 text-xs text-safi-muted">{adminText('a_0Jo6')}{formatPv(partner.teamPV)}</div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-bold text-safi-green">{adminText('a_0JHQsNC70LDQ_2')}{formatMoney(partner.availableBalance)}</div>
-                    <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0JLRgdC10LPQ_3')}{formatMoney(partner.totalIncome)}</div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <Link to={`/admin/partners/${partner.id}`} className="cursor-pointer rounded-xl p-2 text-safi-muted transition-colors hover:bg-safi-cream hover:text-safi-green" title={adminText('a_0J7RgtC60YDR_2')}>
-                        <Eye className="h-4 w-4" />
-                      </Link>
-                      <Link to={`/admin/structure?root_id=${encodeURIComponent(partner.id)}`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white" title={adminText('a_0KHRgtGA0YPQ')}>
-                        <Network className="h-4 w-4" />Показать дерево
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </AdminTable>
-          </div>
+                    <Link to={`/admin/structure?root_id=${encodeURIComponent(partner.id)}`} className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white" title={adminText('a_0KHRgtGA0YPQ')}>
+                      <Network className="h-4 w-4" />Показать дерево
+                    </Link>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </AdminTable>
 
           <AdminPagination
             meta={paginationMeta}
