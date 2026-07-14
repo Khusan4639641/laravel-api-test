@@ -267,16 +267,19 @@ export default function Transactions() {
           {visibleTransactions.map((transaction) => (
             <article key={transaction.id} className="p-5">
               <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="min-w-0">
                   <h2 className="font-extrabold text-safi-green">{transaction.type}</h2>
                   <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{transaction.date} / {transaction.id}</p>
                 </div>
-                <span className={cn('font-extrabold', transaction.amount.startsWith('+') ? 'text-green-700' : transaction.amount.startsWith('-') ? 'text-red-600' : 'text-safi-muted')}>
+                <span className={cn('shrink-0 text-right font-extrabold', transaction.amount.startsWith('+') ? 'text-green-700' : transaction.amount.startsWith('-') ? 'text-red-600' : 'text-safi-muted')}>
                   {transaction.amount}
                 </span>
               </div>
-              <div className="mt-4 flex items-end justify-between gap-4">
+              <div className="mt-4 space-y-3">
                 <p className="text-xs leading-6 text-safi-muted">{transaction.source}</p>
+                {transaction.comment && transaction.comment !== transaction.source && (
+                  <p className="text-xs leading-6 text-safi-muted">{transaction.comment}</p>
+                )}
                 {transaction.paymentStrategyLabel && (
                   <p className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-gold">{transaction.paymentStrategyLabel}</p>
                 )}

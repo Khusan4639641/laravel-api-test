@@ -262,7 +262,7 @@ export default function Support() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <aside className="space-y-6">
+        <aside id="support-ticket-list" className="space-y-6 scroll-mt-24">
           <article className="rounded-[28px] border border-safi-border bg-white p-5 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="font-serif text-2xl font-semibold text-safi-green">Мои обращения</h2>
@@ -330,7 +330,7 @@ export default function Support() {
           </article>
         </aside>
 
-        <article className="flex min-h-[680px] flex-col rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
+        <article className="flex min-h-[520px] flex-col rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:min-h-[680px]">
           {!selectedTicket && (
             <div className="flex flex-1 items-center justify-center p-8">
               <EmptyState title="Выберите обращение" description="История переписки появится здесь." />
@@ -342,6 +342,7 @@ export default function Support() {
               <div className="border-b border-safi-border bg-safi-cream px-6 py-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
+                    <a href="#support-ticket-list" className="mb-3 inline-flex text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-gold xl:hidden">К обращениям</a>
                     <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-safi-muted">#{selectedTicket.id}</div>
                     <h2 className="mt-1 font-serif text-2xl font-semibold text-safi-green">{selectedTicket.subject}</h2>
                   </div>

@@ -197,7 +197,7 @@ export default function OrderDetail() {
                 <ProductImage image={item.image} alt={`${t('orders.productImage')}: ${item.productName}`} />
                 <h3 className="font-serif text-xl font-semibold text-safi-green">{item.productName}</h3>
               </div>
-              <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <InfoCard compact label={t('orders.quantity')} value={item.quantity.toLocaleString('ru-RU')} />
                 <InfoCard compact label={t('cart.price')} value={formatCurrency(item.unitPrice)} />
                 <InfoCard compact label={t('orders.amount')} value={formatCurrency(item.totalPrice)} />
@@ -237,7 +237,7 @@ function ProductImage({ image, alt }: { image?: string; alt: string }) {
 
 function InfoCard({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
   return (
-    <div className={`rounded-3xl border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)] ${compact ? 'p-4 shadow-none' : 'p-6'}`}>
+    <div className={`min-w-0 rounded-3xl border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)] ${compact ? 'p-4 shadow-none' : 'p-6'}`}>
       <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>
       <div className="safi-numeric mt-2 font-serif text-2xl font-semibold text-safi-green">{value}</div>
     </div>

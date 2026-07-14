@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useCallback, useEffect, useState } from 'react';
 import { KeyRound, Mail, Phone, RefreshCw, Search, Shuffle, User, X } from 'lucide-react';
 import { AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import {
   ApiError,
@@ -190,7 +191,35 @@ export default function AdminForgotPassword() {
 
       {!isLoading && !error && requests.length > 0 && (
         <div className="overflow-hidden rounded-[28px] border border-safi-green/5 bg-white shadow-sm">
-          <div className="overflow-x-auto">
+          <MobileDataList className="p-4">
+            {requests.map((item) => (
+              <MobileDataCard key={item.id}>
+                <MobileDataHeader
+                  title={`#${item.id}`}
+                  meta={formatDateTime(item.requestedAt)}
+                  action={<AdminBadge variant="warning">{item.statusLabel}</AdminBadge>}
+                />
+                <MobileDataRow label="Пользователь">
+                  <div>{item.userName}</div>
+                  <div className="mt-1 text-xs text-safi-muted">ID {item.userId}{item.userLogin ? ` · ${item.userLogin}` : ''}</div>
+                </MobileDataRow>
+                <MobileDataRow label="Email">{item.email}</MobileDataRow>
+                <MobileDataRow label="Телефон">{item.phone}</MobileDataRow>
+                <MobileCardActions>
+                  <button
+                    type="button"
+                    onClick={() => openResetModal(item)}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-safi-green px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                    Установить пароль
+                  </button>
+                </MobileCardActions>
+              </MobileDataCard>
+            ))}
+          </MobileDataList>
+
+          <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[980px] text-left text-sm">
               <thead className="bg-[#F5F5F0] text-[10px] uppercase tracking-widest text-safi-text/50">
                 <tr>
@@ -241,9 +270,9 @@ export default function AdminForgotPassword() {
             </table>
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-safi-green/5 px-5 py-4 text-sm text-safi-muted md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 border-t border-safi-green/5 px-4 py-4 text-sm text-safi-muted md:flex-row md:items-center md:justify-between md:px-5">
             <div>Всего: {meta.total}</div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setPage((current) => Math.max(1, current - 1))}
@@ -267,8 +296,8 @@ export default function AdminForgotPassword() {
       )}
 
       {selectedRequest && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/35 px-4 py-6 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-safi-border bg-white p-6 shadow-[0_24px_70px_rgba(11,23,18,0.2)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/35 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
+          <div className="safi-responsive-modal w-full max-w-xl overflow-y-auto rounded-[28px] border border-safi-border bg-white p-5 shadow-[0_24px_70px_rgba(11,23,18,0.2)] sm:p-6">
             <div className="mb-6 flex items-center justify-between gap-4">
               <h2 className="font-serif text-3xl font-semibold text-safi-green">Установить новый пароль</h2>
               <button

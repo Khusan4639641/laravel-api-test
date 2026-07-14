@@ -5,6 +5,7 @@ import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import AsyncPartnerSelect from '../../components/AsyncPartnerSelect';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ApiError, createDashboardWithdrawal, createPartnerTransfer, EarningsSummary, getApiErrorState, getDashboardEarningsSummary, getDashboardOverview, getDashboardWithdrawals, getNumber, getPartnerTransfers, getPublicStatuses, getString, PartnerTransfer, Status, TransferPartner } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { withdrawalStatusLabel } from '../../lib/systemLabels';
@@ -414,7 +415,40 @@ export default function Bonuses() {
             <div className="border-b border-safi-border bg-safi-cream p-6 md:p-7">
               <h2 className="font-serif text-3xl font-semibold text-safi-green">История переводов</h2>
             </div>
-            <div className="overflow-x-auto">
+            <MobileDataList className="p-5">
+              {transfers.length === 0 && (
+                <EmptyState
+                  title="Переводов пока нет"
+                  description="История появится после первого перевода партнёру."
+                  className="min-h-[180px] shadow-none"
+                />
+              )}
+              {transfers.map((transfer) => {
+                const outgoing = isOutgoingTransfer(transfer, currentUser.id);
+                const counterparty = outgoing ? transfer.recipient : transfer.sender;
+
+                return (
+                  <MobileDataCard key={transfer.uuid || transfer.id}>
+                    <MobileDataHeader
+                      title={`#${transfer.id}`}
+                      meta={formatDate(transfer.createdAt)}
+                      action={<Badge variant="success">Завершено</Badge>}
+                    />
+                    <MobileDataRow label="Сумма">
+                      <span className={outgoing ? 'text-red-700' : 'text-green-700'}>
+                        {outgoing ? '-' : '+'}{transfer.amount.toLocaleString('ru-RU')} ₸
+                      </span>
+                    </MobileDataRow>
+                    <MobileDataRow label="Тип">{outgoing ? 'Перевод партнёру' : 'Перевод от партнёра'}</MobileDataRow>
+                    <MobileDataRow label="Комментарий">
+                      <div>{outgoing ? 'Получатель' : 'Отправитель'}: {counterparty?.name || '-'}</div>
+                      {transfer.comment && <div className="mt-1 text-xs text-safi-muted">{transfer.comment}</div>}
+                    </MobileDataRow>
+                  </MobileDataCard>
+                );
+              })}
+            </MobileDataList>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[760px] text-left">
                 <thead className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
                   <tr>
@@ -471,7 +505,28 @@ export default function Bonuses() {
             <div className="border-b border-safi-border bg-safi-cream p-6 md:p-7">
               <h2 className="font-serif text-3xl font-semibold text-safi-green">История выводов</h2>
             </div>
-            <div className="overflow-x-auto">
+            <MobileDataList className="p-5">
+              {withdrawals.length === 0 && (
+                <EmptyState
+                  title="Заявок на вывод пока нет"
+                  description="История появится после первой заявки на вывод."
+                  className="min-h-[180px] shadow-none"
+                />
+              )}
+              {withdrawals.map((withdrawal) => (
+                <MobileDataCard key={withdrawal.id}>
+                  <MobileDataHeader
+                    title={`#${withdrawal.id}`}
+                    meta={withdrawal.date}
+                    action={<Badge variant={withdrawalStatusVariant(withdrawal.statusCode)}>{withdrawal.status}</Badge>}
+                  />
+                  <MobileDataRow label="Сумма">{withdrawal.amount}</MobileDataRow>
+                  <MobileDataRow label="Способ">{withdrawal.method}</MobileDataRow>
+                  <MobileDataRow label="Дата выплаты">{withdrawal.paymentDate}</MobileDataRow>
+                </MobileDataCard>
+              ))}
+            </MobileDataList>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[760px] text-left">
                 <thead className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
                   <tr>

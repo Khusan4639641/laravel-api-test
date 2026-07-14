@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AdminBadge } from '../../components/admin/ui';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import { adminText } from '../../i18n/adminText';
 import {
@@ -563,22 +564,22 @@ export default function AdminPartnerDetail() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <ToastStack toasts={toasts} onDismiss={(toastId) => setToasts((current) => current.filter((toast) => toast.id !== toastId))} />
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col items-start justify-between gap-4 md:flex-row md:items-center">
+        <div className="flex min-w-0 items-center gap-4">
           <Link to="/admin/partners" className="cursor-pointer p-3 bg-white rounded-xl border border-safi-green/5 shadow-sm text-safi-text/60 hover:text-safi-green hover:bg-[#F5F5F0] transition-colors" title={adminText('a_0J3QsNC30LDQ')}>
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <PartnerAvatar name={partner.fullName} avatarUrl={partner.avatarUrl} />
-          <div>
+          <div className="min-w-0">
             <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{partner.fullName}</h1>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="text-sm font-mono text-safi-text/70 bg-[#F5F5F0] px-2 py-0.5 rounded">{partner.login || partner.id}</span>
               <AdminBadge variant={isBlocked ? 'danger' : 'default'}>Аккаунт: {partner.accountStatusLabel}</AdminBadge>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="safi-responsive-actions w-full md:w-auto md:justify-end">
           {canUpdateIdentity && (
             <button
               type="button"
@@ -728,7 +729,7 @@ export default function AdminPartnerDetail() {
           </div>
 
           <div className="lg:col-span-2 space-y-8">
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <MiniStat title={adminText('a_0JTQvtGB0YLR_2')} value={`${partner.availableBalance.toLocaleString('ru-RU')} ₸`} />
               <MiniStat title={adminText('a_0JLRgdC10LPQ_2')} value={`${partner.totalIncome.toLocaleString('ru-RU')} ₸`} />
               <MiniStat title="Личный PV" value={formatPv(partner.personalPV)} />
@@ -778,30 +779,46 @@ export default function AdminPartnerDetail() {
                   className="min-h-[180px] shadow-none"
                 />
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[680px] text-left text-sm">
-                    <thead className="text-[10px] uppercase tracking-widest text-safi-text/50">
-                      <tr>
-                        <th className="pb-3">{adminText('a_0JTQsNGC0LA')}</th>
-                        <th className="pb-3">{adminText('a_0KLQuNC_')}</th>
-                        <th className="pb-3">{adminText('a_0KHRg9C80LzQ')}</th>
-                        <th className="pb-3">{adminText('a_0KHRgtCw0YLR')}</th>
-                        <th className="pb-3">{adminText('a_0JrQvtC80LzQ')}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-safi-green/5">
-                      {transactions.map((transaction) => (
-                        <tr key={transaction.id} className="transition-colors hover:bg-safi-green/5">
-                          <td className="py-3 pr-4 text-xs text-safi-text/60">{transaction.date}</td>
-                          <td className="py-3 pr-4 font-bold text-safi-green">{transaction.type}</td>
-                          <td className="py-3 pr-4 font-bold text-safi-green">{transaction.amount}</td>
-                          <td className="py-3 pr-4"><AdminBadge variant="success">{transaction.status}</AdminBadge></td>
-                          <td className="py-3 text-xs text-safi-text/70">{transaction.comment}</td>
+                <>
+                  <MobileDataList>
+                    {transactions.map((transaction) => (
+                      <MobileDataCard key={transaction.id}>
+                        <MobileDataHeader
+                          title={transaction.type}
+                          meta={transaction.date}
+                          action={<AdminBadge variant="success">{transaction.status}</AdminBadge>}
+                        />
+                        <MobileDataRow label={adminText('a_0KHRg9C80LzQ')}>{transaction.amount}</MobileDataRow>
+                        <MobileDataRow label={adminText('a_0JrQvtC80LzQ')}>{transaction.comment || '-'}</MobileDataRow>
+                      </MobileDataCard>
+                    ))}
+                  </MobileDataList>
+
+                  <div className="hidden overflow-x-auto md:block">
+                    <table className="w-full min-w-[680px] text-left text-sm">
+                      <thead className="text-[10px] uppercase tracking-widest text-safi-text/50">
+                        <tr>
+                          <th className="pb-3">{adminText('a_0JTQsNGC0LA')}</th>
+                          <th className="pb-3">{adminText('a_0KLQuNC_')}</th>
+                          <th className="pb-3">{adminText('a_0KHRg9C80LzQ')}</th>
+                          <th className="pb-3">{adminText('a_0KHRgtCw0YLR')}</th>
+                          <th className="pb-3">{adminText('a_0JrQvtC80LzQ')}</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-safi-green/5">
+                        {transactions.map((transaction) => (
+                          <tr key={transaction.id} className="transition-colors hover:bg-safi-green/5">
+                            <td className="py-3 pr-4 text-xs text-safi-text/60">{transaction.date}</td>
+                            <td className="py-3 pr-4 font-bold text-safi-green">{transaction.type}</td>
+                            <td className="py-3 pr-4 font-bold text-safi-green">{transaction.amount}</td>
+                            <td className="py-3 pr-4"><AdminBadge variant="success">{transaction.status}</AdminBadge></td>
+                            <td className="py-3 text-xs text-safi-text/70">{transaction.comment}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
           </div>
@@ -1158,8 +1175,8 @@ export default function AdminPartnerDetail() {
 
 function Modal({ title, children, onClose }: { title: string; children: ReactNode; onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/35 px-4 py-6 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-[28px] border border-safi-border bg-white p-6 shadow-[0_24px_70px_rgba(11,23,18,0.2)]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/35 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
+      <div className="safi-responsive-modal w-full max-w-xl overflow-y-auto rounded-[28px] border border-safi-border bg-white p-5 shadow-[0_24px_70px_rgba(11,23,18,0.2)] sm:p-6">
         <div className="mb-6 flex items-center justify-between gap-4">
           <h2 className="font-serif text-3xl font-semibold text-safi-green">{title}</h2>
           <button

@@ -192,7 +192,7 @@ export default function Orders() {
                       </div>
                       <OrderStatusBadge status={order.status} />
                     </div>
-                    <div className="mt-5 grid grid-cols-3 gap-3 text-sm">
+                    <div className="mt-5 grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                       <div className="col-span-3 mb-1">
                         <OrderItemThumbs order={order} />
                       </div>

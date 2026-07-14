@@ -89,6 +89,35 @@ export function AdminLayout() {
     void loadCurrentUser();
   }, [loadCurrentUser]);
 
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSidebarOpen]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-safi-bg px-5 text-center text-safi-green">
@@ -109,13 +138,14 @@ export function AdminLayout() {
       <AdminSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} currentUser={currentUser} permissions={permissions} />
 
       <div className="relative flex min-h-screen min-w-0 max-w-full flex-1 flex-col overflow-hidden xl:ml-[280px]">
-        <header className="sticky top-0 z-30 flex h-20 shrink-0 items-center justify-between border-b border-safi-border/80 bg-safi-bg/90 px-4 backdrop-blur-xl md:px-8">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-30 flex h-20 shrink-0 items-center justify-between gap-3 border-b border-safi-border/80 bg-safi-bg/90 px-3 backdrop-blur-xl sm:px-4 md:px-8">
+          <div className="flex min-w-0 items-center gap-3 md:gap-4">
             <button
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:bg-safi-cream xl:hidden"
               onClick={() => setIsSidebarOpen(true)}
               aria-label={adminText('a_0J7RgtC60YDR_6')}
+              aria-expanded={isSidebarOpen}
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -129,7 +159,7 @@ export function AdminLayout() {
             </label>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
             <LanguageSwitcher />
             <button
               type="button"

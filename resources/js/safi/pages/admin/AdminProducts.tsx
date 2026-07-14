@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { ImageIcon, Plus, Edit, Trash2, Upload, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { adminText } from '../../i18n/adminText';
 import {
   createAdminProduct,
@@ -283,60 +284,107 @@ export default function AdminProducts() {
       {!isLoading && !error && products.length === 0 && <EmptyState title={adminText('a_0KLQvtCy0LDR_2')} description={adminText('a_0KHQvtC30LTQ_9')} />}
 
       {!isLoading && !error && products.length > 0 && (
-        <AdminTable headers={[adminText('a_0KLQvtCy0LDR_3'), adminText('a_0JrQsNGC0LXQ'), 'Тип оплаты', adminText('a_0KbQtdC90LA'), adminText('a_0J7RgdGC0LDR'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
-          {products.map((product) => {
-            const isDepositProduct = Boolean(product.isDepositProduct || product.isDepositOnly);
+        <section className="space-y-4">
+          <MobileDataList>
+            {products.map((product) => {
+              const isDepositProduct = Boolean(product.isDepositProduct || product.isDepositOnly);
 
-            return (
-              <tr key={product.id} className="hover:bg-safi-green/5 transition-colors group">
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 overflow-hidden rounded-xl border border-safi-green/10 bg-[#F5F5F0] shrink-0">
-                      <img src={product.image || productImagePlaceholder} alt={product.name} className="h-full w-full object-cover" />
-                    </div>
-                    <div>
-                      <div className="font-bold text-safi-green">{product.name}</div>
-                      <div className="text-[10px] text-safi-text/50 mt-1">{adminText('a_0JTQvtCx0LDQ_7')}{product.createdAt || '-'}</div>
-                    </div>
+              return (
+                <MobileDataCard key={product.id}>
+                  <MobileDataHeader
+                    title={product.name}
+                    meta={`${adminText('a_0JTQvtCx0LDQ_7')}${product.createdAt || '-'}`}
+                    action={<AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{product.statusLabel || productStatusLabel(product.status)}</AdminBadge>}
+                  />
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-safi-border bg-safi-cream">
+                    <img src={product.image || productImagePlaceholder} alt={product.name} className="aspect-[4/3] w-full object-cover" />
                   </div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm">{product.category}</div>
-                </td>
-                <td className="px-6 py-4">
-                  <AdminBadge variant={isDepositProduct ? 'gold' : 'default'}>
-                    {isDepositProduct ? 'Только депозит' : 'Обычный'}
-                  </AdminBadge>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="font-bold text-safi-green">{product.price.toLocaleString('ru-RU')} ₸</div>
-                </td>
-                <td className="px-6 py-4">
-                  <div className="text-sm font-bold">{product.stock || 0}{adminText('a_0YjRgg')}</div>
-                  {(product.stock || 0) <= 0 && <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-red-500">нет в наличии</div>}
-                </td>
-                <td className="px-6 py-4">
-                  <AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{product.statusLabel || productStatusLabel(product.status)}</AdminBadge>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex justify-end gap-2">
-                    <button type="button" onClick={() => openEditForm(product)} className="p-2 text-safi-text hover:text-safi-green hover:bg-[#F5F5F0] rounded-lg transition-colors">
-                      <Edit className="w-4 h-4" />
+                  <MobileDataRow label={adminText('a_0JrQsNGC0LXQ')}>{product.category}</MobileDataRow>
+                  <MobileDataRow label="Тип оплаты">
+                    <AdminBadge variant={isDepositProduct ? 'gold' : 'default'}>{isDepositProduct ? 'Только депозит' : 'Обычный'}</AdminBadge>
+                  </MobileDataRow>
+                  <MobileDataRow label={adminText('a_0KbQtdC90LA')}>{product.price.toLocaleString('ru-RU')} ₸</MobileDataRow>
+                  <MobileDataRow label={adminText('a_0J7RgdGC0LDR')}>
+                    <div>{product.stock || 0}{adminText('a_0YjRgg')}</div>
+                    {(product.stock || 0) <= 0 && <div className="mt-1 text-xs uppercase tracking-widest text-red-500">нет в наличии</div>}
+                  </MobileDataRow>
+                  <MobileCardActions>
+                    <button type="button" onClick={() => openEditForm(product)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-safi-border bg-white px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-green">
+                      <Edit className="h-4 w-4" />
+                      Редактировать
                     </button>
                     <button
                       type="button"
                       disabled={pendingId === product.id}
                       onClick={() => handleDelete(product.id)}
-                      className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-red-600 disabled:opacity-50"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="h-4 w-4" />
+                      Удалить
                     </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
-        </AdminTable>
+                  </MobileCardActions>
+                </MobileDataCard>
+              );
+            })}
+          </MobileDataList>
+
+          <div className="hidden md:block">
+            <AdminTable headers={[adminText('a_0KLQvtCy0LDR_3'), adminText('a_0JrQsNGC0LXQ'), 'Тип оплаты', adminText('a_0KbQtdC90LA'), adminText('a_0J7RgdGC0LDR'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
+              {products.map((product) => {
+                const isDepositProduct = Boolean(product.isDepositProduct || product.isDepositOnly);
+
+                return (
+                  <tr key={product.id} className="hover:bg-safi-green/5 transition-colors group">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-4">
+                        <div className="h-14 w-14 overflow-hidden rounded-xl border border-safi-green/10 bg-[#F5F5F0] shrink-0">
+                          <img src={product.image || productImagePlaceholder} alt={product.name} className="h-full w-full object-cover" />
+                        </div>
+                        <div>
+                          <div className="font-bold text-safi-green">{product.name}</div>
+                          <div className="text-[10px] text-safi-text/50 mt-1">{adminText('a_0JTQvtCx0LDQ_7')}{product.createdAt || '-'}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm">{product.category}</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <AdminBadge variant={isDepositProduct ? 'gold' : 'default'}>
+                        {isDepositProduct ? 'Только депозит' : 'Обычный'}
+                      </AdminBadge>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-bold text-safi-green">{product.price.toLocaleString('ru-RU')} ₸</div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm font-bold">{product.stock || 0}{adminText('a_0YjRgg')}</div>
+                      {(product.stock || 0) <= 0 && <div className="mt-1 text-[10px] font-bold uppercase tracking-widest text-red-500">нет в наличии</div>}
+                    </td>
+                    <td className="px-6 py-4">
+                      <AdminBadge variant={product.status === 'active' ? 'success' : 'danger'}>{product.statusLabel || productStatusLabel(product.status)}</AdminBadge>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button type="button" onClick={() => openEditForm(product)} className="p-2 text-safi-text hover:text-safi-green hover:bg-[#F5F5F0] rounded-lg transition-colors">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={pendingId === product.id}
+                          onClick={() => handleDelete(product.id)}
+                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </AdminTable>
+          </div>
+        </section>
       )}
     </div>
   );

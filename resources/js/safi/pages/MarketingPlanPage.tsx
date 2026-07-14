@@ -239,8 +239,8 @@ export default function MarketingPlanPage() {
           )}
 
           {!statusesLoading && !statusesError && statuses.length > 0 && (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left bg-white rounded-[32px] shadow-sm overflow-hidden border border-safi-green/5">
+            <div className="safi-table-scroll">
+              <table className="w-full min-w-[640px] text-left bg-white rounded-[32px] shadow-sm overflow-hidden border border-safi-green/5">
                 <thead className="bg-[#F5F5F0] text-[10px] text-safi-green uppercase tracking-widest font-bold">
                   <tr>
                     <th className="p-6 border-b border-safi-green/5">Статус</th>

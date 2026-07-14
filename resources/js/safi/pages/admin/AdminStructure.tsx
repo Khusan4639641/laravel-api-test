@@ -6,6 +6,7 @@ import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { StructureTreeCanvas } from '../../components/structure/StructureTreeCanvas';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { getAdminStructure, getAdminStructureRootOrphans, getApiErrorState, getArray, getNumber, getString, searchAdminPartners, unwrapRecord } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 import { accountStatusLabel, mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
@@ -709,39 +710,70 @@ export default function AdminStructure() {
 
         {!isRootOrphansLoading && !rootOrphansError && rootOrphans.length > 0 && (
           <>
-            <AdminTable headers={[adminText('a_0J_QsNGA0YLQ'), adminText('a_0JrQvtC90YLQ'), adminText('a_0JTQtdC50YHR')]}>
+            <MobileDataList>
               {rootOrphans.map((partner) => (
-                <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
-                  <td className="px-6 py-4">
+                <MobileDataCard key={partner.id}>
+                  <MobileDataHeader title={partner.name} meta={`ID ${partner.id} · ${partner.createdAt || '-'}`} />
+                  <MobileDataRow label={adminText('a_0JrQvtC90YLQ')}>
+                    <div>{partner.phone || '-'}</div>
+                    <div className="mt-1 text-xs text-safi-muted">{partner.email || '-'}</div>
+                    <div className="mt-1 font-mono text-xs text-safi-muted">{partner.login || '-'}</div>
+                  </MobileDataRow>
+                  <MobileCardActions>
                     <button
                       type="button"
                       onClick={() => navigate(`/admin/partners/${encodeURIComponent(partner.id)}`)}
-                      className="block cursor-pointer text-left hover:opacity-80"
+                      className="inline-flex items-center justify-center rounded-xl border border-safi-border bg-white px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green"
                     >
-                      <div className="font-bold text-safi-green">{partner.name}</div>
-                      <div className="mt-1 font-mono text-[10px] text-safi-muted">ID {partner.id}</div>
-                      <div className="mt-1 text-[10px] text-safi-muted">{partner.createdAt || '-'}</div>
+                      Профиль
                     </button>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-safi-green">{partner.phone}</div>
-                    <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
-                    <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.login || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => openNodeTree(partner.id)}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green"
+                    >
+                      <Network className="h-4 w-4" />Дерево
+                    </button>
+                  </MobileCardActions>
+                </MobileDataCard>
+              ))}
+            </MobileDataList>
+
+            <div className="hidden md:block">
+              <AdminTable headers={[adminText('a_0J_QsNGA0YLQ'), adminText('a_0JrQvtC90YLQ'), adminText('a_0JTQtdC50YHR')]}>
+                {rootOrphans.map((partner) => (
+                  <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
+                    <td className="px-6 py-4">
                       <button
                         type="button"
-                        onClick={() => openNodeTree(partner.id)}
-                        className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white"
+                        onClick={() => navigate(`/admin/partners/${encodeURIComponent(partner.id)}`)}
+                        className="block cursor-pointer text-left hover:opacity-80"
                       >
-                        <Network className="h-4 w-4" />Показать дерево
+                        <div className="font-bold text-safi-green">{partner.name}</div>
+                        <div className="mt-1 font-mono text-[10px] text-safi-muted">ID {partner.id}</div>
+                        <div className="mt-1 text-[10px] text-safi-muted">{partner.createdAt || '-'}</div>
                       </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </AdminTable>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-sm text-safi-green">{partner.phone}</div>
+                      <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
+                      <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.login || '-'}</div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => openNodeTree(partner.id)}
+                          className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white"
+                        >
+                          <Network className="h-4 w-4" />Показать дерево
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </AdminTable>
+            </div>
 
             <AdminPagination
               meta={rootOrphanPaginationMeta}

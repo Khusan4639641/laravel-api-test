@@ -54,8 +54,10 @@ export function Sidebar({
       )}
 
       <aside
+        role="dialog"
+        aria-modal={isOpen ? 'true' : undefined}
         className={cn(
-          'fixed left-0 top-0 z-50 flex h-full w-[280px] flex-col overflow-y-auto border-r border-safi-border bg-white transition-transform duration-300',
+          'fixed left-0 top-0 z-50 flex h-dvh w-[min(280px,calc(100vw-24px))] max-w-[calc(100vw-24px)] flex-col overflow-y-auto border-r border-safi-border bg-white transition-transform duration-300',
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         )}
       >

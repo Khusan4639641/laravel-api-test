@@ -3,6 +3,7 @@ import { FileUp, Paperclip, RotateCcw, Search, Send, X } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { AdminPagination } from '../../components/admin/AdminPagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { adminText } from '../../i18n/adminText';
 import {
   closeAdminSupportTicket,
@@ -324,40 +325,69 @@ export default function AdminSupport() {
       )}
 
       <section className="grid gap-6 xl:grid-cols-[minmax(440px,0.48fr)_minmax(0,0.52fr)]">
-        <div className="space-y-4">
+        <div id="admin-support-ticket-list" className="space-y-4 scroll-mt-24">
           {isLoading && <LoadingState />}
           {!isLoading && error && <ErrorState description={error} onRetry={loadTickets} />}
           {!isLoading && !error && supportTickets.length === 0 && <EmptyState title={adminText('a_0J7QsdGA0LDR_4')} description={adminText('a_0KLQuNC60LXR')} />}
 
           {!isLoading && !error && supportTickets.length > 0 && (
             <>
-              <AdminTable headers={['ID', 'Партнёр', 'Тема', 'Статус', 'Последнее', '']}>
+              <MobileDataList>
                 {supportTickets.map((ticket) => (
-                  <tr key={ticket.id} className={`group cursor-pointer transition-colors hover:bg-safi-green/5 ${ticket.id === selectedTicketId ? 'bg-safi-green/5' : ''}`}>
-                    <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
-                      <div className="font-mono font-bold text-safi-green">#{ticket.id}</div>
-                      <div className="mt-1 text-[10px] text-safi-text/50">{ticket.date}</div>
-                    </td>
-                    <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
-                      <div className="text-sm font-bold text-safi-green">{ticket.partner}</div>
-                      <div className="mt-1 text-xs text-safi-text/60">ID {ticket.partnerId} · {ticket.email}</div>
-                    </td>
-                    <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
-                      <div className="max-w-[220px] truncate font-bold text-safi-text">{ticket.subject}</div>
-                    </td>
-                    <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
-                      <AdminBadge variant={badgeVariant(ticket.statusCode)}>{ticket.status}</AdminBadge>
-                    </td>
-                    <td className="px-6 py-4 text-xs font-bold text-safi-muted" onClick={() => selectTicket(ticket)}>{ticket.lastMessageAt || '-'}</td>
-                    <td className="px-6 py-4 text-right">
+                  <MobileDataCard key={ticket.id} className={ticket.id === selectedTicketId ? 'border-safi-green bg-safi-cream/60' : undefined}>
+                    <MobileDataHeader
+                      title={`#${ticket.id}`}
+                      meta={ticket.date}
+                      action={<AdminBadge variant={badgeVariant(ticket.statusCode)}>{ticket.status}</AdminBadge>}
+                    />
+                    <MobileDataRow label="Партнёр">
+                      <div>{ticket.partner}</div>
+                      <div className="mt-1 text-xs text-safi-muted">ID {ticket.partnerId} · {ticket.email}</div>
+                    </MobileDataRow>
+                    <MobileDataRow label="Тема">{ticket.subject}</MobileDataRow>
+                    <MobileDataRow label="Последнее">{ticket.lastMessageAt || '-'}</MobileDataRow>
+                    <MobileCardActions>
                       <button
+                        type="button"
                         onClick={() => selectTicket(ticket)}
-                        className="rounded-lg bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white"
-                      >Открыть</button>
-                    </td>
-                  </tr>
+                        className="inline-flex items-center justify-center rounded-xl bg-safi-green px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white"
+                      >
+                        Открыть
+                      </button>
+                    </MobileCardActions>
+                  </MobileDataCard>
                 ))}
-              </AdminTable>
+              </MobileDataList>
+
+              <div className="hidden md:block">
+                <AdminTable headers={['ID', 'Партнёр', 'Тема', 'Статус', 'Последнее', '']}>
+                  {supportTickets.map((ticket) => (
+                    <tr key={ticket.id} className={`group cursor-pointer transition-colors hover:bg-safi-green/5 ${ticket.id === selectedTicketId ? 'bg-safi-green/5' : ''}`}>
+                      <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
+                        <div className="font-mono font-bold text-safi-green">#{ticket.id}</div>
+                        <div className="mt-1 text-[10px] text-safi-text/50">{ticket.date}</div>
+                      </td>
+                      <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
+                        <div className="text-sm font-bold text-safi-green">{ticket.partner}</div>
+                        <div className="mt-1 text-xs text-safi-text/60">ID {ticket.partnerId} · {ticket.email}</div>
+                      </td>
+                      <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
+                        <div className="max-w-[220px] truncate font-bold text-safi-text">{ticket.subject}</div>
+                      </td>
+                      <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
+                        <AdminBadge variant={badgeVariant(ticket.statusCode)}>{ticket.status}</AdminBadge>
+                      </td>
+                      <td className="px-6 py-4 text-xs font-bold text-safi-muted" onClick={() => selectTicket(ticket)}>{ticket.lastMessageAt || '-'}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => selectTicket(ticket)}
+                          className="rounded-lg bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green hover:text-white"
+                        >Открыть</button>
+                      </td>
+                    </tr>
+                  ))}
+                </AdminTable>
+              </div>
 
               <AdminPagination
                 meta={paginationMeta}
@@ -372,7 +402,7 @@ export default function AdminSupport() {
           )}
         </div>
 
-        <article className="flex min-h-[680px] flex-col rounded-[28px] border border-safi-green/5 bg-white shadow-sm">
+        <article className="flex min-h-[520px] flex-col rounded-[28px] border border-safi-green/5 bg-white shadow-sm md:min-h-[680px]">
           {!selectedTicket && (
             <div className="flex flex-1 items-center justify-center p-8">
               <EmptyState title="Выберите обращение" description="Чат и действия появятся здесь." />
@@ -384,6 +414,7 @@ export default function AdminSupport() {
               <div className="border-b border-safi-border bg-safi-cream px-6 py-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
+                    <a href="#admin-support-ticket-list" className="mb-3 inline-flex text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-gold xl:hidden">К обращениям</a>
                     <div className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">Обращение #{selectedTicket.id}</div>
                     <h2 className="mt-2 font-serif text-2xl font-bold text-safi-green">{selectedTicket.subject}</h2>
                     <div className="mt-2 text-sm font-bold text-safi-text/70">{selectedTicket.partner} · ID {selectedTicket.partnerId}</div>

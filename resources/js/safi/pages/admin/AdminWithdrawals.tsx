@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, Search, XCircle } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ApiError, approveAdminWithdrawal, getAdminWithdrawals, rejectAdminWithdrawal } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 import { withdrawalStatusLabel } from '../../lib/systemLabels';
@@ -149,60 +150,117 @@ export default function AdminWithdrawals() {
       )}
 
       {!isLoading && !loadError && visibleWithdrawals.length > 0 && (
-        <AdminTable headers={[adminText('a_0JfQsNGP0LLQ_6'), adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0KHRg9C80LzQ_2'), adminText('a_0KDQtdC60LLQ'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
-          {visibleWithdrawals.map((withdrawal) => (
-            <tr key={withdrawal.id} className="transition-colors hover:bg-safi-cream/70">
-              <td className="px-6 py-5">
-                <div className="font-bold text-safi-green">{withdrawal.id}</div>
-                <div className="mt-1 text-xs text-safi-muted">{withdrawal.date}</div>
-              </td>
-              <td className="px-6 py-5">
-                <div className="font-bold text-safi-green">{withdrawal.partnerName}</div>
-                <div className="mt-1 font-mono text-[10px] text-safi-muted">{withdrawal.partnerId}</div>
-              </td>
-              <td className="px-6 py-5">
-                <div className="mb-1 text-lg font-bold text-safi-green">{withdrawal.amount}</div>
-                <div className="text-xs text-safi-muted">{withdrawal.method}</div>
-              </td>
-              <td className="px-6 py-5">
-                <div className="max-w-[220px] truncate font-mono text-sm">{withdrawal.reqs}</div>
-                <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank}{adminText('a_LyDQmNCY0J06')}{withdrawal.iin}</div>
-              </td>
-              <td className="px-6 py-5">
-                <AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.statusCode)}>{withdrawal.status}</AdminBadge>
-                {withdrawal.comment && <div className="mt-2 text-[10px] text-red-600">{withdrawal.comment}</div>}
-              </td>
-              <td className="px-6 py-5">
-                <div className="flex items-center justify-center gap-2">
-                  {isProcessed(withdrawal.statusCode) ? (
-                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-safi-muted">{withdrawal.processedDate}</span>
-                  ) : (
-                    <>
-                      <button
-                        type="button"
-                        disabled={pendingId === withdrawal.id}
-                        onClick={() => handleAction(withdrawal.id, 'approve')}
-                        className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-emerald-100 bg-emerald-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-emerald-700 transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-50"
-                      >
-                        <CheckCircle className="h-5 w-5" />
-                        {pendingId === withdrawal.id ? '...' : adminText('a_0J7QtNC-0LHR_2')}
-                      </button>
-                      <button
-                        type="button"
-                        disabled={pendingId === withdrawal.id}
-                        onClick={() => handleAction(withdrawal.id, 'reject')}
-                        className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-red-100 bg-red-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-red-700 transition-colors hover:bg-red-600 hover:text-white disabled:opacity-50"
-                      >
-                        <XCircle className="h-5 w-5" />
-                        {pendingId === withdrawal.id ? '...' : adminText('a_0J7RgtC60Lsu')}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))}
-        </AdminTable>
+        <section className="space-y-4">
+          <MobileDataList>
+            {visibleWithdrawals.map((withdrawal) => (
+              <MobileDataCard key={withdrawal.id}>
+                <MobileDataHeader
+                  title={withdrawal.id}
+                  meta={withdrawal.date}
+                  action={<AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.statusCode)}>{withdrawal.status}</AdminBadge>}
+                />
+                <MobileDataRow label={adminText('a_0J_QsNGA0YLQ_7')}>
+                  <div>{withdrawal.partnerName}</div>
+                  <div className="mt-1 font-mono text-xs text-safi-muted">{withdrawal.partnerId}</div>
+                </MobileDataRow>
+                <MobileDataRow label={adminText('a_0KHRg9C80LzQ_2')}>
+                  <div>{withdrawal.amount}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{withdrawal.method}</div>
+                </MobileDataRow>
+                <MobileDataRow label={adminText('a_0KDQtdC60LLQ')}>
+                  <div className="font-mono">{withdrawal.reqs}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank}{adminText('a_LyDQmNCY0J06')}{withdrawal.iin}</div>
+                </MobileDataRow>
+                {withdrawal.comment && (
+                  <MobileDataRow label="Комментарий">
+                    <span className="text-red-600">{withdrawal.comment}</span>
+                  </MobileDataRow>
+                )}
+                {isProcessed(withdrawal.statusCode) ? (
+                  <MobileDataRow label={adminText('a_0JTQtdC50YHR')}>{withdrawal.processedDate}</MobileDataRow>
+                ) : (
+                  <MobileCardActions>
+                    <button
+                      type="button"
+                      disabled={pendingId === withdrawal.id}
+                      onClick={() => handleAction(withdrawal.id, 'approve')}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-emerald-700 disabled:opacity-50"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      {pendingId === withdrawal.id ? '...' : adminText('a_0J7QtNC-0LHR_2')}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pendingId === withdrawal.id}
+                      onClick={() => handleAction(withdrawal.id, 'reject')}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-red-700 disabled:opacity-50"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      {pendingId === withdrawal.id ? '...' : adminText('a_0J7RgtC60Lsu')}
+                    </button>
+                  </MobileCardActions>
+                )}
+              </MobileDataCard>
+            ))}
+          </MobileDataList>
+
+          <div className="hidden md:block">
+            <AdminTable headers={[adminText('a_0JfQsNGP0LLQ_6'), adminText('a_0J_QsNGA0YLQ_7'), adminText('a_0KHRg9C80LzQ_2'), adminText('a_0KDQtdC60LLQ'), adminText('a_0KHRgtCw0YLR'), adminText('a_0JTQtdC50YHR')]}>
+              {visibleWithdrawals.map((withdrawal) => (
+                <tr key={withdrawal.id} className="transition-colors hover:bg-safi-cream/70">
+                  <td className="px-6 py-5">
+                    <div className="font-bold text-safi-green">{withdrawal.id}</div>
+                    <div className="mt-1 text-xs text-safi-muted">{withdrawal.date}</div>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="font-bold text-safi-green">{withdrawal.partnerName}</div>
+                    <div className="mt-1 font-mono text-[10px] text-safi-muted">{withdrawal.partnerId}</div>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="mb-1 text-lg font-bold text-safi-green">{withdrawal.amount}</div>
+                    <div className="text-xs text-safi-muted">{withdrawal.method}</div>
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="max-w-[220px] truncate font-mono text-sm">{withdrawal.reqs}</div>
+                    <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank}{adminText('a_LyDQmNCY0J06')}{withdrawal.iin}</div>
+                  </td>
+                  <td className="px-6 py-5">
+                    <AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.statusCode)}>{withdrawal.status}</AdminBadge>
+                    {withdrawal.comment && <div className="mt-2 text-[10px] text-red-600">{withdrawal.comment}</div>}
+                  </td>
+                  <td className="px-6 py-5">
+                    <div className="flex items-center justify-center gap-2">
+                      {isProcessed(withdrawal.statusCode) ? (
+                        <span className="text-xs font-bold uppercase tracking-[0.14em] text-safi-muted">{withdrawal.processedDate}</span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            disabled={pendingId === withdrawal.id}
+                            onClick={() => handleAction(withdrawal.id, 'approve')}
+                            className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-emerald-100 bg-emerald-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-emerald-700 transition-colors hover:bg-emerald-600 hover:text-white disabled:opacity-50"
+                          >
+                            <CheckCircle className="h-5 w-5" />
+                            {pendingId === withdrawal.id ? '...' : adminText('a_0J7QtNC-0LHR_2')}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={pendingId === withdrawal.id}
+                            onClick={() => handleAction(withdrawal.id, 'reject')}
+                            className="flex w-20 flex-col items-center justify-center gap-1 rounded-xl border border-red-100 bg-red-50 p-2 text-[8px] font-extrabold uppercase tracking-[0.12em] text-red-700 transition-colors hover:bg-red-600 hover:text-white disabled:opacity-50"
+                          >
+                            <XCircle className="h-5 w-5" />
+                            {pendingId === withdrawal.id ? '...' : adminText('a_0J7RgtC60Lsu')}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </AdminTable>
+          </div>
+        </section>
       )}
     </div>
   );

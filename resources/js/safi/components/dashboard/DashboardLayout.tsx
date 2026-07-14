@@ -152,6 +152,35 @@ export function DashboardLayout() {
   }, [loadCurrentUser]);
 
   useEffect(() => {
+    if (!isSidebarOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
+    if (!isSidebarOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isSidebarOpen]);
+
+  useEffect(() => {
     setIsNotificationsOpen(false);
   }, [location.pathname]);
 
@@ -195,14 +224,15 @@ export function DashboardLayout() {
         permissions={permissions}
       />
 
-      <div className="relative flex min-h-screen max-w-full flex-1 flex-col overflow-hidden lg:ml-[280px]">
-        <header className="sticky top-0 z-30 flex h-20 shrink-0 items-center justify-between border-b border-safi-border/80 bg-safi-bg/90 px-4 backdrop-blur-xl md:px-8">
-          <div className="flex items-center gap-4">
+      <div className="relative flex min-h-screen min-w-0 max-w-full flex-1 flex-col overflow-hidden lg:ml-[280px]">
+        <header className="sticky top-0 z-30 flex h-20 shrink-0 items-center justify-between gap-3 border-b border-safi-border/80 bg-safi-bg/90 px-3 backdrop-blur-xl sm:px-4 md:px-8">
+          <div className="flex min-w-0 items-center gap-3 md:gap-4">
             <button
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-white text-safi-green transition-colors hover:bg-safi-cream lg:hidden"
               onClick={() => setIsSidebarOpen(true)}
               aria-label="Открыть меню"
+              aria-expanded={isSidebarOpen}
             >
               <Menu className="h-5 w-5" />
             </button>
@@ -211,7 +241,7 @@ export function DashboardLayout() {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
             <div className="lg:hidden">
               <LanguageSwitcher />
             </div>

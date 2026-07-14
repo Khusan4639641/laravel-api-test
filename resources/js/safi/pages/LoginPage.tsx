@@ -200,8 +200,8 @@ export default function LoginPage() {
       </Container>
 
       {forgotOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/35 px-4 py-6 backdrop-blur-sm">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-[28px] border border-safi-green/10 bg-white p-6 shadow-[0_24px_70px_rgba(11,23,18,0.2)]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-safi-green/35 px-3 py-3 backdrop-blur-sm sm:px-4 sm:py-6">
+          <div className="safi-responsive-modal w-full max-w-md overflow-y-auto rounded-[28px] border border-safi-green/10 bg-white p-5 shadow-[0_24px_70px_rgba(11,23,18,0.2)] sm:p-6">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <h2 className="font-serif text-2xl font-semibold text-safi-green">Восстановление пароля</h2>

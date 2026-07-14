@@ -3,6 +3,7 @@ import { Filter, Network, Search, Users } from 'lucide-react';
 import { Badge, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext, type DashboardCurrentUser } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { getApiErrorState, getArray, getDashboardStructure, getNumber, getString } from '../../lib/api';
 import { mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 import { getPartnerPackageStatus, partnerPackageStatusLabel, type PartnerPackageStatus } from '../../lib/partnerStatus';
@@ -299,78 +300,121 @@ export default function Structure() {
           </div>
         </div>
 
-        <div className="relative overflow-x-auto">
+        <div className="relative">
           {isPartnersLoading && !isLoading && (
             <div className="absolute inset-x-0 top-0 z-10 h-1 overflow-hidden bg-safi-cream">
               <div className="h-full w-1/3 animate-pulse rounded-full bg-safi-gold" />
             </div>
           )}
-          <table className="w-full min-w-[860px] text-left">
-            <thead className="bg-safi-cream text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
-              <tr>
-                <th className="px-7 py-4">Партнер</th>
-                <th className="px-7 py-4">Ветка / линия</th>
-                <th className="px-7 py-4">Пакет / статус</th>
-                <th className="px-7 py-4 text-right">PV</th>
-                <th className="px-7 py-4 text-center">Активность</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-safi-border text-sm">
-              {visiblePartners.length === 0 && !hasStructureListMismatch && (
-                <tr>
-                  <td colSpan={5} className="px-7 py-8">
-                    <EmptyState
-                      title={structure.totalPartners > 0 ? 'По вашему запросу партнёры не найдены' : 'Партнёров пока нет'}
-                      description={structure.totalPartners > 0 ? 'Попробуйте изменить поиск или фильтр ветки.' : 'Партнёры появятся в списке после добавления в бинарную структуру.'}
-                      className="min-h-[180px] shadow-none"
-                    />
-                  </td>
-                </tr>
-              )}
+          <MobileDataList className="p-5">
+            {visiblePartners.length === 0 && !hasStructureListMismatch && (
+              <EmptyState
+                title={structure.totalPartners > 0 ? 'По вашему запросу партнёры не найдены' : 'Партнёров пока нет'}
+                description={structure.totalPartners > 0 ? 'Попробуйте изменить поиск или фильтр ветки.' : 'Партнёры появятся в списке после добавления в бинарную структуру.'}
+                className="min-h-[180px] shadow-none"
+              />
+            )}
+            {hasStructureListMismatch && (
+              <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm font-bold text-amber-800">
+                Не удалось загрузить список структуры
+              </div>
+            )}
+            {visiblePartners.map((partner) => (
+              <MobileDataCard key={partner.id}>
+                <MobileDataHeader
+                  title={partner.name}
+                  meta={<>ID: {partner.id}{partner.login ? ` · login: ${partner.login}` : ''}</>}
+                  action={<Badge variant={partner.packageStatus === 'active' ? 'success' : 'default'}>{partner.activity}</Badge>}
+                />
+                <MobileDataRow label="Контакты">
+                  {partner.email && <div>{partner.email}</div>}
+                  {partner.phone && <div className="mt-1 text-xs text-safi-muted">{partner.phone}</div>}
+                </MobileDataRow>
+                <MobileDataRow label="Ветка / линия">
+                  <div>{partner.branch}</div>
+                  <div className="mt-1 text-xs text-safi-muted">Линия: {partner.line}</div>
+                </MobileDataRow>
+                <MobileDataRow label="Пакет / статус">
+                  <div>{partner.package}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{partner.status !== '-' ? partner.status : 'Участник'}</div>
+                </MobileDataRow>
+                <MobileDataRow label="PV">
+                  <div>Личный PV: {partner.personalPV.toLocaleString('ru-RU')}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{formatBranchPv('л', partner.leftPV)} · {formatBranchPv('п', partner.rightPV)}</div>
+                  <div className="mt-1 text-xs text-safi-muted">Командный PV: {partner.teamPV.toLocaleString('ru-RU')}</div>
+                </MobileDataRow>
+              </MobileDataCard>
+            ))}
+          </MobileDataList>
 
-              {hasStructureListMismatch && (
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[860px] text-left">
+              <thead className="bg-safi-cream text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
                 <tr>
-                  <td colSpan={5} className="px-7 py-8">
-                    <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm font-bold text-amber-800">
-                      Не удалось загрузить список структуры
-                    </div>
-                  </td>
+                  <th className="px-7 py-4">Партнер</th>
+                  <th className="px-7 py-4">Ветка / линия</th>
+                  <th className="px-7 py-4">Пакет / статус</th>
+                  <th className="px-7 py-4 text-right">PV</th>
+                  <th className="px-7 py-4 text-center">Активность</th>
                 </tr>
-              )}
+              </thead>
+              <tbody className="divide-y divide-safi-border text-sm">
+                {visiblePartners.length === 0 && !hasStructureListMismatch && (
+                  <tr>
+                    <td colSpan={5} className="px-7 py-8">
+                      <EmptyState
+                        title={structure.totalPartners > 0 ? 'По вашему запросу партнёры не найдены' : 'Партнёров пока нет'}
+                        description={structure.totalPartners > 0 ? 'Попробуйте изменить поиск или фильтр ветки.' : 'Партнёры появятся в списке после добавления в бинарную структуру.'}
+                        className="min-h-[180px] shadow-none"
+                      />
+                    </td>
+                  </tr>
+                )}
 
-              {visiblePartners.map((partner) => (
-                <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
-                  <td className="px-7 py-5">
-                    <div className="font-extrabold text-safi-green">{partner.name}</div>
-                    <div className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">ID: {partner.id}</div>
-                    {partner.login && <div className="mt-1 text-xs font-bold text-safi-muted">login: {partner.login}</div>}
-                    {partner.email && <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>}
-                    {partner.phone && <div className="mt-1 text-xs text-safi-muted">{partner.phone}</div>}
-                  </td>
-                  <td className="px-7 py-5">
-                    <div className="font-bold text-safi-green">{partner.branch}</div>
-                    <div className="mt-1 text-xs text-safi-muted">Линия: {partner.line}</div>
-                  </td>
-                  <td className="px-7 py-5">
-                    <div className="font-bold text-safi-green">{partner.package}</div>
-                    <div className="mt-1 text-xs text-safi-muted">{partner.status !== '-' ? partner.status : 'Участник'}</div>
-                  </td>
-                  <td className="px-7 py-5 text-right">
-                    <div className="font-extrabold text-safi-gold">Личный PV: {partner.personalPV.toLocaleString('ru-RU')}</div>
-                    <div className="mt-2 flex flex-wrap justify-end gap-1 text-[10px] font-extrabold text-safi-green">
-                      <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Левая ветка PV" aria-label="Левая ветка PV">{formatBranchPv('л', partner.leftPV)}</span>
-                      <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Правая ветка PV" aria-label="Правая ветка PV">{formatBranchPv('п', partner.rightPV)}</span>
-                    </div>
-                    <div className="mt-1 text-xs text-safi-muted">Командный PV: {partner.teamPV.toLocaleString('ru-RU')}</div>
-                  </td>
-                  <td className="px-7 py-5 text-center">
-                    <Badge variant={partner.packageStatus === 'active' ? 'success' : 'default'}>{partner.activity}</Badge>
-                    {partner.createdAt && <div className="mt-2 text-xs text-safi-muted">{partner.createdAt}</div>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                {hasStructureListMismatch && (
+                  <tr>
+                    <td colSpan={5} className="px-7 py-8">
+                      <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm font-bold text-amber-800">
+                        Не удалось загрузить список структуры
+                      </div>
+                    </td>
+                  </tr>
+                )}
+
+                {visiblePartners.map((partner) => (
+                  <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
+                    <td className="px-7 py-5">
+                      <div className="font-extrabold text-safi-green">{partner.name}</div>
+                      <div className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">ID: {partner.id}</div>
+                      {partner.login && <div className="mt-1 text-xs font-bold text-safi-muted">login: {partner.login}</div>}
+                      {partner.email && <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>}
+                      {partner.phone && <div className="mt-1 text-xs text-safi-muted">{partner.phone}</div>}
+                    </td>
+                    <td className="px-7 py-5">
+                      <div className="font-bold text-safi-green">{partner.branch}</div>
+                      <div className="mt-1 text-xs text-safi-muted">Линия: {partner.line}</div>
+                    </td>
+                    <td className="px-7 py-5">
+                      <div className="font-bold text-safi-green">{partner.package}</div>
+                      <div className="mt-1 text-xs text-safi-muted">{partner.status !== '-' ? partner.status : 'Участник'}</div>
+                    </td>
+                    <td className="px-7 py-5 text-right">
+                      <div className="font-extrabold text-safi-gold">Личный PV: {partner.personalPV.toLocaleString('ru-RU')}</div>
+                      <div className="mt-2 flex flex-wrap justify-end gap-1 text-[10px] font-extrabold text-safi-green">
+                        <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Левая ветка PV" aria-label="Левая ветка PV">{formatBranchPv('л', partner.leftPV)}</span>
+                        <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Правая ветка PV" aria-label="Правая ветка PV">{formatBranchPv('п', partner.rightPV)}</span>
+                      </div>
+                      <div className="mt-1 text-xs text-safi-muted">Командный PV: {partner.teamPV.toLocaleString('ru-RU')}</div>
+                    </td>
+                    <td className="px-7 py-5 text-center">
+                      <Badge variant={partner.packageStatus === 'active' ? 'success' : 'default'}>{partner.activity}</Badge>
+                      {partner.createdAt && <div className="mt-2 text-xs text-safi-muted">{partner.createdAt}</div>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 border-t border-safi-border bg-white px-5 py-4 md:px-7">

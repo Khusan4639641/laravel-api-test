@@ -29,8 +29,8 @@ export function AdminPagination({
   const paginationItems = getPaginationItems(currentPage, lastPage);
 
   return (
-    <div className="flex flex-col gap-4 rounded-[24px] border border-safi-border bg-white px-5 py-4 shadow-[0_14px_36px_rgba(11,23,18,0.05)] xl:flex-row xl:items-center xl:justify-between">
-      <div className="text-sm font-bold text-safi-muted">
+    <div className="flex flex-col gap-4 rounded-[24px] border border-safi-border bg-white px-4 py-4 shadow-[0_14px_36px_rgba(11,23,18,0.05)] sm:px-5 xl:flex-row xl:items-center xl:justify-between">
+      <div className="text-sm font-bold leading-6 text-safi-muted">
         {total === 0 ? (
           <>Показано: <span className="text-safi-green">0</span> из <span className="text-safi-green">0</span></>
         ) : (
@@ -38,11 +38,11 @@ export function AdminPagination({
         )}
         {totalSuffix}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
         <select
           value={perPage}
           onChange={(event) => onPerPageChange(Number(event.target.value))}
-          className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
+          className="h-10 cursor-pointer rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green"
           aria-label="Количество записей на странице"
         >
           {perPageOptions.map((option) => (
@@ -55,16 +55,16 @@ export function AdminPagination({
           type="button"
           onClick={() => onPageChange(currentPage - 1)}
           disabled={currentPage <= 1}
-          className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-base font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-base font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Предыдущая страница"
         >
           ‹
         </button>
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="hidden flex-wrap items-center gap-1 sm:flex">
           {paginationItems.map((item, index) => item === 'ellipsis' ? (
             <span
               key={`ellipsis-${index}`}
-              className="flex h-9 min-w-9 items-center justify-center px-2 text-sm font-extrabold text-safi-muted"
+              className="flex h-10 min-w-10 items-center justify-center px-2 text-sm font-extrabold text-safi-muted"
               aria-hidden="true"
             >
               …
@@ -77,7 +77,7 @@ export function AdminPagination({
               disabled={item === currentPage}
               aria-current={item === currentPage ? 'page' : undefined}
               className={[
-                'flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border px-3 text-xs font-extrabold transition-colors disabled:cursor-default',
+                'flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-full border px-3 text-xs font-extrabold transition-colors disabled:cursor-default',
                 item === currentPage
                   ? 'border-safi-green bg-safi-green text-white shadow-[0_8px_22px_rgba(29,78,54,0.18)]'
                   : 'border-safi-border bg-safi-cream text-safi-green hover:border-safi-green hover:bg-white disabled:opacity-60',
@@ -87,11 +87,14 @@ export function AdminPagination({
             </button>
           ))}
         </div>
+        <div className="flex h-10 min-w-[84px] items-center justify-center rounded-full border border-safi-border bg-white px-3 text-xs font-extrabold text-safi-green sm:hidden">
+          {currentPage} / {lastPage}
+        </div>
         <button
           type="button"
           onClick={() => onPageChange(currentPage + 1)}
           disabled={currentPage >= lastPage}
-          className="flex h-9 min-w-9 cursor-pointer items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-base font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex h-10 min-w-10 cursor-pointer items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-base font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
           aria-label="Следующая страница"
         >
           ›

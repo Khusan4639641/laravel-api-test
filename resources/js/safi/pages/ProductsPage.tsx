@@ -223,30 +223,30 @@ function ProductModal({
   const orderable = isProductOrderable(product);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <button
         type="button"
         aria-label="Закрыть карточку продукта"
         className="absolute inset-0 bg-safi-green/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
-      <div className="relative bg-white rounded-[40px] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto z-10 border border-safi-green/5 animate-in fade-in zoom-in-95 duration-300 hide-scrollbar">
+      <div className="safi-responsive-modal relative z-10 w-full max-w-4xl overflow-y-auto rounded-[28px] border border-safi-green/5 bg-white shadow-2xl animate-in fade-in zoom-in-95 duration-300 hide-scrollbar sm:rounded-[40px] [--safi-modal-width:56rem]">
         <button
           type="button"
           onClick={onClose}
           aria-label="Закрыть"
-          className="absolute top-6 right-6 w-10 h-10 bg-[#F5F5F0] rounded-full flex items-center justify-center text-safi-green hover:bg-safi-green hover:text-white transition-colors z-20"
+          className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-[#F5F5F0] text-safi-green transition-colors hover:bg-safi-green hover:text-white sm:right-6 sm:top-6"
         >
           <X className="w-5 h-5" />
         </button>
         <div className="grid md:grid-cols-2 gap-0 h-full">
-          <div className="h-[300px] md:h-auto md:min-h-[500px] bg-[#F5F5F0] relative overflow-hidden">
+          <div className="relative h-[240px] overflow-hidden bg-[#F5F5F0] sm:h-[300px] md:h-auto md:min-h-[500px]">
             <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
             <div className={`absolute right-6 top-6 rounded-xl px-4 py-2 text-[10px] font-bold uppercase tracking-widest shadow-sm ${orderable ? 'bg-green-50/95 text-green-700' : 'bg-red-50/95 text-red-600'}`}>
               {orderable ? `${t('cart.stock', 'Остаток')}: ${stock}` : t('cart.outOfStock', 'Нет в наличии')}
             </div>
           </div>
-          <div className="p-8 md:p-12 flex flex-col h-full bg-white">
+          <div className="flex h-full flex-col bg-white p-5 sm:p-8 md:p-12">
             <div className="text-[10px] font-bold text-safi-gold mb-4 uppercase tracking-widest">{product.category}</div>
             <h2 className="text-3xl md:text-4xl font-serif font-bold text-safi-green mb-4">{product.name}</h2>
             <div className="text-3xl font-serif font-bold text-safi-green mb-8">{product.price.toLocaleString('ru-RU')} ₸</div>

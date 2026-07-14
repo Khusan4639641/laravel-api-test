@@ -346,7 +346,7 @@ export default function CartPage() {
           <button
             type="button"
             onClick={clearCart}
-            className="w-fit cursor-pointer rounded-xl border border-red-500/10 px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-red-500 transition-colors hover:bg-red-50"
+            className="w-full cursor-pointer rounded-xl border border-red-500/10 px-5 py-3 text-[10px] font-bold uppercase tracking-widest text-red-500 transition-colors hover:bg-red-50 md:w-fit"
           >
             {t('cart.clear', 'Очистить корзину')}
           </button>
@@ -604,7 +604,7 @@ function PaymentOption({
 
 function SummaryLine({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-4">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       <span>{label}</span>
       <span className="text-white">{value}</span>
     </div>

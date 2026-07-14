@@ -19,15 +19,24 @@
 }
 
 @layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
   html {
     scroll-behavior: smooth;
     text-rendering: geometricPrecision;
     font-variant-numeric: lining-nums tabular-nums;
     font-feature-settings: "lnum" 1, "tnum" 1;
+    overflow-x: hidden;
   }
 
   body {
     min-width: 320px;
+    width: 100%;
+    overflow-x: hidden;
     background-color: var(--color-safi-bg);
     color: var(--color-safi-green);
     font-family: var(--font-sans);
@@ -38,10 +47,33 @@
     top: 0 !important;
   }
 
+  #root {
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  img,
+  video,
+  iframe {
+    max-width: 100%;
+  }
+
+  img,
+  video {
+    height: auto;
+  }
+
+  iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
   h1,
   h2,
   h3 {
     letter-spacing: 0;
+    overflow-wrap: anywhere;
   }
 
   a,
@@ -52,6 +84,7 @@
     font: inherit;
     font-variant-numeric: inherit;
     font-feature-settings: inherit;
+    min-width: 0;
   }
 
   table,
@@ -59,6 +92,18 @@
   td {
     font-variant-numeric: lining-nums tabular-nums;
     font-feature-settings: "lnum" 1, "tnum" 1;
+  }
+
+  p,
+  li,
+  dd,
+  dt,
+  td,
+  th,
+  label,
+  span,
+  div {
+    overflow-wrap: anywhere;
   }
 
   ::selection {
@@ -116,6 +161,164 @@
   }
   .hide-scrollbar::-webkit-scrollbar {
     display: none;
+  }
+
+  .safi-table-shell {
+    max-width: 100%;
+  }
+
+  .safi-table-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .safi-table-scroll table {
+    min-width: 720px;
+  }
+
+  .safi-table-scroll::after {
+    content: "";
+    pointer-events: none;
+    position: sticky;
+    right: 0;
+    float: right;
+    width: 28px;
+    height: 1px;
+  }
+
+  .mobile-data-list {
+    display: grid;
+    gap: 12px;
+  }
+
+  .mobile-data-card {
+    border: 1px solid color-mix(in srgb, var(--color-safi-border) 88%, transparent);
+    border-radius: 24px;
+    background: white;
+    padding: 16px;
+    box-shadow: 0 14px 36px rgba(11, 23, 18, 0.05);
+  }
+
+  .mobile-data-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .mobile-data-card__title {
+    min-width: 0;
+    font-weight: 800;
+    color: var(--color-safi-green);
+  }
+
+  .mobile-data-card__meta {
+    margin-top: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-safi-muted);
+  }
+
+  .mobile-data-row {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    padding-top: 12px;
+    margin-top: 12px;
+    border-top: 1px solid color-mix(in srgb, var(--color-safi-border) 70%, transparent);
+  }
+
+  .mobile-data-label {
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-safi-muted);
+  }
+
+  .mobile-data-value {
+    min-width: 0;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-safi-green);
+    text-align: right;
+  }
+
+  .mobile-card-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+
+  .mobile-card-actions > * {
+    flex: 1 1 132px;
+    min-height: 40px;
+  }
+
+  .safi-responsive-modal {
+    width: min(100%, calc(100vw - 24px));
+    max-width: min(var(--safi-modal-width, 42rem), calc(100vw - 24px));
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+  }
+
+  .safi-responsive-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .safi-responsive-actions > * {
+    min-height: 40px;
+  }
+
+  .safi-tree-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  @media (max-width: 639px) {
+    .safi-hero-title {
+      font-size: clamp(2.35rem, 12vw, 3.5rem);
+    }
+
+    .safi-page-title {
+      font-size: clamp(2rem, 10vw, 2.75rem);
+    }
+
+    .mobile-data-card {
+      border-radius: 20px;
+      padding: 14px;
+    }
+
+    .mobile-data-card__header {
+      flex-direction: column;
+    }
+
+    .mobile-data-row {
+      grid-template-columns: 1fr;
+      gap: 4px;
+    }
+
+    .mobile-data-value {
+      text-align: left;
+    }
+
+    .safi-responsive-actions {
+      flex-direction: column;
+    }
+
+    .safi-responsive-actions > * {
+      width: 100%;
+      justify-content: center;
+    }
   }
 
   .gtranslate_wrapper {

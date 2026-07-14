@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { getAdminStatuses, getApiErrorState, Status } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 
@@ -41,18 +42,32 @@ export default function AdminStatuses() {
       {!isLoading && !error && statuses.length === 0 && <EmptyState title={adminText('a_0KHRgtCw0YLR_4')} description={adminText('a_0KHQv9C40YHQ_2')} />}
 
       {!isLoading && !error && statuses.length > 0 && (
-        <AdminTable headers={[adminText('a_0KHRgtCw0YLR'), adminText('a_0KPRgdC70L7Q'), adminText('a_0J_RgNC10LzQ'), adminText('a_0J_QsNGA0YLQ_10')]}>
-          {statuses.map((status) => (
-            <tr key={status.id} className="hover:bg-safi-green/5 transition-colors group">
-              <td className="px-6 py-4 font-bold text-safi-green text-sm">{status.name}</td>
-              <td className="px-6 py-4">
-                <div className="text-sm font-bold">{status.pv.toLocaleString('ru-RU')} PV</div>
-              </td>
-              <td className="px-6 py-4 font-bold max-w-[200px] truncate">{status.reward}</td>
-              <td className="px-6 py-4"><AdminBadge variant="default">{status.partnersCount ?? 0}</AdminBadge></td>
-            </tr>
-          ))}
-        </AdminTable>
+        <section className="space-y-4">
+          <MobileDataList>
+            {statuses.map((status) => (
+              <MobileDataCard key={status.id}>
+                <MobileDataHeader title={status.name} action={<AdminBadge variant="default">{status.partnersCount ?? 0}</AdminBadge>} />
+                <MobileDataRow label={adminText('a_0KPRgdC70L7Q')}>{status.pv.toLocaleString('ru-RU')} PV</MobileDataRow>
+                <MobileDataRow label={adminText('a_0J_RgNC10LzQ')}>{status.reward}</MobileDataRow>
+              </MobileDataCard>
+            ))}
+          </MobileDataList>
+
+          <div className="hidden md:block">
+            <AdminTable headers={[adminText('a_0KHRgtCw0YLR'), adminText('a_0KPRgdC70L7Q'), adminText('a_0J_RgNC10LzQ'), adminText('a_0J_QsNGA0YLQ_10')]}>
+              {statuses.map((status) => (
+                <tr key={status.id} className="hover:bg-safi-green/5 transition-colors group">
+                  <td className="px-6 py-4 font-bold text-safi-green text-sm">{status.name}</td>
+                  <td className="px-6 py-4">
+                    <div className="text-sm font-bold">{status.pv.toLocaleString('ru-RU')} PV</div>
+                  </td>
+                  <td className="px-6 py-4 font-bold max-w-[200px] truncate">{status.reward}</td>
+                  <td className="px-6 py-4"><AdminBadge variant="default">{status.partnersCount ?? 0}</AdminBadge></td>
+                </tr>
+              ))}
+            </AdminTable>
+          </div>
+        </section>
       )}
     </div>
   );

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Filter, RefreshCcw, Search, ShoppingBag } from 'lucide-react';
 import { AdminBadge, AdminStatCard, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ToastItem, ToastStack } from '../../components/ui/Toast';
 import { getAdminOrders, getApiErrorState, Order, updateAdminOrderStatus } from '../../lib/api';
 import { useAdminContext } from '../../components/admin/AdminLayout';
@@ -157,17 +158,100 @@ export default function AdminOrders() {
       {!isLoading && !error && orders.length === 0 && <EmptyState title={t('orders.notFound')} />}
 
       {!isLoading && !error && orders.length > 0 && (
-        <AdminTable headers={[
-          t('orders.orderId'),
-          t('orders.partner'),
-          t('orders.contacts'),
-          t('orders.items'),
-          t('orders.amount'),
-          t('orders.status'),
-          t('orders.paymentStatus'),
-          t('orders.date'),
-          t('orders.actions'),
-        ]}>
+        <>
+          <MobileDataList>
+            {orders.map((order) => (
+              <MobileDataCard key={order.id}>
+                <MobileDataHeader
+                  title={`#${order.id}`}
+                  meta={order.orderNumber || formatDate(order.createdAt, language)}
+                  action={<PaymentStatusBadge status={order.paymentStatus || 'unpaid'} />}
+                />
+                <MobileDataRow label={t('orders.partner')}>
+                  <div>{order.user?.name || '-'}</div>
+                  <div className="mt-1 font-mono text-xs text-safi-muted">{order.user?.id || order.userId || '-'}</div>
+                </MobileDataRow>
+                <MobileDataRow label={t('orders.contacts')}>
+                  <div>{order.user?.login || '-'}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{order.user?.email || '-'}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{order.phone || order.user?.phone || '-'}</div>
+                </MobileDataRow>
+                <MobileDataRow label={t('orders.amount')}>
+                  <div>{formatCurrency(order.totalAmount)}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{order.paymentStrategyLabel || '100% карта'}</div>
+                </MobileDataRow>
+                <MobileDataRow label={t('orders.status')}>
+                  {canManageStatus ? (
+                    <select
+                      value={order.status}
+                      disabled={updatingOrderId === order.id}
+                      onChange={(event) => void handleStatusChange(order, event.target.value)}
+                      className="w-full rounded-full border border-safi-border bg-safi-cream px-3 py-2 text-[10px] font-extrabold uppercase tracking-[0.12em] text-safi-green outline-none disabled:opacity-60"
+                      aria-label={t('orders.changeStatus')}
+                    >
+                      {orderStatuses.map((item) => (
+                        <option key={item} value={item}>{t(`orders.statusLabels.${item}`)}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <OrderStatusBadge status={order.status} />
+                  )}
+                </MobileDataRow>
+                <MobileDataRow label={t('orders.deliveryInfo')}>
+                  <div>{order.city || '-'}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</div>
+                </MobileDataRow>
+                <MobileCardActions>
+                  <button
+                    type="button"
+                    onClick={() => setExpandedOrderId((current) => current === order.id ? null : order.id)}
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-safi-border bg-safi-cream px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green"
+                  >
+                    {expandedOrderId === order.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    {t('orders.details')}
+                  </button>
+                </MobileCardActions>
+                {expandedOrderId === order.id && (
+                  <div className="mt-4 space-y-4 rounded-2xl border border-safi-border bg-safi-cream p-4">
+                    <div className="grid gap-3 text-sm">
+                      <Metric label={t('orders.recipientName')} value={order.recipientName || order.user?.name || '-'} />
+                      <Metric label={t('orders.deliveryPhone')} value={order.phone || order.user?.phone || '-'} />
+                      <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
+                      <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
+                      <Metric label={t('orders.paymentStatus')} value={t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: order.paymentStatus || 'unpaid' })} />
+                    </div>
+                    <div className="grid gap-3">
+                      {order.items.map((item) => (
+                        <div key={item.id} className="rounded-2xl border border-safi-border bg-white p-4">
+                          <div className="flex items-center gap-3">
+                            <ProductImage image={item.image} alt={`${t('orders.productImage')}: ${item.productName}`} />
+                            <div className="min-w-0 font-serif text-lg font-semibold text-safi-green">{item.productName}</div>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                            <Metric label={t('orders.quantity')} value={item.quantity.toLocaleString('ru-RU')} />
+                            <Metric label={t('orders.amount')} value={formatCurrency(item.totalPrice)} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </MobileDataCard>
+            ))}
+          </MobileDataList>
+
+          <div className="hidden md:block">
+            <AdminTable headers={[
+              t('orders.orderId'),
+              t('orders.partner'),
+              t('orders.contacts'),
+              t('orders.items'),
+              t('orders.amount'),
+              t('orders.status'),
+              t('orders.paymentStatus'),
+              t('orders.date'),
+              t('orders.actions'),
+            ]}>
           {orders.map((order) => (
             <Fragment key={order.id}>
               <tr className="transition-colors hover:bg-safi-green/5">
@@ -271,7 +355,9 @@ export default function AdminOrders() {
               )}
             </Fragment>
           ))}
-        </AdminTable>
+            </AdminTable>
+          </div>
+        </>
       )}
     </div>
   );

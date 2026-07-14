@@ -164,6 +164,35 @@ export function Header() {
     return () => document.removeEventListener('click', handleClickOutside);
   }, [isMoreMenuOpen]);
 
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      return undefined;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileMenuOpen]);
+
+  useEffect(() => {
+    if (!isMobileMenuOpen) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeMenu();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isMobileMenuOpen]);
+
   const closeMenu = () => {
     setIsMobileMenuOpen(false);
     setIsMoreMenuOpen(false);
@@ -179,11 +208,11 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-safi-green/10 bg-white/50 backdrop-blur-md shrink-0">
       <Container>
-        <div className="flex h-20 items-center justify-between gap-4 xl:gap-8">
-          <Link to="/" className="notranslate flex items-center" onClick={closeMenu} translate="no">
+        <div className="flex h-20 min-w-0 items-center justify-between gap-3 sm:gap-4 xl:gap-8">
+          <Link to="/" className="notranslate flex shrink-0 items-center" onClick={closeMenu} translate="no">
             <img 
               alt="Safi Life" 
-              className="notranslate w-[100px] h-[40px] object-contain shrink-0"
+              className="notranslate h-9 w-[78px] shrink-0 object-contain sm:h-[40px] sm:w-[100px]"
               src="https://napaxiong.wordpress.com/wp-content/uploads/2026/04/safi-life.png" 
               translate="no"
             />
@@ -255,7 +284,7 @@ export function Header() {
           </div>
 
           <div className="hidden lg:flex items-center gap-3 shrink-0">
-            <LanguageSwitcher />
+            <LanguageSwitcher className="hidden min-[390px]:flex" />
             <Link
               to="/cart"
               onClick={closeMenu}
@@ -283,8 +312,8 @@ export function Header() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="lg:hidden flex items-center gap-4 shrink-0">
-            <LanguageSwitcher />
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3 lg:hidden">
+            <LanguageSwitcher className="hidden sm:flex" />
             <Link
               to="/cart"
               onClick={closeMenu}
@@ -299,9 +328,10 @@ export function Header() {
               )}
             </Link>
             <button
-              className="p-2 text-safi-green"
+              className="flex h-10 w-10 items-center justify-center rounded-xl p-2 text-safi-green transition-colors hover:bg-safi-cream"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Toggle menu"
+              aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
@@ -311,8 +341,11 @@ export function Header() {
 
       {/* Mobile Nav */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden absolute top-20 left-0 w-full bg-white border-b border-safi-green/5 shadow-xl pb-6 rounded-b-[32px] max-h-[calc(100vh-80px)] overflow-y-auto">
-          <nav className="flex flex-col px-6 pt-6 pb-6 gap-2">
+        <div className="fixed inset-x-3 top-20 z-50 max-h-[calc(100dvh-92px)] overflow-y-auto rounded-b-[28px] border border-safi-green/5 bg-white pb-4 shadow-xl lg:hidden">
+          <nav className="flex flex-col gap-2 px-4 pb-5 pt-5 sm:px-6">
+            <div className="mb-2 flex justify-end lg:hidden">
+              <LanguageSwitcher />
+            </div>
             {navLinks.map((link) => (
               <Link
                 key={link.path}
