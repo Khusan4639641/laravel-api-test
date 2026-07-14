@@ -443,12 +443,6 @@ function HeroProductCard({
 
   return (
     <article className="group relative flex aspect-[3/4] w-full max-w-[340px] flex-col overflow-visible rounded-[40px] border border-white bg-white/60 p-4 shadow-2xl backdrop-blur-2xl sm:max-w-sm">
-      <div className="absolute -right-6 -top-6 z-20 flex h-24 w-24 rotate-12 flex-col items-center justify-center rounded-full border-4 border-white bg-safi-gold text-white shadow-xl transition-transform duration-500 group-hover:rotate-0 sm:h-28 sm:w-28">
-        <span className="text-[10px] font-bold uppercase tracking-tighter">{t('productCard.cashbackTitle', 'Кэшбэк')}</span>
-        <span className="font-serif text-xl font-bold sm:text-2xl">20%</span>
-        <span className="text-[8px] uppercase tracking-widest opacity-80">{t('productCard.cashbackBonus', 'бонус')}</span>
-      </div>
-
       <div className="absolute -bottom-4 -left-4 z-20 flex h-16 w-16 flex-col items-center justify-center rounded-full border-4 border-white bg-safi-green text-white shadow-lg sm:h-20 sm:w-20">
         <Leaf className="mb-1 h-5 w-5 opacity-80 sm:h-6 sm:w-6" />
         <span className="text-[7px] font-bold uppercase tracking-widest sm:text-[8px]">100% Nat</span>
