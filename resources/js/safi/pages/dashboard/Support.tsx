@@ -2,6 +2,8 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 're
 import { FileUp, Paperclip, Plus, Send, X } from 'lucide-react';
 import { Badge } from '../../components/dashboard/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
+import { useUiText } from '../../i18n/useUiText';
 import {
   ApiError,
   closeDashboardSupportTicket,
@@ -49,6 +51,7 @@ interface SupportTicketRow {
 const emptyForm = { subject: '', message: '' };
 
 export default function Support() {
+  const ui = useUiText();
   const [supportTickets, setSupportTickets] = useState<SupportTicketRow[]>([]);
   const [selectedTicketId, setSelectedTicketId] = useState('');
   const [form, setForm] = useState(emptyForm);
@@ -90,14 +93,14 @@ export default function Support() {
       });
     } catch (caughtError) {
       if (!silent) {
-        setError(getApiErrorState(caughtError).error || 'Не удалось открыть обращение.');
+        setError(getApiErrorState(caughtError).error || ui('Не удалось открыть обращение.'));
       }
     } finally {
       if (!silent) {
         setIsLoadingDetail(false);
       }
     }
-  }, []);
+  }, [ui]);
 
   const loadTickets = useCallback(async () => {
     setIsLoading(true);
@@ -150,11 +153,11 @@ export default function Support() {
     setError('');
 
     if (!form.message.trim() && !formFile) {
-      setError('Введите сообщение или прикрепите файл.');
+      setError(ui('Введите сообщение или прикрепите файл.'));
       return;
     }
 
-    if (!validateFile(formFile, setError)) {
+    if (!validateFile(formFile, setError, ui('Файл не должен превышать 5 MB'))) {
       return;
     }
 
@@ -174,11 +177,11 @@ export default function Support() {
 
       setForm(emptyForm);
       setFormFile(null);
-      setNotice('Обращение создано.');
+      setNotice(ui('Обращение создано.'));
       await loadTickets();
       setSelectedTicketId(ticket.id);
     } catch (caughtError) {
-      setError(caughtError instanceof ApiError ? caughtError.message : 'Не удалось создать обращение.');
+      setError(caughtError instanceof ApiError ? caughtError.message : ui('Не удалось создать обращение.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -195,11 +198,11 @@ export default function Support() {
     setError('');
 
     if (!replyText.trim() && !replyFile) {
-      setError('Введите сообщение или прикрепите файл.');
+      setError(ui('Введите сообщение или прикрепите файл.'));
       return;
     }
 
-    if (!validateFile(replyFile, setError)) {
+    if (!validateFile(replyFile, setError, ui('Файл не должен превышать 5 MB'))) {
       return;
     }
 
@@ -219,7 +222,7 @@ export default function Support() {
       await loadTicketDetail(selectedTicket.id);
       await loadTickets();
     } catch (caughtError) {
-      setError(getApiErrorState(caughtError).error || 'Не удалось отправить сообщение.');
+      setError(getApiErrorState(caughtError).error || ui('Не удалось отправить сообщение.'));
     } finally {
       setIsSending(false);
     }
@@ -236,11 +239,11 @@ export default function Support() {
 
     try {
       await closeDashboardSupportTicket(selectedTicket.id);
-      setNotice('Обращение закрыто.');
+      setNotice(ui('Обращение закрыто.'));
       await loadTicketDetail(selectedTicket.id);
       await loadTickets();
     } catch (caughtError) {
-      setError(getApiErrorState(caughtError).error || 'Не удалось закрыть обращение.');
+      setError(getApiErrorState(caughtError).error || ui('Не удалось закрыть обращение.'));
     } finally {
       setIsSending(false);
     }
@@ -250,9 +253,9 @@ export default function Support() {
     <div className="space-y-8">
       <section className="rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:p-8">
         <span className="safi-kicker">Support</span>
-        <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Поддержка</h1>
+        <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">{ui('Поддержка')}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-          Создайте обращение и продолжайте переписку в одном чате, пока вопрос не закрыт.
+          {ui('Создайте обращение и продолжайте переписку в одном чате, пока вопрос не закрыт.')}
         </p>
         {(notice || error) && (
           <div className={`mt-6 rounded-2xl border px-4 py-3 text-sm font-bold ${error ? 'border-red-200 bg-red-50 text-red-700' : 'border-green-200 bg-green-50 text-green-700'}`}>
@@ -265,14 +268,14 @@ export default function Support() {
         <aside id="support-ticket-list" className="space-y-6 scroll-mt-24">
           <article className="rounded-[28px] border border-safi-border bg-white p-5 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-serif text-2xl font-semibold text-safi-green">Мои обращения</h2>
+              <h2 className="font-serif text-2xl font-semibold text-safi-green">{ui('Мои обращения')}</h2>
               <Plus className="h-5 w-5 text-safi-gold" />
             </div>
 
-            {isLoading && <LoadingState title="Загружаем обращения" />}
+            {isLoading && <LoadingState title={ui('Загружаем обращения')} />}
             {!isLoading && loadError && <ErrorState description={loadError} onRetry={loadTickets} />}
             {!isLoading && !loadError && sortedTickets.length === 0 && (
-              <EmptyState title="Обращений пока нет" description="Создайте первое обращение ниже." />
+              <EmptyState title={ui('Обращений пока нет')} description={ui('Создайте первое обращение ниже.')} />
             )}
 
             {!isLoading && !loadError && sortedTickets.length > 0 && (
@@ -286,11 +289,11 @@ export default function Support() {
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-extrabold text-safi-green">{ticket.subject}</div>
-                        <div className="mt-1 font-mono text-[10px] text-safi-muted">#{ticket.id}</div>
+                        <NoTranslate as="div" className="truncate text-sm font-extrabold text-safi-green">{ticket.subject}</NoTranslate>
+                        <NoTranslate as="div" className="mt-1 font-mono text-[10px] text-safi-muted">#{ticket.id}</NoTranslate>
                       </div>
                       <Badge variant={ticket.statusCode === 'closed' ? 'default' : ticket.statusCode === 'waiting_user' ? 'success' : 'warning'}>
-                        {ticket.status}
+                          {ui(ticket.status)}
                       </Badge>
                     </div>
                     <div className="mt-3 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{ticket.lastMessageAt || ticket.date}</div>
@@ -301,22 +304,26 @@ export default function Support() {
           </article>
 
           <article className="rounded-[28px] border border-safi-border bg-white p-5 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-            <h2 className="font-serif text-2xl font-semibold text-safi-green">Новое обращение</h2>
+            <h2 className="font-serif text-2xl font-semibold text-safi-green">{ui('Новое обращение')}</h2>
             <form className="mt-5 space-y-4" onSubmit={submitTicket}>
               <input
                 value={form.subject}
                 onChange={(event) => setForm((current) => ({ ...current, subject: event.target.value }))}
                 className={inputClass}
-                placeholder="Тема обращения"
+                placeholder={ui('Тема обращения')}
                 disabled={isSubmitting}
+                translate="no"
+                data-notranslate="true"
               />
               <textarea
                 rows={4}
                 value={form.message}
                 onChange={(event) => setForm((current) => ({ ...current, message: event.target.value }))}
                 className={inputClass}
-                placeholder="Опишите вопрос"
+                placeholder={ui('Опишите вопрос')}
                 disabled={isSubmitting}
+                translate="no"
+                data-notranslate="true"
               />
               <FilePicker file={formFile} disabled={isSubmitting} onChange={setFormFile} />
               <button
@@ -324,7 +331,7 @@ export default function Support() {
                 disabled={isSubmitting || (!form.message.trim() && !formFile)}
                 className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-safi-green px-6 py-4 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <Send className="h-4 w-4 text-safi-gold" />{isSubmitting ? 'Отправляем...' : 'Создать обращение'}
+                <Send className="h-4 w-4 text-safi-gold" />{ui(isSubmitting ? 'Отправляем...' : 'Создать обращение')}
               </button>
             </form>
           </article>
@@ -333,7 +340,7 @@ export default function Support() {
         <article className="flex min-h-[520px] flex-col rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:min-h-[680px]">
           {!selectedTicket && (
             <div className="flex flex-1 items-center justify-center p-8">
-              <EmptyState title="Выберите обращение" description="История переписки появится здесь." />
+              <EmptyState title={ui('Выберите обращение')} description={ui('История переписки появится здесь.')} />
             </div>
           )}
 
@@ -342,13 +349,13 @@ export default function Support() {
               <div className="border-b border-safi-border bg-safi-cream px-6 py-5">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
-                    <a href="#support-ticket-list" className="mb-3 inline-flex text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-gold xl:hidden">К обращениям</a>
-                    <div className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-safi-muted">#{selectedTicket.id}</div>
-                    <h2 className="mt-1 font-serif text-2xl font-semibold text-safi-green">{selectedTicket.subject}</h2>
+                    <a href="#support-ticket-list" className="mb-3 inline-flex text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-gold xl:hidden">{ui('К обращениям')}</a>
+                    <NoTranslate as="div" className="font-mono text-[10px] font-bold uppercase tracking-[0.14em] text-safi-muted">#{selectedTicket.id}</NoTranslate>
+                    <NoTranslate as="h2" className="mt-1 font-serif text-2xl font-semibold text-safi-green">{selectedTicket.subject}</NoTranslate>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <Badge variant={selectedTicket.statusCode === 'closed' ? 'default' : selectedTicket.statusCode === 'waiting_user' ? 'success' : 'warning'}>
-                      {selectedTicket.status}
+                      {ui(selectedTicket.status)}
                     </Badge>
                     {!isClosed && (
                       <button
@@ -357,7 +364,7 @@ export default function Support() {
                         disabled={isSending}
                         className="rounded-full border border-safi-border bg-white px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:opacity-60"
                       >
-                        Закрыть
+                        {ui('Закрыть')}
                       </button>
                     )}
                   </div>
@@ -367,7 +374,7 @@ export default function Support() {
               <div className="flex-1 space-y-4 overflow-y-auto bg-[#F5F5F0]/55 p-5 md:p-6">
                 {isLoadingDetail && (
                   <div className="rounded-2xl border border-safi-border bg-white px-4 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
-                    Обновляем чат...
+                    {ui('Обновляем чат...')}
                   </div>
                 )}
                 {selectedTicket.messages.map((item) => (
@@ -379,7 +386,7 @@ export default function Support() {
               <div className="border-t border-safi-border bg-white p-5">
                 {isClosed ? (
                   <div className="rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-muted">
-                    Обращение закрыто. Создайте новое обращение, если нужна помощь.
+                    {ui('Обращение закрыто. Создайте новое обращение, если нужна помощь.')}
                   </div>
                 ) : (
                   <form className="space-y-4" onSubmit={sendMessage}>
@@ -388,8 +395,10 @@ export default function Support() {
                       value={replyText}
                       onChange={(event) => setReplyText(event.target.value)}
                       className={inputClass}
-                      placeholder="Напишите сообщение"
+                      placeholder={ui('Напишите сообщение')}
                       disabled={isSending}
+                      translate="no"
+                      data-notranslate="true"
                     />
                     <div className="grid gap-3 md:grid-cols-[1fr_auto]">
                       <FilePicker file={replyFile} disabled={isSending} onChange={setReplyFile} />
@@ -398,7 +407,7 @@ export default function Support() {
                         disabled={isSending || (!replyText.trim() && !replyFile)}
                         className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-2xl bg-safi-green px-6 py-4 text-[10px] font-extrabold uppercase tracking-[0.16em] text-white transition-colors hover:bg-safi-green/90 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        <Send className="h-4 w-4 text-safi-gold" />Отправить
+                        <Send className="h-4 w-4 text-safi-gold" />{ui('Отправить')}
                       </button>
                     </div>
                   </form>
@@ -413,6 +422,7 @@ export default function Support() {
 }
 
 function FilePicker({ file, disabled, onChange }: { file: File | null; disabled?: boolean; onChange: (file: File | null) => void }) {
+  const ui = useUiText();
   return (
     <div className="flex min-h-[56px] items-center gap-3 rounded-2xl border border-safi-border bg-white px-4 py-3">
       <FileUp className="h-5 w-5 shrink-0 text-safi-gold" />
@@ -424,14 +434,14 @@ function FilePicker({ file, disabled, onChange }: { file: File | null; disabled?
           accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt"
           onChange={(event) => onChange(event.target.files?.[0] || null)}
         />
-        <span className="block truncate">{file ? file.name : 'Прикрепить файл до 5 MB'}</span>
+        {file ? <NoTranslate as="span" className="block truncate">{file.name}</NoTranslate> : <span className="block truncate">{ui('Прикрепить файл до 5 MB')}</span>}
       </label>
       {file && (
         <button
           type="button"
           onClick={() => onChange(null)}
           className="flex h-8 w-8 items-center justify-center rounded-full bg-safi-cream text-safi-green"
-          aria-label="Убрать файл"
+          aria-label={ui('Убрать файл')}
         >
           <X className="h-4 w-4" />
         </button>
@@ -441,14 +451,15 @@ function FilePicker({ file, disabled, onChange }: { file: File | null; disabled?
 }
 
 function ChatBubble({ message, onDownload }: { message: SupportMessage; onDownload: (id: string, filename: string) => Promise<void> }) {
+  const ui = useUiText();
   return (
     <div className={`flex ${message.isStaff ? 'justify-start' : 'justify-end'}`}>
       <div className={`max-w-[min(680px,92%)] rounded-3xl border px-5 py-4 shadow-sm ${message.isStaff ? 'border-safi-border bg-white' : 'border-safi-green bg-safi-green text-white'}`}>
         <div className={`flex flex-wrap items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.14em] ${message.isStaff ? 'text-safi-muted' : 'text-white/70'}`}>
-          <span>{message.isStaff ? 'Поддержка' : 'Вы'}</span>
+          <span>{ui(message.isStaff ? 'Поддержка' : 'Вы')}</span>
           <span>{message.date}</span>
         </div>
-        {message.message && <p className={`mt-2 whitespace-pre-line text-sm leading-7 ${message.isStaff ? 'text-safi-green' : 'text-white'}`}>{message.message}</p>}
+        {message.message && <NoTranslate as="p" className={`mt-2 whitespace-pre-line text-sm leading-7 ${message.isStaff ? 'text-safi-green' : 'text-white'}`}>{message.message}</NoTranslate>}
         {message.attachments.length > 0 && (
           <div className="mt-3 space-y-2">
             {message.attachments.map((attachment) => (
@@ -459,7 +470,7 @@ function ChatBubble({ message, onDownload }: { message: SupportMessage; onDownlo
                 className={`flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-bold ${message.isStaff ? 'bg-safi-cream text-safi-green' : 'bg-white/10 text-white'}`}
               >
                 <Paperclip className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
+                <NoTranslate as="span" className="min-w-0 flex-1 truncate">{attachment.name}</NoTranslate>
                 <span>{formatFileSize(attachment.size)}</span>
               </button>
             ))}
@@ -532,9 +543,9 @@ function unwrapTicket(response: unknown) {
   return record;
 }
 
-function validateFile(file: File | null, setError: (message: string) => void) {
+function validateFile(file: File | null, setError: (message: string) => void, tooLargeMessage: string) {
   if (file && file.size > maxFileSize) {
-    setError('Файл не должен превышать 5 MB');
+    setError(tooLargeMessage);
     return false;
   }
 

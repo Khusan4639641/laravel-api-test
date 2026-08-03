@@ -261,7 +261,7 @@ class MlmNotificationPersistenceTest extends TestCase
      */
     private function assertLocalizedPayload(array $data): void
     {
-        foreach (['ru', 'kz', 'kg', 'en', 'mn'] as $language) {
+        foreach (['ru', 'kk', 'ky', 'en', 'mn'] as $language) {
             $this->assertArrayHasKey($language, $data['title']);
             $this->assertArrayHasKey($language, $data['message']);
             $this->assertNotSame('', $data['title'][$language]);

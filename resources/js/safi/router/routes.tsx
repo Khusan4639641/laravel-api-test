@@ -1,9 +1,8 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { MainLayout } from '../components/layout/MainLayout';
 import { DashboardLayout } from '../components/dashboard/DashboardLayout';
 import { features } from '../config/features';
-import { applySavedGTranslateLanguage, loadGTranslateWidget } from '../lib/gtranslate';
 
 // Public pages
 const HomePage = React.lazy(() => import('../pages/HomePage'));
@@ -61,7 +60,6 @@ const AdminLayoutComponent = React.lazy(() => import('../components/admin/AdminL
 export function AppRouter() {
   return (
     <BrowserRouter>
-      <GTranslateRuntime />
       <React.Suspense fallback={<div className="flex h-screen items-center justify-center p-4">Загрузка...</div>}>
         <Routes>
           <Route path="/" element={<MainLayout />}>
@@ -71,6 +69,7 @@ export function AppRouter() {
             <Route path="cart" element={<CartPage />} />
             <Route path="business" element={<BusinessPage />} />
             <Route path="marketing" element={<MarketingPlanPage />} />
+            <Route path="marketing-plan" element={<MarketingPlanPage />} />
             <Route path="how-to-start" element={<HowToStartPage />} />
             <Route path="news" element={<NewsPage />} />
             <Route path="faq" element={<FAQPage />} />
@@ -152,24 +151,6 @@ export function AppRouter() {
       </React.Suspense>
     </BrowserRouter>
   );
-}
-
-function GTranslateRuntime() {
-  const location = useLocation();
-
-  React.useEffect(() => {
-    void loadGTranslateWidget().then(() => applySavedGTranslateLanguage());
-  }, []);
-
-  React.useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void applySavedGTranslateLanguage();
-    }, 500);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [location.pathname]);
-
-  return <div className="gtranslate_wrapper notranslate" translate="no" aria-hidden="true" />;
 }
 
 function SupportUnavailable() {

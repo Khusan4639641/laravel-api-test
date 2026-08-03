@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { AdminBadge } from '../../components/admin/ui';
 import { Package, Plus, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { createAdminPackage, getAdminPackages, getApiErrorState, Package as ApiPackage, updateAdminPackage } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 import { productStatusLabel } from '../../lib/systemLabels';
@@ -211,7 +212,7 @@ export default function AdminPackages() {
                 </AdminBadge>
               </div>
               <Package className="w-10 h-10 text-safi-green/20 absolute top-6 right-6" />
-              <h3 className="text-2xl font-serif font-bold text-safi-green mb-1">{pkg.label || pkg.name}</h3>
+              <NoTranslate as="h3" className="text-2xl font-serif font-bold text-safi-green mb-1">{String(pkg.code || pkg.name).trim().toUpperCase()}</NoTranslate>
               <div className="text-sm text-safi-text/60 mb-6">{pkg.price.toLocaleString('ru-RU')} ₸</div>
 
               <div className="space-y-3 mb-6 flex-1">

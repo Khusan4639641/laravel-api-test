@@ -33,7 +33,7 @@ class InternalWalletTransferController extends Controller
         );
 
         return response()->json([
-            'message' => 'Перевод между счетами выполнен',
+            'message' => __('api.internal_transfer_completed'),
             'data' => [
                 'transfer_uuid' => $result['transfer_uuid'],
                 'from' => 'main',

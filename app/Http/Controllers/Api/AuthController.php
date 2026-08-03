@@ -48,7 +48,7 @@ class AuthController extends Controller
 
         if (! config('safi.public_registration_enabled', false) && ! $sponsor) {
             return response()->json([
-                'message' => 'Самостоятельная регистрация временно недоступна',
+                'message' => __('api.registration_disabled'),
             ], 403);
         }
 
@@ -110,7 +110,7 @@ class AuthController extends Controller
         $request->user()?->currentAccessToken()?->delete();
 
         return response()->json([
-            'message' => 'Logged out.',
+            'message' => __('api.logged_out'),
         ]);
     }
 

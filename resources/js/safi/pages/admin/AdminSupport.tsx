@@ -3,6 +3,7 @@ import { FileUp, Paperclip, RotateCcw, Search, Send, X } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { AdminPagination } from '../../components/admin/AdminPagination';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { adminText } from '../../i18n/adminText';
 import {
@@ -300,6 +301,8 @@ export default function AdminSupport() {
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
+            translate="no"
+            data-notranslate="true"
             className="w-full rounded-2xl border border-safi-border bg-safi-cream py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
             placeholder="Поиск по имени, email, ID или теме"
           />
@@ -336,15 +339,15 @@ export default function AdminSupport() {
                 {supportTickets.map((ticket) => (
                   <MobileDataCard key={ticket.id} className={ticket.id === selectedTicketId ? 'border-safi-green bg-safi-cream/60' : undefined}>
                     <MobileDataHeader
-                      title={`#${ticket.id}`}
+                      title={<NoTranslate>#{ticket.id}</NoTranslate>}
                       meta={ticket.date}
                       action={<AdminBadge variant={badgeVariant(ticket.statusCode)}>{ticket.status}</AdminBadge>}
                     />
                     <MobileDataRow label="Партнёр">
-                      <div>{ticket.partner}</div>
-                      <div className="mt-1 text-xs text-safi-muted">ID {ticket.partnerId} · {ticket.email}</div>
+                      <NoTranslate as="div">{ticket.partner}</NoTranslate>
+                      <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">ID {ticket.partnerId} · {ticket.email}</NoTranslate>
                     </MobileDataRow>
-                    <MobileDataRow label="Тема">{ticket.subject}</MobileDataRow>
+                    <MobileDataRow label="Тема"><NoTranslate>{ticket.subject}</NoTranslate></MobileDataRow>
                     <MobileDataRow label="Последнее">{ticket.lastMessageAt || '-'}</MobileDataRow>
                     <MobileCardActions>
                       <button
@@ -364,15 +367,15 @@ export default function AdminSupport() {
                   {supportTickets.map((ticket) => (
                     <tr key={ticket.id} className={`group cursor-pointer transition-colors hover:bg-safi-green/5 ${ticket.id === selectedTicketId ? 'bg-safi-green/5' : ''}`}>
                       <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
-                        <div className="font-mono font-bold text-safi-green">#{ticket.id}</div>
+                        <NoTranslate as="div" className="font-mono font-bold text-safi-green">#{ticket.id}</NoTranslate>
                         <div className="mt-1 text-[10px] text-safi-text/50">{ticket.date}</div>
                       </td>
                       <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
-                        <div className="text-sm font-bold text-safi-green">{ticket.partner}</div>
-                        <div className="mt-1 text-xs text-safi-text/60">ID {ticket.partnerId} · {ticket.email}</div>
+                        <NoTranslate as="div" className="text-sm font-bold text-safi-green">{ticket.partner}</NoTranslate>
+                        <NoTranslate as="div" className="mt-1 text-xs text-safi-text/60">ID {ticket.partnerId} · {ticket.email}</NoTranslate>
                       </td>
                       <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
-                        <div className="max-w-[220px] truncate font-bold text-safi-text">{ticket.subject}</div>
+                        <NoTranslate as="div" className="max-w-[220px] truncate font-bold text-safi-text">{ticket.subject}</NoTranslate>
                       </td>
                       <td className="px-6 py-4" onClick={() => selectTicket(ticket)}>
                         <AdminBadge variant={badgeVariant(ticket.statusCode)}>{ticket.status}</AdminBadge>
@@ -415,9 +418,9 @@ export default function AdminSupport() {
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div>
                     <a href="#admin-support-ticket-list" className="mb-3 inline-flex text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-gold xl:hidden">К обращениям</a>
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">Обращение #{selectedTicket.id}</div>
-                    <h2 className="mt-2 font-serif text-2xl font-bold text-safi-green">{selectedTicket.subject}</h2>
-                    <div className="mt-2 text-sm font-bold text-safi-text/70">{selectedTicket.partner} · ID {selectedTicket.partnerId}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">Обращение <NoTranslate>#{selectedTicket.id}</NoTranslate></div>
+                    <NoTranslate as="h2" className="mt-2 font-serif text-2xl font-bold text-safi-green">{selectedTicket.subject}</NoTranslate>
+                    <NoTranslate as="div" className="mt-2 text-sm font-bold text-safi-text/70">{selectedTicket.partner} · ID {selectedTicket.partnerId}</NoTranslate>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <AdminBadge variant={badgeVariant(selectedTicket.statusCode)}>{selectedTicket.status}</AdminBadge>
@@ -465,6 +468,8 @@ export default function AdminSupport() {
                       rows={4}
                       value={replyText}
                       onChange={(event) => setReplyText(event.target.value)}
+                      translate="no"
+                      data-notranslate="true"
                       className="w-full resize-none rounded-xl bg-[#F5F5F0] px-5 py-3.5 text-sm font-medium text-safi-green outline-none focus:ring-2 focus:ring-safi-green/20"
                       placeholder={adminText('a_0J3QsNC_0LjR')}
                     />
@@ -501,7 +506,7 @@ function FilePicker({ file, disabled, onChange }: { file: File | null; disabled?
           accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.txt"
           onChange={(event) => onChange(event.target.files?.[0] || null)}
         />
-        <span className="block truncate">{file ? file.name : 'Прикрепить файл до 5 MB'}</span>
+        {file ? <NoTranslate as="span" className="block truncate">{file.name}</NoTranslate> : <span className="block truncate">Прикрепить файл до 5 MB</span>}
       </label>
       {file && (
         <button
@@ -522,10 +527,10 @@ function ChatBubble({ message, onDownload }: { message: SupportTicketMessage; on
     <div className={`flex ${message.isStaff ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[min(680px,92%)] rounded-3xl border px-5 py-4 shadow-sm ${message.isStaff ? 'border-safi-green bg-safi-green text-white' : 'border-safi-border bg-white'}`}>
         <div className={`flex flex-wrap items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.14em] ${message.isStaff ? 'text-white/70' : 'text-safi-muted'}`}>
-          <span>{message.isStaff ? 'Админ' : message.author}</span>
+          <span>{message.isStaff ? 'Админ' : <NoTranslate>{message.author}</NoTranslate>}</span>
           <span>{message.date}</span>
         </div>
-        {message.message && <p className={`mt-2 whitespace-pre-line text-sm leading-7 ${message.isStaff ? 'text-white' : 'text-safi-green'}`}>{message.message}</p>}
+        {message.message && <NoTranslate as="p" className={`mt-2 whitespace-pre-line text-sm leading-7 ${message.isStaff ? 'text-white' : 'text-safi-green'}`}>{message.message}</NoTranslate>}
         {message.attachments.length > 0 && (
           <div className="mt-3 space-y-2">
             {message.attachments.map((attachment) => (
@@ -536,7 +541,7 @@ function ChatBubble({ message, onDownload }: { message: SupportTicketMessage; on
                 className={`flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-left text-xs font-bold ${message.isStaff ? 'bg-white/10 text-white' : 'bg-safi-cream text-safi-green'}`}
               >
                 <Paperclip className="h-4 w-4 shrink-0" />
-                <span className="min-w-0 flex-1 truncate">{attachment.name}</span>
+                <NoTranslate as="span" className="min-w-0 flex-1 truncate">{attachment.name}</NoTranslate>
                 <span>{formatFileSize(attachment.size)}</span>
               </button>
             ))}

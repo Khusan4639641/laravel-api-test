@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2, Search, X } from 'lucide-react';
 import { searchTransferPartners, TransferPartner } from '../lib/api';
+import { NoTranslate } from './ui/NoTranslate';
+import { useUiText } from '../i18n/useUiText';
 
 interface AsyncPartnerSelectProps {
   value: TransferPartner | null;
@@ -9,6 +11,7 @@ interface AsyncPartnerSelectProps {
 }
 
 export default function AsyncPartnerSelect({ value, onChange, disabled = false }: AsyncPartnerSelectProps) {
+  const ui = useUiText();
   const [query, setQuery] = useState(value ? partnerLabel(value) : '');
   const [options, setOptions] = useState<TransferPartner[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -71,7 +74,7 @@ export default function AsyncPartnerSelect({ value, onChange, disabled = false }
       } catch {
         if (!cancelled) {
           setOptions([]);
-          setError('Не удалось загрузить партнёров');
+          setError(ui('Не удалось загрузить партнёров'));
         }
       } finally {
         if (!cancelled) {
@@ -84,7 +87,7 @@ export default function AsyncPartnerSelect({ value, onChange, disabled = false }
       cancelled = true;
       window.clearTimeout(timeout);
     };
-  }, [query, value]);
+  }, [query, ui, value]);
 
   return (
     <div ref={rootRef} className="relative">
@@ -94,7 +97,9 @@ export default function AsyncPartnerSelect({ value, onChange, disabled = false }
           type="text"
           value={query}
           disabled={disabled}
-          placeholder="Поиск по ID, имени, login, email или телефону"
+          placeholder={ui('Поиск по ID, имени, login, email или телефону')}
+          translate="no"
+          data-notranslate="true"
           onFocus={() => {
             if (query.trim().length >= 2) {
               setIsOpen(true);
@@ -119,7 +124,7 @@ export default function AsyncPartnerSelect({ value, onChange, disabled = false }
               setOptions([]);
             }}
             className="rounded-full p-1 text-safi-muted transition-colors hover:bg-white hover:text-safi-green"
-            aria-label="Очистить получателя"
+            aria-label={ui('Очистить получателя')}
           >
             <X className="h-4 w-4" />
           </button>
@@ -131,7 +136,7 @@ export default function AsyncPartnerSelect({ value, onChange, disabled = false }
           {error && <div className="px-3 py-3 text-sm font-bold text-red-700">{error}</div>}
 
           {!error && !isLoading && options.length === 0 && (
-            <div className="px-3 py-3 text-sm font-bold text-safi-muted">Партнёры не найдены</div>
+            <div className="px-3 py-3 text-sm font-bold text-safi-muted">{ui('Партнёры не найдены')}</div>
           )}
 
           {!error && options.map((partner) => (
@@ -146,12 +151,12 @@ export default function AsyncPartnerSelect({ value, onChange, disabled = false }
               }}
               className="w-full rounded-xl px-3 py-3 text-left transition-colors hover:bg-safi-cream"
             >
-              <span className="block text-sm font-extrabold text-safi-green">
+              <NoTranslate as="span" className="block text-sm font-extrabold text-safi-green">
                 #{partner.id} — {partner.name}
-              </span>
-              <span className="mt-1 block text-xs font-bold text-safi-muted">
+              </NoTranslate>
+              <NoTranslate as="span" className="mt-1 block text-xs font-bold text-safi-muted">
                 {[partner.login && `login: ${partner.login}`, partner.email, partner.phone].filter(Boolean).join(' · ') || 'Партнёр Safi'}
-              </span>
+              </NoTranslate>
             </button>
           ))}
         </div>

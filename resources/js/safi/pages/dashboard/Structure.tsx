@@ -4,10 +4,12 @@ import { Badge, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext, type DashboardCurrentUser } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { getApiErrorState, getArray, getDashboardStructure, getNumber, getString } from '../../lib/api';
 import { mlmStatusLabel, packageLabel } from '../../lib/systemLabels';
 import { getPartnerPackageStatus, partnerPackageStatusLabel, type PartnerPackageStatus } from '../../lib/partnerStatus';
 import { StructureTreeCanvas } from '../../components/structure/StructureTreeCanvas';
+import { useUiText } from '../../i18n/useUiText';
 
 type BranchFilter = 'all' | 'left' | 'right';
 type PaginationItem = number | 'ellipsis';
@@ -77,6 +79,7 @@ const perPageOptions = [10, 25, 50];
 
 export default function Structure() {
   const { currentUser } = useDashboardContext();
+  const ui = useUiText();
   const [query, setQuery] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [branchFilter, setBranchFilter] = useState<BranchFilter>('all');
@@ -235,22 +238,22 @@ export default function Structure() {
       <section className="rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <span className="safi-kicker">Structure</span>
-            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Моя структура</h1>
+            <span className="safi-kicker">{ui('Structure')}</span>
+            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">{ui('Моя структура')}</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-              Бинарная структура и список партнеров.
+              {ui('Бинарная структура и список партнеров.')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="gold">Пакет: {currentUser.packageName}</Badge>
-            <Badge variant={currentUser.packageStatus === 'active' ? 'success' : 'default'}>Пакет: {currentUser.packageStatusLabel}</Badge>
-            <Badge variant="default">Статус: {currentUser.status}</Badge>
+            <Badge variant="gold">{ui('Пакет')}: <NoTranslate>{currentUser.packageCode || currentUser.packageName}</NoTranslate></Badge>
+            <Badge variant={currentUser.packageStatus === 'active' ? 'success' : 'default'}>{ui('Пакет')}: {currentUser.packageStatusLabel}</Badge>
+            <Badge variant="default">{ui('Статус')}: {currentUser.status}</Badge>
           </div>
         </div>
       </section>
 
       {isLoading && (
-        <LoadingState title="Загружаем структуру" description="Получаем бинарное дерево и партнеров из API." />
+        <LoadingState title={ui('Загружаем структуру')} description={ui('Получаем бинарное дерево и партнеров из API.')} />
       )}
 
       {!isLoading && error && (
@@ -260,23 +263,25 @@ export default function Structure() {
       {!isLoading && !error && (
         <>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Всего партнеров" value={structure.totalPartners} icon={<Users className="h-5 w-5" />} />
-        <StatCard title="Малая ветка PV" value={`${structure.weakLegPV.toLocaleString('ru-RU')} PV`} />
-        <BranchCard title="Левая ветка" partners={structure.leftPartners} pv={structure.leftPV} branch="л" weak={structure.weakLeg === 'left'} />
-        <BranchCard title="Правая ветка" partners={structure.rightPartners} pv={structure.rightPV} branch="п" weak={structure.weakLeg === 'right'} />
+        <StatCard title={ui('Всего партнеров')} value={structure.totalPartners} icon={<Users className="h-5 w-5" />} />
+        <StatCard title={ui('Малая ветка PV')} value={`${structure.weakLegPV.toLocaleString('ru-RU')} PV`} />
+        <BranchCard title={ui('Левая ветка')} partners={structure.leftPartners} pv={structure.leftPV} branch="л" weak={structure.weakLeg === 'left'} />
+        <BranchCard title={ui('Правая ветка')} partners={structure.rightPartners} pv={structure.rightPV} branch="п" weak={structure.weakLeg === 'right'} />
       </section>
 
       <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
         <div className="border-b border-safi-border p-6 md:p-7">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <h2 className="font-serif text-3xl font-semibold text-safi-green">Список партнеров</h2>
+            <h2 className="font-serif text-3xl font-semibold text-safi-green">{ui('Список партнеров')}</h2>
             <div className="flex flex-col gap-3 md:flex-row">
               <label className="relative min-w-0 flex-1 md:w-80 md:flex-none">
                 <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-safi-muted" />
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Поиск по ID, имени, login, email или телефону"
+                  placeholder={ui('Поиск по ID, имени, login, email или телефону')}
+                  translate="no"
+                  data-notranslate="true"
                   className="w-full rounded-full border border-safi-border bg-safi-cream py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
                 />
               </label>
@@ -289,11 +294,11 @@ export default function Structure() {
                     setPage(1);
                   }}
                   className="h-12 w-full cursor-pointer rounded-full border border-safi-border bg-safi-cream py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green"
-                  aria-label="Фильтр ветки"
+                  aria-label={ui('Фильтр ветки')}
                 >
-                  <option value="all">Все ветки</option>
-                  <option value="left">Левая ветка</option>
-                  <option value="right">Правая ветка</option>
+                  <option value="all">{ui('Все ветки')}</option>
+                  <option value="left">{ui('Левая ветка')}</option>
+                  <option value="right">{ui('Правая ветка')}</option>
                 </select>
               </label>
             </div>
@@ -309,39 +314,39 @@ export default function Structure() {
           <MobileDataList className="p-5">
             {visiblePartners.length === 0 && !hasStructureListMismatch && (
               <EmptyState
-                title={structure.totalPartners > 0 ? 'По вашему запросу партнёры не найдены' : 'Партнёров пока нет'}
-                description={structure.totalPartners > 0 ? 'Попробуйте изменить поиск или фильтр ветки.' : 'Партнёры появятся в списке после добавления в бинарную структуру.'}
+                title={ui(structure.totalPartners > 0 ? 'По вашему запросу партнёры не найдены' : 'Партнёров пока нет')}
+                description={ui(structure.totalPartners > 0 ? 'Попробуйте изменить поиск или фильтр ветки.' : 'Партнёры появятся в списке после добавления в бинарную структуру.')}
                 className="min-h-[180px] shadow-none"
               />
             )}
             {hasStructureListMismatch && (
               <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm font-bold text-amber-800">
-                Не удалось загрузить список структуры
+                {ui('Не удалось загрузить список структуры')}
               </div>
             )}
             {visiblePartners.map((partner) => (
               <MobileDataCard key={partner.id}>
                 <MobileDataHeader
-                  title={partner.name}
-                  meta={<>ID: {partner.id}{partner.login ? ` · login: ${partner.login}` : ''}</>}
+                  title={<NoTranslate>{partner.name}</NoTranslate>}
+                  meta={<NoTranslate>ID: {partner.id}{partner.login ? ` · login: ${partner.login}` : ''}</NoTranslate>}
                   action={<Badge variant={partner.packageStatus === 'active' ? 'success' : 'default'}>{partner.activity}</Badge>}
                 />
-                <MobileDataRow label="Контакты">
-                  {partner.email && <div>{partner.email}</div>}
-                  {partner.phone && <div className="mt-1 text-xs text-safi-muted">{partner.phone}</div>}
+                <MobileDataRow label={ui('Контакты')}>
+                  {partner.email && <NoTranslate as="div">{partner.email}</NoTranslate>}
+                  {partner.phone && <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{partner.phone}</NoTranslate>}
                 </MobileDataRow>
-                <MobileDataRow label="Ветка / линия">
-                  <div>{partner.branch}</div>
-                  <div className="mt-1 text-xs text-safi-muted">Линия: {partner.line}</div>
+                <MobileDataRow label={ui('Ветка / линия')}>
+                  <div>{ui(partner.branch)}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{ui('Линия')}: {partner.line}</div>
                 </MobileDataRow>
-                <MobileDataRow label="Пакет / статус">
-                  <div>{partner.package}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{partner.status !== '-' ? partner.status : 'Участник'}</div>
+                <MobileDataRow label={ui('Пакет / статус')}>
+                  <NoTranslate as="div">{partner.package}</NoTranslate>
+                  <div className="mt-1 text-xs text-safi-muted">{partner.status !== '-' ? partner.status : ui('Участник')}</div>
                 </MobileDataRow>
                 <MobileDataRow label="PV">
-                  <div>Личный PV: {partner.personalPV.toLocaleString('ru-RU')}</div>
+                  <div>{ui('Личный PV')}: {partner.personalPV.toLocaleString('ru-RU')}</div>
                   <div className="mt-1 text-xs text-safi-muted">{formatBranchPv('л', partner.leftPV)} · {formatBranchPv('п', partner.rightPV)}</div>
-                  <div className="mt-1 text-xs text-safi-muted">Командный PV: {partner.teamPV.toLocaleString('ru-RU')}</div>
+                  <div className="mt-1 text-xs text-safi-muted">{ui('Командный PV')}: {partner.teamPV.toLocaleString('ru-RU')}</div>
                 </MobileDataRow>
               </MobileDataCard>
             ))}
@@ -351,11 +356,11 @@ export default function Structure() {
             <table className="w-full min-w-[860px] text-left">
               <thead className="bg-safi-cream text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
                 <tr>
-                  <th className="px-7 py-4">Партнер</th>
-                  <th className="px-7 py-4">Ветка / линия</th>
-                  <th className="px-7 py-4">Пакет / статус</th>
+                  <th className="px-7 py-4">{ui('Партнер')}</th>
+                  <th className="px-7 py-4">{ui('Ветка / линия')}</th>
+                  <th className="px-7 py-4">{ui('Пакет / статус')}</th>
                   <th className="px-7 py-4 text-right">PV</th>
-                  <th className="px-7 py-4 text-center">Активность</th>
+                  <th className="px-7 py-4 text-center">{ui('Активность')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-safi-border text-sm">
@@ -363,8 +368,8 @@ export default function Structure() {
                   <tr>
                     <td colSpan={5} className="px-7 py-8">
                       <EmptyState
-                        title={structure.totalPartners > 0 ? 'По вашему запросу партнёры не найдены' : 'Партнёров пока нет'}
-                        description={structure.totalPartners > 0 ? 'Попробуйте изменить поиск или фильтр ветки.' : 'Партнёры появятся в списке после добавления в бинарную структуру.'}
+                        title={ui(structure.totalPartners > 0 ? 'По вашему запросу партнёры не найдены' : 'Партнёров пока нет')}
+                        description={ui(structure.totalPartners > 0 ? 'Попробуйте изменить поиск или фильтр ветки.' : 'Партнёры появятся в списке после добавления в бинарную структуру.')}
                         className="min-h-[180px] shadow-none"
                       />
                     </td>
@@ -375,7 +380,7 @@ export default function Structure() {
                   <tr>
                     <td colSpan={5} className="px-7 py-8">
                       <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 text-sm font-bold text-amber-800">
-                        Не удалось загрузить список структуры
+                        {ui('Не удалось загрузить список структуры')}
                       </div>
                     </td>
                   </tr>
@@ -384,27 +389,27 @@ export default function Structure() {
                 {visiblePartners.map((partner) => (
                   <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
                     <td className="px-7 py-5">
-                      <div className="font-extrabold text-safi-green">{partner.name}</div>
-                      <div className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">ID: {partner.id}</div>
-                      {partner.login && <div className="mt-1 text-xs font-bold text-safi-muted">login: {partner.login}</div>}
-                      {partner.email && <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>}
-                      {partner.phone && <div className="mt-1 text-xs text-safi-muted">{partner.phone}</div>}
+                      <NoTranslate as="div" className="font-extrabold text-safi-green">{partner.name}</NoTranslate>
+                      <NoTranslate as="div" className="mt-1 font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">ID: {partner.id}</NoTranslate>
+                      {partner.login && <NoTranslate as="div" className="mt-1 text-xs font-bold text-safi-muted">login: {partner.login}</NoTranslate>}
+                      {partner.email && <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{partner.email}</NoTranslate>}
+                      {partner.phone && <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{partner.phone}</NoTranslate>}
                     </td>
                     <td className="px-7 py-5">
-                      <div className="font-bold text-safi-green">{partner.branch}</div>
-                      <div className="mt-1 text-xs text-safi-muted">Линия: {partner.line}</div>
+                      <div className="font-bold text-safi-green">{ui(partner.branch)}</div>
+                      <div className="mt-1 text-xs text-safi-muted">{ui('Линия')}: {partner.line}</div>
                     </td>
                     <td className="px-7 py-5">
-                      <div className="font-bold text-safi-green">{partner.package}</div>
-                      <div className="mt-1 text-xs text-safi-muted">{partner.status !== '-' ? partner.status : 'Участник'}</div>
+                      <NoTranslate as="div" className="font-bold text-safi-green">{partner.package}</NoTranslate>
+                      <div className="mt-1 text-xs text-safi-muted">{partner.status !== '-' ? partner.status : ui('Участник')}</div>
                     </td>
                     <td className="px-7 py-5 text-right">
-                      <div className="font-extrabold text-safi-gold">Личный PV: {partner.personalPV.toLocaleString('ru-RU')}</div>
+                      <div className="font-extrabold text-safi-gold">{ui('Личный PV')}: {partner.personalPV.toLocaleString('ru-RU')}</div>
                       <div className="mt-2 flex flex-wrap justify-end gap-1 text-[10px] font-extrabold text-safi-green">
-                        <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Левая ветка PV" aria-label="Левая ветка PV">{formatBranchPv('л', partner.leftPV)}</span>
-                        <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title="Правая ветка PV" aria-label="Правая ветка PV">{formatBranchPv('п', partner.rightPV)}</span>
+                        <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title={ui('Левая ветка PV')} aria-label={ui('Левая ветка PV')}>{formatBranchPv('л', partner.leftPV)}</span>
+                        <span className="whitespace-nowrap rounded-full bg-safi-cream px-2 py-1" title={ui('Правая ветка PV')} aria-label={ui('Правая ветка PV')}>{formatBranchPv('п', partner.rightPV)}</span>
                       </div>
-                      <div className="mt-1 text-xs text-safi-muted">Командный PV: {partner.teamPV.toLocaleString('ru-RU')}</div>
+                      <div className="mt-1 text-xs text-safi-muted">{ui('Командный PV')}: {partner.teamPV.toLocaleString('ru-RU')}</div>
                     </td>
                     <td className="px-7 py-5 text-center">
                       <Badge variant={partner.packageStatus === 'active' ? 'success' : 'default'}>{partner.activity}</Badge>
@@ -420,7 +425,7 @@ export default function Structure() {
         <div className="flex flex-col gap-4 border-t border-safi-border bg-white px-5 py-4 md:px-7">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="text-sm font-bold text-safi-muted">
-              Найдено: <span className="text-safi-green">{partnersMeta.total.toLocaleString('ru-RU')}</span>
+              {ui('Найдено')}: <span className="text-safi-green">{partnersMeta.total.toLocaleString('ru-RU')}</span>
               {partnersMeta.total > 0 && (
                 <span className="ml-2">
                   {partnersMeta.from}–{partnersMeta.to}
@@ -430,7 +435,7 @@ export default function Structure() {
 
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
-                Показывать по
+                {ui('Показывать по')}
                 <select
                   value={perPage}
                   onChange={(event) => {
@@ -439,7 +444,7 @@ export default function Structure() {
                   }}
                   disabled={isPartnersLoading}
                   className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Показывать по"
+                  aria-label={ui('Показывать по')}
                 >
                   {perPageOptions.map((option) => (
                     <option key={option} value={option}>
@@ -456,10 +461,10 @@ export default function Structure() {
                   disabled={!canGoPrev}
                   className="rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Назад
+                  {ui('Назад')}
                 </button>
                 <div className="text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
-                  Страница {partnersMeta.current_page} из {partnersMeta.last_page}
+                  {ui('Страница')} {partnersMeta.current_page} {ui('из')} {partnersMeta.last_page}
                 </div>
                 <button
                   type="button"
@@ -467,7 +472,7 @@ export default function Structure() {
                   disabled={!canGoNext}
                   className="rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Вперёд
+                  {ui('Вперёд')}
                 </button>
               </div>
 
@@ -477,7 +482,7 @@ export default function Structure() {
                   onClick={() => changePage(partnersMeta.current_page - 1)}
                   disabled={!canGoPrev}
                   className="flex h-9 min-w-9 items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-sm font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Назад"
+                  aria-label={ui('Назад')}
                 >
                   ‹
                 </button>
@@ -511,7 +516,7 @@ export default function Structure() {
                   onClick={() => changePage(partnersMeta.current_page + 1)}
                   disabled={!canGoNext}
                   className="flex h-9 min-w-9 items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-sm font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Вперёд"
+                  aria-label={ui('Вперёд')}
                 >
                   ›
                 </button>
@@ -523,7 +528,7 @@ export default function Structure() {
 
       <section className="min-w-0 rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h2 className="font-serif text-3xl font-semibold text-safi-green">Бинарное дерево</h2>
+          <h2 className="font-serif text-3xl font-semibold text-safi-green">{ui('Бинарное дерево')}</h2>
           <button
             type="button"
             onClick={() => setIsTreeVisible((visible) => !visible)}
@@ -531,7 +536,7 @@ export default function Structure() {
             aria-expanded={isTreeVisible}
           >
             <Network className="h-4 w-4" />
-            {isTreeVisible ? 'Скрыть дерево' : 'Показать дерево'}
+            {ui(isTreeVisible ? 'Скрыть дерево' : 'Показать дерево')}
           </button>
         </div>
         {isTreeVisible && <DashboardStructureTree root={treeRoot} totalPartners={structure.totalPartners} />}
@@ -549,10 +554,10 @@ function DashboardStructureTree({ root, totalPartners }: { root: StructureTreeNo
         rootNode={root}
         framed={false}
         storageKey="safi_dashboard_structure_view_settings"
-        emptyMessage="В вашей структуре пока нет нижестоящих партнёров."
+        emptyMessage={ui('В вашей структуре пока нет нижестоящих партнёров.')}
       />
       <div className="text-xs font-bold text-safi-muted">
-        В дереве показан текущий пользователь и нижестоящие партнёры: {totalPartners.toLocaleString('ru-RU')}.
+        {ui('В дереве показан текущий пользователь и нижестоящие партнёры')}: {totalPartners.toLocaleString('ru-RU')}.
       </div>
     </div>
   );
@@ -725,16 +730,17 @@ function formatDate(value?: string) {
 }
 
 function BranchCard({ title, partners, pv, branch, weak }: { title: string; partners: number; pv: number; branch: 'л' | 'п'; weak: boolean }) {
+  const ui = useUiText();
   return (
     <article className="rounded-3xl border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
       <div className="mb-5 flex items-center justify-between gap-3">
         <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{title}</div>
-        {weak && <Badge variant="warning">Малая</Badge>}
+        {weak && <Badge variant="warning">{ui('Малая')}</Badge>}
       </div>
       <div className="grid grid-cols-2 gap-4">
         <div>
           <div className="font-serif text-3xl font-semibold text-safi-green">{partners}</div>
-          <div className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">Партнеров</div>
+          <div className="mt-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">{ui('Партнеров')}</div>
         </div>
         <div>
           <div className="font-serif text-3xl font-semibold text-safi-gold">{formatBranchPv(branch, pv)}</div>

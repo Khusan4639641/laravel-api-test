@@ -5,6 +5,8 @@ import { Badge, ProgressBar, StatCard } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { cn } from '../../lib/utils';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
+import { useUiText } from '../../i18n/useUiText';
 import { getApiErrorState, getArray, getDashboardOverview, getNumber, getPublicStatuses, getString, Status } from '../../lib/api';
 import { features } from '../../config/features';
 import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
@@ -22,6 +24,7 @@ interface TransactionItem {
 
 export default function Overview() {
   const { currentUser } = useDashboardContext();
+  const ui = useUiText();
   const [copiedLink, setCopiedLink] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,10 +111,10 @@ export default function Overview() {
         return {
           id: getString(trx, ['id']) || String(index + 1),
           date: getString(trx, ['created_at']) || '',
-          type: transactionTypeLabel(typeCode, getString(trx, ['type_label', 'typeLabel']) || typeCode || 'Операция'),
+          type: transactionTypeLabel(typeCode, getString(trx, ['type_label', 'typeLabel']) || typeCode || ui('Операция')),
           amount: `${direction === 'credit' ? '+' : '-'}${amount.toLocaleString('ru-RU')} ₸`,
           status: transactionStatusLabel(statusCode, getString(trx, ['status_label', 'statusLabel']) || statusCode),
-          source: getString(trx, ['description']) || 'Система',
+          source: getString(trx, ['description']) || ui('Система'),
           comment: getString(trx, ['description']) || '',
         };
       }));
@@ -125,7 +128,7 @@ export default function Overview() {
     } finally {
       setIsLoading(false);
     }
-  }, [currentUser.bonusesTotal, currentUser.canInvite, currentUser.referralCode, currentUser.totalEarned, currentUser.walletAvailable]);
+  }, [currentUser.bonusesTotal, currentUser.canInvite, currentUser.referralCode, currentUser.totalEarned, currentUser.walletAvailable, ui]);
 
   useEffect(() => {
     void loadOverview();
@@ -153,24 +156,24 @@ export default function Overview() {
       <section className="rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:p-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div>
-            <span className="safi-kicker">Dashboard</span>
+            <span className="safi-kicker">{ui('Dashboard')}</span>
             <h1 className="mt-3 font-serif text-4xl font-semibold leading-tight text-safi-green md:text-5xl">
-              Добро пожаловать, <span className="italic text-safi-gold">{currentUser.name.split(' ')[0]}</span>
+              {ui('Добро пожаловать,')} <NoTranslate as="span" className="italic text-safi-gold">{currentUser.name.split(' ')[0]}</NoTranslate>
             </h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted md:text-base">
-              Основные показатели бизнеса, пакета, кошелька, PV и структуры.
+              {ui('Основные показатели бизнеса, пакета, кошелька, PV и структуры.')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="gold">Пакет: {currentUser.packageName}</Badge>
-            <Badge variant={currentUser.packageStatus === 'active' ? 'success' : 'default'}>Пакет: {currentUser.packageStatusLabel}</Badge>
-            <Badge variant="default">Статус: {currentUser.status}</Badge>
+            <Badge variant="gold">{ui('Пакет')}: <NoTranslate>{currentUser.packageCode || currentUser.packageName}</NoTranslate></Badge>
+            <Badge variant={currentUser.packageStatus === 'active' ? 'success' : 'default'}>{ui('Пакет')}: {currentUser.packageStatusLabel}</Badge>
+            <Badge variant="default">{ui('Статус')}: {currentUser.status}</Badge>
           </div>
         </div>
       </section>
 
       {isLoading && (
-        <LoadingState title="Загружаем сводку" description="Получаем данные кабинета из dashboard API." />
+        <LoadingState title={ui('Загружаем сводку')} description={ui('Получаем данные кабинета из dashboard API.')} />
       )}
 
       {!isLoading && error && (
@@ -181,34 +184,34 @@ export default function Overview() {
         <>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          title="Доступно к выводу"
+          title={ui('Доступно к выводу')}
           value={`${balances.available.toLocaleString('ru-RU')} ₸`}
           icon={<Wallet className="h-5 w-5" />}
           variant="primary"
         />
         <StatCard
-          title="Малая ветка PV"
+          title={ui('Малая ветка PV')}
           value={`${weakLegPV.toLocaleString('ru-RU')} PV`}
           icon={<Activity className="h-5 w-5" />}
         />
         <StatCard
-          title="Левая ветка"
+          title={ui('Левая ветка')}
           value={`${structure.leftPV.toLocaleString('ru-RU')} PV`}
-          trend={{ value: structure.weakLeg === 'left' ? 'малая' : 'активная', isPositive: structure.weakLeg !== 'left' }}
+          trend={{ value: ui(structure.weakLeg === 'left' ? 'малая' : 'активная'), isPositive: structure.weakLeg !== 'left' }}
         />
         <StatCard
-          title="Правая ветка"
+          title={ui('Правая ветка')}
           value={`${structure.rightPV.toLocaleString('ru-RU')} PV`}
-          trend={{ value: structure.weakLeg === 'right' ? 'малая' : 'активная', isPositive: structure.weakLeg !== 'right' }}
+          trend={{ value: ui(structure.weakLeg === 'right' ? 'малая' : 'активная'), isPositive: structure.weakLeg !== 'right' }}
         />
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <StatCard title="Бонусы всего" value={`${bonusesSummary.total.toLocaleString('ru-RU')} ₸`} icon={<Wallet className="h-5 w-5" />} variant="dark" />
-        <StatCard title="Бинар в ожидании" value={`${balances.pendingBinary.toLocaleString('ru-RU')} ₸`} />
-        <StatCard title="Заказы" value={ordersSummary.total} icon={<ShoppingBag className="h-5 w-5" />} trend={{ value: `${ordersSummary.totalPV.toLocaleString('ru-RU')} PV`, isPositive: true }} />
-        <StatCard title="Выводы" value={withdrawalsSummary.total} icon={<ArrowUpCircle className="h-5 w-5" />} trend={{ value: `${withdrawalsSummary.pending} ожидает`, isPositive: withdrawalsSummary.pending === 0 }} />
-        <StatCard title="Команда" value={structure.totalPartners} icon={<Users className="h-5 w-5" />} />
+        <StatCard title={ui('Бонусы всего')} value={`${bonusesSummary.total.toLocaleString('ru-RU')} ₸`} icon={<Wallet className="h-5 w-5" />} variant="dark" />
+        <StatCard title={ui('Бинар в ожидании')} value={`${balances.pendingBinary.toLocaleString('ru-RU')} ₸`} />
+        <StatCard title={ui('Заказы')} value={ordersSummary.total} icon={<ShoppingBag className="h-5 w-5" />} trend={{ value: `${ordersSummary.totalPV.toLocaleString('ru-RU')} PV`, isPositive: true }} />
+        <StatCard title={ui('Выводы')} value={withdrawalsSummary.total} icon={<ArrowUpCircle className="h-5 w-5" />} trend={{ value: `${withdrawalsSummary.pending} ${ui('ожидает')}`, isPositive: withdrawalsSummary.pending === 0 }} />
+        <StatCard title={ui('Команда')} value={structure.totalPartners} icon={<Users className="h-5 w-5" />} />
       </section>
 
       <section className="grid gap-8 lg:grid-cols-[1.45fr_0.95fr]">
@@ -216,18 +219,18 @@ export default function Overview() {
           <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="font-serif text-3xl font-semibold text-safi-green">Прогресс статуса</h2>
-                <p className="mt-2 text-sm leading-7 text-safi-muted">Статус считается по малой ветке: min(левая, правая).</p>
+                <h2 className="font-serif text-3xl font-semibold text-safi-green">{ui('Прогресс статуса')}</h2>
+                <p className="mt-2 text-sm leading-7 text-safi-muted">{ui('Статус считается по малой ветке: min(левая, правая).')}</p>
               </div>
               <Link to="/dashboard/package-status" className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold hover:text-safi-green">
-                Подробнее
+                {ui('Подробнее')}
               </Link>
             </div>
 
             <div className="mb-7 grid gap-4 md:grid-cols-3">
-              <MiniMetric label="Малая ветка PV" value={`${weakLegPV.toLocaleString('ru-RU')} PV`} />
-              <MiniMetric label="Следующий порог" value={`${statusTargetPV.toLocaleString('ru-RU')} PV`} />
-              <MiniMetric label="Прогресс" value={`${statusProgressPercent.toFixed(0)}%`} />
+              <MiniMetric label={ui('Малая ветка PV')} value={`${weakLegPV.toLocaleString('ru-RU')} PV`} />
+              <MiniMetric label={ui('Следующий порог')} value={`${statusTargetPV.toLocaleString('ru-RU')} PV`} />
+              <MiniMetric label={ui('Прогресс')} value={`${statusProgressPercent.toFixed(0)}%`} />
             </div>
 
             <ProgressBar
@@ -241,27 +244,27 @@ export default function Overview() {
           <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
             <div className="mb-7 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <h2 className="font-serif text-3xl font-semibold text-safi-green">Быстрые действия</h2>
+                <h2 className="font-serif text-3xl font-semibold text-safi-green">{ui('Быстрые действия')}</h2>
                 <p className="mt-2 text-sm leading-7 text-safi-muted">
-                  {features.support ? 'Частые операции по кошельку и обращениям.' : 'Частые операции по кошельку.'}
+                  {ui(features.support ? 'Частые операции по кошельку и обращениям.' : 'Частые операции по кошельку.')}
                 </p>
               </div>
             </div>
 
             <div className={cn('grid gap-3', features.support ? 'sm:grid-cols-2' : 'sm:grid-cols-1')}>
-              <ActionButton icon={<ArrowUpCircle />} label="Вывод" to="/dashboard/bonuses" />
-              {features.support && <ActionButton icon={<HelpCircle />} label="Поддержка" to="/dashboard/support" />}
+              <ActionButton icon={<ArrowUpCircle />} label={ui('Вывод')} to="/dashboard/bonuses" />
+              {features.support && <ActionButton icon={<HelpCircle />} label={ui('Поддержка')} to="/dashboard/support" />}
             </div>
 
             <div className="mt-7 grid gap-4 xl:grid-cols-2">
               <ReferralLink
-                label="Левая ветка"
+                label={ui('Левая ветка')}
                 link={canInvite ? referralLinks.left : ''}
                 copied={copiedLink === 'left'}
                 onCopy={() => copyLink('left')}
               />
               <ReferralLink
-                label="Правая ветка"
+                label={ui('Правая ветка')}
                 link={canInvite ? referralLinks.right : ''}
                 copied={copiedLink === 'right'}
                 onCopy={() => copyLink('right')}
@@ -272,17 +275,17 @@ export default function Overview() {
 
         <article className="rounded-[32px] border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-7">
           <div className="mb-6 flex items-center justify-between gap-4">
-            <h2 className="font-serif text-2xl font-semibold text-safi-green">Последние транзакции</h2>
+            <h2 className="font-serif text-2xl font-semibold text-safi-green">{ui('Последние транзакции')}</h2>
             <Link to="/dashboard/transactions" className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold hover:text-safi-green">
-              Все
+              {ui('Все')}
             </Link>
           </div>
 
           <div className="space-y-3">
             {transactions.length === 0 && (
               <EmptyState
-                title="Транзакций пока нет"
-                description="Начисления и списания появятся после первых операций."
+                title={ui('Транзакций пока нет')}
+                description={ui('Начисления и списания появятся после первых операций.')}
                 className="min-h-[180px] shadow-none"
               />
             )}
@@ -349,22 +352,23 @@ function ActionButton({ icon, label, onClick, to }: { icon: React.ReactNode; lab
 }
 
 function ReferralLink({ label, link, copied, onCopy }: { label: string; link: string; copied: boolean; onCopy: () => void }) {
+  const ui = useUiText();
   return (
     <div className="rounded-3xl border border-safi-border bg-safi-cream p-5">
       <div className="mb-2 flex items-center justify-between gap-3">
         <span className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</span>
-        {copied && <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-green-700">Скопировано</span>}
+        {copied && <span className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-green-700">{ui('Скопировано')}</span>}
       </div>
       {link ? (
         <>
-          <div className="truncate font-mono text-xs text-safi-green">{link}</div>
+          <NoTranslate as="div" className="truncate font-mono text-xs text-safi-green">{link}</NoTranslate>
           <button type="button" onClick={onCopy} className="mt-4 inline-flex cursor-pointer items-center gap-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:text-safi-green">
             <Copy className="h-4 w-4" />
-            Копировать
+            {ui('Копировать')}
           </button>
         </>
       ) : (
-        <div className="text-xs leading-5 text-safi-muted">Реферальные ссылки станут доступны после активации пакета.</div>
+        <div className="text-xs leading-5 text-safi-muted">{ui('Реферальные ссылки станут доступны после активации пакета.')}</div>
       )}
     </div>
   );

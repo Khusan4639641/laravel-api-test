@@ -28,7 +28,7 @@ class SystemSettingResource extends JsonResource
             return $value;
         }
 
-        $hasLanguageKeys = collect(LocalizedValue::LANGUAGES)
+        $hasLanguageKeys = collect([...LocalizedValue::LANGUAGES, ...LocalizedValue::LEGACY_LANGUAGE_KEYS])
             ->contains(fn (string $language): bool => array_key_exists($language, $value));
 
         return $hasLanguageKeys ? LocalizedValue::get($value, $value['ru'] ?? null) : $value;

@@ -4,9 +4,11 @@ import { Calendar } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
 import { getApiErrorState, getPublicNews, NewsArticle } from '../lib/api';
+import { useUiText } from '../i18n/useUiText';
 
 export default function NewsPage() {
   const { t } = useTranslation();
+  const ui = useUiText();
   const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,16 +40,16 @@ export default function NewsPage() {
               {t('news.pageTitle', 'Новости компании')}
             </h1>
             <p className="max-w-2xl text-lg text-safi-text/70">
-              Будьте в курсе всех последних событий, обновлений и специальных предложений.
+              {ui('Будьте в курсе всех последних событий, обновлений и специальных предложений.')}
             </p>
           </div>
 
-          {isLoading && <LoadingState title="Загружаем новости" description="Получаем актуальные публикации из API." />}
+          {isLoading && <LoadingState title={ui('Загружаем новости')} description={ui('Получаем актуальные публикации из API.')} />}
 
           {!isLoading && error && <ErrorState description={error} onRetry={loadNews} />}
 
           {!isLoading && !error && newsArticles.length === 0 && (
-            <EmptyState title="Новостей пока нет" description="После публикации новости появятся на этой странице." />
+            <EmptyState title={ui('Новостей пока нет')} description={ui('После публикации новости появятся на этой странице.')} />
           )}
 
           {!isLoading && !error && newsArticles.length > 0 && (
@@ -62,6 +64,7 @@ export default function NewsPage() {
 }
 
 function NewsCard({ article }: { article: NewsArticle }) {
+  const ui = useUiText();
   const text = article.excerpt || article.content;
 
   return (
@@ -75,7 +78,7 @@ function NewsCard({ article }: { article: NewsArticle }) {
       <div className="flex flex-1 flex-col justify-center p-8 md:p-10">
         <div className="mb-6 flex flex-wrap items-center gap-3">
           <span className="rounded-full bg-safi-green/5 px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-safi-green">
-            {article.category || 'Новости'}
+            {article.category || ui('Новости')}
           </span>
           {article.date && (
             <span className="flex items-center gap-1.5 font-mono text-sm text-safi-text/50">

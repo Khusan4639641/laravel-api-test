@@ -225,7 +225,7 @@ class PartnerController extends Controller
         });
 
         return response()->json([
-            'message' => 'Данные пользователя обновлены.',
+            'message' => __('api.partner.updated'),
             'user' => UserResource::make($this->loadPartner($user->refresh())),
         ]);
     }
@@ -411,7 +411,7 @@ class PartnerController extends Controller
         });
 
         return response()->json([
-            'message' => 'Balance updated',
+            'message' => __('api.partner.balance_updated'),
             'data' => [
                 'user_id' => $result['user_id'],
                 'old_balance' => (float) $result['old_balance'],
@@ -435,7 +435,7 @@ class PartnerController extends Controller
         ])->save();
 
         return response()->json([
-            'message' => 'Password changed',
+            'message' => __('api.partner.password_changed'),
             'credentials' => $this->credentialsFor($user->refresh(), $plainPassword),
         ]);
     }
@@ -476,7 +476,7 @@ class PartnerController extends Controller
         );
 
         return response()->json([
-            'message' => 'Партнёр удалён, перерасчёт выполнен',
+            'message' => __('api.partner.deleted'),
             ...$result->toArray(),
         ]);
     }
@@ -488,7 +488,7 @@ class PartnerController extends Controller
 
         if (! $bonusTransaction) {
             return response()->json([
-                'message' => 'No binary bonus available.',
+                'message' => __('api.partner.binary_unavailable'),
                 'bonus_transaction' => null,
                 'user' => UserResource::make($partner),
                 'recent_transactions' => WalletTransactionResource::collection($this->recentTransactions($partner)),
@@ -496,7 +496,7 @@ class PartnerController extends Controller
         }
 
         return response()->json([
-            'message' => 'Binary bonus calculated.',
+            'message' => __('api.partner.binary_calculated'),
             'bonus_transaction' => BonusTransactionResource::make($bonusTransaction->load('walletTransaction')),
             'user' => UserResource::make($partner),
             'recent_transactions' => WalletTransactionResource::collection($this->recentTransactions($partner)),

@@ -2,9 +2,11 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Container } from '../components/ui/Container';
 import { SectionTitle } from '../components/ui/SectionTitle';
+import { useUiText } from '../i18n/useUiText';
 
 export default function AboutPage() {
   const { t } = useTranslation();
+  const ui = useUiText();
   return (
     <div className="py-20 bg-safi-bg min-h-screen relative overflow-hidden">
       <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-safi-green/5 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/4 pointer-events-none"></div>
@@ -25,7 +27,7 @@ export default function AboutPage() {
               </p>
             </div>
             <div>
-              <h3 className="text-3xl font-serif font-bold text-safi-green mb-4">Наш <span className="italic text-safi-gold">{t('about.path2', 'путь')}</span></h3>
+              <h3 className="text-3xl font-serif font-bold text-safi-green mb-4">{t('about.path1', 'Наш')} <span className="italic text-safi-gold">{t('about.path2', 'путь')}</span></h3>
               <p className="text-safi-text opacity-80 leading-relaxed text-lg">
                 {t('about.pathDesc', 'Основной рынок Safi Life — Казахстан. В ближайшем будущем мы планируем расширение в другие страны СНГ, открывая новые возможности для наших текущих и будущих партнёров.')}
               </p>
@@ -43,7 +45,7 @@ export default function AboutPage() {
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {['Качество', 'Прозрачность', 'Поддержка партнёров', 'Развитие команды', 'Натуральность', 'Доступность'].map((val, i) => (
             <div key={i} className="bg-white border border-safi-green/5 p-8 rounded-[32px] text-center shadow-sm hover:-translate-y-1 transition-transform duration-300">
-              <h4 className="text-xl font-serif text-safi-green font-bold">{val}</h4>
+              <h4 className="text-xl font-serif text-safi-green font-bold">{ui(val)}</h4>
             </div>
           ))}
         </div>

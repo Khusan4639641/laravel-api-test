@@ -4,6 +4,7 @@ import { AdminBadge } from '../admin/ui';
 import { EmptyState } from '../ui/AsyncState';
 import { adminText } from '../../i18n/adminText';
 import { cn } from '../../lib/utils';
+import { NoTranslate } from '../ui/NoTranslate';
 
 export interface StructureTreeCanvasNode {
   id: string;
@@ -294,7 +295,7 @@ export function StructureTreeCanvas({
   if (!rootNode) {
     return (
       <div className={cn(framed && 'rounded-[32px] border border-safi-green/5 bg-white p-4 shadow-sm md:p-6', className)}>
-        <EmptyState title="Дерево недоступно" description="Не удалось получить корневой узел структуры." />
+        <EmptyState title={adminText('Дерево недоступно')} description={adminText('Не удалось получить корневой узел структуры.')} />
       </div>
     );
   }
@@ -319,7 +320,7 @@ export function StructureTreeCanvas({
 
       {depthInfo?.hasDeeperNodes && (
         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
-          Есть ещё партнёры глубже текущей глубины дерева: {depthInfo.hiddenNodesCount.toLocaleString('ru-RU')}. Увеличьте depth в URL до 10 или используйте список выше.
+          {adminText('Есть ещё партнёры глубже текущей глубины дерева')}: {depthInfo.hiddenNodesCount.toLocaleString('ru-RU')}. {adminText('Увеличьте depth в URL до 10 или используйте список выше.')}
         </div>
       )}
 
@@ -416,7 +417,7 @@ function StructureTreeToolbar({
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-[24px] border border-safi-border bg-safi-cream p-3">
       <div className="flex items-center gap-1 rounded-full bg-white p-1">
-        <IconButton label="Уменьшить" onClick={() => onChange({ zoom: settings.zoom - 0.05 })}>
+        <IconButton label={adminText('Уменьшить')} onClick={() => onChange({ zoom: settings.zoom - 0.05 })}>
           <Minus className="h-4 w-4" />
         </IconButton>
         {[0.5, 0.75, 1].map((zoom) => (
@@ -432,7 +433,7 @@ function StructureTreeToolbar({
             {Math.round(zoom * 100)}%
           </button>
         ))}
-        <IconButton label="Увеличить" onClick={() => onChange({ zoom: settings.zoom + 0.05 })}>
+        <IconButton label={adminText('Увеличить')} onClick={() => onChange({ zoom: settings.zoom + 0.05 })}>
           <Plus className="h-4 w-4" />
         </IconButton>
       </div>
@@ -449,7 +450,7 @@ function StructureTreeToolbar({
         />
       </label>
       <SegmentedTreeControl
-        label="Карточки"
+        label={adminText('Карточки')}
         value={settings.nodeSize}
         options={[
           ['small', 'small'],
@@ -459,7 +460,7 @@ function StructureTreeToolbar({
         onChange={(value) => onChange({ nodeSize: value as TreeNodeSize })}
       />
       <SegmentedTreeControl
-        label="Плотность"
+        label={adminText('Плотность')}
         value={settings.density}
         options={[
           ['compact', 'compact'],
@@ -475,12 +476,12 @@ function StructureTreeToolbar({
           onChange={(event) => onChange({ showEmptySlots: event.target.checked })}
           className="h-4 w-4 accent-safi-green"
         />
-        Свободные места
+        {adminText('Свободные места')}
       </label>
       <div className="ml-auto flex flex-wrap items-center gap-2">
-        <ToolbarButton label="Вместить" onClick={onFit} icon={<Maximize2 className="h-4 w-4" />} />
-        <ToolbarButton label="Центрировать" onClick={onCenter} icon={<Crosshair className="h-4 w-4" />} />
-        <ToolbarButton label="Сбросить" onClick={onReset} icon={<RotateCcw className="h-4 w-4" />} />
+        <ToolbarButton label={adminText('Вместить')} onClick={onFit} icon={<Maximize2 className="h-4 w-4" />} />
+        <ToolbarButton label={adminText('Центрировать')} onClick={onCenter} icon={<Crosshair className="h-4 w-4" />} />
+        <ToolbarButton label={adminText('Сбросить')} onClick={onReset} icon={<RotateCcw className="h-4 w-4" />} />
       </div>
     </div>
   );
@@ -582,12 +583,12 @@ function TreeNodeCard({
       )}>
         {(node.name || node.login || userId || '?').charAt(0)}
       </div>
-      <div className={cn('mb-1 w-full truncate font-bold leading-tight text-safi-green', sizeConfig.nameText)} style={{ maxWidth: `${sizeConfig.width}px` }} title={node.name}>{node.name}</div>
-      <div className={cn('mb-2 truncate rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-safi-text/50', sizeConfig.metaText)} style={{ maxWidth: `${sizeConfig.width}px` }}>{node.login || userId}</div>
+      <NoTranslate as="div" className={cn('mb-1 w-full truncate font-bold leading-tight text-safi-green', sizeConfig.nameText)} style={{ maxWidth: `${sizeConfig.width}px` }} title={node.name}>{node.name}</NoTranslate>
+      <NoTranslate as="div" className={cn('mb-2 truncate rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-safi-text/50', sizeConfig.metaText)} style={{ maxWidth: `${sizeConfig.width}px` }}>{node.login || userId}</NoTranslate>
       <div className={cn('space-y-1 overflow-visible border-t border-safi-green/5 pt-2 text-left font-bold text-safi-text/70', sizeConfig.detailText)}>
         <div className="grid grid-cols-[auto_max-content] items-center justify-between gap-2 whitespace-nowrap">
           <span>{adminText('Пакет')}:</span>
-          <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="whitespace-nowrap px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
+          <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="whitespace-nowrap px-1.5 py-0.5"><NoTranslate>{node.packageCode || node.packageName || '-'}</NoTranslate></AdminBadge>
         </div>
         <div className="grid grid-cols-[auto_max-content] items-center justify-between gap-2 whitespace-nowrap">
           <span>{adminText('Статус')}:</span>
@@ -596,10 +597,10 @@ function TreeNodeCard({
       </div>
       <div className={cn('mt-1 shrink-0 text-center font-extrabold leading-none', sizeConfig.pvText)}>
         <div className="whitespace-nowrap text-safi-gold" title={adminText('Личный PV')} aria-label={adminText('Личный PV')}>
-          Личный PV: {node.personalPV.toLocaleString('ru-RU')}
+          {adminText('Личный PV')}: {node.personalPV.toLocaleString('ru-RU')}
         </div>
         <div className="mt-1 whitespace-nowrap text-safi-muted" title={adminText('Командный PV')} aria-label={adminText('Командный PV')}>
-          Командный PV: {node.teamPV.toLocaleString('ru-RU')}
+          {adminText('Командный PV')}: {node.teamPV.toLocaleString('ru-RU')}
         </div>
         <div className="mt-1 grid grid-cols-[max-content_max-content] justify-center gap-1 text-safi-green">
           <span

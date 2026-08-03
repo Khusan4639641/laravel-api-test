@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useCallback, useEffect, useState } from 'react';
 import { KeyRound, Mail, Phone, RefreshCw, Search, Shuffle, User, X } from 'lucide-react';
 import { AdminBadge } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import {
@@ -168,6 +169,8 @@ export default function AdminForgotPassword() {
             <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-safi-muted" />
             <input
               type="text"
+              translate="no"
+              data-notranslate="true"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               className="w-full rounded-xl border border-safi-green/10 bg-[#F5F5F0] py-3 pl-11 pr-4 text-sm font-bold text-safi-green outline-none transition-colors placeholder:text-safi-muted/60 focus:border-safi-green"
@@ -195,16 +198,16 @@ export default function AdminForgotPassword() {
             {requests.map((item) => (
               <MobileDataCard key={item.id}>
                 <MobileDataHeader
-                  title={`#${item.id}`}
+                  title={<NoTranslate>#{item.id}</NoTranslate>}
                   meta={formatDateTime(item.requestedAt)}
                   action={<AdminBadge variant="warning">{item.statusLabel}</AdminBadge>}
                 />
                 <MobileDataRow label="Пользователь">
-                  <div>{item.userName}</div>
-                  <div className="mt-1 text-xs text-safi-muted">ID {item.userId}{item.userLogin ? ` · ${item.userLogin}` : ''}</div>
+                  <NoTranslate as="div">{item.userName}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">ID {item.userId}{item.userLogin ? ` · ${item.userLogin}` : ''}</NoTranslate>
                 </MobileDataRow>
-                <MobileDataRow label="Email">{item.email}</MobileDataRow>
-                <MobileDataRow label="Телефон">{item.phone}</MobileDataRow>
+                <MobileDataRow label="Email"><NoTranslate>{item.email}</NoTranslate></MobileDataRow>
+                <MobileDataRow label="Телефон"><NoTranslate>{item.phone}</NoTranslate></MobileDataRow>
                 <MobileCardActions>
                   <button
                     type="button"
@@ -235,22 +238,22 @@ export default function AdminForgotPassword() {
               <tbody className="divide-y divide-safi-green/5">
                 {requests.map((item) => (
                   <tr key={item.id} className="transition-colors hover:bg-safi-green/5">
-                    <td className="px-5 py-4 font-mono font-bold text-safi-green">#{item.id}</td>
+                    <td className="px-5 py-4 font-mono font-bold text-safi-green"><NoTranslate>#{item.id}</NoTranslate></td>
                     <td className="px-5 py-4 text-xs text-safi-muted">{formatDateTime(item.requestedAt)}</td>
                     <td className="px-5 py-4">
-                      <div className="font-bold text-safi-green">{item.userName}</div>
-                      <div className="mt-1 text-xs text-safi-muted">ID {item.userId}{item.userLogin ? ` · ${item.userLogin}` : ''}</div>
+                      <NoTranslate as="div" className="font-bold text-safi-green">{item.userName}</NoTranslate>
+                      <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">ID {item.userId}{item.userLogin ? ` · ${item.userLogin}` : ''}</NoTranslate>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2 font-bold text-safi-text">
                         <Mail className="h-4 w-4 text-safi-gold" />
-                        {item.email}
+                        <NoTranslate>{item.email}</NoTranslate>
                       </div>
                     </td>
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2 font-bold text-safi-text">
                         <Phone className="h-4 w-4 text-safi-gold" />
-                        {item.phone}
+                        <NoTranslate>{item.phone}</NoTranslate>
                       </div>
                     </td>
                     <td className="px-5 py-4"><AdminBadge variant="warning">{item.statusLabel}</AdminBadge></td>
@@ -313,15 +316,17 @@ export default function AdminForgotPassword() {
             <div className="mb-5 rounded-2xl border border-safi-green/10 bg-[#F5F5F0] p-4 text-sm leading-6 text-safi-green">
               <div className="flex items-center gap-2 font-bold">
                 <User className="h-4 w-4 text-safi-gold" />
-                {selectedRequest.userName} · ID {selectedRequest.userId}
+                <NoTranslate>{selectedRequest.userName} · ID {selectedRequest.userId}</NoTranslate>
               </div>
-              <div className="mt-2 text-safi-muted">{selectedRequest.email} · {selectedRequest.phone}</div>
+              <NoTranslate as="div" className="mt-2 text-safi-muted">{selectedRequest.email} · {selectedRequest.phone}</NoTranslate>
             </div>
 
             <form className="space-y-5" onSubmit={submitResetPassword}>
               <FormField label="Новый пароль" error={passwordErrors.password?.[0]}>
                 <input
                   type="password"
+                  translate="no"
+                  data-notranslate="true"
                   value={passwordForm.password}
                   onChange={(event) => setPasswordForm((current) => ({ ...current, password: event.target.value }))}
                   className={inputClass}
@@ -332,6 +337,8 @@ export default function AdminForgotPassword() {
               <FormField label="Повторите пароль" error={passwordErrors.password_confirmation?.[0]}>
                 <input
                   type="password"
+                  translate="no"
+                  data-notranslate="true"
                   value={passwordForm.password_confirmation}
                   onChange={(event) => setPasswordForm((current) => ({ ...current, password_confirmation: event.target.value }))}
                   className={inputClass}

@@ -81,7 +81,7 @@ class SystemLabelLocalizationTest extends TestCase
             ->assertJsonPath('order.payment_status_label', 'Ожидает оплаты');
     }
 
-    public function test_package_code_returns_localized_label(): void
+    public function test_package_code_is_never_translated(): void
     {
         $this->seed(PackageSeeder::class);
 
@@ -91,8 +91,8 @@ class SystemLabelLocalizationTest extends TestCase
             ->keyBy('code');
 
         $this->assertSame('START', $packages['START']['code']);
-        $this->assertSame('Старт', $packages['START']['code_label']);
-        $this->assertSame('Старт', $packages['START']['label']);
+        $this->assertSame('START', $packages['START']['code_label']);
+        $this->assertSame('START', $packages['START']['label']);
         $this->assertSame('Активен', $packages['START']['status_label']);
     }
 }

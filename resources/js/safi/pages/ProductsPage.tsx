@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useUiText } from '../i18n/useUiText';
 import { Check, ShoppingCart, X } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
@@ -10,6 +11,7 @@ import { getApiErrorState, getPublicProducts, Product } from '../lib/api';
 
 export default function ProductsPage() {
   const { t } = useTranslation();
+  const ui = useUiText();
   const { addProduct } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -103,8 +105,8 @@ export default function ProductsPage() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
           {isLoading && (
             <LoadingState
-              title="Загружаем каталог"
-              description="Получаем актуальные продукты Safi Life из API."
+              title={ui('Загружаем каталог')}
+              description={ui('Получаем актуальные продукты Safi Life из API.')}
               className="sm:col-span-2 lg:col-span-3 xl:col-span-4"
             />
           )}
@@ -119,8 +121,8 @@ export default function ProductsPage() {
 
           {!isLoading && !error && filteredProducts.length === 0 && (
             <EmptyState
-              title="Продукты не найдены"
-              description="В этой категории пока нет опубликованных продуктов."
+              title={ui('Продукты не найдены')}
+              description={ui('В этой категории пока нет опубликованных продуктов.')}
               className="sm:col-span-2 lg:col-span-3 xl:col-span-4"
             />
           )}
@@ -219,6 +221,7 @@ function ProductModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
+  const ui = useUiText();
   const stock = getAvailableStock(product);
   const orderable = isProductOrderable(product);
 
@@ -226,7 +229,7 @@ function ProductModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <button
         type="button"
-        aria-label="Закрыть карточку продукта"
+        aria-label={ui('Закрыть карточку продукта')}
         className="absolute inset-0 bg-safi-green/40 backdrop-blur-sm transition-opacity"
         onClick={onClose}
       />
@@ -234,7 +237,7 @@ function ProductModal({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Закрыть"
+          aria-label={ui('Закрыть')}
           className="absolute right-3 top-3 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-[#F5F5F0] text-safi-green transition-colors hover:bg-safi-green hover:text-white sm:right-6 sm:top-6"
         >
           <X className="w-5 h-5" />

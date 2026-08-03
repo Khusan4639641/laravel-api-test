@@ -5,6 +5,7 @@ import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { ApiError, createAdminPartner, getAdminUsers, getApiErrorState, getRegistrationPackages, Package, searchAdminSponsors } from '../../lib/api';
 import { formatPv } from '../../lib/format';
 import { adminText } from '../../i18n/adminText';
@@ -415,22 +416,22 @@ export default function AdminPartners() {
               <tr key={partner.id} className="transition-colors hover:bg-safi-cream/70">
                 <td className="px-6 py-4">
                   <Link to={`/admin/partners/${partner.id}`} className="block cursor-pointer hover:opacity-80">
-                    <div className="font-bold text-safi-green">{partner.fullName}</div>
-                    <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</div>
+                    <NoTranslate as="div" className="font-bold text-safi-green">{partner.fullName}</NoTranslate>
+                    <NoTranslate as="div" className="mt-1 font-mono text-[10px] text-safi-muted">{partner.id}</NoTranslate>
                     <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0KDQtdCzOg')}{partner.registrationDate}</div>
                   </Link>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm text-safi-green">{partner.phone}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
-                  <div className="mt-1 text-[10px] text-safi-muted">{partner.city}</div>
+                  <NoTranslate as="div" className="text-sm text-safi-green">{partner.phone}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{partner.email}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-[10px] text-safi-muted">{partner.city}</NoTranslate>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="inline-block rounded-full bg-safi-cream px-3 py-1 font-mono text-xs font-bold text-safi-green">{partner.sponsor}</div>
+                  <NoTranslate as="div" className="inline-block rounded-full bg-safi-cream px-3 py-1 font-mono text-xs font-bold text-safi-green">{partner.sponsor}</NoTranslate>
                   <div className="mt-1 text-[10px] text-safi-muted">{adminText('a_0J_RgNC40LPQ')}{partner.invitedCount}</div>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="mb-2"><AdminBadge variant="gold">{partner.package}</AdminBadge></div>
+                  <div className="mb-2"><AdminBadge variant="gold"><NoTranslate>{partner.package}</NoTranslate></AdminBadge></div>
                   <div className="mb-2">
                     <AdminBadge variant={partner.packageStatus === 'active' ? 'success' : 'warning'}>
                       Пакет: {partner.packageStatusLabel}
@@ -571,7 +572,8 @@ function CreatePartnerModal({
                 <input
                   value={form.name}
                   onChange={(event) => onChange('name', event.target.value)}
-                  className={modalInputClass}
+                  className={`${modalInputClass} notranslate`}
+                  translate="no"
                   autoComplete="name"
                   required
                 />
@@ -580,7 +582,8 @@ function CreatePartnerModal({
                 <input
                   value={form.login}
                   onChange={(event) => onChange('login', event.target.value)}
-                  className={modalInputClass}
+                  className={`${modalInputClass} notranslate`}
+                  translate="no"
                   autoComplete="username"
                   required
                 />
@@ -590,7 +593,8 @@ function CreatePartnerModal({
                   type="email"
                   value={form.email}
                   onChange={(event) => onChange('email', event.target.value)}
-                  className={modalInputClass}
+                  className={`${modalInputClass} notranslate`}
+                  translate="no"
                   autoComplete="email"
                   required
                 />
@@ -599,7 +603,8 @@ function CreatePartnerModal({
                 <input
                   value={form.phone}
                   onChange={(event) => onChange('phone', event.target.value)}
-                  className={modalInputClass}
+                  className={`${modalInputClass} notranslate`}
+                  translate="no"
                   autoComplete="tel"
                   required
                 />
@@ -682,7 +687,7 @@ function CreatePartnerModal({
                   <option value="">Без пакета</option>
                   {packages.map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
-                      {pkg.label || pkg.name} — {pkg.price.toLocaleString('ru-RU')} ₸
+                      {String(pkg.code || pkg.name).toUpperCase()} — {pkg.price.toLocaleString('ru-RU')} ₸
                     </option>
                   ))}
                 </select>
@@ -766,7 +771,7 @@ function CredentialRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>
-      <div className="mt-1 break-all font-mono text-sm font-bold text-safi-green">{value}</div>
+      <NoTranslate as="div" className="mt-1 break-all font-mono text-sm font-bold text-safi-green">{value}</NoTranslate>
     </div>
   );
 }

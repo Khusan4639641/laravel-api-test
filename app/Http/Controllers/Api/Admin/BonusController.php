@@ -98,8 +98,8 @@ class BonusController extends Controller
 
             return response()->json([
                 'message' => $calculated->isEmpty()
-                    ? 'No binary bonus available.'
-                    : 'Binary bonuses calculated.',
+                    ? __('api.partner.binary_unavailable')
+                    : __('api.partner.binary_calculated'),
                 'calculated_count' => $calculated->count(),
                 'bonus_transactions' => BonusTransactionResource::collection($calculated),
             ]);
@@ -110,7 +110,7 @@ class BonusController extends Controller
 
         if (! $bonusTransaction) {
             return response()->json([
-                'message' => 'No binary bonus available.',
+                'message' => __('api.partner.binary_unavailable'),
                 'bonus_transaction' => null,
             ]);
         }
@@ -125,7 +125,7 @@ class BonusController extends Controller
         $result = $this->bonusService->recalculateBinaryBonusesForAllPartners($request->user());
 
         return response()->json([
-            'message' => 'Массовый перерасчёт бинарного бонуса выполнен',
+            'message' => __('api.bonus.recalculated'),
             ...$result,
         ]);
     }
@@ -145,7 +145,7 @@ class BonusController extends Controller
         );
 
         return response()->json([
-            'message' => 'Бонус обновлён',
+            'message' => __('api.bonus.updated'),
             'bonus' => BonusTransactionResource::make($bonus),
         ]);
     }
@@ -163,7 +163,7 @@ class BonusController extends Controller
         );
 
         return response()->json([
-            'message' => 'Бонус удалён',
+            'message' => __('api.bonus.deleted'),
             'bonus_id' => $bonus->id,
         ]);
     }

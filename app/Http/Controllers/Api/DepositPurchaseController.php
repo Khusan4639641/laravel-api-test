@@ -70,7 +70,7 @@ class DepositPurchaseController extends Controller
         $cashbackBonus = $result['cashback_bonus']?->load('walletTransaction');
 
         return response()->json([
-            'message' => 'Покупка депозитного товара выполнена.',
+            'message' => __('api.deposit_purchase_completed'),
             'data' => [
                 'order_id' => $order?->id,
                 'total' => $order?->total_amount,

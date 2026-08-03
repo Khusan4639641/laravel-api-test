@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle, Search, XCircle } from 'lucide-react';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ApiError, approveAdminWithdrawal, getAdminWithdrawals, rejectAdminWithdrawal } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
@@ -135,6 +136,8 @@ export default function AdminWithdrawals() {
           <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-safi-muted" />
           <input
             type="text"
+            translate="no"
+            data-notranslate="true"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={adminText('a_0J_QvtC40YHQ_4')}
@@ -155,25 +158,25 @@ export default function AdminWithdrawals() {
             {visibleWithdrawals.map((withdrawal) => (
               <MobileDataCard key={withdrawal.id}>
                 <MobileDataHeader
-                  title={withdrawal.id}
+                  title={<NoTranslate>{withdrawal.id}</NoTranslate>}
                   meta={withdrawal.date}
                   action={<AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.statusCode)}>{withdrawal.status}</AdminBadge>}
                 />
                 <MobileDataRow label={adminText('a_0J_QsNGA0YLQ_7')}>
-                  <div>{withdrawal.partnerName}</div>
-                  <div className="mt-1 font-mono text-xs text-safi-muted">{withdrawal.partnerId}</div>
+                  <NoTranslate as="div">{withdrawal.partnerName}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 font-mono text-xs text-safi-muted">{withdrawal.partnerId}</NoTranslate>
                 </MobileDataRow>
                 <MobileDataRow label={adminText('a_0KHRg9C80LzQ_2')}>
                   <div>{withdrawal.amount}</div>
                   <div className="mt-1 text-xs text-safi-muted">{withdrawal.method}</div>
                 </MobileDataRow>
                 <MobileDataRow label={adminText('a_0KDQtdC60LLQ')}>
-                  <div className="font-mono">{withdrawal.reqs}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank}{adminText('a_LyDQmNCY0J06')}{withdrawal.iin}</div>
+                  <NoTranslate as="div" className="font-mono">{withdrawal.reqs}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{withdrawal.bank}{adminText('a_LyDQmNCY0J06')}{withdrawal.iin}</NoTranslate>
                 </MobileDataRow>
                 {withdrawal.comment && (
                   <MobileDataRow label="Комментарий">
-                    <span className="text-red-600">{withdrawal.comment}</span>
+                    <NoTranslate className="text-red-600">{withdrawal.comment}</NoTranslate>
                   </MobileDataRow>
                 )}
                 {isProcessed(withdrawal.statusCode) ? (
@@ -209,24 +212,24 @@ export default function AdminWithdrawals() {
               {visibleWithdrawals.map((withdrawal) => (
                 <tr key={withdrawal.id} className="transition-colors hover:bg-safi-cream/70">
                   <td className="px-6 py-5">
-                    <div className="font-bold text-safi-green">{withdrawal.id}</div>
+                    <NoTranslate as="div" className="font-bold text-safi-green">{withdrawal.id}</NoTranslate>
                     <div className="mt-1 text-xs text-safi-muted">{withdrawal.date}</div>
                   </td>
                   <td className="px-6 py-5">
-                    <div className="font-bold text-safi-green">{withdrawal.partnerName}</div>
-                    <div className="mt-1 font-mono text-[10px] text-safi-muted">{withdrawal.partnerId}</div>
+                    <NoTranslate as="div" className="font-bold text-safi-green">{withdrawal.partnerName}</NoTranslate>
+                    <NoTranslate as="div" className="mt-1 font-mono text-[10px] text-safi-muted">{withdrawal.partnerId}</NoTranslate>
                   </td>
                   <td className="px-6 py-5">
                     <div className="mb-1 text-lg font-bold text-safi-green">{withdrawal.amount}</div>
                     <div className="text-xs text-safi-muted">{withdrawal.method}</div>
                   </td>
                   <td className="px-6 py-5">
-                    <div className="max-w-[220px] truncate font-mono text-sm">{withdrawal.reqs}</div>
-                    <div className="mt-1 text-xs text-safi-muted">{withdrawal.bank}{adminText('a_LyDQmNCY0J06')}{withdrawal.iin}</div>
+                    <NoTranslate as="div" className="max-w-[220px] truncate font-mono text-sm">{withdrawal.reqs}</NoTranslate>
+                    <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{withdrawal.bank}{adminText('a_LyDQmNCY0J06')}{withdrawal.iin}</NoTranslate>
                   </td>
                   <td className="px-6 py-5">
                     <AdminBadge variant={getWithdrawalBadgeVariant(withdrawal.statusCode)}>{withdrawal.status}</AdminBadge>
-                    {withdrawal.comment && <div className="mt-2 text-[10px] text-red-600">{withdrawal.comment}</div>}
+                    {withdrawal.comment && <NoTranslate as="div" className="mt-2 text-[10px] text-red-600">{withdrawal.comment}</NoTranslate>}
                   </td>
                   <td className="px-6 py-5">
                     <div className="flex items-center justify-center gap-2">

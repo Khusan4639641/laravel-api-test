@@ -17,6 +17,16 @@ interface HeaderSession {
 }
 
 const BACKOFFICE_ROLES = ['super_admin', 'admin', 'accountant', 'support'];
+const PUBLIC_NAVIGATION_ITEMS = [
+  { key: 'navigation.home', fallback: 'Главная', path: '/' },
+  { key: 'navigation.about', fallback: 'О компании', path: '/about' },
+  { key: 'navigation.products', fallback: 'Продукция', path: '/products' },
+  { key: 'navigation.opportunities', fallback: 'Возможности', path: '/business' },
+  { key: 'navigation.marketingPlan', fallback: 'Маркетинг план', path: '/marketing' },
+  { key: 'navigation.howToStart', fallback: 'Как начать', path: '/how-to-start' },
+  { key: 'navigation.faq', fallback: 'Частые вопросы', path: '/faq' },
+  { key: 'navigation.contacts', fallback: 'Контакты', path: '/contacts' },
+] as const;
 
 export function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -27,16 +37,13 @@ export function Header() {
   const [authState, setAuthState] = useState<HeaderAuthState>(() => getAuthToken() ? 'checking' : 'guest');
   const [session, setSession] = useState<HeaderSession | null>(null);
 
-  const navLinks = useMemo(() => [
-    { name: t('nav.home', 'Главная'), path: '/' },
-    { name: t('nav.about', 'О компании'), path: '/about' },
-    { name: t('nav.products', 'Продукты'), path: '/products' },
-    { name: t('nav.business', 'Возможность'), path: '/business' },
-    { name: t('nav.marketing', 'Маркетинг-план'), path: '/marketing' },
-    { name: t('nav.howToStart', 'Как начать'), path: '/how-to-start' },
-    { name: t('nav.faq', 'FAQ'), path: '/faq' },
-    { name: t('nav.contacts', 'Контакты'), path: '/contacts' },
-  ], [t]);
+  const navLinks = useMemo(
+    () => PUBLIC_NAVIGATION_ITEMS.map((item) => ({
+      name: t(item.key, item.fallback),
+      path: item.path,
+    })),
+    [t],
+  );
 
   const [visibleItemsCount, setVisibleItemsCount] = useState(navLinks.length);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -300,13 +307,13 @@ export function Header() {
             </Link>
             {isAuthenticated ? (
               <>
-                <Button variant="outline" size="sm" to={cabinetPath} className="px-5">{t('nav.cabinet', 'Кабинет')}</Button>
-                <Button variant="ghost" size="sm" onClick={handleLogout} className="px-4">{t('nav.logout', 'Выйти')}</Button>
+                <Button variant="outline" size="sm" to={cabinetPath} className="px-5">{t('auth.dashboard', 'Личный кабинет')}</Button>
+                <Button variant="ghost" size="sm" onClick={handleLogout} className="px-4">{t('auth.logout', 'Выйти')}</Button>
               </>
             ) : (
               <>
-                <Button variant="outline" size="sm" to="/login" className="px-5">{t('nav.login', 'Вход')}</Button>
-                <Button size="sm" to="/login" className="px-5">{t('nav.cabinet', 'Кабинет')}</Button>
+                <Button variant="outline" size="sm" to="/login" className="px-5">{t('auth.login', 'Войти')}</Button>
+                <Button size="sm" to="/login" className="px-5">{t('auth.dashboard', 'Личный кабинет')}</Button>
               </>
             )}
           </div>
@@ -362,13 +369,13 @@ export function Header() {
             <div className="h-px w-full bg-safi-green/5 my-4"></div>
             {isAuthenticated ? (
               <>
-                <Button variant="outline" to={cabinetPath} onClick={closeMenu} className="w-full justify-center">{t('nav.cabinet', 'Кабинет')}</Button>
-                <Button variant="ghost" onClick={handleLogout} className="w-full justify-center">{t('nav.logout', 'Выйти')}</Button>
+                <Button variant="outline" to={cabinetPath} onClick={closeMenu} className="w-full justify-center">{t('auth.dashboard', 'Личный кабинет')}</Button>
+                <Button variant="ghost" onClick={handleLogout} className="w-full justify-center">{t('auth.logout', 'Выйти')}</Button>
               </>
             ) : (
               <>
-                <Button variant="outline" to="/login" onClick={closeMenu} className="w-full justify-center">{t('nav.login', 'Вход')}</Button>
-                <Button to="/login" onClick={closeMenu} className="w-full justify-center">{t('nav.cabinet', 'Кабинет')}</Button>
+                <Button variant="outline" to="/login" onClick={closeMenu} className="w-full justify-center">{t('auth.login', 'Войти')}</Button>
+                <Button to="/login" onClick={closeMenu} className="w-full justify-center">{t('auth.dashboard', 'Личный кабинет')}</Button>
               </>
             )}
           </nav>

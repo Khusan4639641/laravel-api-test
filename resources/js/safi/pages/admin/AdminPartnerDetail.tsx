@@ -5,6 +5,7 @@ import { useAdminContext } from '../../components/admin/AdminLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
 import { MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { adminText } from '../../i18n/adminText';
 import {
   ArrowLeft,
@@ -571,9 +572,9 @@ export default function AdminPartnerDetail() {
           </Link>
           <PartnerAvatar name={partner.fullName} avatarUrl={partner.avatarUrl} />
           <div className="min-w-0">
-            <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{partner.fullName}</h1>
+            <NoTranslate as="h1" className="mb-1 font-serif text-3xl font-bold text-safi-green">{partner.fullName}</NoTranslate>
             <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-              <span className="text-sm font-mono text-safi-text/70 bg-[#F5F5F0] px-2 py-0.5 rounded">{partner.login || partner.id}</span>
+              <NoTranslate className="rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-sm text-safi-text/70">{partner.login || partner.id}</NoTranslate>
               <AdminBadge variant={isBlocked ? 'danger' : 'default'}>Аккаунт: {partner.accountStatusLabel}</AdminBadge>
             </div>
           </div>
@@ -588,7 +589,7 @@ export default function AdminPartnerDetail() {
               className="flex cursor-pointer items-center gap-2 rounded-xl bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Edit className="w-4 h-4" />
-              {actionLoading === 'identity' ? 'Сохранение...' : 'Редактировать данные'}
+              {actionLoading === 'identity' ? adminText('Сохранение...') : adminText('Редактировать данные')}
             </button>
           )}
           <button
@@ -606,7 +607,7 @@ export default function AdminPartnerDetail() {
               className="flex cursor-pointer items-center gap-2 rounded-xl bg-[#F5F5F0] px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-green transition-colors hover:bg-safi-green/10 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <CreditCard className="w-4 h-4" />
-              {actionLoading === 'balance' ? 'Сохранение...' : 'Изменить баланс'}
+              {actionLoading === 'balance' ? adminText('Сохранение...') : adminText('Изменить баланс')}
             </button>
           )}
           <button
@@ -626,7 +627,7 @@ export default function AdminPartnerDetail() {
                 className="flex cursor-pointer items-center gap-2 rounded-xl bg-safi-green px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
               >
               <Calculator className="w-4 h-4" />
-              {actionLoading === 'binary' ? adminText('a_0KHQvtGF0YDQ_2') : 'Рассчитать бинар'}
+              {actionLoading === 'binary' ? adminText('a_0KHQvtGF0YDQ_2') : adminText('Рассчитать бинар')}
             </button>
           )}
           {canDeletePartner && (
@@ -637,7 +638,7 @@ export default function AdminPartnerDetail() {
               className="flex cursor-pointer items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Trash2 className="w-4 h-4" />
-              {actionLoading === 'delete-preview' ? 'Загрузка...' : 'Удалить партнёра'}
+              {actionLoading === 'delete-preview' ? adminText('Загрузка...') : adminText('Удалить партнёра')}
             </button>
           )}
         </div>
@@ -664,9 +665,9 @@ export default function AdminPartnerDetail() {
                 <div className="flex items-center justify-between p-3 bg-[#F5F5F0] rounded-xl text-sm mt-4">
                   <span className="text-safi-text/60">{adminText('a_0KHQv9C-0L3R')}</span>
                   {partner.sponsorId ? (
-                    <Link to={`/admin/partners/${partner.sponsorId}`} className="cursor-pointer font-bold font-mono text-safi-green hover:underline">{partner.sponsor}</Link>
+                    <Link to={`/admin/partners/${partner.sponsorId}`} className="cursor-pointer font-bold font-mono text-safi-green hover:underline"><NoTranslate>{partner.sponsor}</NoTranslate></Link>
                   ) : (
-                    <span className="font-bold font-mono text-safi-green">{partner.sponsor}</span>
+                    <NoTranslate className="font-mono font-bold text-safi-green">{partner.sponsor}</NoTranslate>
                   )}
                 </div>
               </div>
@@ -826,44 +827,48 @@ export default function AdminPartnerDetail() {
       )}
 
       {identityModalOpen && (
-        <Modal title="Редактировать пользователя" onClose={closeIdentityModal}>
+        <Modal title={adminText('Редактировать пользователя')} onClose={closeIdentityModal}>
           <form className="space-y-5" onSubmit={submitIdentity}>
             <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Имя" error={identityErrors.first_name?.[0]}>
+              <FormField label={adminText('Имя')} error={identityErrors.first_name?.[0]}>
                 <input
                   type="text"
                   value={identityForm.first_name}
                   onChange={(event) => setIdentityForm((current) => ({ ...current, first_name: event.target.value }))}
-                  className={inputClass}
+                  className={`${inputClass} notranslate`}
+                  translate="no"
                   disabled={actionLoading === 'identity'}
                 />
               </FormField>
-              <FormField label="Фамилия" error={identityErrors.last_name?.[0]}>
+              <FormField label={adminText('Фамилия')} error={identityErrors.last_name?.[0]}>
                 <input
                   type="text"
                   value={identityForm.last_name}
                   onChange={(event) => setIdentityForm((current) => ({ ...current, last_name: event.target.value }))}
-                  className={inputClass}
+                  className={`${inputClass} notranslate`}
+                  translate="no"
                   disabled={actionLoading === 'identity'}
                 />
               </FormField>
             </div>
-            <FormField label="Телефон" error={identityErrors.phone?.[0]}>
+            <FormField label={adminText('Телефон')} error={identityErrors.phone?.[0]}>
               <input
                 type="tel"
                 value={identityForm.phone}
                 onChange={(event) => setIdentityForm((current) => ({ ...current, phone: event.target.value }))}
-                className={inputClass}
+                className={`${inputClass} notranslate`}
+                translate="no"
                 disabled={actionLoading === 'identity'}
                 required
               />
             </FormField>
-            <FormField label="Email" error={identityErrors.email?.[0]}>
+            <FormField label={adminText('Email')} error={identityErrors.email?.[0]}>
               <input
                 type="email"
                 value={identityForm.email}
                 onChange={(event) => setIdentityForm((current) => ({ ...current, email: event.target.value }))}
-                className={inputClass}
+                className={`${inputClass} notranslate`}
+                translate="no"
                 disabled={actionLoading === 'identity'}
                 required
               />
@@ -873,7 +878,7 @@ export default function AdminPartnerDetail() {
               disabled={actionLoading === 'identity'}
               className="w-full cursor-pointer rounded-xl bg-safi-green px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-safi-gold transition-colors hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {actionLoading === 'identity' ? 'Сохранение...' : 'Сохранить'}
+              {actionLoading === 'identity' ? adminText('Сохранение...') : adminText('Сохранить')}
             </button>
           </form>
         </Modal>
@@ -964,7 +969,7 @@ export default function AdminPartnerDetail() {
       )}
 
       {balanceModalOpen && (
-        <Modal title="Изменить баланс" onClose={closeBalanceModal}>
+        <Modal title={adminText('Изменить баланс')} onClose={closeBalanceModal}>
           <form className="space-y-5" onSubmit={submitBalance}>
             <div className="rounded-2xl border border-safi-green/10 bg-[#F5F5F0] p-4 text-sm font-bold text-safi-green">
               Текущий баланс: {partner.availableBalance.toLocaleString('ru-RU')} ₸
@@ -1076,7 +1081,7 @@ export default function AdminPartnerDetail() {
       )}
 
       {deleteModalOpen && (
-        <Modal title="Удалить партнёра" onClose={() => actionLoading !== 'delete' && setDeleteModalOpen(false)}>
+        <Modal title={adminText('Удалить партнёра')} onClose={() => actionLoading !== 'delete' && setDeleteModalOpen(false)}>
           <form className="space-y-5" onSubmit={submitDeletePartner}>
             <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm leading-6 text-red-700">
               Пользователь будет архивирован через soft delete. Логин, email и телефон будут освобождены для повторной регистрации. Пользователь будет исключён из статистики и расчётов, история транзакций сохранится, бонусы будут reversed/voided, структура и PV пересчитаны по активным пользователям.
@@ -1085,8 +1090,8 @@ export default function AdminPartnerDetail() {
             {deletePreview && (
               <div className="grid gap-3 rounded-2xl border border-safi-green/10 bg-[#F5F5F0] p-4 text-sm">
                 <PreviewRow label="ID" value={deletePreview.user?.id || partner.id} />
-                <PreviewRow label="Имя" value={deletePreview.user?.name || partner.fullName} />
-                <PreviewRow label="Email" value={deletePreview.user?.email || partner.email} />
+                <PreviewRow label={adminText('Имя')} value={deletePreview.user?.name || partner.fullName} />
+                <PreviewRow label={adminText('Email')} value={deletePreview.user?.email || partner.email} />
                 <PreviewRow label="Есть дети" value={deletePreview.has_children ? 'Да' : 'Нет'} />
                 <PreviewRow label="Descendants" value={deletePreview.descendants_count ?? 0} />
                 <PreviewRow label="Affected uplines" value={deletePreview.affected_uplines_count ?? 0} />
@@ -1163,7 +1168,7 @@ export default function AdminPartnerDetail() {
                 disabled={actionLoading === 'delete' || actionLoading === 'delete-preview' || !deleteReason.trim() || !deleteUnderstood || Boolean(deletePreview?.has_children && !deleteSubtree)}
                 className="inline-flex flex-1 cursor-pointer items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {actionLoading === 'delete' ? 'Удаление...' : 'Удалить партнёра'}
+                {actionLoading === 'delete' ? adminText('Удаление...') : adminText('Удалить партнёра')}
               </button>
             </div>
           </form>
@@ -1198,7 +1203,7 @@ function PreviewRow({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{label}</span>
-      <span className="text-right font-bold text-safi-green">{value}</span>
+      <NoTranslate className="text-right font-bold text-safi-green">{value}</NoTranslate>
     </div>
   );
 }
@@ -1235,7 +1240,7 @@ function CredentialLine({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="text-[10px] font-bold uppercase tracking-widest text-safi-text/50">{label}</div>
-      <div className="mt-1 break-all font-mono font-bold text-safi-green">{value}</div>
+      <NoTranslate as="div" className="mt-1 break-all font-mono font-bold text-safi-green">{value}</NoTranslate>
     </div>
   );
 }
@@ -1266,7 +1271,7 @@ function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value
       </div>
       <div>
         <div className="text-[10px] uppercase font-bold tracking-widest text-safi-text/40">{label}</div>
-        <div className="text-sm font-bold text-safi-text">{value}</div>
+        <NoTranslate as="div" className="text-sm font-bold text-safi-text">{value}</NoTranslate>
       </div>
     </div>
   );

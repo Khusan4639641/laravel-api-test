@@ -3,11 +3,14 @@ import { CheckCircle2, Lock, Trophy } from 'lucide-react';
 import { Badge, ProgressBar } from '../../components/dashboard/ui';
 import { useDashboardContext } from '../../components/dashboard/DashboardLayout';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
+import { useUiText } from '../../i18n/useUiText';
 import { getApiErrorState, getDashboardOverview, getDashboardPackages, getNumber, getPublicStatuses, Package, Status } from '../../lib/api';
 import { cn } from '../../lib/utils';
 
 export default function PackageStatus() {
   const { currentUser } = useDashboardContext();
+  const ui = useUiText();
   const [packages, setPackages] = useState<Package[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [statusProgress, setStatusProgress] = useState({ leftPV: 0, rightPV: 0, weakLegPV: 0 });
@@ -62,25 +65,25 @@ export default function PackageStatus() {
       <section className="rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <span className="safi-kicker">Package status</span>
-            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Пакет и статус</h1>
+            <span className="safi-kicker">{ui('Package status')}</span>
+            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">{ui('Пакет и статус')}</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-              Управление стартовым пакетом, апгрейдом и прогрессом по PV.
+              {ui('Управление стартовым пакетом, апгрейдом и прогрессом по PV.')}
             </p>
             <p className="mt-3 max-w-2xl rounded-2xl border border-safi-gold/30 bg-safi-cream px-4 py-3 text-sm font-bold leading-6 text-safi-green">
-              Пакет назначается администратором. Смена пакета доступна только через администратора.
+              {ui('Пакет назначается администратором. Смена пакета доступна только через администратора.')}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Badge variant="gold">Пакет: {currentUser.packageName}</Badge>
-            <Badge variant={currentUser.packageStatus === 'active' ? 'success' : 'default'}>Пакет: {currentUser.packageStatusLabel}</Badge>
-            <Badge variant="default">Статус: {currentUser.status}</Badge>
+            <Badge variant="gold">{ui('Пакет')}: <NoTranslate>{currentPackageCode || currentUser.packageName}</NoTranslate></Badge>
+            <Badge variant={currentUser.packageStatus === 'active' ? 'success' : 'default'}>{ui('Пакет')}: {currentUser.packageStatusLabel}</Badge>
+            <Badge variant="default">{ui('Статус')}: {currentUser.status}</Badge>
           </div>
         </div>
       </section>
 
       {isLoading && (
-        <LoadingState title="Загружаем пакеты" description="Получаем пакеты и статусы из API." />
+        <LoadingState title={ui('Загружаем пакеты')} description={ui('Получаем пакеты и статусы из API.')} />
       )}
 
       {!isLoading && loadError && (
@@ -92,8 +95,8 @@ export default function PackageStatus() {
       <section className="grid gap-5 md:grid-cols-3">
         {displayPackages.length === 0 && (
           <EmptyState
-            title="Пакеты пока не опубликованы"
-            description="Список пакетов появится после настройки в backend."
+            title={ui('Пакеты пока не опубликованы')}
+            description={ui('Список пакетов появится после настройки в backend.')}
             className="md:col-span-3"
           />
         )}
@@ -111,13 +114,13 @@ export default function PackageStatus() {
               )}
             >
               {isCurrent && <Trophy className="absolute right-6 top-6 h-6 w-6 text-safi-gold" />}
-              <h2 className={`font-serif text-3xl font-semibold ${isCurrent ? 'text-white' : 'text-safi-green'}`}>{pkg.label || pkg.name}</h2>
+              <NoTranslate as="h2" className={`font-serif text-3xl font-semibold ${isCurrent ? 'text-white' : 'text-safi-green'}`}>{normalizePackageCode(pkg.code || pkg.name)}</NoTranslate>
               <div className={`mt-3 text-4xl font-extrabold ${isCurrent ? 'text-safi-gold' : 'text-safi-green'}`}>
                 {pkg.price.toLocaleString('ru-RU')} ₸
               </div>
               <div className="mt-6 grid grid-cols-2 gap-3">
-                <PackageMetric label="Реф." value={`${pkg.referralBonus}%`} dark={isCurrent} />
-                <PackageMetric label="Бинар" value={pkg.binaryBonus ? `${pkg.binaryBonus}%` : '-'} dark={isCurrent} />
+                <PackageMetric label={ui('Реф.')} value={`${pkg.referralBonus}%`} dark={isCurrent} />
+                <PackageMetric label={ui('Бинар')} value={pkg.binaryBonus ? `${pkg.binaryBonus}%` : '-'} dark={isCurrent} />
               </div>
               <ul className="mt-7 flex-1 space-y-3">
                 {pkg.features.slice(0, 4).map((feature) => (
@@ -137,7 +140,7 @@ export default function PackageStatus() {
                     : 'cursor-not-allowed border border-safi-border bg-safi-cream text-safi-muted'
                 )}
               >
-                {action.label}
+                {ui(action.label)}
               </button>
             </article>
           );
@@ -146,10 +149,10 @@ export default function PackageStatus() {
 
       <section className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
         <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
-          <span className="safi-kicker">PV progress</span>
-          <h2 className="mt-3 font-serif text-3xl font-semibold text-safi-green">Следующий статус: {nextStatus?.name || currentUser.status}</h2>
+          <span className="safi-kicker">{ui('PV progress')}</span>
+          <h2 className="mt-3 font-serif text-3xl font-semibold text-safi-green">{ui('Следующий статус')}: {nextStatus?.name || currentUser.status}</h2>
           <p className="mt-3 text-sm leading-7 text-safi-muted">
-            Малая ветка PV: {weakLegPV.toLocaleString('ru-RU')} PV. Личный PV: {currentUser.personalPV.toLocaleString('ru-RU')} PV.
+            {ui('Малая ветка PV')}: {weakLegPV.toLocaleString('ru-RU')} PV. {ui('Личный PV')}: {currentUser.personalPV.toLocaleString('ru-RU')} PV.
           </p>
           <div className="mt-8">
             <ProgressBar
@@ -162,11 +165,11 @@ export default function PackageStatus() {
         </article>
 
         <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
-          <span className="safi-kicker">Statuses</span>
+          <span className="safi-kicker">{ui('Statuses')}</span>
           {statuses.length === 0 && (
             <EmptyState
-              title="Статусы пока не опубликованы"
-              description="Статусная сетка появится после настройки данных."
+              title={ui('Статусы пока не опубликованы')}
+              description={ui('Статусная сетка появится после настройки данных.')}
               className="mt-6 min-h-[180px] shadow-none"
             />
           )}
@@ -181,7 +184,7 @@ export default function PackageStatus() {
                     <span className={`flex h-10 w-10 items-center justify-center rounded-full ${achieved ? 'bg-safi-gold text-safi-black' : 'bg-safi-cream text-safi-muted'}`}>
                       {achieved ? <CheckCircle2 className="h-5 w-5" /> : <Lock className="h-4 w-4" />}
                     </span>
-                    {current && <Badge variant="gold">Текущий</Badge>}
+                    {current && <Badge variant="gold">{ui('Текущий')}</Badge>}
                   </div>
                   <h3 className="font-serif text-xl font-semibold text-safi-green">{status.name}</h3>
                   <div className="mt-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{status.pv.toLocaleString('ru-RU')} PV</div>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Activity, ArrowUpCircle, CreditCard, FileText, Package, Search, Settings, TrendingUp, Users } from 'lucide-react';
 import { AdminStatCard } from '../../components/admin/ui';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { getAdminOverview, getApiErrorState } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
 
@@ -153,12 +154,12 @@ export default function AdminOverview() {
             {currentSummary.recentTransactions.map((transaction) => (
               <div key={transaction.id} className="grid gap-3 py-4 text-sm md:grid-cols-[1fr_1fr_auto] md:items-center">
                 <div>
-                  <div className="safi-numeric font-bold text-safi-text">#{transaction.id}</div>
+                  <NoTranslate as="div" className="safi-numeric font-bold text-safi-text">#{transaction.id}</NoTranslate>
                   <div className="mt-1 text-xs text-safi-muted">{transaction.createdAt || '-'}</div>
                 </div>
                 <div>
-                  <div className="font-bold text-safi-green">{transaction.partnerName}</div>
-                  <div className="safi-numeric mt-1 text-xs text-safi-muted">ID {transaction.partnerId}</div>
+                  <NoTranslate as="div" className="font-bold text-safi-green">{transaction.partnerName}</NoTranslate>
+                  <NoTranslate as="div" className="safi-numeric mt-1 text-xs text-safi-muted">ID {transaction.partnerId}</NoTranslate>
                 </div>
                 <div className={`safi-numeric font-bold ${transaction.direction === 'debit' ? 'text-red-500' : transaction.direction === 'credit' ? 'text-green-600' : 'text-safi-muted'}`}>
                   {formatSignedMoney(transaction.amount, transaction.direction)}

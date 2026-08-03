@@ -6,12 +6,15 @@ import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
 import { ToastItem, ToastStack } from '../components/ui/Toast';
+import { NoTranslate } from '../components/ui/NoTranslate';
+import { useUiText } from '../i18n/useUiText';
 import { isProductOrderable, useCart } from '../context/CartContext';
 import { cn } from '../lib/utils';
 import { getApiErrorState, getAuthToken, getPublicNews, getPublicPackages, getPublicProducts, NewsArticle, Package, Product } from '../lib/api';
 
 export default function HomePage() {
   const { t } = useTranslation();
+  const ui = useUiText();
   const { addProduct } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [packages, setPackages] = useState<Package[]>([]);
@@ -152,14 +155,12 @@ export default function HomePage() {
               <div className="inline-flex items-center gap-2 rounded-full border border-safi-green/10 bg-safi-green/5 px-4 py-2">
                 <span className="h-2 w-2 rounded-full bg-safi-gold" />
                 <span className="text-[10px] font-bold uppercase tracking-widest opacity-70">
-                  {t('hero.kzProducts', 'Отечественная продукция Казахстана')}
+                  {t('hero.badge', 'ПРОДУКТ, ПРОИЗВЕДЁННЫЙ В КАЗАХСТАНЕ')}
                 </span>
               </div>
 
               <h1 className="font-serif text-5xl font-medium leading-[1.1] text-safi-green md:text-7xl">
-                {t('hero.title1', 'Раскрой свой')} <br className="hidden md:block" />
-                {t('hero.title2', 'потенциал с')} <br className="hidden md:block" />
-                <span className="italic text-safi-gold">{t('hero.title3', 'Safi')}</span>
+                {t('hero.title', 'Раскройте свой потенциал вместе с Safi')}
               </h1>
 
               <p className="max-w-2xl text-lg leading-relaxed text-safi-text opacity-80 md:text-xl">
@@ -199,15 +200,15 @@ export default function HomePage() {
             <div className="relative mt-10 flex h-full w-full items-center justify-center py-12 lg:mt-0 lg:justify-end lg:py-0">
               {productsLoading && (
                 <LoadingState
-                  title="Загружаем продукт"
-                  description="Получаем актуальный product highlight."
+                  title={ui('Загружаем продукт')}
+                  description={ui('Получаем актуальный product highlight.')}
                   className="aspect-[3/4] min-h-0 w-full max-w-[340px] rounded-[40px] sm:max-w-sm"
                 />
               )}
 
               {!productsLoading && productsError && (
                 <ErrorState
-                  title="Продукт недоступен"
+                  title={ui('Продукт недоступен')}
                   description={productsError}
                   onRetry={loadProducts}
                   className="aspect-[3/4] min-h-0 w-full max-w-[340px] rounded-[40px] sm:max-w-sm"
@@ -220,8 +221,8 @@ export default function HomePage() {
 
               {!productsLoading && !productsError && !heroProduct && (
                 <EmptyState
-                  title="Нет продукта для витрины"
-                  description="Product highlight появится после публикации продуктов."
+                  title={ui('Нет продукта для витрины')}
+                  description={ui('Product highlight появится после публикации продуктов.')}
                   className="aspect-[3/4] min-h-0 w-full max-w-[340px] rounded-[40px] sm:max-w-sm"
                 />
               )}
@@ -273,8 +274,7 @@ export default function HomePage() {
         <Container>
           <div className="mb-16 text-center">
             <h2 className="mb-4 font-serif text-4xl text-safi-green md:text-5xl">
-              {t('benefits.title1', 'Почему выбирают')}{' '}
-              <span className="italic text-safi-gold">{t('benefits.title2', 'Safi Life')}</span>
+              {t('benefits.title', 'Почему выбирают Safi Life')}
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-safi-text opacity-80">
               {t(
@@ -319,13 +319,13 @@ export default function HomePage() {
           </div>
 
           {productsLoading && (
-            <LoadingState title="Загружаем продукты" description="Получаем продукцию из публичного API." />
+            <LoadingState title={ui('Загружаем продукты')} description={ui('Получаем продукцию из публичного API.')} />
           )}
 
           {!productsLoading && productsError && <ErrorState description={productsError} onRetry={loadProducts} />}
 
           {!productsLoading && !productsError && popularProducts.length === 0 && (
-            <EmptyState title="Продукты пока не опубликованы" description="После публикации продукты появятся на главной." />
+            <EmptyState title={ui('Продукты пока не опубликованы')} description={ui('После публикации продукты появятся на главной.')} />
           )}
 
           {!productsLoading && !productsError && popularProducts.length > 0 && (
@@ -353,8 +353,7 @@ export default function HomePage() {
         <Container>
           <div className="mb-16 text-center">
             <h2 className="mb-4 font-serif text-4xl text-safi-green md:text-5xl">
-              {t('packages.title1', 'Стартовые')}{' '}
-              <span className="italic text-safi-gold">{t('packages.title2', 'пакеты')}</span>
+              {t('packages.title', 'Стартовые пакеты')}
             </h2>
             <p className="mx-auto max-w-2xl text-lg text-safi-text opacity-80">
               {t('packages.subtitle', 'Выберите пакет, который подходит именно вам, и начните зарабатывать с Safi Life.')}
@@ -362,13 +361,13 @@ export default function HomePage() {
           </div>
 
           {packagesLoading && (
-            <LoadingState title="Загружаем пакеты" description="Получаем стартовые пакеты из публичного API." />
+            <LoadingState title={ui('Загружаем пакеты')} description={ui('Получаем стартовые пакеты из публичного API.')} />
           )}
 
           {!packagesLoading && packagesError && <ErrorState description={packagesError} onRetry={loadPackages} />}
 
           {!packagesLoading && !packagesError && packages.length === 0 && (
-            <EmptyState title="Пакеты пока не опубликованы" description="После настройки пакетов они появятся на главной." />
+            <EmptyState title={ui('Пакеты пока не опубликованы')} description={ui('После настройки пакетов они появятся на главной.')} />
           )}
 
           {!packagesLoading && !packagesError && packages.length > 0 && (
@@ -508,6 +507,7 @@ function NewsStrip({
   error: string | null;
   onRetry: () => void;
 }) {
+  const ui = useUiText();
   if (isLoading) {
     return (
       <div className="flex-1 overflow-hidden">
@@ -531,7 +531,7 @@ function NewsStrip({
   if (articles.length === 0) {
     return (
       <div className="flex-1">
-        <EmptyState title="Новостей пока нет" description="Публикации появятся здесь после добавления." className="min-h-[120px] rounded-xl p-4" />
+        <EmptyState title={ui('Новостей пока нет')} description={ui('Публикации появятся здесь после добавления.')} className="min-h-[120px] rounded-xl p-4" />
       </div>
     );
   }
@@ -628,11 +628,11 @@ function PackageCard({ pkg }: { pkg: Package }) {
     >
       {isPopular && (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-safi-gold px-4 py-1 text-[10px] font-bold uppercase tracking-widest text-white shadow-md">
-          {t('packages.hit', 'Хит продаж')}
+          {t('packages.mostPopular', 'Самый популярный')}
         </div>
       )}
 
-      <h3 className={cn('mb-2 font-serif text-2xl', isPopular ? 'text-white' : 'text-safi-green')}>{pkg.label || pkg.name}</h3>
+      <NoTranslate as="h3" className={cn('mb-2 font-serif text-2xl', isPopular ? 'text-white' : 'text-safi-green')}>{packageDisplayCode(pkg)}</NoTranslate>
       <div className={cn('mb-8 text-4xl font-bold', isPopular ? 'text-safi-gold' : 'text-safi-green')}>
         {formatPrice(pkg.price)}
       </div>
@@ -661,10 +661,14 @@ function PackageCard({ pkg }: { pkg: Package }) {
         className="w-full cursor-not-allowed"
         disabled
       >
-        Вы еще не приобрели
+        {t('packages.notPurchased', 'Вы ещё не приобрели этот пакет')}
       </Button>
     </article>
   );
+}
+
+function packageDisplayCode(pkg: Package) {
+  return String(pkg.code || pkg.name || '').trim().toUpperCase();
 }
 
 function PackageLine({

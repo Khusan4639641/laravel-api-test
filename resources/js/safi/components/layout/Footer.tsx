@@ -28,9 +28,9 @@ export function Footer() {
           <div>
             <h3 className="text-safi-gold font-bold uppercase tracking-widest text-xs mb-6">Компания</h3>
             <ul className="space-y-3 text-sm">
-              <li><FooterLink to="/about">{t('nav.about', 'О нас')}</FooterLink></li>
-              <li><FooterLink to="/products">{t('nav.products', 'Продукты')}</FooterLink></li>
-              <li><FooterLink to="/faq">{t('nav.faq', 'FAQ')}</FooterLink></li>
+              <li><FooterLink to="/about">{t('navigation.about', 'О компании')}</FooterLink></li>
+              <li><FooterLink to="/products">{t('navigation.products', 'Продукция')}</FooterLink></li>
+              <li><FooterLink to="/faq">{t('navigation.faq', 'Частые вопросы')}</FooterLink></li>
               <li><FooterLink to="/contacts">{t('legal.contacts', 'Контакты')}</FooterLink></li>
               <li><FooterLink to="/legal">{t('legal.title1', 'Правовая')} {t('legal.title2', 'информация')}</FooterLink></li>
             </ul>
@@ -51,10 +51,10 @@ export function Footer() {
           <div>
             <h3 className="text-safi-gold font-bold uppercase tracking-widest text-xs mb-6">Партнерам</h3>
             <ul className="space-y-3 text-sm">
-              <li><FooterLink to="/business">{t('nav.business', 'Возможность')}</FooterLink></li>
-              <li><FooterLink to="/marketing">{t('nav.marketing', 'Маркетинг-план')}</FooterLink></li>
-              <li><FooterLink to="/how-to-start">{t('nav.howToStart', 'Как начать')}</FooterLink></li>
-              <li><FooterLink to="/login">{t('nav.login', 'Вход в кабинет')}</FooterLink></li>
+              <li><FooterLink to="/business">{t('navigation.opportunities', 'Возможности')}</FooterLink></li>
+              <li><FooterLink to="/marketing">{t('navigation.marketingPlan', 'Маркетинг план')}</FooterLink></li>
+              <li><FooterLink to="/how-to-start">{t('navigation.howToStart', 'Как начать')}</FooterLink></li>
+              <li><FooterLink to="/login">{t('auth.login', 'Войти')}</FooterLink></li>
             </ul>
 
             <div className="mt-8 space-y-3 text-sm text-safi-bg/70">

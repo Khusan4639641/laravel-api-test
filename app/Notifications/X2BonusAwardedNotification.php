@@ -62,8 +62,8 @@ class X2BonusAwardedNotification extends Notification
             'type' => 'x2_bonus',
             'title' => [
                 'ru' => 'X2 бонус',
-                'kz' => 'X2 бонус',
-                'kg' => 'X2 бонус',
+                'kk' => 'X2 бонус',
+                'ky' => 'X2 бонус',
                 'en' => 'X2 bonus',
                 'mn' => 'X2 бонус',
             ],
@@ -78,15 +78,15 @@ class X2BonusAwardedNotification extends Notification
     }
 
     /**
-     * @return array{ru: string, kz: string, kg: string, en: string, mn: string}
+     * @return array{ru: string, kk: string, ky: string, en: string, mn: string}
      */
     private function localizedMessage(string $amount): array
     {
         if ((float) $this->x2Bonus->amount > 0) {
             return [
                 'ru' => "Начислен X2 бонус: {$amount} ₸.",
-                'kz' => "X2 бонус есептелді: {$amount} ₸.",
-                'kg' => "X2 бонус эсептелди: {$amount} ₸.",
+                'kk' => "X2 бонус есептелді: {$amount} ₸.",
+                'ky' => "X2 бонус эсептелди: {$amount} ₸.",
                 'en' => "X2 bonus awarded: {$amount} ₸.",
                 'mn' => "X2 бонус нэмэгдлээ: {$amount} ₸.",
             ];
@@ -94,8 +94,8 @@ class X2BonusAwardedNotification extends Notification
 
         return [
             'ru' => 'Поздравляем! Вы выполнили условие X2 бонуса.',
-            'kz' => 'Құттықтаймыз! Сіз X2 бонус шартын орындадыңыз.',
-            'kg' => 'Куттуктайбыз! Сиз X2 бонус шартын аткардыңыз.',
+            'kk' => 'Құттықтаймыз! Сіз X2 бонус шартын орындадыңыз.',
+            'ky' => 'Куттуктайбыз! Сиз X2 бонус шартын аткардыңыз.',
             'en' => 'Congratulations! You qualified for an X2 bonus.',
             'mn' => 'Баяр хүргэе! Та X2 бонусын нөхцөлийг хангалаа.',
         ];

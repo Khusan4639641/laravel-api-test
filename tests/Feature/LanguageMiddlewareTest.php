@@ -23,7 +23,7 @@ class LanguageMiddlewareTest extends TestCase
                 'ru' => 'Русский продукт',
                 'kk' => 'Қазақша өнім',
                 'kz' => 'KZ қазақша өнім',
-                'kg' => 'Кыргызча өнүм',
+                'ky' => 'Кыргызча өнүм',
                 'en' => 'English product',
                 'mn' => 'Монгол бүтээгдэхүүн',
             ],
@@ -35,13 +35,13 @@ class LanguageMiddlewareTest extends TestCase
 
         $this->getJson('/api/public/products', ['Accept-Language' => 'kk'])
             ->assertOk()
-            ->assertJsonPath('products.0.name', 'KZ қазақша өнім');
+            ->assertJsonPath('products.0.name', 'Қазақша өнім');
 
         $this->getJson('/api/public/products', ['Accept-Language' => 'kz'])
             ->assertOk()
-            ->assertJsonPath('products.0.name', 'KZ қазақша өнім');
+            ->assertJsonPath('products.0.name', 'Қазақша өнім');
 
-        $this->getJson('/api/public/products', ['Accept-Language' => 'kg'])
+        $this->getJson('/api/public/products', ['Accept-Language' => 'ky'])
             ->assertOk()
             ->assertJsonPath('products.0.name', 'Кыргызча өнүм');
 
@@ -54,7 +54,7 @@ class LanguageMiddlewareTest extends TestCase
             ->assertJsonPath('products.0.name', 'Монгол бүтээгдэхүүн');
     }
 
-    public function test_legacy_kk_translation_is_used_for_kz_when_explicit_kz_is_missing(): void
+    public function test_legacy_locale_headers_and_translation_keys_remain_read_compatible(): void
     {
         Product::query()->create([
             'name' => 'Русский продукт',
@@ -73,6 +73,10 @@ class LanguageMiddlewareTest extends TestCase
         $this->getJson('/api/public/products', ['Accept-Language' => 'kz'])
             ->assertOk()
             ->assertJsonPath('products.0.name', 'Legacy қазақша өнім');
+
+        $this->getJson('/api/public/products', ['Accept-Language' => 'kg'])
+            ->assertOk()
+            ->assertJsonPath('products.0.name', 'Русский продукт');
     }
 
     public function test_invalid_language_falls_back_to_russian(): void

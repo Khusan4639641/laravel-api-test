@@ -4,16 +4,21 @@ namespace App\Support;
 
 final class LocalizedValue
 {
-    public const LANGUAGES = ['ru', 'kz', 'kg', 'en', 'mn'];
+    public const LANGUAGES = ['ru', 'kk', 'ky', 'en', 'mn'];
+
+    public const LEGACY_LANGUAGE_KEYS = ['kz', 'kg'];
 
     public static function normalize(?string $language): string
     {
-        $language = strtolower((string) $language);
-        $language = preg_split('/[-_,;]/', $language)[0] ?? '';
+        $language = strtolower(trim((string) $language));
+        $language = explode(',', $language)[0] ?? '';
+        $language = explode(';', $language)[0] ?? '';
+        $language = preg_split('/[-_]/', $language)[0] ?? '';
 
         return match ($language) {
-            'kk' => 'kz',
-            'kz', 'kg', 'en', 'mn', 'ru' => $language,
+            'kz' => 'kk',
+            'kg' => 'ky',
+            'kk', 'ky', 'en', 'mn', 'ru' => $language,
             default => 'ru',
         };
     }
@@ -33,18 +38,22 @@ final class LocalizedValue
         }
 
         $language = self::normalize($language ?: app()->getLocale());
+        $languageKeys = match ($language) {
+            'kk' => ['kk', 'kz'],
+            'ky' => ['ky', 'kg'],
+            default => [$language],
+        };
 
-        $localized = $translations[$language]
-            ?? ($language === 'kz' ? ($translations['kk'] ?? null) : null)
-            ?? ($language === 'kg' ? ($translations['en'] ?? null) : null)
-            ?? ($language !== 'ru' ? ($translations['en'] ?? null) : null)
-            ?? $translations['ru']
-            ?? null;
+        foreach ($languageKeys as $languageKey) {
+            $localized = $translations[$languageKey] ?? null;
 
-        if ($localized === null || $localized === '') {
-            return $fallback;
+            if ($localized !== null && $localized !== '') {
+                return $localized;
+            }
         }
 
-        return $localized;
+        $russian = $translations['ru'] ?? null;
+
+        return $russian !== null && $russian !== '' ? $russian : $fallback;
     }
 }

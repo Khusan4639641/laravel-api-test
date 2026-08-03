@@ -6,7 +6,7 @@
     <title>Safi Life</title>
     @vite(['resources/js/safi/main.tsx'])
 </head>
-<body>
+<body translate="no" class="notranslate">
     <div id="root"></div>
 </body>
 </html>

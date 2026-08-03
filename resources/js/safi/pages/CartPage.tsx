@@ -8,6 +8,7 @@ import { ToastItem, ToastStack, ToastType } from '../components/ui/Toast';
 import { ApiError, createOrder, createTipTopPayPaymentIntent, getApiErrorState, getAuthToken, getNumber, getPublicDepositProducts, getPublicProducts, getString, getTipTopPayStatus, me, OrderPayload, TipTopPayStatus, unwrapRecord } from '../lib/api';
 import { getStockLimit, isDepositProduct, isProductOrderable, useCart } from '../context/CartContext';
 import { useTipTopPayWidget } from '../hooks/useTipTopPayWidget';
+import { useUiText } from '../i18n/useUiText';
 
 const formatCurrency = (value: number) => `${value.toLocaleString('ru-RU')} ₸`;
 type CartPaymentStrategy = 'card_100' | 'card_50_deposit_50' | 'deposit_100';
@@ -22,6 +23,7 @@ const emptyDeliveryForm = {
 
 export default function CartPage() {
   const { t } = useTranslation();
+  const ui = useUiText();
   const navigate = useNavigate();
   const {
     items,
@@ -171,7 +173,7 @@ export default function CartPage() {
     const item = items.find((cartItem) => String(cartItem.product.id) === String(productId));
 
     if (item && isDepositProduct(item.product) && totalPrice + item.product.price > depositBalance) {
-      showToast('Недостаточно средств на депозитном балансе.', 'error');
+      showToast(ui('Недостаточно средств на депозитном балансе.'), 'error');
       return;
     }
 
@@ -222,17 +224,17 @@ export default function CartPage() {
     }
 
     if (isDepositCart && paymentStrategy !== 'deposit_100') {
-      setCheckoutError('Депозитные товары можно оплатить только с депозитного баланса.');
+      setCheckoutError(ui('Депозитные товары можно оплатить только с депозитного баланса.'));
       return false;
     }
 
     if (!isDepositCart && paymentStrategy === 'deposit_100') {
-      setCheckoutError('Обычные товары нельзя оплатить только депозитом.');
+      setCheckoutError(ui('Обычные товары нельзя оплатить только депозитом.'));
       return false;
     }
 
     if (!hasEnoughDepositForSelected) {
-      setCheckoutError('Недостаточно средств на депозитном балансе.');
+      setCheckoutError(ui('Недостаточно средств на депозитном балансе.'));
       return false;
     }
 
@@ -383,7 +385,7 @@ export default function CartPage() {
                           <h2 className="font-serif text-2xl font-bold text-safi-green">{item.product.name}</h2>
                           {isDepositItem && (
                             <span className="rounded-full bg-safi-gold/15 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-green">
-                              Только депозит
+                              {ui('Только депозит')}
                             </span>
                           )}
                         </div>
@@ -498,8 +500,8 @@ export default function CartPage() {
               {isDepositCart && (
                 <label className="flex items-center justify-between gap-4 rounded-2xl border border-safi-gold/30 bg-white/10 p-4">
                   <span>
-                    <span className="block text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/50">Способ оплаты</span>
-                    <span className="mt-1 block font-bold text-white">100% депозит</span>
+                    <span className="block text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/50">{ui('Способ оплаты')}</span>
+                    <span className="mt-1 block font-bold text-white">{ui('100% депозит')}</span>
                   </span>
                   <input
                     type="radio"
@@ -512,35 +514,35 @@ export default function CartPage() {
               )}
               {!isDepositCart && !hasMixedItems && (
                 <div className="space-y-3">
-                  <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/50">Способ оплаты</div>
+                  <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-white/50">{ui('Способ оплаты')}</div>
                   <PaymentOption
                     checked={paymentStrategy === 'card_100'}
-                    label="100% с карты"
+                    label={ui('100% с карты')}
                     onChange={() => setPaymentStrategy('card_100')}
                   />
                   <PaymentOption
                     checked={paymentStrategy === 'card_50_deposit_50'}
                     disabled={!hasEnoughDepositForFifty}
-                    label="50% с карты / 50% с депозита"
-                    note={!hasEnoughDepositForFifty ? 'Недостаточно средств на депозитном балансе.' : undefined}
+                    label={ui('50% с карты / 50% с депозита')}
+                    note={!hasEnoughDepositForFifty ? ui('Недостаточно средств на депозитном балансе.') : undefined}
                     onChange={() => setPaymentStrategy('card_50_deposit_50')}
                   />
                 </div>
               )}
               <div className="rounded-2xl bg-white/5 p-4 text-xs font-bold leading-6 text-white/70">
-                <SummaryLine label="Сумма заказа" value={formatCurrency(totalPrice)} />
-                <SummaryLine label="К оплате картой" value={formatCurrency(selectedCardAmount)} />
-                <SummaryLine label="С депозита" value={formatCurrency(selectedDepositAmount)} />
+                <SummaryLine label={ui('Сумма заказа')} value={formatCurrency(totalPrice)} />
+                <SummaryLine label={ui('К оплате картой')} value={formatCurrency(selectedCardAmount)} />
+                <SummaryLine label={ui('С депозита')} value={formatCurrency(selectedDepositAmount)} />
                 {isDepositCart && (
                   <>
-                    <SummaryLine label="Доступно на депозите" value={formatCurrency(depositBalance)} />
+                    <SummaryLine label={ui('Доступно на депозите')} value={formatCurrency(depositBalance)} />
                     <SummaryLine label="Cashback 20%" value={formatCurrency(depositCashbackAmount)} />
                   </>
                 )}
               </div>
               {selectedDepositAmount > 0 && !hasEnoughDepositForSelected && (
                 <div className="rounded-2xl border border-red-300/30 bg-red-500/10 px-4 py-3 text-xs font-bold text-red-100">
-                  Недостаточно средств на депозитном балансе.
+                  {ui('Недостаточно средств на депозитном балансе.')}
                 </div>
               )}
               <div className="flex items-end justify-between border-t border-white/10 pt-5">
@@ -558,7 +560,7 @@ export default function CartPage() {
               {paymentStrategy !== 'deposit_100' && <CreditCard className="h-4 w-4" />}
               {isCheckingOut || isWidgetLoading
                 ? paymentStrategy === 'deposit_100' ? t('cart.depositCheckoutLoading', 'Покупаем...') : t('orders.openingPayment', 'Открываем оплату...')
-                : checkoutButtonLabel}
+                : ui(checkoutButtonLabel)}
             </button>
 
             <div className="mt-5 flex items-start gap-3 rounded-2xl bg-white/5 p-4 text-xs leading-relaxed text-white/60">
@@ -635,6 +637,8 @@ function DeliveryInput({
           value={value}
           required={required}
           onChange={(event) => onChange(event.target.value)}
+          translate="no"
+          data-notranslate="true"
           className="w-full resize-none rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/35 focus:border-safi-gold focus:bg-white/15"
         />
       ) : (
@@ -643,6 +647,8 @@ function DeliveryInput({
           value={value}
           required={required}
           onChange={(event) => onChange(event.target.value)}
+          translate="no"
+          data-notranslate="true"
           className="w-full rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-bold text-white outline-none placeholder:text-white/35 focus:border-safi-gold focus:bg-white/15"
         />
       )}

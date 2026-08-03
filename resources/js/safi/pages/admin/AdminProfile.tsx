@@ -1,6 +1,7 @@
 import { Mail, Shield, User } from 'lucide-react';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { adminText } from '../../i18n/adminText';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 
 const inputClass = 'w-full rounded-2xl border border-safi-border bg-white px-5 py-4 text-sm font-bold text-safi-green outline-none transition-all placeholder:text-safi-muted/50 focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25';
 
@@ -13,7 +14,7 @@ export default function AdminProfile() {
         <div>
           <span className="safi-kicker">Profile</span>
           <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green">{adminText('a_0J_RgNC-0YTQ')}</h1>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">{currentUser.email || currentUser.role}</p>
+          <NoTranslate as="p" className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">{currentUser.email || currentUser.role}</NoTranslate>
         </div>
         <div className="inline-flex items-center gap-2 rounded-full border border-safi-border bg-safi-cream px-5 py-3 text-xs font-extrabold uppercase tracking-[0.16em] text-safi-green">
           <Shield className="h-4 w-4 text-safi-gold" />
@@ -26,7 +27,7 @@ export default function AdminProfile() {
           <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-full border-4 border-white bg-safi-green font-serif text-5xl font-semibold text-safi-gold shadow-[0_18px_48px_rgba(11,23,18,0.14)]">
             {currentUser.name.charAt(0)}
           </div>
-          <h2 className="mt-6 font-serif text-3xl font-semibold text-safi-green">{currentUser.name}</h2>
+          <NoTranslate as="h2" className="mt-6 font-serif text-3xl font-semibold text-safi-green">{currentUser.name}</NoTranslate>
           <div className="mt-3 text-xs font-extrabold uppercase tracking-[0.16em] text-safi-muted">{roleLabel(currentUser.role)}</div>
         </article>
 
@@ -42,7 +43,7 @@ export default function AdminProfile() {
               <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Email</span>
               <div className="relative">
                 <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-safi-muted" />
-                <input className={`${inputClass} pl-11`} value={currentUser.email || ''} readOnly />
+                <input className={`${inputClass} notranslate pl-11`} value={currentUser.email || ''} readOnly translate="no" />
               </div>
             </label>
           </div>
@@ -56,7 +57,7 @@ function ConfigInput({ label, value }: { label: string; value: string }) {
   return (
     <label className="block">
       <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</span>
-      <input className={inputClass} value={value} readOnly />
+      <input className={`${inputClass} notranslate`} value={value} readOnly translate="no" />
     </label>
   );
 }

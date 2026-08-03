@@ -22,6 +22,7 @@ import { cn } from '../../lib/utils';
 import { logout } from '../../lib/api';
 import { menuLabel, RolePermissions } from '../../lib/permissions';
 import { adminText } from '../../i18n/adminText';
+import { NoTranslate } from '../ui/NoTranslate';
 
 const iconMap = {
   'arrow-up-circle': ArrowUpCircle,
@@ -98,7 +99,7 @@ export function AdminSidebar({
               {currentUser.name.charAt(0)}
             </div>
             <div className="min-w-0">
-              <div className="truncate text-sm font-extrabold text-safi-green">{currentUser.name}</div>
+              <NoTranslate as="div" className="truncate text-sm font-extrabold text-safi-green">{currentUser.name}</NoTranslate>
               <div className="notranslate mt-1 truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted" translate="no">
                 {currentUser.role}
               </div>

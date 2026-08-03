@@ -42,7 +42,7 @@ class NewsController extends Controller
         $resource = NewsResource::make($news);
 
         return response()->json([
-            'message' => 'Новость создана',
+            'message' => __('api.news.created'),
             'data' => $resource,
             'news' => $resource,
         ], 201);
@@ -82,7 +82,7 @@ class NewsController extends Controller
         $resource = NewsResource::make($news->refresh());
 
         return response()->json([
-            'message' => 'Новость сохранена',
+            'message' => __('api.news.saved'),
             'data' => $resource,
             'news' => $resource,
         ]);
@@ -93,7 +93,7 @@ class NewsController extends Controller
         $news->delete();
 
         return response()->json([
-            'message' => 'News deleted.',
+            'message' => __('api.news.deleted'),
         ]);
     }
 

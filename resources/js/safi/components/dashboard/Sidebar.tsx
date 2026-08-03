@@ -4,6 +4,7 @@ import { cn } from '../../lib/utils';
 import { LayoutDashboard, Users, CreditCard, Gift, Star, UserCircle, HelpCircle, LogOut, ShoppingBag, Newspaper } from 'lucide-react';
 import { logout } from '../../lib/api';
 import { menuLabel, RolePermissions } from '../../lib/permissions';
+import { NoTranslate } from '../ui/NoTranslate';
 
 const iconMap = {
   'layout-dashboard': LayoutDashboard,
@@ -86,14 +87,14 @@ export function Sidebar({
               </div>
             )}
             <div className="min-w-0">
-              <div className="truncate text-sm font-extrabold text-safi-green">{currentUser.name}</div>
-              <div className="notranslate mt-1 truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted" translate="no">{currentUser.partnerId}</div>
+              <NoTranslate as="div" className="truncate text-sm font-extrabold text-safi-green">{currentUser.name}</NoTranslate>
+              <NoTranslate as="div" className="mt-1 truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">{currentUser.partnerId}</NoTranslate>
             </div>
           </div>
           <div className="mt-5 grid grid-cols-2 gap-2">
             <div className="rounded-2xl border border-safi-border bg-safi-cream px-3 py-2">
               <div className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">Пакет</div>
-              <div className="mt-1 truncate font-serif text-lg font-semibold text-safi-green">{currentUser.packageName}</div>
+              <NoTranslate as="div" className="mt-1 truncate font-serif text-lg font-semibold text-safi-green">{currentUser.packageName}</NoTranslate>
             </div>
             <div className="rounded-2xl border border-safi-border bg-safi-cream px-3 py-2">
               <div className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">Статус</div>

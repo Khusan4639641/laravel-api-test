@@ -6,6 +6,7 @@ import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminBadge, AdminTable } from '../../components/admin/ui';
 import { StructureTreeCanvas } from '../../components/structure/StructureTreeCanvas';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from '../../components/ui/MobileData';
 import { getAdminStructure, getAdminStructureRootOrphans, getApiErrorState, getArray, getNumber, getString, searchAdminPartners, unwrapRecord } from '../../lib/api';
 import { adminText } from '../../i18n/adminText';
@@ -581,9 +582,9 @@ export default function AdminStructure() {
         <div>
           <h1 className="text-3xl font-serif font-bold text-safi-green mb-1">{adminText('a_0KHRgtGA0YPQ_2')}</h1>
           <p className="text-sm text-safi-text/70">
-            {selectedUserId && rootNode
-              ? `${adminText('partner_tree_label')}: ${rootNode.name} / ID ${rootNode.userId}`
-              : adminText('a_0JLQuNC30YPQ')}
+            {selectedUserId && rootNode ? (
+              <>{adminText('partner_tree_label')}: <NoTranslate>{rootNode.name} / ID {rootNode.userId}</NoTranslate></>
+            ) : adminText('a_0JLQuNC30YPQ')}
           </p>
         </div>
 
@@ -614,9 +615,9 @@ export default function AdminStructure() {
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               {searchResults.map((partner) => (
                 <article key={partner.id} className="rounded-2xl border border-safi-border bg-safi-cream p-4">
-                  <div className="font-bold text-safi-green">{partner.name}</div>
-                  <div className="mt-1 font-mono text-[10px] text-safi-text/50">ID {partner.id}</div>
-                  <div className="mt-2 text-xs text-safi-text/60">{partner.login || partner.email || partner.phone || '-'}</div>
+                  <NoTranslate as="div" className="font-bold text-safi-green">{partner.name}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 font-mono text-[10px] text-safi-text/50">ID {partner.id}</NoTranslate>
+                  <NoTranslate as="div" className="mt-2 text-xs text-safi-text/60">{partner.login || partner.email || partner.phone || '-'}</NoTranslate>
                   <button
                     type="button"
                     onClick={() => openNodeTree(partner.id)}
@@ -713,11 +714,11 @@ export default function AdminStructure() {
             <MobileDataList>
               {rootOrphans.map((partner) => (
                 <MobileDataCard key={partner.id}>
-                  <MobileDataHeader title={partner.name} meta={`ID ${partner.id} · ${partner.createdAt || '-'}`} />
+                  <MobileDataHeader title={<NoTranslate>{partner.name}</NoTranslate>} meta={<NoTranslate>ID {partner.id} · {partner.createdAt || '-'}</NoTranslate>} />
                   <MobileDataRow label={adminText('a_0JrQvtC90YLQ')}>
-                    <div>{partner.phone || '-'}</div>
-                    <div className="mt-1 text-xs text-safi-muted">{partner.email || '-'}</div>
-                    <div className="mt-1 font-mono text-xs text-safi-muted">{partner.login || '-'}</div>
+                    <NoTranslate as="div">{partner.phone || '-'}</NoTranslate>
+                    <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{partner.email || '-'}</NoTranslate>
+                    <NoTranslate as="div" className="mt-1 font-mono text-xs text-safi-muted">{partner.login || '-'}</NoTranslate>
                   </MobileDataRow>
                   <MobileCardActions>
                     <button
@@ -749,15 +750,15 @@ export default function AdminStructure() {
                         onClick={() => navigate(`/admin/partners/${encodeURIComponent(partner.id)}`)}
                         className="block cursor-pointer text-left hover:opacity-80"
                       >
-                        <div className="font-bold text-safi-green">{partner.name}</div>
-                        <div className="mt-1 font-mono text-[10px] text-safi-muted">ID {partner.id}</div>
-                        <div className="mt-1 text-[10px] text-safi-muted">{partner.createdAt || '-'}</div>
+                        <NoTranslate as="div" className="font-bold text-safi-green">{partner.name}</NoTranslate>
+                        <NoTranslate as="div" className="mt-1 font-mono text-[10px] text-safi-muted">ID {partner.id}</NoTranslate>
+                        <NoTranslate as="div" className="mt-1 text-[10px] text-safi-muted">{partner.createdAt || '-'}</NoTranslate>
                       </button>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="text-sm text-safi-green">{partner.phone}</div>
-                      <div className="mt-1 text-xs text-safi-muted">{partner.email}</div>
-                      <div className="mt-1 font-mono text-[10px] text-safi-muted">{partner.login || '-'}</div>
+                      <NoTranslate as="div" className="text-sm text-safi-green">{partner.phone}</NoTranslate>
+                      <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{partner.email}</NoTranslate>
+                      <NoTranslate as="div" className="mt-1 font-mono text-[10px] text-safi-muted">{partner.login || '-'}</NoTranslate>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end">
@@ -996,12 +997,12 @@ function TreeNodeCard({
       )}>
         {node.name.charAt(0)}
       </div>
-      <div className={cn('mb-1 w-full truncate font-bold leading-tight text-safi-green', sizeConfig.nameText)} style={{ maxWidth: `${sizeConfig.width}px` }} title={node.name}>{node.name}</div>
-      <div className={cn('mb-2 truncate rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-safi-text/50', sizeConfig.metaText)} style={{ maxWidth: `${sizeConfig.width}px` }}>{node.login || node.userId}</div>
+      <NoTranslate as="div" className={cn('mb-1 w-full truncate font-bold leading-tight text-safi-green', sizeConfig.nameText)} style={{ maxWidth: `${sizeConfig.width}px` }} title={node.name}>{node.name}</NoTranslate>
+      <NoTranslate as="div" className={cn('mb-2 truncate rounded bg-[#F5F5F0] px-2 py-0.5 font-mono text-safi-text/50', sizeConfig.metaText)} style={{ maxWidth: `${sizeConfig.width}px` }}>{node.login || node.userId}</NoTranslate>
       <div className={cn('space-y-1 overflow-visible border-t border-safi-green/5 pt-2 text-left font-bold text-safi-text/70', sizeConfig.detailText)}>
         <div className="grid grid-cols-[auto_max-content] items-center justify-between gap-2 whitespace-nowrap">
           <span>{adminText('Пакет')}:</span>
-          <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="whitespace-nowrap px-1.5 py-0.5">{node.packageName || '-'}</AdminBadge>
+          <AdminBadge variant={node.packageCode === 'ELITE' || node.packageCode === 'VIP' ? 'gold' : 'default'} className="whitespace-nowrap px-1.5 py-0.5"><NoTranslate>{node.packageCode || node.packageName || '-'}</NoTranslate></AdminBadge>
         </div>
         <div className="grid grid-cols-[auto_max-content] items-center justify-between gap-2 whitespace-nowrap">
           <span>{adminText('Статус')}:</span>

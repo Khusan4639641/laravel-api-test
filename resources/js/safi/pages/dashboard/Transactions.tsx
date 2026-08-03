@@ -3,6 +3,8 @@ import { ArrowDownToLine, ArrowUpFromLine, Calendar, CreditCard, Filter, Refresh
 import { Badge, StatCard } from '../../components/dashboard/ui';
 import { cn } from '../../lib/utils';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
+import { useUiText } from '../../i18n/useUiText';
 import { getApiErrorState, getDashboardTransactions, getNumber, getString } from '../../lib/api';
 import { getPaginatedItems, normalizePaginationMeta, type PaginationMeta } from '../../lib/pagination';
 import { transactionStatusLabel, transactionTypeLabel } from '../../lib/systemLabels';
@@ -42,6 +44,7 @@ const defaultTransactionsMeta: PaginationMeta = {
 const perPageOptions = [10, 20, 50];
 
 export default function Transactions() {
+  const ui = useUiText();
   const [filter, setFilter] = useState<TransactionFilter>('all');
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(10);
@@ -91,10 +94,10 @@ export default function Transactions() {
           type: transactionTypeLabel(rawType, getString(record, ['type_label', 'typeLabel']) || rawType),
           amount: formatTransactionAmount(direction, amount),
           affectsBalance: record.affects_balance !== false && record.affectsBalance !== false,
-          affectsBalanceLabel: getString(record, ['affects_balance_label', 'affectsBalanceLabel']) || 'Не влияет на баланс',
+          affectsBalanceLabel: getString(record, ['affects_balance_label', 'affectsBalanceLabel']) || ui('Не влияет на баланс'),
           statusCode,
           status: transactionStatusLabel(statusCode, getString(record, ['status_label', 'statusLabel']) || statusCode),
-          source: getString(record, ['description']) || 'Система',
+          source: getString(record, ['description']) || ui('Система'),
           comment: getString(record, ['description']) || '',
           paymentStrategyLabel: getString(record, ['payment_strategy_label', 'paymentStrategyLabel']),
         };
@@ -108,7 +111,7 @@ export default function Transactions() {
     } finally {
       setIsLoading(false);
     }
-  }, [filter, page, perPage]);
+  }, [filter, page, perPage, ui]);
 
   useEffect(() => {
     void loadTransactions();
@@ -132,20 +135,20 @@ export default function Transactions() {
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <span className="safi-kicker">Transactions</span>
-            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">История транзакций</h1>
+            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">{ui('История транзакций')}</h1>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-              Начисления, выводы, кэшбэк и служебные операции кошелька.
+              {ui('Начисления, выводы, кэшбэк и служебные операции кошелька.')}
             </p>
           </div>
           <button type="button" className="inline-flex items-center justify-center gap-2 rounded-full border border-safi-border bg-safi-cream px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green transition-colors hover:border-safi-green hover:bg-safi-green hover:text-white">
             <ArrowDownToLine className="h-4 w-4" />
-            Экспорт
+            {ui('Экспорт')}
           </button>
         </div>
       </section>
 
       {isLoading && (
-        <LoadingState title="Загружаем транзакции" description="Получаем операции кошелька из API." />
+        <LoadingState title={ui('Загружаем транзакции')} description={ui('Получаем операции кошелька из API.')} />
       )}
 
       {!isLoading && error && (
@@ -155,10 +158,10 @@ export default function Transactions() {
       {!isLoading && !error && (
         <>
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard title="Общий заработок" value={`${balance.totalEarned.toLocaleString('ru-RU')} ₸`} icon={<CreditCard className="h-5 w-5" />} variant="dark" />
-        <StatCard title="Доступно" value={`${balance.available.toLocaleString('ru-RU')} ₸`} />
-        <StatCard title="Ожидает" value={`${balance.pending.toLocaleString('ru-RU')} ₸`} icon={<RefreshCcw className="h-5 w-5" />} />
-        <StatCard title="Выведено" value={`${balance.withdrawn.toLocaleString('ru-RU')} ₸`} icon={<ArrowUpFromLine className="h-5 w-5" />} />
+        <StatCard title={ui('Общий заработок')} value={`${balance.totalEarned.toLocaleString('ru-RU')} ₸`} icon={<CreditCard className="h-5 w-5" />} variant="dark" />
+        <StatCard title={ui('Доступно')} value={`${balance.available.toLocaleString('ru-RU')} ₸`} />
+        <StatCard title={ui('Ожидает')} value={`${balance.pending.toLocaleString('ru-RU')} ₸`} icon={<RefreshCcw className="h-5 w-5" />} />
+        <StatCard title={ui('Выведено')} value={`${balance.withdrawn.toLocaleString('ru-RU')} ₸`} icon={<ArrowUpFromLine className="h-5 w-5" />} />
       </section>
 
       <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
@@ -178,14 +181,14 @@ export default function Transactions() {
                     filter === item.value ? 'border-safi-green bg-safi-green text-white' : 'border-safi-border bg-safi-cream text-safi-muted hover:text-safi-green'
                   )}
                 >
-                  {item.label}
+                  {ui(item.label)}
                 </button>
               ))}
             </div>
             <div className="flex gap-3">
               <div className="flex items-center gap-2 rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-sm font-bold text-safi-green">
                 <Calendar className="h-4 w-4 text-safi-gold" />
-                Май 2026
+                {ui('Май 2026')}
               </div>
               <button type="button" className="flex h-10 w-10 items-center justify-center rounded-full border border-safi-border bg-safi-cream text-safi-green">
                 <Filter className="h-4 w-4" />
@@ -198,11 +201,11 @@ export default function Transactions() {
           <table className="w-full min-w-[840px] text-left">
             <thead className="bg-safi-cream text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
               <tr>
-                <th className="px-7 py-4">Дата / ID</th>
-                <th className="px-7 py-4">Операция</th>
-                <th className="px-7 py-4">Детали</th>
-                <th className="px-7 py-4">Статус</th>
-                <th className="px-7 py-4 text-right">Сумма</th>
+                <th className="px-7 py-4">{ui('Дата / ID')}</th>
+                <th className="px-7 py-4">{ui('Операция')}</th>
+                <th className="px-7 py-4">{ui('Детали')}</th>
+                <th className="px-7 py-4">{ui('Статус')}</th>
+                <th className="px-7 py-4 text-right">{ui('Сумма')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-safi-border text-sm">
@@ -210,8 +213,8 @@ export default function Transactions() {
                 <tr>
                   <td colSpan={5} className="px-7 py-8">
                     <EmptyState
-                      title="Транзакций пока нет"
-                      description="Операции появятся после начислений, покупок или выводов."
+                      title={ui('Транзакций пока нет')}
+                      description={ui('Операции появятся после начислений, покупок или выводов.')}
                       className="min-h-[180px] shadow-none"
                     />
                   </td>
@@ -222,7 +225,7 @@ export default function Transactions() {
                 <tr key={transaction.id} className="transition-colors hover:bg-safi-cream/70">
                   <td className="px-7 py-5">
                     <div className="font-extrabold text-safi-green">{transaction.date}</div>
-                    <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{transaction.id}</div>
+                    <NoTranslate as="div" className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{transaction.id}</NoTranslate>
                   </td>
                   <td className="px-7 py-5 font-extrabold text-safi-green">{transaction.type}</td>
                   <td className="px-7 py-5">
@@ -257,8 +260,8 @@ export default function Transactions() {
           {visibleTransactions.length === 0 && (
             <div className="p-5">
               <EmptyState
-                title="Транзакций пока нет"
-                description="Операции появятся после начислений, покупок или выводов."
+                title={ui('Транзакций пока нет')}
+                description={ui('Операции появятся после начислений, покупок или выводов.')}
                 className="min-h-[180px] shadow-none"
               />
             </div>
@@ -269,7 +272,7 @@ export default function Transactions() {
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="font-extrabold text-safi-green">{transaction.type}</h2>
-                  <p className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{transaction.date} / {transaction.id}</p>
+                  <NoTranslate as="p" className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{transaction.date} / {transaction.id}</NoTranslate>
                 </div>
                 <span className={cn('shrink-0 text-right font-extrabold', transaction.amount.startsWith('+') ? 'text-green-700' : transaction.amount.startsWith('-') ? 'text-red-600' : 'text-safi-muted')}>
                   {transaction.amount}
@@ -297,13 +300,13 @@ export default function Transactions() {
         <div className="flex flex-col gap-4 border-t border-safi-border bg-white px-5 py-4 md:px-7">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="text-sm font-bold text-safi-muted">
-              Показано: <span className="text-safi-green">{transactionsMeta.total > 0 ? `${transactionsMeta.from}-${transactionsMeta.to}` : '0'}</span>
-              {' '}из <span className="text-safi-green">{transactionsMeta.total.toLocaleString('ru-RU')}</span>
+              {ui('Показано')}: <span className="text-safi-green">{transactionsMeta.total > 0 ? `${transactionsMeta.from}-${transactionsMeta.to}` : '0'}</span>
+              {' '}{ui('из')} <span className="text-safi-green">{transactionsMeta.total.toLocaleString('ru-RU')}</span>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
               <label className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
-                Показывать по
+                {ui('Показывать по')}
                 <select
                   value={perPage}
                   onChange={(event) => {
@@ -312,7 +315,7 @@ export default function Transactions() {
                   }}
                   disabled={isLoading}
                   className="cursor-pointer rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold text-safi-green outline-none focus:border-safi-green disabled:cursor-not-allowed disabled:opacity-60"
-                  aria-label="Показывать по"
+                  aria-label={ui('Показывать по')}
                 >
                   {perPageOptions.map((option) => (
                     <option key={option} value={option}>
@@ -329,10 +332,10 @@ export default function Transactions() {
                   disabled={!canGoPrev}
                   className="rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Назад
+                  {ui('Назад')}
                 </button>
                 <div className="text-xs font-extrabold uppercase tracking-[0.14em] text-safi-muted">
-                  Страница {transactionsMeta.current_page} из {transactionsMeta.last_page}
+                  {ui('Страница')} {transactionsMeta.current_page} {ui('из')} {transactionsMeta.last_page}
                 </div>
                 <button
                   type="button"
@@ -340,7 +343,7 @@ export default function Transactions() {
                   disabled={!canGoNext}
                   className="rounded-full border border-safi-border bg-safi-cream px-4 py-2 text-xs font-extrabold uppercase tracking-[0.14em] text-safi-green transition-colors hover:border-safi-green disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  Вперёд
+                  {ui('Вперёд')}
                 </button>
               </div>
 
@@ -350,7 +353,7 @@ export default function Transactions() {
                   onClick={() => changePage(transactionsMeta.current_page - 1)}
                   disabled={!canGoPrev}
                   className="flex h-9 min-w-9 items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-sm font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Назад"
+                  aria-label={ui('Назад')}
                 >
                   ‹
                 </button>
@@ -384,7 +387,7 @@ export default function Transactions() {
                   onClick={() => changePage(transactionsMeta.current_page + 1)}
                   disabled={!canGoNext}
                   className="flex h-9 min-w-9 items-center justify-center rounded-full border border-safi-border bg-safi-cream px-3 text-sm font-extrabold text-safi-green transition-colors hover:border-safi-green hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
-                  aria-label="Вперёд"
+                  aria-label={ui('Вперёд')}
                 >
                   ›
                 </button>

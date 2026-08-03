@@ -4,6 +4,7 @@ import { AdminPagination } from '../../components/admin/AdminPagination';
 import { AdminTable, AdminBadge } from '../../components/admin/ui';
 import { Search, Filter, Download, Pencil, Trash2, X } from 'lucide-react';
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncState';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 import { ToastItem, ToastStack, ToastType } from '../../components/ui/Toast';
 import { useAdminContext } from '../../components/admin/AdminLayout';
 import { deleteAdminTransaction, getAdminTransactions, getApiErrorState, getNumber, getString, updateAdminTransactionAmount } from '../../lib/api';
@@ -296,12 +297,12 @@ export default function AdminTransactions() {
                 {transactions.map((trx, i) => (
                   <tr key={i} className="hover:bg-safi-green/5 transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="font-bold text-safi-text">{trx.id}</div>
+                      <NoTranslate as="div" className="font-bold text-safi-text">{trx.id}</NoTranslate>
                       <div className="text-xs text-safi-text/50 mt-1">{trx.date}</div>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="font-bold text-safi-green">{trx.partnerName}</div>
-                      <div className="text-[10px] font-mono text-safi-text/50 mt-1">{trx.partnerId}</div>
+                      <NoTranslate as="div" className="font-bold text-safi-green">{trx.partnerName}</NoTranslate>
+                      <NoTranslate as="div" className="text-[10px] font-mono text-safi-text/50 mt-1">{trx.partnerId}</NoTranslate>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm font-bold">{trx.type}</div>
@@ -378,7 +379,7 @@ export default function AdminTransactions() {
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Транзакция #{actionModal.transaction.id}</div>
+                <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Транзакция <NoTranslate>#{actionModal.transaction.id}</NoTranslate></div>
                 <h2 className="mt-2 font-serif text-2xl font-semibold text-safi-green">
                   {actionModal.mode === 'edit' ? 'Изменить сумму' : 'Удалить транзакцию'}
                 </h2>
@@ -394,7 +395,7 @@ export default function AdminTransactions() {
             </div>
 
             <div className="mt-5 rounded-2xl border border-safi-border bg-safi-cream px-4 py-3 text-sm text-safi-green">
-              <div className="font-bold">{actionModal.transaction.partnerName}</div>
+              <NoTranslate as="div" className="font-bold">{actionModal.transaction.partnerName}</NoTranslate>
               <div className="mt-1 text-xs text-safi-muted">{actionModal.transaction.type} · {actionModal.transaction.amount}</div>
             </div>
 

@@ -50,7 +50,7 @@ class TransactionController extends Controller
         );
 
         return response()->json([
-            'message' => 'Транзакция обновлена',
+            'message' => __('api.transaction.updated'),
             'data' => [
                 'transaction' => WalletTransactionResource::make($transaction),
             ],
@@ -66,7 +66,7 @@ class TransactionController extends Controller
         );
 
         return response()->json([
-            'message' => 'Транзакция удалена',
+            'message' => __('api.transaction.deleted'),
             'data' => [
                 'transaction_id' => $transaction->id,
             ],

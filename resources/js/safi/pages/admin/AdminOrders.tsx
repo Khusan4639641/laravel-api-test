@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ChevronDown, ChevronUp, Filter, RefreshCcw, Search, ShoppingBag } from 'lucide-react';
 import { AdminBadge, AdminStatCard, AdminTable } from '../../components/admin/ui';
@@ -7,6 +7,7 @@ import { MobileCardActions, MobileDataCard, MobileDataHeader, MobileDataList, Mo
 import { ToastItem, ToastStack } from '../../components/ui/Toast';
 import { getAdminOrders, getApiErrorState, Order, updateAdminOrderStatus } from '../../lib/api';
 import { useAdminContext } from '../../components/admin/AdminLayout';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 
 const orderStatuses = ['pending', 'confirmed', 'shipped', 'completed', 'cancelled'] as const;
 const paymentStatuses = ['unpaid', 'pending', 'paid', 'failed', 'refunded', 'cancelled'] as const;
@@ -163,18 +164,18 @@ export default function AdminOrders() {
             {orders.map((order) => (
               <MobileDataCard key={order.id}>
                 <MobileDataHeader
-                  title={`#${order.id}`}
-                  meta={order.orderNumber || formatDate(order.createdAt, language)}
+                  title={<NoTranslate>#{order.id}</NoTranslate>}
+                  meta={<NoTranslate>{order.orderNumber || formatDate(order.createdAt, language)}</NoTranslate>}
                   action={<PaymentStatusBadge status={order.paymentStatus || 'unpaid'} />}
                 />
                 <MobileDataRow label={t('orders.partner')}>
-                  <div>{order.user?.name || '-'}</div>
-                  <div className="mt-1 font-mono text-xs text-safi-muted">{order.user?.id || order.userId || '-'}</div>
+                  <NoTranslate as="div">{order.user?.name || '-'}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 font-mono text-xs text-safi-muted">{order.user?.id || order.userId || '-'}</NoTranslate>
                 </MobileDataRow>
                 <MobileDataRow label={t('orders.contacts')}>
-                  <div>{order.user?.login || '-'}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{order.user?.email || '-'}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{order.phone || order.user?.phone || '-'}</div>
+                  <NoTranslate as="div">{order.user?.login || '-'}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{order.user?.email || '-'}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{order.phone || order.user?.phone || '-'}</NoTranslate>
                 </MobileDataRow>
                 <MobileDataRow label={t('orders.amount')}>
                   <div>{formatCurrency(order.totalAmount)}</div>
@@ -198,8 +199,8 @@ export default function AdminOrders() {
                   )}
                 </MobileDataRow>
                 <MobileDataRow label={t('orders.deliveryInfo')}>
-                  <div>{order.city || '-'}</div>
-                  <div className="mt-1 text-xs text-safi-muted">{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</div>
+                  <NoTranslate as="div">{order.city || '-'}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</NoTranslate>
                 </MobileDataRow>
                 <MobileCardActions>
                   <button
@@ -214,10 +215,10 @@ export default function AdminOrders() {
                 {expandedOrderId === order.id && (
                   <div className="mt-4 space-y-4 rounded-2xl border border-safi-border bg-safi-cream p-4">
                     <div className="grid gap-3 text-sm">
-                      <Metric label={t('orders.recipientName')} value={order.recipientName || order.user?.name || '-'} />
-                      <Metric label={t('orders.deliveryPhone')} value={order.phone || order.user?.phone || '-'} />
-                      <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
-                      <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
+                      <Metric label={t('orders.recipientName')} value={<NoTranslate>{order.recipientName || order.user?.name || '-'}</NoTranslate>} />
+                      <Metric label={t('orders.deliveryPhone')} value={<NoTranslate>{order.phone || order.user?.phone || '-'}</NoTranslate>} />
+                      <Metric label={t('orders.deliveryCity')} value={<NoTranslate>{order.city || '-'}</NoTranslate>} />
+                      <Metric label={t('orders.deliveryAddress')} value={<NoTranslate>{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</NoTranslate>} />
                       <Metric label={t('orders.paymentStatus')} value={t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: order.paymentStatus || 'unpaid' })} />
                     </div>
                     <div className="grid gap-3">
@@ -256,18 +257,18 @@ export default function AdminOrders() {
             <Fragment key={order.id}>
               <tr className="transition-colors hover:bg-safi-green/5">
                 <td className="px-6 py-4">
-                  <div className="font-bold text-safi-text">#{order.id}</div>
-                  {order.orderNumber && <div className="mt-1 text-[10px] font-mono text-safi-text/50">{order.orderNumber}</div>}
+                  <NoTranslate as="div" className="font-bold text-safi-text">#{order.id}</NoTranslate>
+                  {order.orderNumber && <NoTranslate as="div" className="mt-1 text-[10px] font-mono text-safi-text/50">{order.orderNumber}</NoTranslate>}
                 </td>
                 <td className="px-6 py-4">
-                  <div className="font-bold text-safi-green">{order.user?.name || '-'}</div>
-                  <div className="mt-1 text-[10px] font-mono text-safi-text/50">{order.user?.id || order.userId || '-'}</div>
+                  <NoTranslate as="div" className="font-bold text-safi-green">{order.user?.name || '-'}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-[10px] font-mono text-safi-text/50">{order.user?.id || order.userId || '-'}</NoTranslate>
                 </td>
                 <td className="px-6 py-4">
-                  <div className="text-sm font-bold text-safi-green">{order.user?.login || '-'}</div>
-                  <div className="mt-1 text-xs text-safi-text/60">{order.user?.email || '-'}</div>
-                  <div className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-gold">{order.city || '-'}</div>
-                  <div className="mt-1 text-xs text-safi-text/60">{order.phone || order.user?.phone || '-'}</div>
+                  <NoTranslate as="div" className="text-sm font-bold text-safi-green">{order.user?.login || '-'}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-xs text-safi-text/60">{order.user?.email || '-'}</NoTranslate>
+                  <NoTranslate as="div" className="mt-2 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-gold">{order.city || '-'}</NoTranslate>
+                  <NoTranslate as="div" className="mt-1 text-xs text-safi-text/60">{order.phone || order.user?.phone || '-'}</NoTranslate>
                 </td>
                 <td className="px-6 py-4 font-bold text-safi-green">{order.itemsCount.toLocaleString('ru-RU')}</td>
                 <td className="px-6 py-4">
@@ -314,11 +315,11 @@ export default function AdminOrders() {
                         <section className="rounded-2xl border border-safi-border bg-white p-5">
                           <h3 className="font-serif text-xl font-semibold text-safi-green">{t('orders.deliveryInfo')}</h3>
                           <div className="mt-4 grid gap-3 text-sm">
-                            <Metric label={t('orders.recipientName')} value={order.recipientName || order.user?.name || '-'} />
-                            <Metric label={t('orders.deliveryPhone')} value={order.phone || order.user?.phone || '-'} />
-                            <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
-                            <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
-                            {order.comment && <Metric label={t('orders.deliveryComment')} value={order.comment} />}
+                            <Metric label={t('orders.recipientName')} value={<NoTranslate>{order.recipientName || order.user?.name || '-'}</NoTranslate>} />
+                            <Metric label={t('orders.deliveryPhone')} value={<NoTranslate>{order.phone || order.user?.phone || '-'}</NoTranslate>} />
+                            <Metric label={t('orders.deliveryCity')} value={<NoTranslate>{order.city || '-'}</NoTranslate>} />
+                            <Metric label={t('orders.deliveryAddress')} value={<NoTranslate>{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</NoTranslate>} />
+                            {order.comment && <Metric label={t('orders.deliveryComment')} value={<NoTranslate>{order.comment}</NoTranslate>} />}
                           </div>
                         </section>
                         <section className="rounded-2xl border border-safi-border bg-white p-5">
@@ -395,7 +396,7 @@ function ProductImage({ image, alt }: { image?: string; alt: string }) {
   return <img src={image} alt={alt} className="h-14 w-14 shrink-0 rounded-xl object-cover" />;
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <div className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">{label}</div>

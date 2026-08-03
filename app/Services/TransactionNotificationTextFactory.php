@@ -84,50 +84,50 @@ class TransactionNotificationTextFactory
     }
 
     /**
-     * @return array{ru: string, kz: string, kg: string, en: string, mn: string}
+     * @return array{ru: string, kk: string, ky: string, en: string, mn: string}
      */
     private function localizedTitle(string $type): array
     {
         return match ($type) {
             'referral_bonus' => [
                 'ru' => 'Реферальный бонус',
-                'kz' => 'Рефералдық бонус',
-                'kg' => 'Рефералдык бонус',
+                'kk' => 'Рефералдық бонус',
+                'ky' => 'Рефералдык бонус',
                 'en' => 'Referral bonus',
                 'mn' => 'Урилгын бонус',
             ],
             'binary_bonus' => [
                 'ru' => 'Бинарный бонус',
-                'kz' => 'Бинарлық бонус',
-                'kg' => 'Бинардык бонус',
+                'kk' => 'Бинарлық бонус',
+                'ky' => 'Бинардык бонус',
                 'en' => 'Binary bonus',
                 'mn' => 'Хоёртын бонус',
             ],
             'status_bonus' => [
                 'ru' => 'Статусный бонус',
-                'kz' => 'Статустық бонус',
-                'kg' => 'Статустук бонус',
+                'kk' => 'Статустық бонус',
+                'ky' => 'Статустук бонус',
                 'en' => 'Status bonus',
                 'mn' => 'Статусын бонус',
             ],
             'cashback' => [
                 'ru' => 'Кэшбэк',
-                'kz' => 'Кэшбэк',
-                'kg' => 'Кэшбэк',
+                'kk' => 'Кэшбэк',
+                'ky' => 'Кэшбэк',
                 'en' => 'Cashback',
                 'mn' => 'Кэшбэк',
             ],
             'bonus_accrued' => [
                 'ru' => 'Бонус начислен',
-                'kz' => 'Бонус есептелді',
-                'kg' => 'Бонус эсептелди',
+                'kk' => 'Бонус есептелді',
+                'ky' => 'Бонус эсептелди',
                 'en' => 'Bonus accrued',
                 'mn' => 'Бонус нэмэгдлээ',
             ],
             default => [
                 'ru' => 'Транзакция',
-                'kz' => 'Транзакция',
-                'kg' => 'Транзакция',
+                'kk' => 'Транзакция',
+                'ky' => 'Транзакция',
                 'en' => 'Transaction',
                 'mn' => 'Гүйлгээ',
             ],
@@ -135,43 +135,43 @@ class TransactionNotificationTextFactory
     }
 
     /**
-     * @return array{ru: string, kz: string, kg: string, en: string, mn: string}
+     * @return array{ru: string, kk: string, ky: string, en: string, mn: string}
      */
     private function localizedMessage(string $type, string $amount): array
     {
         return match ($type) {
             'referral_bonus' => [
                 'ru' => "Начислен реферальный бонус: {$amount} ₸.",
-                'kz' => "Рефералдық бонус есептелді: {$amount} ₸.",
-                'kg' => "Рефералдык бонус эсептелди: {$amount} ₸.",
+                'kk' => "Рефералдық бонус есептелді: {$amount} ₸.",
+                'ky' => "Рефералдык бонус эсептелди: {$amount} ₸.",
                 'en' => "Referral bonus accrued: {$amount} ₸.",
                 'mn' => "Урилгын бонус нэмэгдлээ: {$amount} ₸.",
             ],
             'binary_bonus' => [
                 'ru' => "Начислен бинарный бонус: {$amount} ₸.",
-                'kz' => "Бинарлық бонус есептелді: {$amount} ₸.",
-                'kg' => "Бинардык бонус эсептелди: {$amount} ₸.",
+                'kk' => "Бинарлық бонус есептелді: {$amount} ₸.",
+                'ky' => "Бинардык бонус эсептелди: {$amount} ₸.",
                 'en' => "Binary bonus accrued: {$amount} ₸.",
                 'mn' => "Хоёртын бонус нэмэгдлээ: {$amount} ₸.",
             ],
             'status_bonus' => [
                 'ru' => "Начислен статусный бонус: {$amount} ₸.",
-                'kz' => "Статустық бонус есептелді: {$amount} ₸.",
-                'kg' => "Статустук бонус эсептелди: {$amount} ₸.",
+                'kk' => "Статустық бонус есептелді: {$amount} ₸.",
+                'ky' => "Статустук бонус эсептелди: {$amount} ₸.",
                 'en' => "Status bonus accrued: {$amount} ₸.",
                 'mn' => "Статусын бонус нэмэгдлээ: {$amount} ₸.",
             ],
             'cashback' => [
                 'ru' => "Начислен кэшбэк: {$amount} ₸.",
-                'kz' => "Кэшбэк есептелді: {$amount} ₸.",
-                'kg' => "Кэшбэк эсептелди: {$amount} ₸.",
+                'kk' => "Кэшбэк есептелді: {$amount} ₸.",
+                'ky' => "Кэшбэк эсептелди: {$amount} ₸.",
                 'en' => "Cashback accrued: {$amount} ₸.",
                 'mn' => "Кэшбэк нэмэгдлээ: {$amount} ₸.",
             ],
             default => [
                 'ru' => "Начислен бонус: {$amount} ₸.",
-                'kz' => "Бонус есептелді: {$amount} ₸.",
-                'kg' => "Бонус эсептелди: {$amount} ₸.",
+                'kk' => "Бонус есептелді: {$amount} ₸.",
+                'ky' => "Бонус эсептелди: {$amount} ₸.",
                 'en' => "Bonus accrued: {$amount} ₸.",
                 'mn' => "Бонус нэмэгдлээ: {$amount} ₸.",
             ],
@@ -179,7 +179,7 @@ class TransactionNotificationTextFactory
     }
 
     /**
-     * @return array{ru: string, kz: string, kg: string, en: string, mn: string}
+     * @return array{ru: string, kk: string, ky: string, en: string, mn: string}
      */
     private function localizedGenericTransactionMessage(WalletTransaction $transaction): array
     {
@@ -187,8 +187,8 @@ class TransactionNotificationTextFactory
 
         return [
             'ru' => "Транзакция скорректирована: {$amount} ₸.",
-            'kz' => "Транзакция түзетілді: {$amount} ₸.",
-            'kg' => "Транзакция оңдолду: {$amount} ₸.",
+            'kk' => "Транзакция түзетілді: {$amount} ₸.",
+            'ky' => "Транзакция оңдолду: {$amount} ₸.",
             'en' => "Transaction adjusted: {$amount} ₸.",
             'mn' => "Гүйлгээг засварлав: {$amount} ₸.",
         ];

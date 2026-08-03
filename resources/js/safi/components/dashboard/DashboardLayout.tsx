@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { Bell, Menu } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { Sidebar } from './Sidebar';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
+import { NoTranslate } from '../ui/NoTranslate';
 import { ApiError, clearAuthToken, getAuthToken, getDashboardNotifications, getMyPermissions, me } from '../../lib/api';
 import { getCurrentLanguage } from '../../lib/language';
 import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
@@ -77,6 +79,7 @@ export function useDashboardContext() {
 }
 
 export function DashboardLayout() {
+  const { i18n } = useTranslation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<DashboardNotificationRow[]>([]);
@@ -312,7 +315,7 @@ export function DashboardLayout() {
             </div>
             <div className="hidden items-center gap-3 border-l border-safi-border pl-4 sm:flex">
               <div className="text-right">
-                <div className="text-sm font-extrabold text-safi-green">{currentUser.name}</div>
+                <NoTranslate as="div" className="text-sm font-extrabold text-safi-green">{currentUser.name}</NoTranslate>
                 <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold">{currentUser.packageStatusLabel}</div>
               </div>
               {currentUser.avatarUrl ? (
@@ -332,7 +335,7 @@ export function DashboardLayout() {
 
         <main className="relative flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
           <div className="relative mx-auto w-full max-w-7xl pb-20">
-            <Outlet context={{ currentUser, permissions, refreshCurrentUser: loadCurrentUser } satisfies DashboardContextValue} />
+            <Outlet key={i18n.resolvedLanguage || i18n.language} context={{ currentUser, permissions, refreshCurrentUser: loadCurrentUser } satisfies DashboardContextValue} />
           </div>
         </main>
       </div>
@@ -378,8 +381,9 @@ function getLocalizedNotificationText(value: unknown, fallback: string) {
 
   if (isRecord(value)) {
     const language = getCurrentLanguage();
+    const legacyLanguage = language === 'kk' ? 'kz' : language === 'ky' ? 'kg' : '';
 
-    return getString(value, [language, 'ru', 'en', 'kz', 'kg', 'mn']) || fallback;
+    return getString(value, [language, legacyLanguage, 'ru']) || fallback;
   }
 
   return fallback;

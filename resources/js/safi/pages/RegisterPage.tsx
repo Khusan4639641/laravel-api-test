@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Container } from '../components/ui/Container';
 import { Button } from '../components/ui/Button';
 import { ApiError, register } from '../lib/api';
+import { useUiText } from '../i18n/useUiText';
 
 type FieldErrors = Record<string, string[]>;
 type ReferralBranch = 'left' | 'right';
@@ -17,6 +18,7 @@ const branchLabels: Record<ReferralBranch, string> = {
 
 export default function RegisterPage() {
   const { t } = useTranslation();
+  const ui = useUiText();
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
@@ -32,15 +34,15 @@ export default function RegisterPage() {
     }
 
     if (!urlReferralCode || !urlBranch) {
-      return 'Некорректная реферальная ссылка';
+      return ui('Некорректная реферальная ссылка');
     }
 
     if (!isReferralBranch(urlBranch)) {
-      return 'Некорректная ветка';
+      return ui('Некорректная ветка');
     }
 
     return '';
-  }, [isReferralMode, urlBranch, urlReferralCode]);
+  }, [isReferralMode, ui, urlBranch, urlReferralCode]);
   const [form, setForm] = useState({
     name: '',
     login: '',
@@ -98,7 +100,7 @@ export default function RegisterPage() {
         setError(caughtError.message);
         setFieldErrors(caughtError.errors || {});
       } else {
-        setError('Не удалось зарегистрироваться. Проверьте соединение и попробуйте снова.');
+        setError(ui('Не удалось зарегистрироваться. Проверьте соединение и попробуйте снова.'));
       }
     } finally {
       setIsSubmitting(false);
@@ -118,8 +120,8 @@ export default function RegisterPage() {
           <div className="absolute top-0 right-0 w-40 h-40 bg-safi-gold/10 rounded-bl-full -z-10"></div>
 
           <div className="text-center mb-10">
-            <h1 className="text-3xl font-serif text-safi-green mb-2">Регистрация</h1>
-            <p className="text-sm text-safi-text opacity-70">Станьте партнером Safi Life</p>
+            <h1 className="text-3xl font-serif text-safi-green mb-2">{ui('Регистрация')}</h1>
+            <p className="text-sm text-safi-text opacity-70">{ui('Станьте партнером Safi Life')}</p>
           </div>
 
           {visibleError && (
@@ -130,7 +132,7 @@ export default function RegisterPage() {
 
           <form className="space-y-6" onSubmit={handleSubmit}>
             <div className="grid sm:grid-cols-2 gap-6">
-              <FormField label="Имя" error={fieldErrors.name?.[0]}>
+              <FormField label={ui('Имя')} error={fieldErrors.name?.[0]}>
                 <input
                   type="text"
                   value={form.name}
@@ -139,6 +141,8 @@ export default function RegisterPage() {
                   placeholder="Иван Иванов"
                   autoComplete="name"
                   required
+                  translate="no"
+                  data-notranslate="true"
                 />
               </FormField>
               <FormField label={t('auth.loginLabel', 'Логин')} error={fieldErrors.login?.[0]}>
@@ -150,6 +154,8 @@ export default function RegisterPage() {
                   placeholder="partner_login"
                   autoComplete="username"
                   required
+                  translate="no"
+                  data-notranslate="true"
                 />
               </FormField>
             </div>
@@ -164,6 +170,8 @@ export default function RegisterPage() {
                   placeholder="mail@example.com"
                   autoComplete="email"
                   required
+                  translate="no"
+                  data-notranslate="true"
                 />
               </FormField>
               <FormField label={t('auth.phoneLabel', 'Телефон')} error={fieldErrors.phone?.[0]}>
@@ -175,12 +183,14 @@ export default function RegisterPage() {
                   placeholder={t('auth.phonePlaceholder', '+7 700 000 00 00')}
                   autoComplete="tel"
                   required
+                  translate="no"
+                  data-notranslate="true"
                 />
               </FormField>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-6">
-              <FormField label="Пароль" error={fieldErrors.password?.[0]}>
+              <FormField label={ui('Пароль')} error={fieldErrors.password?.[0]}>
                 <input
                   type="password"
                   value={form.password}
@@ -189,10 +199,12 @@ export default function RegisterPage() {
                   placeholder="********"
                   autoComplete="new-password"
                   required
+                  translate="no"
+                  data-notranslate="true"
                 />
               </FormField>
 
-              <FormField label="Повторите пароль" error={fieldErrors.password_confirmation?.[0]}>
+              <FormField label={ui('Повторите пароль')} error={fieldErrors.password_confirmation?.[0]}>
                 <input
                   type="password"
                   value={form.password_confirmation}
@@ -201,6 +213,8 @@ export default function RegisterPage() {
                   placeholder="********"
                   autoComplete="new-password"
                   required
+                  translate="no"
+                  data-notranslate="true"
                 />
               </FormField>
             </div>
@@ -209,32 +223,34 @@ export default function RegisterPage() {
               <>
                 {!referralLinkError && (
                   <div className="rounded-xl border border-safi-green/15 bg-safi-green/5 px-4 py-3 text-sm font-bold text-safi-green">
-                    Вы регистрируетесь по приглашению партнёра
+                    {ui('Вы регистрируетесь по приглашению партнёра')}
                   </div>
                 )}
 
                 <div className="grid sm:grid-cols-2 gap-6">
-                  <FormField label="Код пригласителя (Реферал)" error={referralFieldError}>
+                  <FormField label={ui('Код пригласителя (Реферал)')} error={referralFieldError}>
                     <input
                       type="text"
                       value={form.referral_code}
                       className={lockedInputClass}
-                      placeholder="Код партнёра"
+                      placeholder={ui('Код партнёра')}
                       readOnly
                       required
+                      translate="no"
+                      data-notranslate="true"
                     />
                   </FormField>
 
-                  <FormField label="Ветка" error={fieldErrors.branch?.[0]}>
+                  <FormField label={ui('Ветка')} error={fieldErrors.branch?.[0]}>
                     <select
                       value={form.branch}
                       className={`${lockedInputClass} text-sm`}
                       disabled
                       required
                     >
-                      <option value="">Не выбрана</option>
-                      <option value="left">{branchLabels.left}</option>
-                      <option value="right">{branchLabels.right}</option>
+                      <option value="">{ui('Не выбрана')}</option>
+                      <option value="left">{ui(branchLabels.left)}</option>
+                      <option value="right">{ui(branchLabels.right)}</option>
                     </select>
                   </FormField>
                 </div>
@@ -244,18 +260,18 @@ export default function RegisterPage() {
             <div className="flex items-start gap-3 mt-4">
               <input type="checkbox" id="agree" required className="mt-1 rounded text-safi-green focus:ring-safi-green w-4 h-4" />
               <label htmlFor="agree" className="text-xs text-safi-text opacity-70 cursor-pointer">
-                Я согласен с <Link to="/legal" className="text-safi-green font-bold hover:underline">условиями и политикой конфиденциальности</Link>.
+                {ui('Я согласен с')} <Link to="/legal" className="text-safi-green font-bold hover:underline">{ui('условиями и политикой конфиденциальности')}</Link>.
               </label>
             </div>
 
             <div className="pt-4">
               <Button type="submit" className="w-full" disabled={isSubmitting || Boolean(referralLinkError)}>
-                {isSubmitting ? 'Регистрируем...' : t('auth.regAction', 'Зарегистрироваться')}
+                {isSubmitting ? ui('Регистрируем...') : t('auth.regAction', 'Зарегистрироваться')}
               </Button>
             </div>
 
             <div className="text-center text-[10px] uppercase tracking-widest text-safi-text opacity-70 pt-4">
-              Уже есть {t('auth.regAccount', 'аккаунт')}? <Link to="/login" className="text-safi-green font-bold hover:underline">Войти</Link>
+              {ui('Уже есть')} {t('auth.regAccount', 'аккаунт')}? <Link to="/login" className="text-safi-green font-bold hover:underline">{ui('Войти')}</Link>
             </div>
           </form>
         </div>

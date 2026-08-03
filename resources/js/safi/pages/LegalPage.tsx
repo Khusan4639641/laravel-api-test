@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useUiText } from '../i18n/useUiText';
 import { CreditCard, FileText, Landmark, RotateCcw, ShieldCheck, Truck } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 
@@ -59,19 +60,20 @@ const incomeFactors = [
 
 export default function LegalPage() {
   const { t } = useTranslation();
+  const ui = useUiText();
 
   return (
     <div className="bg-safi-bg text-safi-green">
       <section className="border-b border-safi-border bg-safi-bg py-16 md:py-24">
         <Container>
           <div className="mx-auto max-w-4xl text-center">
-            <span className="safi-kicker">Legal</span>
+            <span className="safi-kicker">{ui('Legal')}</span>
             <h1 className="mt-4 font-serif text-5xl font-semibold leading-[1.04] text-safi-green md:text-7xl">
               {t('legal.title1', 'Правовая')}{' '}
               <span className="italic text-safi-gold">{t('legal.title2', 'информация')}</span>
             </h1>
             <p className="mx-auto mt-7 max-w-2xl text-base leading-8 text-safi-muted md:text-xl">
-              Публичные документы Safi Life для оплаты, доставки, возврата, обработки персональных данных и разрешения спорных ситуаций.
+              {ui('Публичные документы Safi Life для оплаты, доставки, возврата, обработки персональных данных и разрешения спорных ситуаций.')}
             </p>
           </div>
         </Container>
@@ -85,9 +87,9 @@ export default function LegalPage() {
                 <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-safi-green transition-colors group-hover:bg-safi-green group-hover:text-safi-gold">
                   <Icon className="h-5 w-5" />
                 </div>
-                <h2 className="font-serif text-2xl font-semibold leading-tight text-safi-green">{t(key, fallback)}</h2>
-                <p className="mt-4 text-sm leading-7 text-safi-muted">{text}</p>
-                <span className="mt-6 inline-flex text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold">Открыть раздел</span>
+                <h2 className="font-serif text-2xl font-semibold leading-tight text-safi-green">{t(key, ui(fallback))}</h2>
+                <p className="mt-4 text-sm leading-7 text-safi-muted">{ui(text)}</p>
+                <span className="mt-6 inline-flex text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold">{ui('Открыть раздел')}</span>
               </Link>
             ))}
           </div>
@@ -97,9 +99,9 @@ export default function LegalPage() {
       <section className="border-y border-safi-border bg-safi-cream py-16 md:py-24">
         <Container>
           <div className="mb-10 text-center">
-            <span className="safi-kicker">Income factors</span>
+            <span className="safi-kicker">{ui('Income factors')}</span>
             <h2 className="mx-auto mt-3 max-w-3xl font-serif text-4xl font-semibold leading-tight text-safi-green md:text-6xl">
-              От чего зависит результат партнера
+              {ui('От чего зависит результат партнера')}
             </h2>
           </div>
 
@@ -107,7 +109,7 @@ export default function LegalPage() {
             {incomeFactors.map((factor) => (
               <article key={factor} className="flex items-start gap-4 rounded-3xl border border-safi-border bg-white p-6">
                 <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-safi-gold" />
-                <p className="text-sm font-bold leading-7 text-safi-green">{factor}</p>
+                <p className="text-sm font-bold leading-7 text-safi-green">{ui(factor)}</p>
               </article>
             ))}
           </div>

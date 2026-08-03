@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { CreditCard, Eye, PackageCheck, ShoppingBag } from 'lucide-react';
@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncS
 import { ToastItem, ToastStack } from '../../components/ui/Toast';
 import { ApiError, createTipTopPayPaymentIntent, getApiErrorState, getOrders, Order } from '../../lib/api';
 import { useTipTopPayWidget } from '../../hooks/useTipTopPayWidget';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 
 export default function Orders() {
   const { t, i18n } = useTranslation();
@@ -138,7 +139,7 @@ export default function Orders() {
                   <tbody className="divide-y divide-safi-border text-sm">
                     {orders.map((order) => (
                       <tr key={order.id} className="transition-colors hover:bg-safi-cream/70">
-                        <td className="px-7 py-5 font-extrabold text-safi-green">#{order.id}</td>
+                        <td className="px-7 py-5 font-extrabold text-safi-green"><NoTranslate>#{order.id}</NoTranslate></td>
                         <td className="px-7 py-5 text-safi-muted">{formatDate(order.createdAt, language)}</td>
                         <td className="px-7 py-5">
                           <div className="flex items-center gap-3">
@@ -153,9 +154,9 @@ export default function Orders() {
                         <td className="px-7 py-5"><OrderStatusBadge status={order.status} /></td>
                         <td className="px-7 py-5"><PaymentStatusBadge status={order.paymentStatus || 'unpaid'} /></td>
                         <td className="px-7 py-5">
-                          <div className="font-bold text-safi-green">{order.city || '-'}</div>
-                          <div className="mt-1 text-xs text-safi-muted">{order.phone || '-'}</div>
-                          <div className="mt-1 max-w-[220px] truncate text-xs text-safi-muted">{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</div>
+                          <NoTranslate as="div" className="font-bold text-safi-green">{order.city || '-'}</NoTranslate>
+                          <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{order.phone || '-'}</NoTranslate>
+                          <NoTranslate as="div" className="mt-1 max-w-[220px] truncate text-xs text-safi-muted">{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</NoTranslate>
                         </td>
                         <td className="px-7 py-5 text-right">
                           <div className="flex flex-col items-end gap-2">
@@ -187,7 +188,7 @@ export default function Orders() {
                   <article key={order.id} className="p-5">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <h2 className="font-serif text-2xl font-semibold text-safi-green">#{order.id}</h2>
+                        <NoTranslate as="h2" className="font-serif text-2xl font-semibold text-safi-green">#{order.id}</NoTranslate>
                         <p className="mt-1 text-xs font-bold uppercase tracking-[0.12em] text-safi-muted">{formatDate(order.createdAt, language)}</p>
                       </div>
                       <OrderStatusBadge status={order.status} />
@@ -200,9 +201,9 @@ export default function Orders() {
                       <Metric label={t('orders.amount')} value={formatCurrency(order.totalAmount)} />
                       <Metric label="Тип оплаты" value={order.paymentStrategyLabel || '100% карта'} />
                       <Metric label={t('orders.paymentStatus')} value={t(`orders.paymentStatusLabels.${order.paymentStatus || 'unpaid'}`, { defaultValue: order.paymentStatus || 'unpaid' })} />
-                      <Metric label={t('orders.deliveryCity')} value={order.city || '-'} />
-                      <Metric label={t('orders.deliveryPhone')} value={order.phone || '-'} />
-                      <Metric label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
+                      <Metric label={t('orders.deliveryCity')} value={<NoTranslate>{order.city || '-'}</NoTranslate>} />
+                      <Metric label={t('orders.deliveryPhone')} value={<NoTranslate>{order.phone || '-'}</NoTranslate>} />
+                      <Metric label={t('orders.deliveryAddress')} value={<NoTranslate>{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</NoTranslate>} />
                     </div>
                     <div className="mt-5 grid gap-3">
                       {canPayOrderOnline(order) && (
@@ -292,7 +293,7 @@ function canPayOrderOnline(order: Order) {
     && order.paymentStrategy !== 'deposit_100';
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-2xl border border-safi-border bg-safi-cream p-3">
       <div className="text-[9px] font-extrabold uppercase tracking-[0.14em] text-safi-muted">{label}</div>

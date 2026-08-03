@@ -18,31 +18,31 @@ class FaqLanguageTest extends TestCase
             'answer' => 'Русский ответ',
             'status' => 'active',
             'is_active' => true,
-            'category_translations' => ['ru' => 'О компании', 'kk' => 'Компания туралы', 'kz' => 'KZ компания туралы', 'kg' => 'Компания жөнүндө'],
-            'question_translations' => ['ru' => 'Что такое Safi Life?', 'kk' => 'Safi Life деген не?', 'kz' => 'KZ Safi Life деген не?', 'kg' => 'Safi Life деген эмне?'],
-            'answer_translations' => ['ru' => 'Русский ответ', 'kk' => 'Қазақша жауап', 'kz' => 'KZ қазақша жауап', 'kg' => 'Кыргызча жооп'],
+            'category_translations' => ['ru' => 'О компании', 'kk' => 'Компания туралы', 'kz' => 'KZ компания туралы', 'ky' => 'Компания жөнүндө'],
+            'question_translations' => ['ru' => 'Что такое Safi Life?', 'kk' => 'Safi Life деген не?', 'kz' => 'KZ Safi Life деген не?', 'ky' => 'Safi Life деген эмне?'],
+            'answer_translations' => ['ru' => 'Русский ответ', 'kk' => 'Қазақша жауап', 'kz' => 'KZ қазақша жауап', 'ky' => 'Кыргызча жооп'],
         ]);
 
         $this->getJson('/api/public/faqs', ['Accept-Language' => 'kk'])
             ->assertOk()
-            ->assertJsonPath('faqs.0.category', 'KZ компания туралы')
-            ->assertJsonPath('faqs.0.question', 'KZ Safi Life деген не?')
-            ->assertJsonPath('faqs.0.answer', 'KZ қазақша жауап');
+            ->assertJsonPath('faqs.0.category', 'Компания туралы')
+            ->assertJsonPath('faqs.0.question', 'Safi Life деген не?')
+            ->assertJsonPath('faqs.0.answer', 'Қазақша жауап');
 
         $this->getJson('/api/public/faqs', ['Accept-Language' => 'kz'])
             ->assertOk()
-            ->assertJsonPath('faqs.0.category', 'KZ компания туралы')
-            ->assertJsonPath('faqs.0.question', 'KZ Safi Life деген не?')
-            ->assertJsonPath('faqs.0.answer', 'KZ қазақша жауап');
+            ->assertJsonPath('faqs.0.category', 'Компания туралы')
+            ->assertJsonPath('faqs.0.question', 'Safi Life деген не?')
+            ->assertJsonPath('faqs.0.answer', 'Қазақша жауап');
 
-        $this->getJson('/api/public/faqs', ['Accept-Language' => 'kg'])
+        $this->getJson('/api/public/faqs', ['Accept-Language' => 'ky'])
             ->assertOk()
             ->assertJsonPath('faqs.0.category', 'Компания жөнүндө')
             ->assertJsonPath('faqs.0.question', 'Safi Life деген эмне?')
             ->assertJsonPath('faqs.0.answer', 'Кыргызча жооп');
     }
 
-    public function test_legacy_kk_faq_translation_is_used_for_kz_when_explicit_kz_is_missing(): void
+    public function test_legacy_kz_header_uses_canonical_kk_translation_when_available(): void
     {
         Faq::query()->create([
             'category' => 'О компании',

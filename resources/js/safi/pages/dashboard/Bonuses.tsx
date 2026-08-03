@@ -9,6 +9,8 @@ import { MobileDataCard, MobileDataHeader, MobileDataList, MobileDataRow } from 
 import { ApiError, createDashboardWithdrawal, createPartnerTransfer, EarningsSummary, getApiErrorState, getDashboardEarningsSummary, getDashboardOverview, getDashboardWithdrawals, getNumber, getPartnerTransfers, getPublicStatuses, getString, PartnerTransfer, Status, TransferPartner } from '../../lib/api';
 import { cn } from '../../lib/utils';
 import { withdrawalStatusLabel } from '../../lib/systemLabels';
+import { NoTranslate } from '../../components/ui/NoTranslate';
+import { useUiText } from '../../i18n/useUiText';
 
 interface WithdrawalItem {
   id: string;
@@ -40,6 +42,7 @@ const emptyEarningsSummary: EarningsSummary = {
 
 export default function Bonuses() {
   const { t } = useTranslation();
+  const ui = useUiText();
   const { currentUser, refreshCurrentUser } = useDashboardContext();
   const [activeTab, setActiveTab] = useState<'bonuses' | 'withdrawal'>('bonuses');
   const [withdrawals, setWithdrawals] = useState<WithdrawalItem[]>([]);
@@ -159,13 +162,13 @@ export default function Bonuses() {
         amount: withdrawalAmount,
         method: withdrawalMethod,
       });
-      setMessage('Заявка на вывод отправлена.');
+      setMessage(ui('Заявка на вывод отправлена.'));
       await loadBonusData();
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
         setError(caughtError.message);
       } else {
-        setError('Не удалось отправить заявку на вывод.');
+        setError(ui('Не удалось отправить заявку на вывод.'));
       }
     } finally {
       setIsSubmittingWithdrawal(false);
@@ -177,17 +180,17 @@ export default function Bonuses() {
     setError('');
 
     if (!transferRecipient) {
-      setError('Выберите партнёра.');
+      setError(ui('Выберите партнёра.'));
       return;
     }
 
     if (!Number.isFinite(withdrawalAmount) || withdrawalAmount <= 0) {
-      setError('Сумма перевода должна быть больше нуля.');
+      setError(ui('Сумма перевода должна быть больше нуля.'));
       return;
     }
 
     if (withdrawalAmount > balance.available) {
-      setError('Недостаточно средств для перевода.');
+      setError(ui('Недостаточно средств для перевода.'));
       return;
     }
 
@@ -199,16 +202,16 @@ export default function Bonuses() {
         amount: withdrawalAmount,
         comment: transferComment,
       });
-      setMessage('Перевод успешно выполнен.');
+      setMessage(ui('Перевод успешно выполнен.'));
       setTransferRecipient(null);
       setTransferComment('');
       setWithdrawalAmount(50000);
       await handleTransferSuccess();
     } catch (caughtError) {
       if (caughtError instanceof ApiError) {
-        setError(caughtError.message || 'Не удалось выполнить перевод. Попробуйте позже.');
+        setError(caughtError.message || ui('Не удалось выполнить перевод. Попробуйте позже.'));
       } else {
-        setError('Не удалось выполнить перевод. Попробуйте позже.');
+        setError(ui('Не удалось выполнить перевод. Попробуйте позже.'));
       }
     } finally {
       setIsSubmittingTransfer(false);
@@ -219,15 +222,15 @@ export default function Bonuses() {
     <div className="space-y-8">
       <section className="flex flex-col gap-6 rounded-[36px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.06)] md:flex-row md:items-end md:justify-between md:p-8">
         <div>
-          <span className="safi-kicker">Finance</span>
-          <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">Бонусы и вывод</h1>
+          <span className="safi-kicker">{ui('Finance')}</span>
+          <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">{ui('Бонусы и вывод')}</h1>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">
-            Кошелек, бонусы, бинарный расчет и заявки на вывод средств.
+            {ui('Кошелек, бонусы, бинарный расчет и заявки на вывод средств.')}
           </p>
         </div>
         <div className="flex rounded-full border border-safi-border bg-safi-cream p-1">
-          <TabButton active={activeTab === 'bonuses'} onClick={() => setActiveTab('bonuses')}>Бонусы</TabButton>
-          <TabButton active={activeTab === 'withdrawal'} onClick={() => setActiveTab('withdrawal')}>Вывод</TabButton>
+          <TabButton active={activeTab === 'bonuses'} onClick={() => setActiveTab('bonuses')}>{ui('Бонусы')}</TabButton>
+          <TabButton active={activeTab === 'withdrawal'} onClick={() => setActiveTab('withdrawal')}>{ui('Вывод')}</TabButton>
         </div>
       </section>
 
@@ -238,7 +241,7 @@ export default function Bonuses() {
       )}
 
       {isLoading && (
-        <LoadingState title="Загружаем бонусы" description="Получаем кошелек, бонусы и заявки на вывод из API." />
+        <LoadingState title={ui('Загружаем бонусы')} description={ui('Получаем кошелек, бонусы и заявки на вывод из API.')} />
       )}
 
       {!isLoading && loadError && (
@@ -277,37 +280,37 @@ export default function Bonuses() {
 
           <section className="grid gap-8 lg:grid-cols-2">
             <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-              <h2 className="font-serif text-3xl font-semibold text-safi-green">Реферальный бонус</h2>
+              <h2 className="font-serif text-3xl font-semibold text-safi-green">{ui('Реферальный бонус')}</h2>
               <div className="mt-6 space-y-4">
-                <DetailRow label="Пакет" value={currentUser.packageName} badge />
-                <DetailRow label="Текущий процент" value="10%" highlight />
-                <DetailRow label="Приглашено лично" value={`${currentUser.referralsCount.toLocaleString('ru-RU')} партнеров`} />
+                <DetailRow label={ui('Пакет')} value={<NoTranslate>{currentUser.packageCode || currentUser.packageName}</NoTranslate>} badge />
+                <DetailRow label={ui('Текущий процент')} value="10%" highlight />
+                <DetailRow label={ui('Приглашено лично')} value={`${currentUser.referralsCount.toLocaleString('ru-RU')} ${ui('партнеров')}`} />
               </div>
             </article>
 
             <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-              <h2 className="font-serif text-3xl font-semibold text-safi-green">Бинарный бонус</h2>
+              <h2 className="font-serif text-3xl font-semibold text-safi-green">{ui('Бинарный бонус')}</h2>
               <p className="mt-2 text-sm leading-7 text-safi-muted">
-                Расчет по меньшей ветке выполняет администратор раз в 15 дней.
+                {ui('Расчет по меньшей ветке выполняет администратор раз в 15 дней.')}
               </p>
               <div className="mt-6 space-y-4">
-                <DetailRow label="Левая ветка" value={`${structure.leftPV.toLocaleString('ru-RU')} PV`} />
-                <DetailRow label="Правая ветка" value={`${structure.rightPV.toLocaleString('ru-RU')} PV`} />
-                <DetailRow label="Малая ветка PV" value={`${weakLegPV.toLocaleString('ru-RU')} PV`} />
-                <DetailRow label="Расчетная ветка" value={structure.weakLeg} badge />
-                <DetailRow label="Начислено" value={`${bonuses.binary.toLocaleString('ru-RU')} ₸`} highlight />
+                <DetailRow label={ui('Левая ветка')} value={`${structure.leftPV.toLocaleString('ru-RU')} PV`} />
+                <DetailRow label={ui('Правая ветка')} value={`${structure.rightPV.toLocaleString('ru-RU')} PV`} />
+                <DetailRow label={ui('Малая ветка PV')} value={`${weakLegPV.toLocaleString('ru-RU')} PV`} />
+                <DetailRow label={ui('Расчетная ветка')} value={ui(structure.weakLeg)} badge />
+                <DetailRow label={ui('Начислено')} value={`${bonuses.binary.toLocaleString('ru-RU')} ₸`} highlight />
               </div>
             </article>
           </section>
 
           <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
-            <h2 className="font-serif text-3xl font-semibold text-safi-green">Статусный бонус</h2>
+            <h2 className="font-serif text-3xl font-semibold text-safi-green">{ui('Статусный бонус')}</h2>
             <div className="mt-6 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
               <div className="space-y-4">
-                <DetailRow label="Текущий статус" value={currentUser.status} badge />
-                <DetailRow label="Следующий статус" value={nextStatus?.name || currentUser.status} />
-                <DetailRow label="Малая ветка PV" value={`${weakLegPV.toLocaleString('ru-RU')} PV`} highlight />
-                <DetailRow label="Прогресс" value={`${currentUser.personalPV.toLocaleString('ru-RU')} PV`} />
+                <DetailRow label={ui('Текущий статус')} value={currentUser.status} badge />
+                <DetailRow label={ui('Следующий статус')} value={nextStatus?.name || currentUser.status} />
+                <DetailRow label={ui('Малая ветка PV')} value={`${weakLegPV.toLocaleString('ru-RU')} PV`} highlight />
+                <DetailRow label={ui('Прогресс')} value={`${currentUser.personalPV.toLocaleString('ru-RU')} PV`} />
               </div>
               <div className="rounded-3xl border border-safi-border bg-safi-cream p-6">
                 <ProgressBar
@@ -328,12 +331,12 @@ export default function Bonuses() {
             <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-8">
               <h2 className="mb-7 flex items-center gap-3 font-serif text-3xl font-semibold text-safi-green">
                 <Wallet className="h-6 w-6 text-safi-gold" />
-                Заявка на вывод
+                {ui('Заявка на вывод')}
               </h2>
 
               <form className="space-y-6" onSubmit={submitWithdrawal}>
                 <label className="block">
-                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Способ вывода</span>
+                  <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{ui('Способ вывода')}</span>
                   <select
                     value={withdrawalMethod}
                     onChange={(event) => {
@@ -344,22 +347,22 @@ export default function Bonuses() {
                     disabled={isSubmittingOperation}
                     className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25"
                   >
-                    <option value="card_account">Карта партнера</option>
-                    <option value="ip_account">Счет ИП</option>
-                    <option value="partner_transfer">Перевод партнёру</option>
+                    <option value="card_account">{ui('Карта партнера')}</option>
+                    <option value="ip_account">{ui('Счет ИП')}</option>
+                    <option value="partner_transfer">{ui('Перевод партнёру')}</option>
                   </select>
                 </label>
 
                 {isPartnerTransferMode && (
                   <label className="block">
-                    <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Партнёр-получатель</span>
+                    <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{ui('Партнёр-получатель')}</span>
                     <AsyncPartnerSelect value={transferRecipient} onChange={setTransferRecipient} disabled={isSubmittingTransfer} />
                   </label>
                 )}
 
                 <label className="block">
                   <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
-                    {isPartnerTransferMode ? 'Сумма перевода' : 'Сумма вывода'}
+                    {ui(isPartnerTransferMode ? 'Сумма перевода' : 'Сумма вывода')}
                   </span>
                   <input
                     type="number"
@@ -370,17 +373,19 @@ export default function Bonuses() {
                     onChange={(event) => setWithdrawalAmount(Number(event.target.value))}
                     className="w-full rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-xl font-extrabold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25 disabled:cursor-not-allowed disabled:opacity-70"
                   />
-                  <span className="mt-2 block text-xs font-bold text-safi-muted">Доступно: {balance.available.toLocaleString('ru-RU')} ₸</span>
+                  <span className="mt-2 block text-xs font-bold text-safi-muted">{ui('Доступно')}: {balance.available.toLocaleString('ru-RU')} ₸</span>
                 </label>
 
                 {isPartnerTransferMode && (
                   <label className="block">
-                    <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">Комментарий</span>
+                    <span className="mb-2 block text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{ui('Комментарий')}</span>
                     <textarea
                       value={transferComment}
                       disabled={isSubmittingTransfer}
                       onChange={(event) => setTransferComment(event.target.value)}
-                      placeholder="Назначение перевода"
+                      placeholder={ui('Назначение перевода')}
+                      translate="no"
+                      data-notranslate="true"
                       rows={3}
                       maxLength={500}
                       className="w-full resize-none rounded-2xl border border-safi-border bg-safi-cream px-5 py-4 text-sm font-bold text-safi-green outline-none focus:border-safi-green focus:ring-2 focus:ring-safi-gold/25 disabled:cursor-not-allowed disabled:opacity-70"
@@ -395,31 +400,31 @@ export default function Bonuses() {
                 >
                   {isPartnerTransferMode ? <ArrowRightLeft className="h-5 w-5" /> : <ArrowUpCircle className="h-5 w-5" />}
                   {isPartnerTransferMode
-                    ? (isSubmittingTransfer ? 'Переводим...' : 'Перевести партнёру')
-                    : (isSubmittingWithdrawal ? 'Отправляем...' : 'Отправить заявку')}
+                    ? ui(isSubmittingTransfer ? 'Переводим...' : 'Перевести партнёру')
+                    : ui(isSubmittingWithdrawal ? 'Отправляем...' : 'Отправить заявку')}
                 </button>
               </form>
             </article>
 
             <aside className="rounded-[32px] border border-safi-green bg-safi-green p-7 text-white shadow-[0_18px_48px_rgba(11,23,18,0.10)]">
-              <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/60">Доступно к выводу</div>
+              <div className="text-[10px] font-extrabold uppercase tracking-[0.18em] text-white/60">{ui('Доступно к выводу')}</div>
               <div className="mt-3 font-serif text-5xl font-semibold text-safi-gold">{balance.available.toLocaleString('ru-RU')} ₸</div>
               <div className="mt-8 flex gap-3 rounded-3xl border border-white/10 bg-white/[0.08] p-4 text-sm leading-6 text-white/75">
                 <Info className="mt-1 h-5 w-5 shrink-0 text-safi-gold" />
-                <p>Заявки проверяются администратором перед выплатой. Расчёт бинарного бонуса каждые 15 дней.</p>
+                <p>{ui('Заявки проверяются администратором перед выплатой. Расчёт бинарного бонуса каждые 15 дней.')}</p>
               </div>
             </aside>
           </section>
 
           <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             <div className="border-b border-safi-border bg-safi-cream p-6 md:p-7">
-              <h2 className="font-serif text-3xl font-semibold text-safi-green">История переводов</h2>
+              <h2 className="font-serif text-3xl font-semibold text-safi-green">{ui('История переводов')}</h2>
             </div>
             <MobileDataList className="p-5">
               {transfers.length === 0 && (
                 <EmptyState
-                  title="Переводов пока нет"
-                  description="История появится после первого перевода партнёру."
+                  title={ui('Переводов пока нет')}
+                  description={ui('История появится после первого перевода партнёру.')}
                   className="min-h-[180px] shadow-none"
                 />
               )}
@@ -430,19 +435,19 @@ export default function Bonuses() {
                 return (
                   <MobileDataCard key={transfer.uuid || transfer.id}>
                     <MobileDataHeader
-                      title={`#${transfer.id}`}
+                      title={<NoTranslate>#{transfer.id}</NoTranslate>}
                       meta={formatDate(transfer.createdAt)}
-                      action={<Badge variant="success">Завершено</Badge>}
+                      action={<Badge variant="success">{ui('Завершено')}</Badge>}
                     />
-                    <MobileDataRow label="Сумма">
+                    <MobileDataRow label={ui('Сумма')}>
                       <span className={outgoing ? 'text-red-700' : 'text-green-700'}>
                         {outgoing ? '-' : '+'}{transfer.amount.toLocaleString('ru-RU')} ₸
                       </span>
                     </MobileDataRow>
-                    <MobileDataRow label="Тип">{outgoing ? 'Перевод партнёру' : 'Перевод от партнёра'}</MobileDataRow>
-                    <MobileDataRow label="Комментарий">
-                      <div>{outgoing ? 'Получатель' : 'Отправитель'}: {counterparty?.name || '-'}</div>
-                      {transfer.comment && <div className="mt-1 text-xs text-safi-muted">{transfer.comment}</div>}
+                    <MobileDataRow label={ui('Тип')}>{ui(outgoing ? 'Перевод партнёру' : 'Перевод от партнёра')}</MobileDataRow>
+                    <MobileDataRow label={ui('Комментарий')}>
+                      <div>{ui(outgoing ? 'Получатель' : 'Отправитель')}: <NoTranslate>{counterparty?.name || '-'}</NoTranslate></div>
+                      {transfer.comment && <NoTranslate as="div" className="mt-1 text-xs text-safi-muted">{transfer.comment}</NoTranslate>}
                     </MobileDataRow>
                   </MobileDataCard>
                 );
@@ -452,11 +457,11 @@ export default function Bonuses() {
               <table className="w-full min-w-[760px] text-left">
                 <thead className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
                   <tr>
-                    <th className="px-7 py-4">Перевод / дата</th>
-                    <th className="px-7 py-4">Сумма</th>
-                    <th className="px-7 py-4">Тип</th>
-                    <th className="px-7 py-4">Статус</th>
-                    <th className="px-7 py-4">Комментарий</th>
+                    <th className="px-7 py-4">{ui('Перевод / дата')}</th>
+                    <th className="px-7 py-4">{ui('Сумма')}</th>
+                    <th className="px-7 py-4">{ui('Тип')}</th>
+                    <th className="px-7 py-4">{ui('Статус')}</th>
+                    <th className="px-7 py-4">{ui('Комментарий')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-safi-border text-sm">
@@ -464,8 +469,8 @@ export default function Bonuses() {
                     <tr>
                       <td colSpan={5} className="px-7 py-8">
                         <EmptyState
-                          title="Переводов пока нет"
-                          description="История появится после первого перевода партнёру."
+                          title={ui('Переводов пока нет')}
+                          description={ui('История появится после первого перевода партнёру.')}
                           className="min-h-[180px] shadow-none"
                         />
                       </td>
@@ -479,19 +484,19 @@ export default function Bonuses() {
                     return (
                       <tr key={transfer.uuid || transfer.id} className="transition-colors hover:bg-safi-cream/70">
                         <td className="px-7 py-5">
-                          <div className="font-extrabold text-safi-green">#{transfer.id}</div>
+                          <NoTranslate as="div" className="font-extrabold text-safi-green">#{transfer.id}</NoTranslate>
                           <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{formatDate(transfer.createdAt)}</div>
                         </td>
                         <td className={`px-7 py-5 font-extrabold ${outgoing ? 'text-red-700' : 'text-green-700'}`}>
                           {outgoing ? '-' : '+'}{transfer.amount.toLocaleString('ru-RU')} ₸
                         </td>
-                        <td className="px-7 py-5 text-safi-muted">{outgoing ? 'Перевод партнёру' : 'Перевод от партнёра'}</td>
+                        <td className="px-7 py-5 text-safi-muted">{ui(outgoing ? 'Перевод партнёру' : 'Перевод от партнёра')}</td>
                         <td className="px-7 py-5">
-                          <Badge variant="success">Завершено</Badge>
+                          <Badge variant="success">{ui('Завершено')}</Badge>
                         </td>
                         <td className="px-7 py-5 text-safi-muted">
-                          <div>{outgoing ? 'Получатель' : 'Отправитель'}: {counterparty?.name || '-'}</div>
-                          {transfer.comment && <div className="mt-1 text-xs">{transfer.comment}</div>}
+                          <div>{ui(outgoing ? 'Получатель' : 'Отправитель')}: <NoTranslate>{counterparty?.name || '-'}</NoTranslate></div>
+                          {transfer.comment && <NoTranslate as="div" className="mt-1 text-xs">{transfer.comment}</NoTranslate>}
                         </td>
                       </tr>
                     );
@@ -503,26 +508,26 @@ export default function Bonuses() {
 
           <section className="overflow-hidden rounded-[32px] border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)]">
             <div className="border-b border-safi-border bg-safi-cream p-6 md:p-7">
-              <h2 className="font-serif text-3xl font-semibold text-safi-green">История выводов</h2>
+              <h2 className="font-serif text-3xl font-semibold text-safi-green">{ui('История выводов')}</h2>
             </div>
             <MobileDataList className="p-5">
               {withdrawals.length === 0 && (
                 <EmptyState
-                  title="Заявок на вывод пока нет"
-                  description="История появится после первой заявки на вывод."
+                  title={ui('Заявок на вывод пока нет')}
+                  description={ui('История появится после первой заявки на вывод.')}
                   className="min-h-[180px] shadow-none"
                 />
               )}
               {withdrawals.map((withdrawal) => (
                 <MobileDataCard key={withdrawal.id}>
                   <MobileDataHeader
-                    title={`#${withdrawal.id}`}
+                    title={<NoTranslate>#{withdrawal.id}</NoTranslate>}
                     meta={withdrawal.date}
                     action={<Badge variant={withdrawalStatusVariant(withdrawal.statusCode)}>{withdrawal.status}</Badge>}
                   />
-                  <MobileDataRow label="Сумма">{withdrawal.amount}</MobileDataRow>
-                  <MobileDataRow label="Способ">{withdrawal.method}</MobileDataRow>
-                  <MobileDataRow label="Дата выплаты">{withdrawal.paymentDate}</MobileDataRow>
+                  <MobileDataRow label={ui('Сумма')}>{withdrawal.amount}</MobileDataRow>
+                  <MobileDataRow label={ui('Способ')}>{ui(withdrawal.method)}</MobileDataRow>
+                  <MobileDataRow label={ui('Дата выплаты')}>{withdrawal.paymentDate}</MobileDataRow>
                 </MobileDataCard>
               ))}
             </MobileDataList>
@@ -530,11 +535,11 @@ export default function Bonuses() {
               <table className="w-full min-w-[760px] text-left">
                 <thead className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">
                   <tr>
-                    <th className="px-7 py-4">Заявка / дата</th>
-                    <th className="px-7 py-4">Сумма</th>
-                    <th className="px-7 py-4">Способ</th>
-                    <th className="px-7 py-4">Статус</th>
-                    <th className="px-7 py-4">Дата выплаты</th>
+                    <th className="px-7 py-4">{ui('Заявка / дата')}</th>
+                    <th className="px-7 py-4">{ui('Сумма')}</th>
+                    <th className="px-7 py-4">{ui('Способ')}</th>
+                    <th className="px-7 py-4">{ui('Статус')}</th>
+                    <th className="px-7 py-4">{ui('Дата выплаты')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-safi-border text-sm">
@@ -542,8 +547,8 @@ export default function Bonuses() {
                     <tr>
                       <td colSpan={5} className="px-7 py-8">
                         <EmptyState
-                          title="Заявок на вывод пока нет"
-                          description="История появится после первой заявки на вывод."
+                          title={ui('Заявок на вывод пока нет')}
+                          description={ui('История появится после первой заявки на вывод.')}
                           className="min-h-[180px] shadow-none"
                         />
                       </td>
@@ -553,11 +558,11 @@ export default function Bonuses() {
                   {withdrawals.map((withdrawal) => (
                     <tr key={withdrawal.id} className="transition-colors hover:bg-safi-cream/70">
                       <td className="px-7 py-5">
-                        <div className="font-extrabold text-safi-green">#{withdrawal.id}</div>
+                        <NoTranslate as="div" className="font-extrabold text-safi-green">#{withdrawal.id}</NoTranslate>
                         <div className="mt-1 text-[10px] font-bold uppercase tracking-[0.12em] text-safi-muted">{withdrawal.date}</div>
                       </td>
                       <td className="px-7 py-5 font-extrabold text-safi-green">{withdrawal.amount}</td>
-                      <td className="px-7 py-5 text-safi-muted">{withdrawal.method}</td>
+                      <td className="px-7 py-5 text-safi-muted">{ui(withdrawal.method)}</td>
                       <td className="px-7 py-5">
                         <Badge variant={withdrawalStatusVariant(withdrawal.statusCode)}>
                           {withdrawal.status}
@@ -615,7 +620,7 @@ function isEarningsSummaryEmpty(summary: EarningsSummary) {
   ].every((amount) => amount === 0);
 }
 
-function DetailRow({ label, value, highlight, badge }: { label: string; value: string; highlight?: boolean; badge?: boolean }) {
+function DetailRow({ label, value, highlight, badge }: { label: string; value: React.ReactNode; highlight?: boolean; badge?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-5 border-b border-safi-border py-3 last:border-b-0">
       <span className="text-sm font-bold text-safi-muted">{label}</span>

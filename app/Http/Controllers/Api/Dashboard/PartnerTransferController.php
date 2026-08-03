@@ -74,7 +74,7 @@ class PartnerTransferController extends Controller
         );
 
         return response()->json([
-            'message' => 'Перевод успешно выполнен.',
+            'message' => __('api.transfer_completed'),
             'data' => [
                 'transfer_id' => $transfer->id,
                 'uuid' => $transfer->uuid,

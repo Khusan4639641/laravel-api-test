@@ -4,9 +4,11 @@ import { ChevronDown } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
 import { FaqCategory, getApiErrorState, getPublicFaqs } from '../lib/api';
+import { useUiText } from '../i18n/useUiText';
 
 export default function FAQPage() {
   const { t } = useTranslation();
+  const ui = useUiText();
   const [faq, setFaq] = useState<FaqCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,20 +38,20 @@ export default function FAQPage() {
       <Container className="relative z-10">
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-safi-green mb-4">
-            Часто задаваемые <span className="italic text-safi-gold">{t('faq.title2', 'вопросы')}</span>
+            {ui('Часто задаваемые')} <span className="italic text-safi-gold">{t('faq.title2', 'вопросы')}</span>
           </h2>
           <p className="text-safi-text opacity-70 max-w-2xl mx-auto uppercase tracking-wider text-xs font-bold">
-            Ответы на главные вопросы о компании, продуктах и партнерстве.
+            {ui('Ответы на главные вопросы о компании, продуктах и партнерстве.')}
           </p>
         </div>
 
         <div className="max-w-4xl mx-auto space-y-16">
-          {isLoading && <LoadingState title="Загружаем FAQ" description="Получаем вопросы и ответы из публичного API." />}
+          {isLoading && <LoadingState title={ui('Загружаем FAQ')} description={ui('Получаем вопросы и ответы из публичного API.')} />}
 
           {!isLoading && error && <ErrorState description={error} onRetry={loadFaqs} />}
 
           {!isLoading && !error && faq.length === 0 && (
-            <EmptyState title="FAQ пока пуст" description="Вопросы появятся здесь после публикации." />
+            <EmptyState title={ui('FAQ пока пуст')} description={ui('Вопросы появятся здесь после публикации.')} />
           )}
 
           {!isLoading && !error && faq.map((category, idx) => (
@@ -77,7 +79,7 @@ export default function FAQPage() {
 
           {!isLoading && !error && faq.length > 0 && (
             <div className="text-center p-8 border border-safi-green/10 rounded-[24px] bg-white text-[10px] uppercase tracking-widest text-safi-text opacity-50 font-bold shadow-sm">
-              «Партнёрский доход зависит от активности, продаж и выполнения условий маркетинг-плана. Информация не является публичной офертой и гарантией дохода.»
+              {ui('«Партнёрский доход зависит от активности, продаж и выполнения условий маркетинг-плана. Информация не является публичной офертой и гарантией дохода.»')}
             </div>
           )}
         </div>

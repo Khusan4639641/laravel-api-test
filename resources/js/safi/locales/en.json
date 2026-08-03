@@ -1,4 +1,14 @@
 {
+  "navigation": {
+    "home": "Home",
+    "about": "About company",
+    "products": "Products",
+    "opportunities": "Opportunities",
+    "marketingPlan": "Marketing plan",
+    "howToStart": "How to start",
+    "faq": "Frequently asked questions",
+    "contacts": "Contacts"
+  },
   "nav": {
     "products": "Products",
     "business": "Opportunities",
@@ -7,21 +17,19 @@
     "contacts": "Contacts",
     "login": "Log in",
     "register": "Register",
-    "cabinet": "Cabinet",
+    "cabinet": "Dashboard",
     "logout": "Log out",
     "home": "Home",
     "about": "About company",
     "faq": "FAQ"
   },
   "hero": {
-    "title1": "Unlock your",
-    "title2": "potential with",
-    "title3": "Safi",
+    "title": "Unlock your potential with Safi",
     "subtitle": "Innovative wellness products and a clear business model for your growth.",
     "startNow": "Start business",
     "buyProducts": "Buy products",
     "disclaimer": "*Income depends on personal activity. This information is not an income guarantee.",
-    "kzProducts": "Domestic products of Kazakhstan"
+    "badge": "MADE IN KAZAKHSTAN"
   },
   "features": {
     "products": "Premium products",
@@ -55,8 +63,7 @@
     "catalog": "Catalog"
   },
   "benefits": {
-    "title1": "Why people choose",
-    "title2": "Safi Life",
+    "title": "Why choose Safi Life?",
     "subtitle": "Natural products from Kazakhstan and a transparent marketing plan that works.",
     "domestic": "Domestic products",
     "domesticDesc": "We produce health and beauty goods from quality raw materials.",
@@ -78,10 +85,10 @@
     "allCatalogBtn": "FULL CATALOG"
   },
   "packages": {
-    "title1": "Starter",
-    "title2": "packages",
+    "title": "Starter packages",
     "subtitle": "Choose the package that fits you and start earning with Safi Life.",
-    "hit": "Bestseller",
+    "mostPopular": "Most popular",
+    "notPurchased": "You have not purchased this package yet",
     "refBonus": "Referral bonus",
     "binBonus": "Binary bonus",
     "binNone": "None",
@@ -238,6 +245,10 @@
     "supportNote": "If you already have an account, open the Support section in the cabinet and create a ticket with a subject and issue description."
   },
   "auth": {
+    "login": "Log in",
+    "dashboard": "Dashboard",
+    "personalCabinet": "Dashboard",
+    "logout": "Log out",
     "loginTitle": "Log in to",
     "loginAction": "Log in",
     "regTitle": "Create",
@@ -322,7 +333,8 @@
     "packages": "Packages",
     "statuses": "Statuses",
     "reports": "Reports",
-    "settings": "Settings"
+    "settings": "Settings",
+    "forgotPassword": "Forgot password?"
   },
   "orders": {
     "myOrders": "My Orders",

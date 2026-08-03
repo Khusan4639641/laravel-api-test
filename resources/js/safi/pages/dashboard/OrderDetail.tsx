@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, CreditCard, PackageCheck } from 'lucide-react';
@@ -7,6 +7,7 @@ import { EmptyState, ErrorState, LoadingState } from '../../components/ui/AsyncS
 import { ToastItem, ToastStack } from '../../components/ui/Toast';
 import { ApiError, createTipTopPayPaymentIntent, getApiErrorState, getOrder, Order } from '../../lib/api';
 import { useTipTopPayWidget } from '../../hooks/useTipTopPayWidget';
+import { NoTranslate } from '../../components/ui/NoTranslate';
 
 export default function OrderDetail() {
   const { id } = useParams();
@@ -113,7 +114,7 @@ export default function OrderDetail() {
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <span className="safi-kicker">{t('orders.order')}</span>
-            <h1 className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">#{order.id}</h1>
+            <NoTranslate as="h1" className="mt-3 font-serif text-4xl font-semibold text-safi-green md:text-5xl">#{order.id}</NoTranslate>
             <p className="mt-3 max-w-2xl text-sm leading-7 text-safi-muted">{t('orders.detailSubtitle')}</p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -144,11 +145,11 @@ export default function OrderDetail() {
       <section className="rounded-[32px] border border-safi-border bg-white p-6 shadow-[0_18px_48px_rgba(11,23,18,0.05)] md:p-7">
         <h2 className="font-serif text-2xl font-semibold text-safi-green">{t('orders.deliveryInfo')}</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <InfoCard compact label={t('orders.recipientName')} value={order.recipientName || '-'} />
-          <InfoCard compact label={t('orders.deliveryPhone')} value={order.phone || '-'} />
-          <InfoCard compact label={t('orders.deliveryCity')} value={order.city || '-'} />
-          <InfoCard compact label={t('orders.deliveryAddress')} value={order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')} />
-          {order.comment && <InfoCard compact label={t('orders.deliveryComment')} value={order.comment} />}
+          <InfoCard compact label={t('orders.recipientName')} value={<NoTranslate>{order.recipientName || '-'}</NoTranslate>} />
+          <InfoCard compact label={t('orders.deliveryPhone')} value={<NoTranslate>{order.phone || '-'}</NoTranslate>} />
+          <InfoCard compact label={t('orders.deliveryCity')} value={<NoTranslate>{order.city || '-'}</NoTranslate>} />
+          <InfoCard compact label={t('orders.deliveryAddress')} value={<NoTranslate>{order.deliveryAddress || t('orders.addressNotProvided', 'Адрес не указан')}</NoTranslate>} />
+          {order.comment && <InfoCard compact label={t('orders.deliveryComment')} value={<NoTranslate>{order.comment}</NoTranslate>} />}
         </div>
       </section>
 
@@ -235,7 +236,7 @@ function ProductImage({ image, alt }: { image?: string; alt: string }) {
   return <img src={image} alt={alt} className="h-16 w-16 shrink-0 rounded-xl object-cover" />;
 }
 
-function InfoCard({ label, value, compact = false }: { label: string; value: string; compact?: boolean }) {
+function InfoCard({ label, value, compact = false }: { label: string; value: ReactNode; compact?: boolean }) {
   return (
     <div className={`min-w-0 rounded-3xl border border-safi-border bg-white shadow-[0_18px_48px_rgba(11,23,18,0.05)] ${compact ? 'p-4 shadow-none' : 'p-6'}`}>
       <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-muted">{label}</div>

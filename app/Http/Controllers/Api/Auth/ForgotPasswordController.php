@@ -31,7 +31,7 @@ class ForgotPasswordController extends Controller
         }
 
         return response()->json([
-            'message' => 'Email найден.',
+            'message' => __('api.forgot_password.email_found'),
             'data' => [
                 'email' => $email,
             ],
@@ -72,7 +72,7 @@ class ForgotPasswordController extends Controller
 
         if ($pendingRequest) {
             return response()->json([
-                'message' => 'Обращение уже передано в администрацию.',
+                'message' => __('api.forgot_password.already_submitted'),
                 'data' => [
                     'request_id' => $pendingRequest->id,
                     'status' => $pendingRequest->status,
@@ -103,7 +103,7 @@ class ForgotPasswordController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Обращение передано в администрацию.',
+            'message' => __('api.forgot_password.submitted'),
             'data' => [
                 'request_id' => $forgotPasswordRequest->id,
                 'status' => $forgotPasswordRequest->status,

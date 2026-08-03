@@ -83,12 +83,12 @@ class MenuApiTest extends TestCase
     {
         Sanctum::actingAs(User::factory()->create(['role' => 'super_admin']));
 
-        $this->getJson('/api/me/permissions', ['Accept-Language' => 'kz'])
+        $this->getJson('/api/me/permissions', ['Accept-Language' => 'kk'])
             ->assertOk()
             ->assertJsonPath('menu.0.label', 'Шолу')
             ->assertJsonPath('menu.1.label', 'Серіктестер');
 
-        $this->getJson('/api/me/permissions', ['Accept-Language' => 'kg'])
+        $this->getJson('/api/me/permissions', ['Accept-Language' => 'ky'])
             ->assertOk()
             ->assertJsonPath('menu.0.label', 'Кыскача маалымат')
             ->assertJsonPath('menu.1.label', 'Өнөктөштөр');

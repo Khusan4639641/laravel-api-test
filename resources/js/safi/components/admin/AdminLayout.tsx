@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Outlet, useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 import { Bell, Menu, Search, User } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { AdminSidebar } from './AdminSidebar';
 import { LanguageSwitcher } from '../ui/LanguageSwitcher';
+import { NoTranslate } from '../ui/NoTranslate';
 import { ApiError, clearAuthToken, getAuthToken, getMyPermissions, me } from '../../lib/api';
 import { canAccessPath, normalizePermissions, RolePermissions } from '../../lib/permissions';
 import { cn } from '../../lib/utils';
@@ -32,6 +34,7 @@ const adminDefaults: AdminCurrentUser = {
 };
 
 export function AdminLayout() {
+  const { i18n } = useTranslation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<AdminCurrentUser | null>(null);
   const [permissions, setPermissions] = useState<RolePermissions | null>(null);
@@ -170,7 +173,7 @@ export function AdminLayout() {
             </button>
             <div className="hidden items-center gap-3 border-l border-safi-border pl-4 sm:flex">
               <div className="text-right">
-                <div className="text-sm font-extrabold text-safi-green">{currentUser.name}</div>
+                <NoTranslate as="div" className="text-sm font-extrabold text-safi-green">{currentUser.name}</NoTranslate>
                 <div className="notranslate text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold" translate="no">{roleLabel(currentUser.role)}</div>
               </div>
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-safi-green text-safi-gold">
@@ -182,7 +185,7 @@ export function AdminLayout() {
 
         <main className="relative min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
           <div className={cn('relative w-full pb-20', isStructurePage ? 'max-w-none' : 'mx-auto max-w-[1600px]')}>
-            <Outlet context={{ currentUser, permissions, refreshCurrentUser: loadCurrentUser } satisfies AdminContextValue} />
+            <Outlet key={i18n.resolvedLanguage || i18n.language} context={{ currentUser, permissions, refreshCurrentUser: loadCurrentUser } satisfies AdminContextValue} />
           </div>
         </main>
       </div>

@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next';
 import { Building2, CreditCard, FileText, Globe2, Landmark, Mail, MapPin, Phone, RotateCcw, ShieldCheck, Truck } from 'lucide-react';
 import { Container } from '../components/ui/Container';
 import { fallbackLegalSettings, getPublicLegalSettings, LegalSettings } from '../lib/api';
+import { NoTranslate } from '../components/ui/NoTranslate';
+import { useUiText } from '../i18n/useUiText';
 
 export type LegalInfoPageType = 'payment' | 'offer' | 'privacy' | 'delivery' | 'refund' | 'requisites';
 
@@ -28,6 +30,7 @@ const legalNav: Array<{ type: LegalInfoPageType; to: string; key: string; fallba
 
 export default function LegalInfoPage({ type }: LegalInfoPageProps) {
   const { t } = useTranslation();
+  const ui = useUiText();
   const [settings, setSettings] = useState<LegalSettings>(fallbackLegalSettings);
 
   useEffect(() => {
@@ -62,9 +65,9 @@ export default function LegalInfoPage({ type }: LegalInfoPageProps) {
               <Icon className="h-6 w-6" />
             </div>
             <p className="safi-kicker text-safi-gold">Safi Life Legal</p>
-            <h1 className="mt-4 max-w-4xl font-serif text-4xl font-semibold leading-[1.05] md:text-7xl">{page.title}</h1>
-            <p className="mt-7 max-w-3xl text-base leading-8 text-white/72 md:text-xl">{page.subtitle}</p>
-            <p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-white/45">Редакция от 9 июня 2026 г.</p>
+            <h1 className="mt-4 max-w-4xl font-serif text-4xl font-semibold leading-[1.05] md:text-7xl">{ui(page.title)}</h1>
+            <p className="mt-7 max-w-3xl text-base leading-8 text-white/72 md:text-xl">{ui(page.subtitle)}</p>
+            <p className="mt-6 text-xs font-bold uppercase tracking-[0.18em] text-white/45">{ui('Редакция от 9 июня 2026 г.')}</p>
           </div>
         </Container>
       </section>
@@ -82,7 +85,7 @@ export default function LegalInfoPage({ type }: LegalInfoPageProps) {
                     : 'border-safi-border bg-safi-bg text-safi-green/70 hover:border-safi-green/40 hover:text-safi-green'
                 }`}
               >
-                {t(item.key, item.fallback)}
+                {t(item.key, ui(item.fallback))}
               </Link>
             ))}
             <Link to="/contacts" className="shrink-0 rounded-full border border-safi-border bg-safi-bg px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-green/70 transition-colors hover:border-safi-green/40 hover:text-safi-green">
@@ -102,7 +105,7 @@ export default function LegalInfoPage({ type }: LegalInfoPageProps) {
 
               {type === 'privacy' && (
                 <div className="rounded-[28px] border border-safi-green/10 bg-white p-7 shadow-sm">
-                  <h2 className="font-serif text-2xl font-semibold text-safi-green">Дополнительный документ TipTop Pay</h2>
+                  <h2 className="font-serif text-2xl font-semibold text-safi-green">{ui('Дополнительный документ TipTop Pay')}</h2>
                   <p className="mt-4 text-sm leading-7 text-safi-muted">
                     Для информации о подходе платежного провайдера к обработке данных можно также открыть документ TipTop Pay:{' '}
                     <a href="https://static.tiptoppay.kz/docs/privacy_policy.pdf" target="_blank" rel="noreferrer" className="font-bold text-safi-green underline decoration-safi-gold decoration-2 underline-offset-4">
@@ -127,9 +130,10 @@ export default function LegalInfoPage({ type }: LegalInfoPageProps) {
 }
 
 function LegalArticle({ section }: { section: LegalSection }) {
+  const ui = useUiText();
   return (
     <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-sm md:p-9">
-      <h2 className="font-serif text-2xl font-semibold leading-tight text-safi-green md:text-3xl">{section.title}</h2>
+      <h2 className="font-serif text-2xl font-semibold leading-tight text-safi-green md:text-3xl">{ui(section.title)}</h2>
       {section.paragraphs && (
         <div className="mt-5 space-y-4 text-sm leading-7 text-safi-muted md:text-base">
           {section.paragraphs.map((paragraph) => (
@@ -152,6 +156,7 @@ function LegalArticle({ section }: { section: LegalSection }) {
 }
 
 function ContactCard({ settings, type }: { settings: LegalSettings; type: LegalInfoPageType }) {
+  const ui = useUiText();
   const title = type === 'refund'
     ? 'Контакты по вопросам возврата'
     : type === 'payment'
@@ -160,35 +165,36 @@ function ContactCard({ settings, type }: { settings: LegalSettings; type: LegalI
 
   return (
     <div className="rounded-[32px] bg-safi-green p-7 text-white shadow-xl">
-      <h3 className="font-serif text-2xl font-semibold">{title}</h3>
+      <h3 className="font-serif text-2xl font-semibold">{ui(title)}</h3>
       <div className="mt-6 space-y-5 text-sm leading-6 text-white/75">
-        <ContactLine icon={Mail} label="Поддержка" value={settings.support_email} href={`mailto:${settings.support_email}`} />
-        <ContactLine icon={Mail} label="Споры и возвраты" value={settings.dispute_email} href={`mailto:${settings.dispute_email}`} />
-        <ContactLine icon={Phone} label="Телефон" value={settings.support_phone} />
-        <ContactLine icon={MapPin} label="Адрес" value={settings.actual_address} />
+        <ContactLine icon={Mail} label={ui('Поддержка')} value={settings.support_email} href={`mailto:${settings.support_email}`} />
+        <ContactLine icon={Mail} label={ui('Споры и возвраты')} value={settings.dispute_email} href={`mailto:${settings.dispute_email}`} />
+        <ContactLine icon={Phone} label={ui('Телефон')} value={settings.support_phone} />
+        <ContactLine icon={MapPin} label={ui('Адрес')} value={settings.actual_address} />
       </div>
       <Link to="/contacts" className="mt-7 inline-flex rounded-full border border-safi-gold px-5 py-3 text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-gold transition-colors hover:bg-safi-gold hover:text-safi-green">
-        Открыть контакты
+        {ui('Открыть контакты')}
       </Link>
     </div>
   );
 }
 
 function SellerCard({ settings }: { settings: LegalSettings }) {
+  const ui = useUiText();
   return (
     <div className="rounded-[32px] border border-safi-border bg-white p-7 shadow-sm">
-      <h3 className="font-serif text-2xl font-semibold text-safi-green">Юридическое лицо</h3>
+      <h3 className="font-serif text-2xl font-semibold text-safi-green">{ui('Юридическое лицо')}</h3>
       <div className="mt-5 space-y-4 text-sm text-safi-muted">
-        <ContactLine icon={Building2} label="Наименование" value={settings.company_legal_name} dark />
+        <ContactLine icon={Building2} label={ui('Наименование')} value={settings.company_legal_name} dark />
         <ContactLine icon={FileText} label="БИН" value={settings.company_bin} dark />
-        <ContactLine icon={Globe2} label="Сайт" value={settings.website_url} href={settings.website_url} dark />
+        <ContactLine icon={Globe2} label={ui('Сайт')} value={settings.website_url} href={settings.website_url} dark />
       </div>
     </div>
   );
 }
 
 function ContactLine({ icon: Icon, label, value, href, dark = false }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; href?: string; dark?: boolean }) {
-  const content = <span className={dark ? 'font-bold text-safi-green' : 'font-bold text-white'}>{value}</span>;
+  const content = <NoTranslate as="span" className={dark ? 'font-bold text-safi-green' : 'font-bold text-white'}>{value}</NoTranslate>;
 
   return (
     <div className="flex gap-3">
@@ -206,6 +212,7 @@ function ContactLine({ icon: Icon, label, value, href, dark = false }: { icon: R
 }
 
 function RequisitesTable({ settings }: { settings: LegalSettings }) {
+  const ui = useUiText();
   const rows = [
     ['Наименование юридического лица', settings.company_legal_name],
     ['БИН', settings.company_bin],
@@ -223,12 +230,12 @@ function RequisitesTable({ settings }: { settings: LegalSettings }) {
 
   return (
     <article className="rounded-[32px] border border-safi-border bg-white p-7 shadow-sm md:p-9">
-      <h2 className="font-serif text-2xl font-semibold leading-tight text-safi-green md:text-3xl">Реквизиты продавца</h2>
+      <h2 className="font-serif text-2xl font-semibold leading-tight text-safi-green md:text-3xl">{ui('Реквизиты продавца')}</h2>
       <div className="mt-6 overflow-hidden rounded-3xl border border-safi-border">
         {rows.map(([label, value]) => (
           <div key={label} className="grid gap-2 border-b border-safi-border p-5 last:border-b-0 md:grid-cols-[260px_minmax(0,1fr)]">
-            <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-text/45">{label}</div>
-            <div className="break-words text-sm font-bold leading-7 text-safi-green">{value}</div>
+            <div className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-safi-text/45">{ui(label)}</div>
+            <NoTranslate as="div" className="break-words text-sm font-bold leading-7 text-safi-green">{value}</NoTranslate>
           </div>
         ))}
       </div>

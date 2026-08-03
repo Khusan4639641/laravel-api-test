@@ -4,6 +4,8 @@ import { Container } from '../components/ui/Container';
 import { SectionTitle } from '../components/ui/SectionTitle';
 import { Button } from '../components/ui/Button';
 import { EmptyState, ErrorState, LoadingState } from '../components/ui/AsyncState';
+import { NoTranslate } from '../components/ui/NoTranslate';
+import { useUiText } from '../i18n/useUiText';
 import { getApiErrorState, getPublicPackages, getPublicStatuses, Package, Status } from '../lib/api';
 
 const CALCULATOR_MAX_AMOUNT = 250_000_000;
@@ -17,6 +19,7 @@ const PACKAGE_PERCENT_MATRIX: Record<string, { referral: number; binary: number 
 
 export default function MarketingPlanPage() {
   const { t } = useTranslation();
+  const ui = useUiText();
   const [packages, setPackages] = useState<Package[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
@@ -86,20 +89,20 @@ export default function MarketingPlanPage() {
       <Container>
         <SectionTitle
           title={`${t('marketing.title1', 'Маркетинг')}-${t('marketing.title2', 'план')} Safi Life`}
-          subtitle="Бинар + Классика"
+          subtitle={ui('Бинар + Классика')}
         />
 
         <div className="mb-20">
           <h3 className="text-4xl font-serif text-safi-green mb-8 text-center">
-            <span className="italic text-safi-gold">Виды</span> бонусов
+            <span className="italic text-safi-gold">{ui('Виды')}</span> {ui('бонусов')}
           </h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               { title: `${t('marketing.bonus1_title', 'Реферальный бонус')} (10%)`, desc: t('marketing.bonus1_desc', 'Получайте бонус за личные рекомендации при покупке пакета новым партнёром.') },
               { title: `${t('marketing.bonus2_title', 'Бинарный бонус')} (7-10%)`, desc: t('marketing.bonus2_desc', 'Начисляется с меньшей ветки вашей структуры при образовании бинарной пары.') },
-              { title: 'Статусный бонус', desc: 'Единоразовые премии и подарки за достижение определенных объемов PV.' },
-              { title: 'Bonus X2', desc: 'Если партнеры первой линии достигают статусов, вы удваиваете свой успех.' },
-              { title: 'Депозит 10%', desc: 'Часть бинарного бонуса сохраняется на балансе для будущих покупок.' },
+              { title: ui('Статусный бонус'), desc: ui('Единоразовые премии и подарки за достижение определенных объемов PV.') },
+              { title: 'Bonus X2', desc: ui('Если партнеры первой линии достигают статусов, вы удваиваете свой успех.') },
+              { title: ui('Депозит 10%'), desc: ui('Часть бинарного бонуса сохраняется на балансе для будущих покупок.') },
               { title: `Классика (${t('marketing.bonus4_title', 'Кэшбэк 20%')})`, desc: t('marketing.bonus4_desc', 'Возврат средств за личные покупки продуктов из каталога.') }
             ].map((item, i) => (
               <div key={item.title} className="bg-white p-8 rounded-[32px] shadow-sm border border-safi-green/5 hover:-translate-y-1 transition-transform duration-300">
@@ -115,30 +118,30 @@ export default function MarketingPlanPage() {
           <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-safi-green/5 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 z-0 pointer-events-none"></div>
 
           <h3 className="text-3xl md:text-4xl font-serif font-bold mb-10 text-center text-safi-green relative z-10">
-            <span className="italic text-safi-gold">Калькулятор дохода</span> (Пример)
+            <span className="italic text-safi-gold">{ui('Калькулятор дохода')}</span> ({ui('Пример')})
           </h3>
 
           <div className="grid md:grid-cols-2 gap-12 relative z-10">
             <div className="space-y-8">
               <div>
-                <label className="block text-[10px] tracking-widest font-bold text-safi-green uppercase opacity-80 mb-3">Ваш пакет</label>
+                <label className="block text-[10px] tracking-widest font-bold text-safi-green uppercase opacity-80 mb-3">{ui('Ваш пакет')}</label>
 
                 {packagesLoading && (
                   <div className="rounded-xl bg-[#F5F5F0] border border-safi-green/5 px-4 py-3 text-xs font-bold uppercase tracking-widest text-safi-green opacity-70">
-                    Загружаем пакеты...
+                    {ui('Загружаем пакеты...')}
                   </div>
                 )}
 
                 {!packagesLoading && packagesError && (
                   <div className="rounded-xl bg-[#F5F5F0] border border-safi-green/5 p-4">
                     <p className="text-sm text-safi-text opacity-70 leading-relaxed mb-4">{packagesError}</p>
-                    <Button type="button" variant="outline" onClick={loadPackages}>Повторить</Button>
+                    <Button type="button" variant="outline" onClick={loadPackages}>{ui('Повторить')}</Button>
                   </div>
                 )}
 
                 {!packagesLoading && !packagesError && packages.length === 0 && (
                   <div className="rounded-xl bg-[#F5F5F0] border border-safi-green/5 px-4 py-3 text-xs font-bold uppercase tracking-widest text-safi-green opacity-70">
-                    Пакеты пока не опубликованы.
+                    {ui('Пакеты пока не опубликованы.')}
                   </div>
                 )}
 
@@ -155,7 +158,7 @@ export default function MarketingPlanPage() {
                             : 'bg-[#F5F5F0] text-safi-green hover:bg-safi-green/10 border border-safi-green/5'
                         }`}
                       >
-                        {pkg.label || pkg.name}
+                        <NoTranslate>{packageCode(pkg)}</NoTranslate>
                       </button>
                     ))}
                   </div>
@@ -208,7 +211,7 @@ export default function MarketingPlanPage() {
                 </div>
               </div>
               <div className="relative z-10">
-                <div className="text-[10px] text-safi-gold uppercase tracking-widest font-bold mb-2">Примерный общий доход</div>
+                <div className="text-[10px] text-safi-gold uppercase tracking-widest font-bold mb-2">{ui('Примерный общий доход')}</div>
                 <div className="text-4xl md:text-5xl font-serif font-bold text-white">{totalEstimated.toLocaleString('ru-RU')} ₸</div>
               </div>
               <p className="text-[10px] opacity-50 mt-8 text-center relative z-10">
@@ -220,11 +223,11 @@ export default function MarketingPlanPage() {
 
         <div className="mb-20">
           <h3 className="text-4xl font-serif text-safi-green mb-8 text-center">
-            <span className="italic text-safi-gold">Статусы</span> и вознаграждения
+            <span className="italic text-safi-gold">{ui('Статусы')}</span> {ui('и вознаграждения')}
           </h3>
 
           {statusesLoading && (
-            <LoadingState title="Загружаем статусы" description="Получаем таблицу статусов из публичного API." />
+            <LoadingState title={ui('Загружаем статусы')} description={ui('Получаем таблицу статусов из публичного API.')} />
           )}
 
           {!statusesLoading && statusesError && (
@@ -233,8 +236,8 @@ export default function MarketingPlanPage() {
 
           {!statusesLoading && !statusesError && statuses.length === 0 && (
             <EmptyState
-              title="Статусы пока не опубликованы"
-              description="Таблица статусов появится после настройки данных."
+              title={ui('Статусы пока не опубликованы')}
+              description={ui('Таблица статусов появится после настройки данных.')}
             />
           )}
 
@@ -243,9 +246,9 @@ export default function MarketingPlanPage() {
               <table className="w-full min-w-[640px] text-left bg-white rounded-[32px] shadow-sm overflow-hidden border border-safi-green/5">
                 <thead className="bg-[#F5F5F0] text-[10px] text-safi-green uppercase tracking-widest font-bold">
                   <tr>
-                    <th className="p-6 border-b border-safi-green/5">Статус</th>
-                    <th className="p-6 border-b border-safi-green/5">Накоплено PV</th>
-                    <th className="p-6 border-b border-safi-green/5">Вознаграждение</th>
+                    <th className="p-6 border-b border-safi-green/5">{ui('Статус')}</th>
+                    <th className="p-6 border-b border-safi-green/5">{ui('Накоплено PV')}</th>
+                    <th className="p-6 border-b border-safi-green/5">{ui('Вознаграждение')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-safi-green/5">
@@ -263,7 +266,7 @@ export default function MarketingPlanPage() {
         </div>
 
         <div className="text-center max-w-2xl mx-auto text-[10px] text-safi-text opacity-50 uppercase tracking-wider">
-          Все бонусы начисляются согласно действующему маркетинг-{t('marketing.title2', 'план')}у компании. Доход не гарантирован и зависит от активности партнёра, продаж, структуры и выполнения условий.
+          {ui('Все бонусы начисляются согласно действующему маркетинг-плану компании. Доход не гарантирован и зависит от активности партнёра, продаж, структуры и выполнения условий.')}
         </div>
       </Container>
     </div>

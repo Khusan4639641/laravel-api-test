@@ -115,7 +115,7 @@ class ForgotPasswordRequestController extends Controller
         });
 
         return response()->json([
-            'message' => 'Новый пароль установлен.',
+            'message' => __('api.forgot_password.password_set'),
             'data' => [
                 'request_id' => $result->id,
                 'user_id' => $result->user_id,
@@ -145,7 +145,7 @@ class ForgotPasswordRequestController extends Controller
         ])->save();
 
         return response()->json([
-            'message' => 'Обращение отменено.',
+            'message' => __('api.forgot_password.cancelled'),
             'data' => ForgotPasswordRequestResource::make($forgotPasswordRequest->load(['user.profile', 'resolvedBy.profile'])),
         ]);
     }

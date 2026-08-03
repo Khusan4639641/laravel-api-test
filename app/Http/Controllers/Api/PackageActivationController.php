@@ -23,7 +23,7 @@ class PackageActivationController extends Controller
 
         if (! config('safi.user_package_changes_enabled', false)) {
             return response()->json([
-                'message' => 'Покупка пакетов пользователем временно недоступна. Обратитесь к администратору.',
+                'message' => __('api.package_purchase_disabled'),
             ], 403);
         }
 
