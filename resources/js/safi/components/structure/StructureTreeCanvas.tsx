@@ -320,7 +320,7 @@ export function StructureTreeCanvas({
 
       {depthInfo?.hasDeeperNodes && (
         <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-800">
-          {adminText('Есть ещё партнёры глубже текущей глубины дерева')}: {depthInfo.hiddenNodesCount.toLocaleString('ru-RU')}. {adminText('Увеличьте depth в URL до 10 или используйте список выше.')}
+          {adminText('Есть ещё партнёры глубже текущей глубины дерева')}: {depthInfo.hiddenNodesCount.toLocaleString('ru-RU')}. {adminText('Увеличьте depth в URL до 50 или используйте список выше.')}
         </div>
       )}
 

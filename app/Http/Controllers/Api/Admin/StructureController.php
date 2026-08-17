@@ -21,7 +21,7 @@ class StructureController extends Controller
     {
         $selectedUser = null;
         $rootNode = null;
-        $maxDepth = min(max((int) $request->integer('depth', 10), 0), 10);
+        $maxDepth = min(max((int) $request->integer('depth', 50), 0), 50);
         $includeFlat = $request->boolean('include_flat');
         $selectedUserId = $request->filled('user_id')
             ? (int) $request->integer('user_id')

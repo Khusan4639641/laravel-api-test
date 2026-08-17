@@ -228,7 +228,7 @@ export default function AdminStructure() {
   const rootIdFromUrl = searchParams.get('root_id')?.trim() || '';
   const selectedRootId = /^\d+$/.test(rootIdFromUrl) ? Number(rootIdFromUrl) : null;
   const selectedUserId = selectedRootId === null ? '' : String(selectedRootId);
-  const selectedDepth = searchParams.get('depth') || '10';
+  const selectedDepth = searchParams.get('depth') || '50';
   const rootOrphanPerPageParam = searchParams.get('per_page');
   const initialRootOrphanLimit = normalizeRootOrphanPerPage(rootOrphanPerPageParam);
   const [query, setQuery] = useState(selectedUserId);

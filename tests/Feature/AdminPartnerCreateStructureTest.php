@@ -122,22 +122,22 @@ class AdminPartnerCreateStructureTest extends TestCase
         $this->assertSame(5, count($response->json('flat')));
     }
 
-    public function test_admin_structure_default_depth_includes_new_users_up_to_depth_ten(): void
+    public function test_admin_structure_default_depth_includes_new_users_up_to_depth_fifty(): void
     {
         $sponsor = $this->partner('structure-depth-sponsor');
         Sanctum::actingAs($this->superAdmin());
 
-        foreach (range(1, 10) as $index) {
+        foreach (range(1, 50) as $index) {
             $this->createAdminPartner("structure-depth-{$index}", $sponsor, 'left');
         }
 
         $response = $this->getJson("/api/admin/structure?user_id={$sponsor->id}")
             ->assertOk()
-            ->assertJsonPath('depth', 10)
+            ->assertJsonPath('depth', 50)
             ->assertJsonPath('has_deeper_nodes', false);
 
-        $this->assertNotNull($this->nodeByLogin($response, 'structure-depth-10'));
-        $this->assertSame(10, $response->json('summary.left_count'));
+        $this->assertNotNull($this->nodeByLogin($response, 'structure-depth-50'));
+        $this->assertSame(50, $response->json('summary.left_count'));
     }
 
     public function test_search_by_login_finds_node_inside_sponsor_structure(): void
