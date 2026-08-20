@@ -17,6 +17,7 @@ use RuntimeException;
     {--scope=entire-batch : adjustments-only|entire-batch}
     {--dry-run : Generate plan without database writes}
     {--manifest= : Path to generated or approved manifest}
+    {--reconciliation= : Path to approved incident reconciliation JSON}
     {--confirm-fingerprint= : Required for force mode}
     {--report= : JSON report path}
     {--force : Execute an approved rollback plan}
@@ -45,7 +46,16 @@ class BinaryRecalculationRollbackBatchCommand extends Command
         $scope = (string) $this->option('scope');
         $runIds = $this->runIdsOption();
         $controlUserId = (int) $this->option('control-user-id');
-        $manifest = $service->discover($startedAt, $endedAt, $scope, $runIds, $controlUserId);
+        [$reconciliation, $reconciliationChecksum] = $this->reconciliationOption();
+        $manifest = $service->discover(
+            $startedAt,
+            $endedAt,
+            $scope,
+            $runIds,
+            $controlUserId,
+            $reconciliation,
+            $reconciliationChecksum,
+        );
         $manifestPath = $this->option('manifest')
             ? $this->resolvePath((string) $this->option('manifest'))
             : $this->defaultArtifactPath($startedAt, 'manifest');
@@ -65,6 +75,11 @@ class BinaryRecalculationRollbackBatchCommand extends Command
         $this->line('Report: '.$reportPath);
         $this->line('Fingerprint: '.$manifest['fingerprint']);
         $this->renderOperations($manifest['operations']);
+
+        if ($manifest['reconciliation'] !== null) {
+            $this->renderReconciliation($manifest['reconciliation']);
+        }
+
         $this->renderSummary($manifest['totals']);
 
         if ($manifest['control_user'] !== null) {
@@ -111,6 +126,20 @@ class BinaryRecalculationRollbackBatchCommand extends Command
         $manifestPath = $this->resolvePath($manifestOption);
         $manifest = $this->readJson($manifestPath);
         $scope = (string) $this->option('scope');
+        [$reconciliation, $reconciliationChecksum] = $this->reconciliationOption();
+        $approvedReconciliationChecksum = data_get($manifest, 'reconciliation.json_checksum');
+
+        if ($approvedReconciliationChecksum !== null && $reconciliation === null) {
+            throw new RuntimeException('Force mode requires --reconciliation for this approved manifest.');
+        }
+
+        if ($approvedReconciliationChecksum === null && $reconciliation !== null) {
+            throw new RuntimeException('This manifest was generated without reconciliation. Generate a new dry-run manifest.');
+        }
+
+        if ($approvedReconciliationChecksum !== null && ! hash_equals((string) $approvedReconciliationChecksum, (string) $reconciliationChecksum)) {
+            throw new RuntimeException('The reconciliation JSON checksum does not match the approved manifest.');
+        }
 
         if (($manifest['scope'] ?? null) !== $scope) {
             throw new RuntimeException('The command scope does not match the approved manifest scope.');
@@ -136,7 +165,7 @@ class BinaryRecalculationRollbackBatchCommand extends Command
             ...$manifest,
         ]);
 
-        $result = $service->execute($manifest, $confirmedFingerprint);
+        $result = $service->execute($manifest, $confirmedFingerprint, $reconciliation, $reconciliationChecksum);
 
         if (($result['already_rolled_back'] ?? false) === true) {
             $this->warn('Binary recalculation batch has already been rolled back.');
@@ -203,6 +232,67 @@ class BinaryRecalculationRollbackBatchCommand extends Command
         )->values()->all());
     }
 
+    private function renderReconciliation(array $reconciliation): void
+    {
+        $this->newLine();
+        $this->info('Downstream transfers to reverse');
+        $this->table([
+            'transfer_id', 'status_now', 'status_after', 'amount', 'sender', 'recipient',
+            'sender_before', 'sender_after', 'recipient_before', 'recipient_after', 'can_reconcile', 'blocker_reason',
+        ], collect($reconciliation['partner_transfers'])->map(fn (array $record): array => [
+            $record['partner_transfer_id'],
+            $record['current_status'],
+            $record['expected_status'],
+            $record['amount'],
+            $record['sender_user_id'],
+            $record['recipient_user_id'],
+            $record['sender_wallet_before'],
+            $record['sender_wallet_after'],
+            $record['recipient_wallet_before'],
+            $record['recipient_wallet_after'],
+            $record['can_reconcile'] ? 'yes' : 'no',
+            $record['blocker_reason'],
+        ])->all());
+
+        $this->newLine();
+        $this->info('Manual adjustments to reverse');
+        $this->table([
+            'transaction_id', 'admin_log_id', 'user_id', 'status_now', 'status_after',
+            'amount', 'wallet_before', 'wallet_after', 'can_reconcile', 'blocker_reason',
+        ], collect($reconciliation['manual_adjustments'])->map(fn (array $record): array => [
+            $record['wallet_transaction_id'],
+            $record['admin_action_log_id'],
+            $record['user_id'],
+            $record['current_status'],
+            $record['expected_status'],
+            $record['amount'],
+            $record['wallet_before'],
+            $record['wallet_after'],
+            $record['can_reconcile'] ? 'yes' : 'no',
+            $record['blocker_reason'],
+        ])->all());
+
+        $this->newLine();
+        $this->info('Preserved transactions');
+        $this->table(['id', 'user_id', 'type', 'amount', 'affects_balance'], collect($reconciliation['preserved_transactions'])->map(fn (array $record): array => [
+            $record['id'],
+            $record['user_id'],
+            $record['type'],
+            $record['amount'],
+            $record['affects_balance'] ? 'yes' : 'no',
+        ])->all());
+
+        $this->newLine();
+        $this->info('Expected final balances');
+        $this->table(['user_id', 'wallet_id', 'wallet_type', 'current_balance', 'expected_balance'], collect($reconciliation['expected_final_balances'])->map(fn (array $record): array => [
+            $record['user_id'],
+            $record['wallet_id'],
+            $record['wallet_type'],
+            $record['current_balance'],
+            $record['expected_balance'],
+        ])->all());
+    }
+
     private function utcOption(string $name): CarbonImmutable
     {
         $value = trim((string) $this->option($name));
@@ -234,6 +324,31 @@ class BinaryRecalculationRollbackBatchCommand extends Command
         }
 
         return $ids;
+    }
+
+    /** @return array{0: ?array, 1: ?string} */
+    private function reconciliationOption(): array
+    {
+        $value = trim((string) $this->option('reconciliation'));
+
+        if ($value === '') {
+            return [null, null];
+        }
+
+        $path = $this->resolvePath($value);
+
+        if (! File::isFile($path)) {
+            throw new RuntimeException('Reconciliation file does not exist: '.$path);
+        }
+
+        $raw = (string) File::get($path);
+        $decoded = json_decode($raw, true);
+
+        if (! is_array($decoded)) {
+            throw new RuntimeException('Reconciliation file is not valid JSON: '.$path);
+        }
+
+        return [$decoded, hash('sha256', $raw)];
     }
 
     /** @return array<string, mixed> */

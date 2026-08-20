@@ -21,7 +21,11 @@ class BinaryRecalculationRollbackService
 
     public const SCOPE_ENTIRE_BATCH = 'entire-batch';
 
-    public const MANIFEST_VERSION = 1;
+    public const MANIFEST_VERSION = 2;
+
+    public function __construct(
+        private readonly BinaryIncidentReconciliationService $reconciliationService,
+    ) {}
 
     /**
      * Discover an incident from linked records and immutable snapshots. The
@@ -37,6 +41,8 @@ class BinaryRecalculationRollbackService
         string $scope,
         ?array $explicitRunIds = null,
         int $controlUserId = 69,
+        ?array $reconciliation = null,
+        ?string $reconciliationChecksum = null,
     ): array {
         $this->assertScope($scope);
 
@@ -97,9 +103,28 @@ class BinaryRecalculationRollbackService
             }
         }
 
-        $operations = $this->attachWalletReplayPlans($operations);
+        $reconciliationPlan = null;
+        $reconciliationTargetIds = [];
+
+        if ($reconciliation !== null) {
+            if (! is_string($reconciliationChecksum) || ! preg_match('/^[a-f0-9]{64}$/', $reconciliationChecksum)) {
+                throw new RuntimeException('A valid SHA-256 reconciliation JSON checksum is required.');
+            }
+
+            $reconciliationPlan = $this->reconciliationService->plan($reconciliation, $reconciliationChecksum);
+            $reconciliationTargetIds = $reconciliationPlan['reversal_wallet_transaction_ids'];
+        }
+
+        [$operations, $walletReplays] = $this->attachWalletReplayPlans($operations, $reconciliationTargetIds);
+
+        if ($reconciliationPlan !== null) {
+            $reconciliationPlan = $this->reconciliationService->withWalletPlans($reconciliationPlan, $walletReplays);
+        }
+
         $blockers = collect($operations)
             ->flatMap(fn (array $operation): array => $operation['blockers'])
+            ->merge(collect($walletReplays)->flatMap(fn (array $plan): array => $plan['blockers']))
+            ->merge($reconciliationPlan['blockers'] ?? [])
             ->merge($inconsistencies)
             ->unique()
             ->values()
@@ -113,7 +138,9 @@ class BinaryRecalculationRollbackService
         $targetHistoricalIds = $historicalRuns->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
         $targetNewIds = $newRuns->pluck('id')->map(fn ($id) => (int) $id)->values()->all();
         $targetOperations = collect($operations);
-        $userIds = $targetOperations->pluck('user_id')->map(fn ($id) => (int) $id)->unique()->sort()->values()->all();
+        $userIds = $targetOperations->pluck('user_id')
+            ->merge($reconciliationPlan['user_ids'] ?? [])
+            ->map(fn ($id) => (int) $id)->unique()->sort()->values()->all();
         $adjustmentIds = $targetOperations->where('operation_type', 'restore_existing_run')
             ->flatMap(fn (array $operation): array => $operation['wallet_transaction_ids'])
             ->map(fn ($id) => (int) $id)->sort()->values()->all();
@@ -134,15 +161,22 @@ class BinaryRecalculationRollbackService
             fn (array $operation): array => $operation['notification_ids']
         )->values()->all();
 
+        $reconciliationPreservedIds = [
+            ...($reconciliationPlan['preserve_wallet_transaction_ids'] ?? []),
+            ...($reconciliationPlan['preserve_non_balance_transaction_ids'] ?? []),
+        ];
         $stateSnapshot = $this->stateSnapshot(
             array_values(array_unique([...$targetHistoricalIds, ...$targetNewIds])),
             array_values(array_unique([...$historicalBonusIds, ...$newBonusIds])),
-            array_values(array_unique([...$adjustmentIds, ...$newPayoutIds])),
+            array_values(array_unique([...$adjustmentIds, ...$newPayoutIds, ...$reconciliationTargetIds, ...$reconciliationPreservedIds])),
             array_values(array_unique([...$batchCalculationIds, ...$sourceCalculationIds])),
             $userIds,
             $notificationIds,
         );
         $totals = $this->totals($operations, $historicalRuns, $newRuns, $blockers, $inconsistencies, $errors);
+        $totals['partner_transfers_to_reverse'] = count($reconciliationPlan['partner_transfers'] ?? []);
+        $totals['manual_adjustments_to_reverse'] = count($reconciliationPlan['manual_adjustments'] ?? []);
+        $totals['preserved_transactions'] = count($reconciliationPlan['preserved_transactions'] ?? []);
         $manifest = [
             'manifest_version' => self::MANIFEST_VERSION,
             'generated_at' => now('UTC')->toISOString(),
@@ -155,6 +189,7 @@ class BinaryRecalculationRollbackService
             'timezone' => $timezone,
             'scope' => $scope,
             'control_user_id' => $controlUserId,
+            'executable' => $blockers === [] && $errors === [],
             'run_ids' => [
                 'historical' => $targetHistoricalIds,
                 'new' => $targetNewIds,
@@ -179,6 +214,8 @@ class BinaryRecalculationRollbackService
             'notification_ids' => $notificationIds,
             'user_ids' => $userIds,
             'operations' => $operations,
+            'wallet_replays' => $walletReplays,
+            'reconciliation' => $reconciliationPlan,
             'blockers' => $blockers,
             'inconsistencies' => $inconsistencies,
             'errors' => $errors,
@@ -210,6 +247,8 @@ class BinaryRecalculationRollbackService
             'pv_transaction_ids' => $manifest['pv_transaction_ids'] ?? null,
             'notification_ids' => $manifest['notification_ids'] ?? null,
             'user_ids' => $manifest['user_ids'] ?? null,
+            'wallet_replays' => $manifest['wallet_replays'] ?? null,
+            'reconciliation' => $manifest['reconciliation'] ?? null,
             'state_snapshot' => $manifest['state_snapshot'] ?? null,
         ];
 
@@ -220,8 +259,12 @@ class BinaryRecalculationRollbackService
      * @param  array<string, mixed>  $approvedManifest
      * @return array<string, mixed>
      */
-    public function execute(array $approvedManifest, string $confirmedFingerprint): array
-    {
+    public function execute(
+        array $approvedManifest,
+        string $confirmedFingerprint,
+        ?array $reconciliation = null,
+        ?string $reconciliationChecksum = null,
+    ): array {
         $manifestFingerprint = (string) ($approvedManifest['fingerprint'] ?? '');
 
         if ($manifestFingerprint === '' || ! hash_equals($manifestFingerprint, $confirmedFingerprint)) {
@@ -242,7 +285,25 @@ class BinaryRecalculationRollbackService
         $reportPath = $approvedManifest['report_path'] ?? null;
         $runIds = array_map('intval', (array) data_get($approvedManifest, 'run_ids.all_classified', []));
         $controlUserId = (int) ($approvedManifest['control_user_id'] ?? 69);
-        $liveManifest = $this->discover($startedAt, $endedAt, $scope, $runIds, $controlUserId);
+        $approvedChecksum = data_get($approvedManifest, 'reconciliation.json_checksum');
+
+        if ($approvedChecksum !== null) {
+            if ($reconciliation === null || ! is_string($reconciliationChecksum) || ! hash_equals((string) $approvedChecksum, $reconciliationChecksum)) {
+                throw new RuntimeException('The reconciliation JSON does not match the approved manifest checksum.');
+            }
+        } elseif ($reconciliation !== null) {
+            throw new RuntimeException('The approved manifest does not include reconciliation data. Generate a new dry-run manifest.');
+        }
+
+        $liveManifest = $this->discover(
+            $startedAt,
+            $endedAt,
+            $scope,
+            $runIds,
+            $controlUserId,
+            $reconciliation,
+            $reconciliationChecksum,
+        );
 
         if (! hash_equals($manifestFingerprint, (string) $liveManifest['fingerprint'])) {
             throw new RuntimeException('Fingerprint mismatch: database state changed after dry-run. Generate and approve a new manifest.');
@@ -256,8 +317,8 @@ class BinaryRecalculationRollbackService
             throw new RuntimeException('Strict rollback blocked: '.implode('; ', $liveManifest['blockers']));
         }
 
-        return DB::transaction(function () use ($liveManifest, $manifestFingerprint, $startedAt, $endedAt, $scope, $runIds, $controlUserId, $reportPath): array {
-            $walletIds = collect($liveManifest['operations'])->pluck('wallet_replays')->flatten(1)->pluck('wallet_id')->unique()->values()->all();
+        return DB::transaction(function () use ($liveManifest, $manifestFingerprint, $startedAt, $endedAt, $scope, $runIds, $controlUserId, $reportPath, $reconciliation, $reconciliationChecksum): array {
+            $walletIds = collect($liveManifest['wallet_replays'])->pluck('wallet_id')->unique()->values()->all();
             Wallet::query()->whereIn('id', $walletIds)->orderBy('id')->lockForUpdate()->get();
             User::query()->whereIn('id', $liveManifest['user_ids'])->orderBy('id')->lockForUpdate()->get();
             BinaryBonusRun::query()->whereIn('id', data_get($liveManifest, 'run_ids.targeted', []))->orderBy('id')->lockForUpdate()->get();
@@ -265,8 +326,28 @@ class BinaryRecalculationRollbackService
                 ...data_get($liveManifest, 'bonus_transaction_ids.restore', []),
                 ...data_get($liveManifest, 'bonus_transaction_ids.delete', []),
             ])->orderBy('id')->lockForUpdate()->get();
+            WalletTransaction::query()->whereIn('id', [
+                ...data_get($liveManifest, 'wallet_transaction_ids.adjustments', []),
+                ...data_get($liveManifest, 'wallet_transaction_ids.new_payouts', []),
+                ...data_get($liveManifest, 'reconciliation.reversal_wallet_transaction_ids', []),
+                ...data_get($liveManifest, 'reconciliation.preserve_wallet_transaction_ids', []),
+                ...data_get($liveManifest, 'reconciliation.preserve_non_balance_transaction_ids', []),
+            ])->orderBy('id')->lockForUpdate()->get();
 
-            $lockedManifest = $this->discover($startedAt, $endedAt, $scope, $runIds, $controlUserId);
+            if ($liveManifest['reconciliation'] !== null) {
+                DB::table('partner_transfers')->whereIn('id', collect($liveManifest['reconciliation']['partner_transfers'])->pluck('partner_transfer_id'))->orderBy('id')->lockForUpdate()->get();
+                DB::table('admin_action_logs')->whereIn('id', collect($liveManifest['reconciliation']['manual_adjustments'])->pluck('admin_action_log_id'))->orderBy('id')->lockForUpdate()->get();
+            }
+
+            $lockedManifest = $this->discover(
+                $startedAt,
+                $endedAt,
+                $scope,
+                $runIds,
+                $controlUserId,
+                $reconciliation,
+                $reconciliationChecksum,
+            );
 
             if (! hash_equals($manifestFingerprint, (string) $lockedManifest['fingerprint'])) {
                 throw new RuntimeException('Fingerprint mismatch while acquiring rollback locks. No changes were made.');
@@ -276,7 +357,15 @@ class BinaryRecalculationRollbackService
                 throw new RuntimeException('Strict rollback became unsafe while acquiring locks. No changes were made.');
             }
 
-            $this->applyWalletReplays($lockedManifest['operations']);
+            if ($lockedManifest['reconciliation'] !== null) {
+                $this->reconciliationService->apply($lockedManifest['reconciliation'], $manifestFingerprint);
+            }
+
+            $binaryWalletTransactionIds = [
+                ...data_get($lockedManifest, 'wallet_transaction_ids.adjustments', []),
+                ...data_get($lockedManifest, 'wallet_transaction_ids.new_payouts', []),
+            ];
+            $this->applyWalletReplays($lockedManifest['wallet_replays'], $binaryWalletTransactionIds);
             $this->applyPvDeltas($lockedManifest['operations']);
 
             foreach ($lockedManifest['operations'] as $operation) {
@@ -303,6 +392,8 @@ class BinaryRecalculationRollbackService
                     'calculation_ids' => $lockedManifest['calculation_ids'],
                     'report_path' => $reportPath,
                     'result' => 'completed',
+                    'reconciliation_incident' => data_get($lockedManifest, 'reconciliation.incident'),
+                    'reconciliation_checksum' => data_get($lockedManifest, 'reconciliation.json_checksum'),
                 ],
             ]);
 
@@ -317,6 +408,10 @@ class BinaryRecalculationRollbackService
                     'wallet_transactions' => $lockedManifest['wallet_transaction_ids'],
                     'calculations' => $lockedManifest['calculation_ids'],
                     'users' => $lockedManifest['user_ids'],
+                    'reconciliation' => [
+                        'partner_transfers' => data_get($lockedManifest, 'reconciliation.partner_transfers', []),
+                        'manual_adjustments' => data_get($lockedManifest, 'reconciliation.manual_adjustments', []),
+                    ],
                 ],
                 'after' => $this->afterSnapshot($lockedManifest),
             ];
@@ -535,17 +630,23 @@ class BinaryRecalculationRollbackService
 
     /**
      * @param  array<int, array<string, mixed>>  $operations
-     * @return array<int, array<string, mixed>>
+     * @param  array<int, int>  $neutralTransactionIds
+     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
      */
-    private function attachWalletReplayPlans(array $operations): array
+    private function attachWalletReplayPlans(array $operations, array $neutralTransactionIds = []): array
     {
         $allTargetIds = collect($operations)->flatMap(fn (array $operation): array => $operation['wallet_transaction_ids'])
-            ->map(fn ($id) => (int) $id)->unique()->values()->all();
+            ->merge($neutralTransactionIds)->map(fn ($id) => (int) $id)->unique()->values()->all();
         $targets = WalletTransaction::query()->whereIn('id', $allTargetIds)->get()->keyBy('id');
         $walletPlans = [];
 
         foreach ($targets->groupBy('wallet_id') as $walletId => $walletTargets) {
-            $walletPlans[(int) $walletId] = $this->walletReplayPlan((int) $walletId, $walletTargets->pluck('id')->map(fn ($id) => (int) $id)->all());
+            $walletTargetIds = $walletTargets->pluck('id')->map(fn ($id) => (int) $id)->all();
+            $walletPlans[(int) $walletId] = $this->walletReplayPlan(
+                (int) $walletId,
+                $walletTargetIds,
+                collect($walletTargetIds)->intersect($neutralTransactionIds)->values()->all(),
+            );
         }
 
         foreach ($operations as &$operation) {
@@ -563,6 +664,7 @@ class BinaryRecalculationRollbackService
                         'wallet_id' => (int) $wallet->id,
                         'wallet_type' => (string) $wallet->type,
                         'target_transaction_ids' => [],
+                        'neutralized_transaction_ids' => [],
                         'later_transaction_ids' => [],
                         'current_balance' => (string) $wallet->balance,
                         'expected_balance' => (string) $wallet->balance,
@@ -624,11 +726,11 @@ class BinaryRecalculationRollbackService
         }
         unset($operation);
 
-        return $operations;
+        return [$operations, array_values($walletPlans)];
     }
 
     /** @return array<string, mixed> */
-    private function walletReplayPlan(int $walletId, array $targetIds): array
+    private function walletReplayPlan(int $walletId, array $targetIds, array $neutralTransactionIds = []): array
     {
         $wallet = Wallet::query()->find($walletId);
         $transactions = WalletTransaction::query()
@@ -647,6 +749,7 @@ class BinaryRecalculationRollbackService
                 'wallet_id' => $walletId,
                 'wallet_type' => $wallet?->type,
                 'target_transaction_ids' => $targetIds,
+                'neutralized_transaction_ids' => $neutralTransactionIds,
                 'later_transaction_ids' => [],
                 'current_balance' => $wallet?->balance,
                 'expected_balance' => null,
@@ -680,12 +783,21 @@ class BinaryRecalculationRollbackService
         $balance = (string) $first->balance_before;
         $updates = [];
         $laterIds = [];
+        $neutralLookup = array_fill_keys($neutralTransactionIds, true);
 
         for ($index = $firstIndex; $index < $transactions->count(); $index++) {
             /** @var WalletTransaction $transaction */
             $transaction = $transactions[$index];
 
             if (isset($targetLookup[$transaction->id])) {
+                if (isset($neutralLookup[$transaction->id])) {
+                    $updates[] = [
+                        'id' => (int) $transaction->id,
+                        'balance_before' => $balance,
+                        'balance_after' => $balance,
+                    ];
+                }
+
                 continue;
             }
 
@@ -707,6 +819,12 @@ class BinaryRecalculationRollbackService
                     'balance_after' => $balance,
                 ];
                 $laterIds[] = (int) $transaction->id;
+            } else {
+                $updates[] = [
+                    'id' => (int) $transaction->id,
+                    'balance_before' => $balance,
+                    'balance_after' => $balance,
+                ];
             }
         }
 
@@ -722,6 +840,7 @@ class BinaryRecalculationRollbackService
             'wallet_id' => (int) $wallet->id,
             'wallet_type' => (string) $wallet->type,
             'target_transaction_ids' => array_values($targetIds),
+            'neutralized_transaction_ids' => array_values($neutralTransactionIds),
             'later_transaction_ids' => array_values(array_unique($laterIds)),
             'current_balance' => (string) $wallet->balance,
             'expected_balance' => $balance,
@@ -730,11 +849,12 @@ class BinaryRecalculationRollbackService
         ];
     }
 
-    /** @param array<int, array<string, mixed>> $operations */
-    private function applyWalletReplays(array $operations): void
+    /**
+     * @param  array<int, array<string, mixed>>  $plans
+     * @param  array<int, int>  $deleteTransactionIds
+     */
+    private function applyWalletReplays(array $plans, array $deleteTransactionIds): void
     {
-        $plans = collect($operations)->flatMap(fn (array $operation): array => $operation['wallet_replays'])->keyBy('wallet_id');
-
         foreach ($plans as $plan) {
             foreach ($plan['updates'] as $update) {
                 WalletTransaction::query()->whereKey($update['id'])->update([
@@ -744,8 +864,9 @@ class BinaryRecalculationRollbackService
             }
 
             Wallet::query()->whereKey($plan['wallet_id'])->update(['balance' => $plan['expected_balance']]);
-            WalletTransaction::query()->whereIn('id', $plan['target_transaction_ids'])->delete();
         }
+
+        WalletTransaction::query()->whereIn('id', $deleteTransactionIds)->delete();
     }
 
     /** @param array<int, array<string, mixed>> $operations */
@@ -993,10 +1114,19 @@ class BinaryRecalculationRollbackService
             'wallet_transactions' => $this->tableSnapshots('wallet_transactions', [
                 ...data_get($manifest, 'wallet_transaction_ids.adjustments', []),
                 ...data_get($manifest, 'wallet_transaction_ids.new_payouts', []),
+                ...data_get($manifest, 'reconciliation.reversal_wallet_transaction_ids', []),
+                ...data_get($manifest, 'reconciliation.preserve_wallet_transaction_ids', []),
+                ...data_get($manifest, 'reconciliation.preserve_non_balance_transaction_ids', []),
             ]),
+            'partner_transfers' => $this->tableSnapshots('partner_transfers', collect(data_get($manifest, 'reconciliation.partner_transfers', []))->pluck('partner_transfer_id')->all()),
+            'original_admin_action_logs' => $this->tableSnapshots('admin_action_logs', collect(data_get($manifest, 'reconciliation.manual_adjustments', []))->pluck('admin_action_log_id')->all()),
+            'reconciliation_audits' => AdminActionLog::query()
+                ->where('action', 'binary_incident_reconciliation')
+                ->get()->filter(fn (AdminActionLog $log): bool => data_get($log->metadata, 'rollback_manifest_fingerprint') === ($manifest['fingerprint'] ?? null))
+                ->map(fn (AdminActionLog $log): array => $this->modelSnapshot($log))->values()->all(),
             'calculations' => $this->tableSnapshots('binary_bonus_calculations', data_get($manifest, 'calculation_ids.delete', [])),
             'users' => $this->tableSnapshots('users', $manifest['user_ids'], ['id', 'email', 'remaining_left_pv', 'remaining_right_pv', 'updated_at']),
-            'wallets' => $this->tableSnapshots('wallets', collect($manifest['operations'])->pluck('wallet_replays')->flatten(1)->pluck('wallet_id')->unique()->values()->all()),
+            'wallets' => $this->tableSnapshots('wallets', collect($manifest['wallet_replays'])->pluck('wallet_id')->unique()->values()->all()),
         ];
     }
 
@@ -1010,7 +1140,7 @@ class BinaryRecalculationRollbackService
         return DB::table($table)->whereIn('id', $ids)->orderBy('id')->get($columns)->map(function ($row): array {
             $values = (array) $row;
 
-            foreach (['metadata', 'data'] as $jsonColumn) {
+            foreach (['metadata', 'meta', 'data'] as $jsonColumn) {
                 if (isset($values[$jsonColumn]) && is_string($values[$jsonColumn])) {
                     $decoded = json_decode($values[$jsonColumn], true);
                     $values[$jsonColumn] = is_array($decoded) ? $decoded : $values[$jsonColumn];
@@ -1026,7 +1156,7 @@ class BinaryRecalculationRollbackService
     {
         $values = $model->getAttributes();
 
-        foreach (['metadata', 'data'] as $jsonColumn) {
+        foreach (['metadata', 'meta', 'data'] as $jsonColumn) {
             if (isset($values[$jsonColumn]) && is_string($values[$jsonColumn])) {
                 $decoded = json_decode($values[$jsonColumn], true);
                 $values[$jsonColumn] = is_array($decoded) ? $decoded : $values[$jsonColumn];
