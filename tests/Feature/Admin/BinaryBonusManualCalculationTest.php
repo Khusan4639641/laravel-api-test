@@ -106,7 +106,7 @@ class BinaryBonusManualCalculationTest extends TestCase
         $this->postJson("/api/admin/partners/{$partner->id}/binary-bonus/calculate")
             ->assertOk()
             ->assertJsonPath('bonus_transaction', null)
-            ->assertJsonPath('message', 'No binary bonus available.');
+            ->assertJsonPath('message', __('api.partner.binary_unavailable'));
 
         $this->assertSame(1, BonusTransaction::query()->where('bonus_type', 'binary')->count());
         $this->assertSame(2, WalletTransaction::query()->where('user_id', $partner->id)->count());

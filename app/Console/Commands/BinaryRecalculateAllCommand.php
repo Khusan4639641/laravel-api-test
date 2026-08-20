@@ -3,17 +3,17 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
-use App\Services\BonusService;
+use App\Services\ScheduledBinaryBonusService;
 use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 #[Signature('safi:binary-recalculate-all {--dry-run : Show how many active partners would be processed without changing data} {--force : Allow manual production run} {--scheduled : Mark run as scheduler-approved}')]
-#[Description('Run mass binary bonus recalculation through the same use case as the admin API.')]
+#[Description('Create immutable binary bonus runs for the current scheduled half-month period.')]
 class BinaryRecalculateAllCommand extends Command
 {
-    public function handle(BonusService $bonusService): int
+    public function handle(ScheduledBinaryBonusService $scheduledBinaryBonusService): int
     {
         $scheduled = (bool) $this->option('scheduled');
         $dryRun = (bool) $this->option('dry-run');
@@ -52,7 +52,7 @@ class BinaryRecalculateAllCommand extends Command
         ]);
 
         try {
-            $result = $bonusService->recalculateBinaryBonusesForAllPartners(null, $source);
+            $result = $scheduledBinaryBonusService->calculateForAllPartners($startedAt);
         } catch (\Throwable $exception) {
             Log::error("{$logPrefix} failed", [
                 'source' => $source,
@@ -89,7 +89,7 @@ class BinaryRecalculateAllCommand extends Command
             ['errors', count((array) ($result['errors'] ?? []))],
         ]);
 
-        return self::SUCCESS;
+        return $summary['failed'] > 0 ? self::FAILURE : self::SUCCESS;
     }
 
     private function activePartnerCount(): int

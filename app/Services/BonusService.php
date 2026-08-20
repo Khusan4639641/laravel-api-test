@@ -3,16 +3,18 @@
 namespace App\Services;
 
 use App\Models\AdminActionLog;
-use App\Models\BonusTransaction;
 use App\Models\BinaryBonusCalculation;
 use App\Models\BinaryBonusRun;
 use App\Models\BinaryNode;
-use App\Models\PvTransaction;
+use App\Models\BonusTransaction;
+use App\Models\Order;
 use App\Models\Package;
+use App\Models\PvTransaction;
 use App\Models\User;
 use App\Models\WalletTransaction;
 use App\Notifications\BonusAccruedNotification;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -30,8 +32,7 @@ class BonusService
         private readonly WalletService $walletService,
         private readonly DashboardBranchVolumeService $branchVolumeService,
         private readonly BinaryTreeSideResolver $treeSideResolver,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<string, mixed>  $metadata
@@ -42,8 +43,7 @@ class BonusService
         float|string $baseAmount,
         array $metadata = [],
         ?string $idempotencyKey = null,
-    ): ?BonusTransaction
-    {
+    ): ?BonusTransaction {
         return DB::transaction(function () use ($sponsor, $referral, $baseAmount, $metadata, $idempotencyKey): ?BonusTransaction {
             if ($sponsor->trashed() || $referral->trashed() || $sponsor->account_status !== 'active' || $referral->account_status !== 'active') {
                 return null;
@@ -131,9 +131,13 @@ class BonusService
             ->first(fn (BonusTransaction $bonus): bool => ($bonus->metadata['referral_bonus_key'] ?? null) === $idempotencyKey);
     }
 
-    public function calculateBinaryBonus(User $user, ?CarbonInterface $periodStart = null, ?CarbonInterface $periodEnd = null): ?BonusTransaction
-    {
-        return DB::transaction(function () use ($user, $periodStart, $periodEnd): ?BonusTransaction {
+    public function calculateBinaryBonus(
+        User $user,
+        ?CarbonInterface $periodStart = null,
+        ?CarbonInterface $periodEnd = null,
+        array $recordMetadata = [],
+    ): ?BonusTransaction {
+        return DB::transaction(function () use ($user, $periodStart, $periodEnd, $recordMetadata): ?BonusTransaction {
             $user = User::query()
                 ->with('currentPackage')
                 ->activeMlm()
@@ -213,6 +217,7 @@ class BonusService
                 'amount' => $amount,
                 'pending_amount' => '0.00',
                 'metadata' => [
+                    ...$recordMetadata,
                     'pv_money_rate' => self::PV_MONEY_RATE,
                     'binary_percent' => $percent,
                     'package_id' => $user->current_package_id,
@@ -240,6 +245,7 @@ class BonusService
                 'matched_pv' => $basePv,
                 'status' => 'completed',
                 'metadata' => [
+                    ...$recordMetadata,
                     'base_pv' => $basePv,
                     'money_base_amount' => $moneyBaseAmount,
                     'pv_money_rate' => self::PV_MONEY_RATE,
@@ -268,7 +274,9 @@ class BonusService
                 'binary_bonus_main',
                 $bonusTransaction,
                 [
-                    'source' => 'binary_bonus',
+                    ...$recordMetadata,
+                    'source' => $recordMetadata['source'] ?? 'binary_bonus',
+                    'operation_source' => 'binary_bonus',
                     'wallet_part' => 'main',
                     'base_pv' => $basePv,
                     'binary_percent' => $percent,
@@ -281,7 +289,9 @@ class BonusService
                 'binary_bonus_deposit',
                 $bonusTransaction,
                 [
-                    'source' => 'binary_bonus',
+                    ...$recordMetadata,
+                    'source' => $recordMetadata['source'] ?? 'binary_bonus',
+                    'operation_source' => 'binary_bonus',
                     'wallet_part' => 'deposit',
                     'base_pv' => $basePv,
                     'binary_percent' => $percent,
@@ -319,6 +329,7 @@ class BonusService
                 'main_amount' => $mainAmount,
                 'deposit_amount' => $bonusAmount,
                 'metadata' => [
+                    ...$recordMetadata,
                     'pv_money_rate' => self::PV_MONEY_RATE,
                     'period_start' => $periodStart->toISOString(),
                     'period_end' => $periodEnd->toISOString(),
@@ -679,8 +690,8 @@ class BonusService
         return BinaryBonusRun::query()
             ->where('user_id', $user->id)
             ->whereIn('status', ['completed', 'pending'])
-            ->where('period_start', '<=', $periodEnd)
-            ->where('period_end', '>=', $periodStart)
+            ->where('period_start', $periodStart)
+            ->where('period_end', $periodEnd)
             ->exists();
     }
 
@@ -1134,7 +1145,7 @@ class BonusService
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, PvTransaction>
+     * @return Collection<int, PvTransaction>
      */
     private function branchPvTransactions(User $user, string $branch)
     {
@@ -1435,7 +1446,7 @@ class BonusService
                 'bonus_type' => 'cashback',
                 'amount' => $amount,
                 'status' => 'completed',
-                'source_order_id' => $sourceTransaction?->source_type === \App\Models\Order::class
+                'source_order_id' => $sourceTransaction?->source_type === Order::class
                     ? $sourceTransaction->source_id
                     : null,
                 'metadata' => [
@@ -1443,7 +1454,7 @@ class BonusService
                     'cashback_percent' => self::DEPOSIT_CASHBACK_PERCENT,
                     'source' => 'deposit_purchase',
                     'deposit_purchase_cashback_key' => $idempotencyKey,
-                    'source_order_id' => $sourceTransaction?->source_type === \App\Models\Order::class
+                    'source_order_id' => $sourceTransaction?->source_type === Order::class
                         ? $sourceTransaction->source_id
                         : null,
                     'deposit_wallet_transaction_id' => $sourceTransaction?->id,
@@ -1481,7 +1492,7 @@ class BonusService
 
         $metadata = is_array($sourceTransaction->metadata) ? $sourceTransaction->metadata : [];
         $orderId = $metadata['order_id'] ?? (
-            $sourceTransaction->source_type === \App\Models\Order::class ? $sourceTransaction->source_id : null
+            $sourceTransaction->source_type === Order::class ? $sourceTransaction->source_id : null
         );
 
         if ($orderId) {

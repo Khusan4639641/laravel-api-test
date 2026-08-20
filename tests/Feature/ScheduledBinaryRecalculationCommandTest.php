@@ -7,7 +7,8 @@ use App\Models\BinaryBonusRun;
 use App\Models\BonusTransaction;
 use App\Models\Package;
 use App\Models\User;
-use App\Services\BonusService;
+use App\Services\ScheduledBinaryBonusService;
+use Carbon\CarbonInterface;
 use Illuminate\Console\Command;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -25,12 +26,12 @@ class ScheduledBinaryRecalculationCommandTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_command_calls_same_bonus_service_use_case_as_api(): void
+    public function test_command_calls_dedicated_scheduled_use_case(): void
     {
-        $bonusService = Mockery::mock(BonusService::class);
-        $bonusService->shouldReceive('recalculateBinaryBonusesForAllPartners')
+        $scheduledService = Mockery::mock(ScheduledBinaryBonusService::class);
+        $scheduledService->shouldReceive('calculateForAllPartners')
             ->once()
-            ->with(null, 'command')
+            ->with(Mockery::type(CarbonInterface::class))
             ->andReturn([
                 'total' => 2,
                 'processed' => 2,
@@ -46,7 +47,7 @@ class ScheduledBinaryRecalculationCommandTest extends TestCase
                 'failed_count' => 0,
                 'results' => [],
             ]);
-        $this->app->instance(BonusService::class, $bonusService);
+        $this->app->instance(ScheduledBinaryBonusService::class, $scheduledService);
 
         $this->artisan('safi:binary-recalculate-all', ['--force' => true])
             ->expectsOutput('Binary recalculation completed.')
