@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\BonusTransaction;
+use App\Services\TransactionNotificationTextFactory;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -17,39 +18,45 @@ class BonusAccruedNotification extends Notification
     }
 
     /**
-     * Get the notification's delivery channels.
-     *
      * @return array<int, string>
      */
     public function via(object $notifiable): array
     {
-        return ['mail'];
+        return ['mail', 'database'];
     }
 
-    /**
-     * Get the mail representation of the notification.
-     */
     public function toMail(object $notifiable): MailMessage
     {
+        $payload = $this->payload();
+
         return (new MailMessage)
-            ->subject('Bonus accrued')
+            ->subject($payload['title']['en'])
             ->greeting('Hello, '.$notifiable->name)
-            ->line('A '.$this->bonusTransaction->bonus_type.' bonus has been accrued.')
-            ->line('Amount: '.$this->bonusTransaction->amount);
+            ->line($payload['message']['en']);
     }
 
     /**
-     * Get the array representation of the notification.
-     *
+     * @return array<string, mixed>
+     */
+    public function toDatabase(object $notifiable): array
+    {
+        return $this->payload();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(object $notifiable): array
     {
-        return [
-            'type' => 'bonus_accrued',
-            'bonus_transaction_id' => $this->bonusTransaction->id,
-            'bonus_type' => $this->bonusTransaction->bonus_type,
-            'amount' => $this->bonusTransaction->amount,
-        ];
+        return $this->payload();
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function payload(): array
+    {
+        return app(TransactionNotificationTextFactory::class)
+            ->makeForBonusTransaction($this->bonusTransaction);
     }
 }

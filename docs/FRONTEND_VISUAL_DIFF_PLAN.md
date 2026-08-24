@@ -1,0 +1,29 @@
+# Safi Life Public Frontend Visual Diff Plan
+
+Reference source: `/tmp/safi-reference/safi-life-website-main/src`
+
+Current source: `resources/js/safi`
+
+Routes stay on `BrowserRouter`; local Laravel URLs must remain without `#`.
+
+| Route | Current component file | Reference component file | Visual differences found | What to restore from reference | What must not break |
+| --- | --- | --- | --- | --- | --- |
+| `/about` | `resources/js/safi/pages/AboutPage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/AboutPage.tsx` | Current page has rebuilt hero, metrics, icon cards and extra CTAs. Reference has one centered title, decorative blurred glows, mission/path two-column block, image card, simple value cards. | Restore reference page structure, background glows, rounded image card, typography, spacing and simple values grid. | Keep route mapping and shared layout. |
+| `/products` | `resources/js/safi/pages/ProductsPage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/ProductsPage.tsx` | Current page has separate hero/filter/CTA sections, wider card shadows, badges and modal layout. Reference uses one continuous catalog section, centered heading, rounded category pills, compact product cards and modal. | Restore reference catalog/card/modal styling and spacing while keeping `getPublicProducts()` data, loading, empty and error states. | Do not remove public product API integration or break product image paths. |
+| `/business` | `resources/js/safi/pages/BusinessPage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/BusinessPage.tsx` | Current page adds a large hero, metrics, advantages grid and API package cards. Reference is a compact centered page with two main rounded blocks and disclaimer. | Restore reference page layout, audience block, dark advantages block and disclaimer. | Keep `/business` route and do not change backend package endpoints used elsewhere. |
+| `/marketing` | `resources/js/safi/pages/MarketingPlanPage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/MarketingPlanPage.tsx` | Current page has multiple custom hero/summary sections and five bonus cards. Reference starts with SectionTitle, has six bonus cards, a rounded calculator card and statuses table. | Restore reference visual hierarchy, calculator spacing, table shape and disclaimer while using current package/status API data. | Keep calculator behavior and public package/status API integration. |
+| `/how-to-start` | `resources/js/safi/pages/HowToStartPage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/HowToStartPage.tsx` | Current page has a hero, side cards and package section. Reference has centered heading, seven step cards and single CTA. | Restore reference centered title, decorative glow, step card dimensions and final CTA. | Keep route mapping; do not change package API endpoints used elsewhere. |
+| `/faq` | `resources/js/safi/pages/FAQPage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/FAQPage.tsx` | Current page has aside navigation, controlled accordions and CTA. Reference has simple grouped native details cards and disclaimer. | Restore reference grouped FAQ cards, typography, accordion styling and disclaimer while keeping `getPublicFaqs()` data/loading/errors. | Do not remove public FAQ API integration. |
+| `/contacts` | `resources/js/safi/pages/ContactsPage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/ContactsPage.tsx` | Current page has separate hero, contact cards, message textarea and office note. Reference is a vertically centered two-column contact/form page. | Restore reference two-column layout, timeline-style contact list, compact form and rounded white card. | Keep route mapping; contact form remains non-submitting frontend form. |
+| `/login` | `resources/js/safi/pages/LoginPage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/LoginPage.tsx` | Current page has split hero/benefit cards and wider auth card. Reference has centered single card with two decorative glows. | Restore reference auth page background/card/input/button styling while preserving real `login()` submit flow. | Do not replace real login with demo navigation. |
+| `/register` | `resources/js/safi/pages/RegisterPage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/RegisterPage.tsx` | Current page has split hero/benefit cards, package buttons and API form. Reference has centered large rounded card, compact fields, select package and demo note. | Restore reference card/background/form spacing and package select appearance while preserving real `register()` flow and package API options. | Do not replace real registration with demo navigation or remove required backend fields. |
+| `/` | `resources/js/safi/pages/HomePage.tsx` | `/tmp/safi-reference/safi-life-website-main/src/pages/HomePage.tsx` | Home page was previously adjusted toward reference with API-backed product/package/news blocks and CTA glow. | Keep existing home architecture; avoid unrelated changes during this pass. | Do not break public API data on homepage. |
+
+Shared files checked:
+
+- `components/layout/Header.tsx`: current visual is close but active nav/focus classes differ. Restore reference-like spacing and active states while preserving BrowserRouter links.
+- `components/layout/Footer.tsx`: current footer uses a different social icon and lacks the reference glow. Restore reference footer look.
+- `components/ui/Button.tsx`: current visual matches reference and keeps safer link click handling. Preserve this behavior.
+- `components/ui/SectionTitle.tsx`: current helper differs from reference. Restore reference helper because marketing page uses it.
+- `index.css`: current theme extends reference colors for API/admin surfaces. Keep reference base colors and extra tokens to avoid breaking existing pages.
+

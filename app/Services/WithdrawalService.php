@@ -56,6 +56,7 @@ class WithdrawalService
                 'status' => 'pending',
                 'payment_method' => $paymentDetails['payment_method'] ?? null,
                 'payment_details' => $paymentDetails['payment_details'] ?? null,
+                'payout_period_days' => (int) config('safi.withdrawals.payout_period_days', 14),
             ]);
 
             $walletTransaction = new WalletTransaction([
@@ -66,6 +67,7 @@ class WithdrawalService
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'status' => 'completed',
+                'affects_balance' => true,
                 'metadata' => [
                     'hold_balance_after' => $holdBalanceAfter,
                 ],
@@ -84,6 +86,7 @@ class WithdrawalService
         DB::transaction(function () use ($withdrawalRequest): void {
             /** @var WithdrawalRequest $withdrawalRequest */
             $withdrawalRequest = WithdrawalRequest::query()
+                ->whereHas('user', fn ($query) => $query->activeAccount())
                 ->lockForUpdate()
                 ->findOrFail($withdrawalRequest->id);
 
@@ -115,15 +118,18 @@ class WithdrawalService
 
             $walletTransaction = new WalletTransaction([
                 'user_id' => $withdrawalRequest->user_id,
-                'type' => 'withdrawal_approve',
-                'direction' => 'debit',
+                'type' => 'withdrawal_approved',
+                'direction' => 'neutral',
                 'amount' => $withdrawalRequest->amount,
                 'balance_before' => $wallet->balance,
                 'balance_after' => $wallet->balance,
                 'status' => 'completed',
+                'affects_balance' => false,
+                'description' => 'Withdrawal approved from held funds',
                 'metadata' => [
                     'hold_balance_before' => $holdBefore,
                     'hold_balance_after' => $holdAfter,
+                    'available_balance_impact' => 'none',
                 ],
             ]);
             $walletTransaction->source()->associate($withdrawalRequest);
@@ -136,6 +142,7 @@ class WithdrawalService
         DB::transaction(function () use ($withdrawalRequest, $reason): void {
             /** @var WithdrawalRequest $withdrawalRequest */
             $withdrawalRequest = WithdrawalRequest::query()
+                ->whereHas('user', fn ($query) => $query->activeAccount())
                 ->lockForUpdate()
                 ->findOrFail($withdrawalRequest->id);
 
@@ -171,12 +178,14 @@ class WithdrawalService
 
             $walletTransaction = new WalletTransaction([
                 'user_id' => $withdrawalRequest->user_id,
-                'type' => 'withdrawal_reject',
+                'type' => 'withdrawal_rejected',
                 'direction' => 'credit',
                 'amount' => $withdrawalRequest->amount,
                 'balance_before' => $balanceBefore,
                 'balance_after' => $balanceAfter,
                 'status' => 'completed',
+                'affects_balance' => true,
+                'description' => 'Withdrawal rejected and held funds returned',
                 'metadata' => [
                     'hold_balance_before' => $holdBefore,
                     'hold_balance_after' => $holdAfter,

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained()->cascadeOnDelete();
             $table->string('type')->default('main');
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('KZT');
             $table->decimal('balance', 18, 2)->default(0);
             $table->decimal('hold_balance', 18, 2)->default(0);
             $table->string('status')->default('active')->index();

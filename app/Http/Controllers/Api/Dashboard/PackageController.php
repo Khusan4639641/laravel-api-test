@@ -1,0 +1,28 @@
+<?php
+
+namespace App\Http\Controllers\Api\Dashboard;
+
+use App\Http\Controllers\Api\Concerns\RespondsWithPagination;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\PackageResource;
+use App\Models\Package;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+
+class PackageController extends Controller
+{
+    use RespondsWithPagination;
+
+    public function __invoke(Request $request): JsonResponse
+    {
+        $request->user()?->loadMissing('currentPackage');
+
+        $packages = Package::query()
+            ->activeStarter()
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->paginate($this->perPage($request));
+
+        return $this->paginated($packages, PackageResource::class, 'packages', $request);
+    }
+}

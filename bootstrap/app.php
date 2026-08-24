@@ -12,8 +12,15 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(\App\Http\Middleware\SetLocaleFromRequest::class);
+
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'super_admin' => \App\Http\Middleware\EnsureSuperAdmin::class,
+            'support_or_super_admin' => \App\Http\Middleware\EnsureSupportOrSuperAdmin::class,
+            'role_permission' => \App\Http\Middleware\EnsureRolePermission::class,
+            'account_active' => \App\Http\Middleware\EnsureAccountActive::class,
+            'own_resource' => \App\Http\Middleware\EnsureUserCanAccessOwnResource::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

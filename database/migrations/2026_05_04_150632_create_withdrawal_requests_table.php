@@ -18,10 +18,11 @@ return new class extends Migration
             $table->decimal('amount', 18, 2);
             $table->decimal('fee_amount', 18, 2)->default(0);
             $table->decimal('net_amount', 18, 2);
-            $table->string('currency', 3)->default('USD');
+            $table->string('currency', 3)->default('KZT');
             $table->string('status')->default('pending')->index();
             $table->string('payment_method')->nullable();
             $table->json('payment_details')->nullable();
+            $table->unsignedSmallInteger('payout_period_days')->default(14);
             $table->text('admin_comment')->nullable();
             $table->timestamp('processed_at')->nullable();
             $table->timestamps();

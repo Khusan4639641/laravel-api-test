@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\BonusTransactionResource;
 use App\Services\BonusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,7 +27,7 @@ class BinaryBonusController extends Controller
         }
 
         return response()->json([
-            'bonus_transaction' => $bonusTransaction->load('walletTransaction'),
+            'bonus_transaction' => BonusTransactionResource::make($bonusTransaction->load('walletTransaction')),
         ]);
     }
 }

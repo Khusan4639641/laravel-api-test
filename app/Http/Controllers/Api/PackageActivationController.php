@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\UserResource;
 use App\Models\Package;
 use App\Services\PackageService;
 use Illuminate\Http\JsonResponse;
@@ -20,28 +21,34 @@ class PackageActivationController extends Controller
     {
         $user = $request->user();
 
-        if (! $package->is_active) {
+        if (! config('safi.user_package_changes_enabled', false)) {
+            return response()->json([
+                'message' => __('api.package_purchase_disabled'),
+            ], 403);
+        }
+
+        if (! $package->is_active || $package->status !== 'active') {
             throw ValidationException::withMessages([
                 'package' => 'Package is inactive.',
             ]);
         }
 
-        if (! $user->current_package_id && $package->code === 'ELITE') {
+        if (! in_array($package->code, Package::STARTER_CODES, true)) {
             throw ValidationException::withMessages([
-                'package' => 'ELITE package can only be purchased through upgrade.',
+                'package' => 'Package is not available for activation.',
             ]);
         }
 
-        if (! $this->packageService->canUpgrade($user, $package)) {
+        if ($user->current_package_id) {
             throw ValidationException::withMessages([
-                'package' => 'Selected package is lower than the current package.',
+                'package' => 'User already has an active package. Use upgrade flow.',
             ]);
         }
 
         $user = $this->packageService->upgradePackage($user, $package);
 
         return response()->json([
-            'user' => $user,
+            'user' => UserResource::make($user),
         ]);
     }
 }

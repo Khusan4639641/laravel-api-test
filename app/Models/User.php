@@ -5,8 +5,10 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -22,18 +24,79 @@ use Laravel\Sanctum\HasApiTokens;
     'sponsor_id',
     'current_package_id',
     'status',
+    'account_status',
+    'admin_note',
+    'avatar_path',
     'role',
     'left_pv',
     'right_pv',
     'remaining_left_pv',
     'remaining_right_pv',
     'total_pv',
+    'deleted_by',
+    'deleted_reason',
+    'deleted_meta',
 ])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
+
+    public const ROLE_USER = 'user';
+
+    public const ROLE_SUPPORT = 'support';
+
+    public const ROLE_ADMIN = 'admin';
+
+    public const ROLE_ACCOUNTANT = 'accountant';
+
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopeActiveAccount(Builder $query): Builder
+    {
+        return $query->where('account_status', 'active');
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopeActiveMlm(Builder $query): Builder
+    {
+        return $query
+            ->whereNull('deleted_at')
+            ->where('account_status', 'active')
+            ->whereNotIn('role', [self::ROLE_SUPPORT, self::ROLE_ACCOUNTANT])
+            ->whereHas('currentPackage', fn (Builder $packageQuery) => $packageQuery
+                ->where('is_active', true)
+                ->where('status', 'active')
+                ->whereIn('code', Package::PUBLIC_CODES));
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopePartnerAccount(Builder $query): Builder
+    {
+        return $query->where('role', self::ROLE_USER);
+    }
+
+    /**
+     * @param  Builder<User>  $query
+     * @return Builder<User>
+     */
+    public function scopeEligibleSponsor(Builder $query): Builder
+    {
+        return $query
+            ->activeAccount()
+            ->whereIn('role', [self::ROLE_USER, self::ROLE_SUPER_ADMIN]);
+    }
 
     /**
      * @return array<string, string>
@@ -43,12 +106,63 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'role' => 'string',
             'left_pv' => 'decimal:2',
             'right_pv' => 'decimal:2',
             'remaining_left_pv' => 'decimal:2',
             'remaining_right_pv' => 'decimal:2',
             'total_pv' => 'decimal:2',
+            'deleted_at' => 'datetime',
+            'deleted_meta' => 'array',
         ];
+    }
+
+    public function isUser(): bool
+    {
+        return $this->role === self::ROLE_USER;
+    }
+
+    public function isSupport(): bool
+    {
+        return $this->role === self::ROLE_SUPPORT;
+    }
+
+    public function isAdmin(): bool
+    {
+        return $this->role === self::ROLE_ADMIN;
+    }
+
+    public function isAccountant(): bool
+    {
+        return $this->role === self::ROLE_ACCOUNTANT;
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
+    }
+
+    public function canInvitePartners(): bool
+    {
+        return $this->isPartnerActive();
+    }
+
+    public function isPartnerActive(): bool
+    {
+        $this->loadMissing('currentPackage');
+        $package = $this->currentPackage;
+
+        return ! $this->trashed()
+            && $this->account_status === 'active'
+            && $package !== null
+            && $package->is_active
+            && $package->status === 'active'
+            && in_array(strtoupper((string) $package->code), Package::PUBLIC_CODES, true);
+    }
+
+    public function packageStatus(): string
+    {
+        return $this->isPartnerActive() ? 'active' : 'inactive';
     }
 
     public function sponsor(): BelongsTo
@@ -57,6 +171,11 @@ class User extends Authenticatable
     }
 
     public function referrals(): HasMany
+    {
+        return $this->hasMany(User::class, 'sponsor_id');
+    }
+
+    public function invitedUsers(): HasMany
     {
         return $this->hasMany(User::class, 'sponsor_id');
     }
@@ -86,6 +205,11 @@ class User extends Authenticatable
         return $this->hasMany(Order::class);
     }
 
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     public function bonusTransactions(): HasMany
     {
         return $this->hasMany(BonusTransaction::class);
@@ -94,5 +218,25 @@ class User extends Authenticatable
     public function withdrawalRequests(): HasMany
     {
         return $this->hasMany(WithdrawalRequest::class);
+    }
+
+    public function statusBonuses(): HasMany
+    {
+        return $this->hasMany(UserStatusBonus::class);
+    }
+
+    public function x2Bonuses(): HasMany
+    {
+        return $this->hasMany(UserX2Bonus::class);
+    }
+
+    public function walletTransactions(): HasMany
+    {
+        return $this->hasMany(WalletTransaction::class);
+    }
+
+    public function supportTickets(): HasMany
+    {
+        return $this->hasMany(SupportTicket::class);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Package;
 use App\Models\User;
 use App\Services\BinaryTreeService;
 use Illuminate\Http\JsonResponse;
@@ -25,6 +26,11 @@ class ReferralController extends Controller
         }
 
         $sponsor = User::query()
+            ->eligibleSponsor()
+            ->whereHas('currentPackage', fn ($query) => $query
+                ->where('is_active', true)
+                ->where('status', 'active')
+                ->whereIn('code', Package::PUBLIC_CODES))
             ->with('binaryNode')
             ->find($userId);
 

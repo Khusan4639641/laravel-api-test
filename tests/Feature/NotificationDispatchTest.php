@@ -6,15 +6,18 @@ use App\Models\Package;
 use App\Models\User;
 use App\Models\Wallet;
 use App\Notifications\BonusAccruedNotification;
+use App\Notifications\StatusAchievedNotification;
 use App\Notifications\UserRegisteredNotification;
 use App\Notifications\WithdrawalRequestedNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Sanctum\Sanctum;
+use Tests\Support\CreatesBinaryBonusEligibility;
 use Tests\TestCase;
 
 class NotificationDispatchTest extends TestCase
 {
+    use CreatesBinaryBonusEligibility;
     use RefreshDatabase;
 
     public function test_registration_sends_notification_to_user(): void
@@ -25,6 +28,7 @@ class NotificationDispatchTest extends TestCase
             'name' => 'Notify User',
             'login' => 'notify_user',
             'email' => 'notify@example.com',
+            'phone' => '+77000000999',
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ])->assertCreated();
@@ -39,7 +43,7 @@ class NotificationDispatchTest extends TestCase
         Notification::fake();
 
         $sponsorPackage = $this->createPackage('VIP', 180000, 10, 0);
-        $activatedPackage = $this->createPackage('START', 30000, 5, 0);
+        $activatedPackage = $this->createPackage('START', 60000, 10, 7);
         $sponsor = User::factory()->create([
             'current_package_id' => $sponsorPackage->id,
         ]);
@@ -59,19 +63,37 @@ class NotificationDispatchTest extends TestCase
     {
         Notification::fake();
 
-        $package = $this->createPackage('BUSINESS', 60000, 0, 7);
+        $package = $this->createPackage('START', 60000, 10, 7);
         $user = User::factory()->create([
             'current_package_id' => $package->id,
             'remaining_left_pv' => 1000,
             'remaining_right_pv' => 1000,
         ]);
+        $this->makeBinaryBonusEligible($user);
 
-        Sanctum::actingAs($user);
+        Sanctum::actingAs(User::factory()->create(['role' => User::ROLE_ADMIN]));
 
-        $this->postJson('/api/bonuses/binary/calculate')
+        $this->postJson('/api/admin/bonuses/binary/calculate', [
+            'user_id' => $user->id,
+        ])
             ->assertOk();
 
         Notification::assertSentTo($user, BonusAccruedNotification::class);
+    }
+
+    public function test_status_change_sends_notification_to_user(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create([
+            'status' => 'user',
+            'left_pv' => 5000,
+            'right_pv' => 6000,
+        ]);
+
+        app(\App\Services\StatusService::class)->recalculate($user);
+
+        Notification::assertSentTo($user, StatusAchievedNotification::class);
     }
 
     public function test_withdrawal_request_sends_notification_to_user(): void
@@ -82,7 +104,7 @@ class NotificationDispatchTest extends TestCase
         Wallet::query()->create([
             'user_id' => $user->id,
             'type' => 'main',
-            'currency' => 'USD',
+            'currency' => 'KZT',
             'balance' => 1000,
             'hold_balance' => 0,
             'status' => 'active',
@@ -92,6 +114,7 @@ class NotificationDispatchTest extends TestCase
 
         $this->postJson('/api/withdrawals', [
             'amount' => 250,
+            'payment_method' => 'card_account',
         ])->assertCreated();
 
         Notification::assertSentTo($user, WithdrawalRequestedNotification::class);

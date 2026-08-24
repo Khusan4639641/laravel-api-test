@@ -1,0 +1,150 @@
+import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import {
+  ArrowUpCircle,
+  BarChart,
+  CreditCard,
+  Gift,
+  KeyRound,
+  LogOut,
+  MessageSquare,
+  Network,
+  Newspaper,
+  Package,
+  PieChart,
+  Settings,
+  ShoppingBag,
+  Trophy,
+  UserCircle,
+  Users,
+} from 'lucide-react';
+import { cn } from '../../lib/utils';
+import { logout } from '../../lib/api';
+import { menuLabel, RolePermissions } from '../../lib/permissions';
+import { adminText } from '../../i18n/adminText';
+import { NoTranslate } from '../ui/NoTranslate';
+
+const iconMap = {
+  'arrow-up-circle': ArrowUpCircle,
+  'bar-chart': BarChart,
+  'credit-card': CreditCard,
+  gift: Gift,
+  'key-round': KeyRound,
+  'message-square': MessageSquare,
+  network: Network,
+  newspaper: Newspaper,
+  package: Package,
+  'pie-chart': PieChart,
+  settings: Settings,
+  'shopping-bag': ShoppingBag,
+  trophy: Trophy,
+  'user-circle': UserCircle,
+  users: Users,
+} as const;
+
+interface AdminSidebarUser {
+  name: string;
+  role: string;
+}
+
+export function AdminSidebar({
+  isOpen,
+  onClose,
+  currentUser,
+  permissions,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  currentUser: AdminSidebarUser;
+  permissions: RolePermissions;
+}) {
+  const location = useLocation();
+  const { i18n } = useTranslation();
+  const language = i18n.resolvedLanguage || i18n.language;
+  const homePath = permissions.redirect_after_login;
+
+  return (
+    <>
+      {isOpen && (
+        <button
+          type="button"
+          aria-label={adminText('a_0JfQsNC60YDR_3')}
+          className="fixed inset-0 z-40 bg-safi-green/30 backdrop-blur-sm xl:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        role="dialog"
+        aria-modal={isOpen ? 'true' : undefined}
+        className={cn(
+          'fixed left-0 top-0 z-50 flex h-dvh w-[min(280px,calc(100vw-24px))] max-w-[calc(100vw-24px)] flex-col overflow-y-auto border-r border-safi-border bg-white transition-transform duration-300',
+          isOpen ? 'translate-x-0' : '-translate-x-full xl:translate-x-0'
+        )}
+      >
+        <div className="flex h-20 shrink-0 items-center border-b border-safi-border px-6">
+          <Link to={homePath} className="notranslate flex items-center gap-3" onClick={onClose} translate="no">
+            <img
+              alt="Safi Life"
+              src="https://napaxiong.wordpress.com/wp-content/uploads/2026/04/safi-life.png"
+              className="notranslate h-10 w-[112px] object-contain"
+              translate="no"
+            />
+          </Link>
+        </div>
+
+        <div className="border-b border-safi-border px-5 py-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-safi-green font-serif text-xl font-semibold text-safi-gold">
+              {currentUser.name.charAt(0)}
+            </div>
+            <div className="min-w-0">
+              <NoTranslate as="div" className="truncate text-sm font-extrabold text-safi-green">{currentUser.name}</NoTranslate>
+              <div className="notranslate mt-1 truncate text-[10px] font-extrabold uppercase tracking-[0.14em] text-safi-muted" translate="no">
+                {currentUser.role}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-2 px-4 py-6">
+          <div className="mb-2 pl-4 text-[10px] font-extrabold uppercase tracking-[0.18em] text-safi-muted">{adminText('a_0KPQv9GA0LDQ_4')}</div>
+          {permissions.menu.map((item) => {
+            const Icon = iconMap[item.icon as keyof typeof iconMap] || BarChart;
+            const isRootItem = item.path === '/admin' || item.path === '/support';
+            const isActive = location.pathname === item.path || (!isRootItem && location.pathname.startsWith(item.path));
+
+            return (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={onClose}
+                className={cn(
+                  'flex items-center gap-3 rounded-2xl px-4 py-3 text-xs font-extrabold uppercase tracking-[0.14em] transition-all',
+                  isActive
+                    ? 'bg-safi-green text-white shadow-[0_16px_34px_rgba(11,23,18,0.16)]'
+                    : 'text-safi-muted hover:bg-safi-cream hover:text-safi-green'
+                )}
+              >
+                <Icon className={cn('h-5 w-5 shrink-0', isActive ? 'text-safi-gold' : 'text-current')} />
+                {menuLabel(item, language)}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="border-t border-safi-border p-4">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              void logout();
+            }}
+            className="flex w-full items-center justify-center gap-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-extrabold uppercase tracking-[0.14em] text-red-600 transition-colors hover:border-red-200 hover:bg-red-100"
+          >
+            <LogOut className="h-5 w-5" />{adminText('a_0JLRi9C50YLQ')}</button>
+        </div>
+      </aside>
+    </>
+  );
+}

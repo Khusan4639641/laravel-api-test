@@ -23,7 +23,7 @@ class WithdrawalApiTest extends TestCase
 
         $response = $this->postJson('/api/withdrawals', [
             'amount' => 250,
-            'payment_method' => 'card',
+            'payment_method' => 'card_account',
             'payment_details' => [
                 'card_last4' => '4242',
             ],
@@ -44,6 +44,8 @@ class WithdrawalApiTest extends TestCase
         $this->assertSame($user->id, $withdrawal->user_id);
         $this->assertSame($wallet->id, $withdrawal->wallet_id);
         $this->assertSame('pending', $withdrawal->status);
+        $this->assertSame('card_account', $withdrawal->payment_method);
+        $this->assertSame(14, $withdrawal->payout_period_days);
         $this->assertSame('withdrawal_hold', $walletTransaction->type);
         $this->assertSame('debit', $walletTransaction->direction);
         $this->assertSame('250.00', $walletTransaction->amount);
@@ -62,6 +64,7 @@ class WithdrawalApiTest extends TestCase
 
         $this->postJson('/api/withdrawals', [
             'amount' => 250,
+            'payment_method' => 'card_account',
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('amount');
 
@@ -82,8 +85,35 @@ class WithdrawalApiTest extends TestCase
 
         $this->postJson('/api/withdrawals', [
             'amount' => 0,
+            'payment_method' => 'card_account',
         ])->assertUnprocessable()
             ->assertJsonValidationErrors('amount');
+    }
+
+    public function test_withdrawal_payment_method_is_required_and_limited(): void
+    {
+        $user = User::factory()->create();
+        $this->createMainWallet($user, 1000);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/withdrawals', [
+            'amount' => 250,
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('payment_method');
+
+        $this->postJson('/api/withdrawals', [
+            'amount' => 250,
+            'payment_method' => 'crypto',
+        ])->assertUnprocessable()
+            ->assertJsonValidationErrors('payment_method');
+
+        $this->postJson('/api/withdrawals', [
+            'amount' => 250,
+            'payment_method' => 'ip_account',
+        ])->assertCreated()
+            ->assertJsonPath('withdrawal.payment_method', 'ip_account')
+            ->assertJsonPath('withdrawal.payout_period_days', 14);
     }
 
     public function test_user_can_list_own_withdrawals(): void
@@ -99,8 +129,10 @@ class WithdrawalApiTest extends TestCase
             'amount' => 100,
             'fee_amount' => 0,
             'net_amount' => 100,
-            'currency' => 'USD',
+            'currency' => 'KZT',
             'status' => 'pending',
+            'payment_method' => 'card_account',
+            'payout_period_days' => 14,
         ]);
         WithdrawalRequest::query()->create([
             'user_id' => $otherUser->id,
@@ -108,8 +140,10 @@ class WithdrawalApiTest extends TestCase
             'amount' => 200,
             'fee_amount' => 0,
             'net_amount' => 200,
-            'currency' => 'USD',
+            'currency' => 'KZT',
             'status' => 'pending',
+            'payment_method' => 'ip_account',
+            'payout_period_days' => 14,
         ]);
 
         Sanctum::actingAs($user);
@@ -128,7 +162,7 @@ class WithdrawalApiTest extends TestCase
         return Wallet::query()->create([
             'user_id' => $user->id,
             'type' => 'main',
-            'currency' => 'USD',
+            'currency' => 'KZT',
             'balance' => $balance,
             'hold_balance' => 0,
             'status' => 'active',

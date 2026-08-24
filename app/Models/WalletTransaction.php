@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 #[Fillable([
@@ -16,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
     'balance_before',
     'balance_after',
     'status',
+    'affects_balance',
     'source_type',
     'source_id',
     'description',
@@ -23,6 +26,19 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 ])]
 class WalletTransaction extends Model
 {
+    public const STATUS_COMPLETED = 'completed';
+
+    public const STATUS_VOIDED = 'voided';
+
+    /**
+     * @param  Builder<WalletTransaction>  $query
+     * @return Builder<WalletTransaction>
+     */
+    public function scopeVisible(Builder $query): Builder
+    {
+        return $query->whereNotIn('status', ['reversed', self::STATUS_VOIDED, 'cancelled']);
+    }
+
     /**
      * @return array<string, string>
      */
@@ -32,6 +48,7 @@ class WalletTransaction extends Model
             'amount' => 'decimal:2',
             'balance_before' => 'decimal:2',
             'balance_after' => 'decimal:2',
+            'affects_balance' => 'boolean',
             'metadata' => 'array',
         ];
     }
@@ -49,5 +66,10 @@ class WalletTransaction extends Model
     public function source(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    public function adminAudits(): HasMany
+    {
+        return $this->hasMany(TransactionAdminAudit::class, 'transaction_id');
     }
 }
